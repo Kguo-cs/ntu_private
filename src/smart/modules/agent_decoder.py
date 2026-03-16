@@ -175,7 +175,7 @@ class SMARTAgentDecoder(nn.Module):
         token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
 
         if self.pred_init:
-            pos_a, head_a, sampled_idx,shape,initial_speed = self.init_decoder(tokenized_agent)
+            pos_a, head_a, sampled_idx,shape,initial_vel = self.init_decoder(tokenized_agent)
 
             if self.token_processor.use_all_pos:
                 out_dict = {
@@ -183,7 +183,7 @@ class SMARTAgentDecoder(nn.Module):
                     "pred_traj_10hz": pos_a,
                     "pred_head_10hz": head_a,
                     "pred_z_10hz": torch.zeros_like(pos_a[:, :, 0]),
-                    "initial_speed": initial_speed,
+                    "initial_vel": initial_vel,
                 }
 
                 return out_dict
@@ -228,10 +228,7 @@ class SMARTAgentDecoder(nn.Module):
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
-            if len(token_traj_all.shape)==4:
-                next_token_traj_all = token_traj_all[next_token_idx]
-            else:
-                next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+            next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
 
             token_traj_global = transform_to_global(
                 pos_local=next_token_traj_all.flatten(1, 2)[...,:2],  # [n_agent, 6*4, 2]
@@ -278,7 +275,7 @@ class SMARTAgentDecoder(nn.Module):
             if self.pred_init:
                 out_dict["pred_traj_10hz"] = torch.cat([pos_a[:,:1],out_dict["pred_traj_10hz"]], dim=1)
                 out_dict["pred_head_10hz"] = torch.cat([head_a[:,:1],out_dict["pred_head_10hz"]], dim=1)
-                out_dict["initial_speed"]=initial_speed
+                out_dict["initial_vel"]=initial_vel
 
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 

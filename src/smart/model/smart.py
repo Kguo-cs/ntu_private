@@ -199,7 +199,7 @@ class SMART(LightningModule):
 
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
-            pred_traj, pred_z, pred_head,new_agent,pred_sizes,pred_speeds = [], [], [],[],[],[]
+            pred_traj, pred_z, pred_head,pred_sizes,pred_vels = [], [], [],[],[]
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"]=map_feature
@@ -215,29 +215,21 @@ class SMART(LightningModule):
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
 
-                    if "new_agent" in pred.keys():
-                        new_agent.append(pred["new_agent"])
-
                 if self.challenge_type == ChallengeType.SCENARIO_GEN:
                     pred_sizes.append(pred["shape"])
-                    pred_speeds.append(pred["initial_speed"])
+                    pred_vels.append(pred["initial_vel"])
 
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
-            if not self.token_processor.use_bird:
-                pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
-                pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
-
-                if len(new_agent):
-                    new_agent=torch.stack(new_agent, dim=1).cpu().numpy()
+            pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
+            pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
 
             if self.challenge_type == ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
 
                 if not self.wosac_submission.is_active:
-                    compute_gen_samples(data, tokenized_agent, pred_traj, pred_speeds, pred_head, pred_sizes, self.samples,
+                    compute_gen_samples(data, tokenized_agent, pred_traj, pred_vels, pred_head, pred_sizes, self.samples,
                                         self.gt_samples,self.gt_dist)
-
             else:
                 pred_traj=pred_traj[:,:,-80:]
                 pred_z=pred_z[:,:,-80:]
@@ -387,7 +379,7 @@ class SMART(LightningModule):
                             / f"step_{self.global_step}_batch_{batch_idx:02d}-scenario_{_i_sc:02d}",
                         )
                         _vis.save_video_scenario_rollout(
-                            scenario_rollouts[_i_sc], self.n_vis_rollout,new_agent[_i_sc*100:(_i_sc+1)*100],
+                            scenario_rollouts[_i_sc], self.n_vis_rollout,
                         )
 
     def on_validation_epoch_end(self):
