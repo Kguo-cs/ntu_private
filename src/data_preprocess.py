@@ -58,7 +58,7 @@ _polygon_light_type = [
 
 
 def get_agent_features(
-    track_infos: Dict[str, np.ndarray], split, num_historical_steps, num_steps
+    track_infos: Dict[str, np.ndarray], split, num_historical_steps, num_steps,all_agent=False
 ) -> Dict[str, Any]:
     """
     track_infos:
@@ -71,7 +71,10 @@ def get_agent_features(
 
     idx_agents_to_add = []
     for i in range(len(track_infos["object_id"])):
-        add_agent = track_infos["valid"][i, num_historical_steps - 1]
+        if all_agent:
+            add_agent=True
+        else:
+            add_agent = track_infos["valid"][i, num_historical_steps - 1]
 
         if add_agent:
             idx_agents_to_add.append(i)
@@ -80,8 +83,8 @@ def get_agent_features(
     out_dict = {
         "num_nodes": num_agents,
         "valid_mask": torch.zeros([num_agents, num_steps], dtype=torch.bool),
-        "role": torch.zeros([num_agents, 3], dtype=torch.bool),
-        "id": torch.zeros(num_agents, dtype=torch.int64) - 1,
+        #"role": torch.zeros([num_agents, 3], dtype=torch.bool),
+        #"id": torch.zeros(num_agents, dtype=torch.int64) - 1,
         "type": torch.zeros(num_agents, dtype=torch.uint8),
         "position": torch.zeros([num_agents, num_steps, 3], dtype=torch.float32),
         "heading": torch.zeros([num_agents, num_steps], dtype=torch.float32),
@@ -91,8 +94,8 @@ def get_agent_features(
 
     for i, idx in enumerate(idx_agents_to_add):
 
-        out_dict["role"][i] = torch.from_numpy(track_infos["role"][idx])
-        out_dict["id"][i] = track_infos["object_id"][idx]
+        #out_dict["role"][i] = torch.from_numpy(track_infos["role"][idx])
+        #out_dict["id"][i] = track_infos["object_id"][idx]
         out_dict["type"][i] = track_infos["object_type"][idx]
 
         valid = track_infos["valid"][idx]  # [n_step]
