@@ -128,6 +128,8 @@ class InitDiscriminator(nn.Module):
 
         self.use_Rp=False
 
+        self.Gamma=1
+
 
 
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
