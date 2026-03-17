@@ -225,7 +225,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="~/keguo/waymo",
+        default="/home/ke/keguo/waymo",
     )
     parser.add_argument(
         "--output_dir", type=str, default="./waymo_data/all_agent"
