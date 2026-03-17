@@ -221,7 +221,7 @@ class SMARTAgentDecoder(nn.Module):
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, shape,t - 1)
 
-            next_token_idx=Categorical(logits=next_token_logits / self.alpha).sample()
+            next_token_idx=Categorical(logits=next_token_logits[-next_mask.sum():] / self.alpha).sample()
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
