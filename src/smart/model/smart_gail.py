@@ -72,15 +72,15 @@ class SMART_IQ(IQ_SoftQ, SMART):
             #     )
             #
             # else:
-            optimizer = torch.optim.AdamW(
-                [
-                    {"params": list(self.encoder.value_network.parameters())+list(self.encoder.agent_encoder.parameters()), "lr": self.lr, "weight_decay": 0.01},
-                    {"params": self.encoder.discriminator.parameters(), "lr": 5e-5, "weight_decay": 0.01},
-                ]
-            )
+            # optimizer = torch.optim.AdamW(
+            #     [
+            #         {"params": list(self.encoder.value_network.parameters())+list(self.encoder.agent_encoder.parameters()), "lr": self.lr, "weight_decay": 0.01},
+            #         {"params": self.encoder.discriminator.parameters(), "lr": 5e-5, "weight_decay": 0.01},
+            #     ]
+            # )
 
 
-            #optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+            optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
 
             lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
 
