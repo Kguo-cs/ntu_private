@@ -54,6 +54,29 @@ def compute_vehicle_bounds(vehicles_real, vehicles_gen, margin=5.0):
         y_max + margin
     )
 
+def plot_diffusion(batch_list,step_list,pred_list,num_graphs):
+    batch_list = torch.cat(batch_list)
+    step_list = torch.cat(step_list)
+
+    pred_list = torch.cat(pred_list)[:, 0]
+
+    pred_trans, pred_head, pred_shape, pred_vel = pred_list[..., :2], pred_list[..., 2:4], pred_list[
+        ..., 4:6], pred_list[..., -2:]
+    pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+
+    vehicles_gen = torch.cat(
+        [pred_trans, pred_head[:, None], torch.cos(pred_head)[:, None], torch.sin(pred_head)[:, None],
+         pred_shape, pred_vel
+         ], dim=-1)  # [x, y, speed, cos_h, sin_h, length, width, vx, vy]
+
+    for batch_id in range(num_graphs):
+        for i in range(len(batch_list)):
+            batch_mask = (batch_list == batch_id) & (step_list == i)
+            if len(vehicles_gen[batch_mask]):
+                plot_scene([], [], vehicles_gen[batch_mask].cpu().numpy(), title=str(batch_id) + "_" + str(i))
+                print(batch_id, i)
+
+
 def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
     import numpy as np
     import matplotlib.pyplot as plt

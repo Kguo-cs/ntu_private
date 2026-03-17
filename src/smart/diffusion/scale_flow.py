@@ -583,11 +583,11 @@ class ScaleFlow(nn.Module):
                data: HeteroData,
                scene_enc: Mapping[str, torch.Tensor],
                eval_mask,
-               num_samples: int,
+               num_samples=1,
                start_data=None,
                reverse_steps=None,
-               sampling="ddpm",
-               stride=20,
+               sampling="ddim",
+               stride=1,
                if_output_diffusion_process=False,
                ) -> Dict[str, torch.Tensor]:
         if self.flow_matching:

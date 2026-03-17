@@ -24,7 +24,7 @@ class InitDiffusion(nn.Module):
         super(InitDiffusion, self).__init__()
 
         self.latent_diffusion=False
-        self.use_gan = False
+        self.use_gan = True
         self.use_dit=False
         self.sep_map=False
         self.use_match=True
@@ -152,9 +152,8 @@ class InitDiffusion(nn.Module):
                 loss_diff_init,x_pred ,z,denom = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
 
                 if self.use_gan:
-                    loss=self.get_gan_loss(m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego)
+                    loss=self.D.get_gan_loss(m_init,self.G.net.denormalize(x_pred),map_feature, tokenized_agent)
                 else:
-
                     if self.use_match:
                         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                             tokenized_agent,
@@ -167,14 +166,10 @@ class InitDiffusion(nn.Module):
                             use_col=False,
                             use_all_type=False
                             )
-
                     else:
-                        match_loss = pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0,
-                                                                                                    device=non_ego.device)
+                        pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0, device=non_ego.device)
 
                         match_loss= loss_diff_init.mean()
-
-
 
                     loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
@@ -194,34 +189,8 @@ class InitDiffusion(nn.Module):
             else:
                 tokenized_agent['nonego_type_sorted']= nonego_type
 
-                pred_init, pred_list, batch_list, step_list = self.G.sample( tokenized_agent, map_feature,
-                                                                             None,num_samples=1,
-                                                                            sampling='ddim',
-                                                                            stride=1,
-                                                                            if_output_diffusion_process=False,
-                                                                            reverse_steps=None)
+                pred_init, pred_list, batch_list, step_list = self.G.sample( tokenized_agent, map_feature,None)
 
-                self.vis=False
-                if self.vis:
-                    batch_list=torch.cat(batch_list)
-                    step_list=torch.cat(step_list)
-
-                    pred_list=torch.cat(pred_list)[:,0] * normal_scale + normal_mean
-
-                    pred_trans, pred_head, pred_shape, pred_vel = pred_list[..., :2], pred_list[..., 2:4], pred_list[
-                        ..., 4:6], pred_list[..., -2:]
-                    pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-
-                    vehicles_gen = torch.cat([pred_trans,pred_head[:,None],torch.cos(pred_head)[:,None],torch.sin(pred_head)[:,None],
-                                              pred_shape,pred_vel
-                                              ],dim=-1)#[x, y, speed, cos_h, sin_h, length, width, vx, vy]
-
-                    for batch_id in range(num_graphs):
-                        for i in range(len(batch_list)):
-                            batch_mask=(batch_list==batch_id) & (step_list==i)
-                            if len(vehicles_gen[batch_mask]):
-                                plot_scene([], [], vehicles_gen[batch_mask].cpu().numpy(), title=str(batch_id)+"_"+str(i))
-                                print(batch_id,i)
 
             if self.latent_diffusion:
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
@@ -231,9 +200,6 @@ class InitDiffusion(nn.Module):
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent, non_ego
             )
-
-            # if self.G.use_all_type:
-            #     tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
 
             return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel
         

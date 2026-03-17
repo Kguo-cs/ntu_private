@@ -66,9 +66,9 @@ class IQ_SoftQ(LightningModule):
 
         self.pred_init=self.token_processor.pred_init
 
-        # if self.encoder.agent_encoder.init_decoder.use_dit:
-        #
-        #     self.automatic_optimization=True
+        if self.encoder.agent_encoder.init_decoder.use_gan:
+
+            self.automatic_optimization=False
 
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
@@ -365,14 +365,14 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
-        if not self.automatic_optimization:
-
-            self.optimizer.zero_grad()
-
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.encoder.agent_encoder.init_decoder.parameters(), 5)
-            self.optimizer.step()
-
-            self.model_ema.update(self.encoder.agent_encoder.init_decoder)
+        # if not self.automatic_optimization:
+        #
+        #     self.optimizer.zero_grad()
+        #
+        #     loss.backward()
+        #     nn.utils.clip_grad_norm_(self.encoder.agent_encoder.init_decoder.parameters(), 5)
+        #     self.optimizer.step()
+        #
+        #     self.model_ema.update(self.encoder.agent_encoder.init_decoder)
 
         return loss
