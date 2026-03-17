@@ -152,7 +152,7 @@ class InitDiffusion(nn.Module):
                 loss_diff_init,x_pred ,z,denom = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
 
                 if self.use_gan:
-                    loss=self.D.get_gan_loss(m_init,self.G.net.denormalize(x_pred),map_feature, tokenized_agent)
+                    loss=self.D.get_gan_loss(m_init,self.G.net.denormalize(x_pred),map_feature, tokenized_agent,denom)
                 else:
                     if self.use_match:
                         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(

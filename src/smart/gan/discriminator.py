@@ -135,20 +135,20 @@ class InitDiscriminator(nn.Module):
         return Gradient.square().sum([-1])
 
 
-    def get_gan_loss(self,RealSamples,FakeSamples,map_feature,tokenized_agent):
+    def get_gan_loss(self,RealSamples,FakeSamples,map_feature,tokenized_agent,denom):
 
         agent_n=len(FakeSamples)
 
         if self.global_step % 10 == 0:
 
-            #RealSamples = RealSamples.detach().requires_grad_(True)
-            #FakeSamples = FakeSamples.detach().requires_grad_(True)
+            RealSamples = RealSamples.detach().requires_grad_(True)
+            FakeSamples = FakeSamples.detach().requires_grad_(True)
 
             RealLogits,real_weight = self.forward(RealSamples, map_feature, tokenized_agent,return_weight=True)
             FakeLogits,fake_weight = self.forward(FakeSamples, map_feature, tokenized_agent,return_weight=True)
 
-            # R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-            # R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+            R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+            R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
             if self.use_Rp:
                 RelativisticLogits = RealLogits - FakeLogits
@@ -184,39 +184,36 @@ class InitDiscriminator(nn.Module):
 
             w = 1  # 0.1+(1-self.global_step/10000.0)
 
-            R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
+            #R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
 
             loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean(),FakeLogits,RealLogits)  # cosine schedule
         else:
-            if self.global_step>-1:
-                self.eval()
-                FakeLogits,fake_weight = self.forward(FakeSamples, map_feature, tokenized_agent,return_weight=True)
+            self.eval()
+            FakeLogits, fake_weight = self.forward(FakeSamples, map_feature, tokenized_agent, return_weight=True)
+            self.train()
 
-                if self.use_Rp:
-                    RealLogits = self.forward(RealSamples, map_feature, tokenized_agent)
-                    RelativisticLogits = FakeLogits - RealLogits
-                    AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
-                    loss = AdversarialLoss.mean()
-                else:
-                    FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-                    # fake_bce_loss =  F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
-                    #                                           reduction='mean')
-                    fake_bce_loss=FakeLogits
-                    loss=-fake_bce_loss.mean()
-                    if len(fake_interact_logits) > 0:
-                        # fake_loss = F.binary_cross_entropy_with_logits(
-                        #     fake_interact_logits,
-                        #     torch.zeros_like(fake_interact_logits),
-                        #     reduction='none'
-                        # )
-                        fake_loss =fake_interact_logits
-
-                        fake_interact_bce_loss = (fake_loss * fake_weight).mean()
-
-                        loss=loss-fake_interact_bce_loss
-                self.train()
+            if self.use_Rp:
+                RealLogits = self.forward(RealSamples, map_feature, tokenized_agent)
+                RelativisticLogits = FakeLogits - RealLogits
+                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                loss = AdversarialLoss.mean()
             else:
-                loss=torch.tensor(0.0, device=FakeSamples.device)
+                FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+                # fake_bce_loss =  F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
+                #                                           reduction='mean')
+                fake_bce_loss = FakeLogits
+                loss = -fake_bce_loss.mean()
+                if len(fake_interact_logits) > 0:
+                    # fake_loss = F.binary_cross_entropy_with_logits(
+                    #     fake_interact_logits,
+                    #     torch.zeros_like(fake_interact_logits),
+                    #     reduction='none'
+                    # )
+                    fake_loss = fake_interact_logits
+
+                    fake_interact_bce_loss = (fake_loss * fake_weight).mean()
+
+                    loss = loss - fake_interact_bce_loss
 
             match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,
@@ -224,7 +221,7 @@ class InitDiscriminator(nn.Module):
                 RealSamples,
                 0,
                 0,
-                1,
+                denom,
                 all_state=False,
                 use_col=False,
                 use_all_type=False
