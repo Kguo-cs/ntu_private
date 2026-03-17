@@ -213,7 +213,7 @@ class InitDiscriminator(nn.Module):
                     # )
                     fake_loss = fake_interact_logits
 
-                    fake_interact_bce_loss = (fake_loss * fake_weight).mean()
+                    fake_interact_bce_loss = (fake_loss * fake_weight).sum()/agent_n
 
                     loss = loss - fake_interact_bce_loss
 
