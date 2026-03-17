@@ -33,7 +33,7 @@ model:
       learn_init: True
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/dit256_noscale_start1_epoch=51-step=98956.ckpt'
+ckpt_path: './waymo_data/dit256_noscale.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -43,7 +43,7 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 200
+  val_batch_size: 256
   test_batch_size: 128
   num_workers: 32
   shuffle: false
