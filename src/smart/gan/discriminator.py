@@ -170,7 +170,7 @@ class InitDiscriminator(nn.Module):
                         reduction='none'
                     )
 
-                    fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
+                    fake_interact_bce_loss = (fake_loss * fake_weight).mean()
 
                     real_loss = F.binary_cross_entropy_with_logits(
                         real_interact_logits,
@@ -178,7 +178,7 @@ class InitDiscriminator(nn.Module):
                         reduction='none'
                     )
 
-                    real_interact_bce_loss= (real_loss * real_weight).sum() / agent_n
+                    real_interact_bce_loss= (real_loss * real_weight).mean()
 
                     AdversarialLoss =  AdversarialLoss +fake_interact_bce_loss +real_interact_bce_loss#
 
@@ -211,7 +211,7 @@ class InitDiscriminator(nn.Module):
                         # )
                         fake_loss =fake_interact_logits
 
-                        fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
+                        fake_interact_bce_loss = (fake_loss * fake_weight).mean()
 
                         loss=loss-fake_interact_bce_loss
                 self.train()
