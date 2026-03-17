@@ -31,7 +31,7 @@ model:
       dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
-      dis_weight: 20
+      dis_weight: 1
       dist_decay: 3
       reward_weight: 0
       reward_decay: 2.5
@@ -40,7 +40,7 @@ model:
 ckpt_path: './waymo_data/dit256_noscale.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: AIRL20_1e4_ALL203_sample20_dismask_noise #_grad
+task_name: AIRL20_1e4_ALL13_sample20_dismask #_noise #_grad
 
 logger:
   wandb:
