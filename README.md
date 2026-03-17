@@ -20,7 +20,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_noscale_start1/2026-03-1
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_pt20/2026-03-13_23-05-35/bc/3vmil7bc/checkpoints/epoch=31-step=389600.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit256_noscale/2026-03-14_06-02-39/bc/wdv94nwp/checkpoints/last.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL20_1e4_ALL203_sample20_dismask/2026-03-16_14-28-33/sim/arkk56is/checkpoints/epoch=1-step=48700.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 

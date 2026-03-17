@@ -33,7 +33,7 @@ model:
       learn_init: True
 
 
-ckpt_path: './waymo_data/dit256_noscale.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL20_1e4_ALL203_sample20_dismask_epoch=1-step=48700.ckpt'
 
 trainer:
   limit_train_batches: 1.0
