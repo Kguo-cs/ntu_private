@@ -78,7 +78,8 @@ class InitDiscriminator(nn.Module):
             self.edge_encoder = EdgeEncoder(hidden_dim,
                                             num_freq_bands,
                                             use_a2a=True,
-                                            use_pl2a=True
+                                            use_pl2a=True,
+                                            discriminator=True
                                             )
 
             num_layers = 1
