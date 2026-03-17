@@ -153,7 +153,6 @@ class SMARTAgentDecoder(nn.Module):
                                                                                     )
 
             tokenized_agent["next_token_logits"] = next_token_logits
-            tokenized_agent["initial_logit"] = initial_logit
             tokenized_agent["feat_a"] = feat_a
 
         return {

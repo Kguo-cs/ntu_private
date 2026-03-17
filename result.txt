@@ -747,3 +747,6 @@ WO53LWBDQV
 121.00 usd
 
 
+take all position for generation
+
+

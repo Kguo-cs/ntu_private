@@ -72,48 +72,15 @@ class SMART_IQ(IQ_SoftQ, SMART):
             #     )
             #
             # else:
-     #        hidden_params = []
-     #        other_params = []
-     #
-     #        for name, p in self.encoder.named_parameters():
-     #            if not p.requires_grad:
-     #                continue
-     #
-     #            if p.ndim == 2 and "embed" not in name and "head" not in name:
-     #                hidden_params.append(p)
-     #            else:
-     #                other_params.append(p)
-     #
-     #        muon_lr = 0.02 * (self.lr / 1e-4)
-     #
-     #        muon_opt = Muon(
-     #            hidden_params,
-     #            lr=muon_lr,
-     #            momentum=self.muon_momentum,
-     #        )
-     #
-     #        adamw_opt = optim.AdamW(
-     #            other_params,
-     #            lr=self.lr,
-     #            weight_decay=self.weight_decay,
-     #            betas=(0.9, 0.999),
-     #        )
-     #
-     #        optimizers_list=[muon_opt, adamw_opt]
-     #
-     #        schedulers = []
-     #        for opt in optimizers_list:
-     # #           sched = get_cosine_schedule_with_warmup(
-     #  #              opt, num_warmup_steps=self.lr_warmup_steps, num_training_steps=total_steps
-     #   #         )
-     #            sched=LambdaLR(opt, lr_lambda=lr_lambda)
-     #
-     #            schedulers.append(sched)
-     #
-     #        # Lightning expects a list
-     #        return optimizers_list,schedulers
+            optimizer = torch.optim.AdamW(
+                [
+                    {"params": list(self.encoder.value_network.parameters())+list(self.encoder.agent_encoder.parameters()), "lr": self.lr, "weight_decay": 0.01},
+                    {"params": self.encoder.discriminator.parameters(), "lr": 5e-5, "weight_decay": 0.01},
+                ]
+            )
 
-            optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+
+            #optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
 
             lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
 

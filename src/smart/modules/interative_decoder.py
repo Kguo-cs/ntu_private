@@ -423,21 +423,4 @@ class InterativeDecoder(nn.Module):
                                                                       token_embedding,pred_mask,n_agent
                                                                       )
 
-        if r_a2a_nei is not None:
-            counter_feat_a=counter_feat_a.transpose(0, 1).flatten(0, 1)[mask_s]
-
-            next_token_logits_counter, _, rewards_counter, weight= self.predict_agent(counter_feat_a, feat_map,
-                                                                            r_t, edge_index_t,
-                                                                            r_pl2a, edge_index_pl2a,
-                                                                            r_a2a_nei, edge_index_a2a,
-                                                                            agent_train_mask, dist,
-                                                                            train_repeat_mask, mask_a,
-                                                                            n_current, inference_mask,
-                                                                            token_embedding,pred_mask,n_agent
-                                                                            )
-
-            next_token_logits=(next_token_logits[0],next_token_logits_counter[0])
-
-            rewards=(rewards[0]-rewards_counter[0],rewards[1],rewards[2],rewards[3])
-
         return next_token_logits,feat_a_value,rewards,weight,(edge_index_a2a, r_a2a,relative_pos)

@@ -125,13 +125,15 @@ class EdgeEncoder(nn.Module):
 
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
 
-        N_total = n_step * n_agent  # total nodes in transposed ordering
+        if torch.any(flat_mask==False):
 
-        kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
-        map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
-        map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
+            N_total = n_step * n_agent  # total nodes in transposed ordering
 
-        edge_index_t = map_to_compact[edge_index_t]
+            kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
+            map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
+            map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
+
+            edge_index_t = map_to_compact[edge_index_t]
 
         return edge_index_t, r_t
 
