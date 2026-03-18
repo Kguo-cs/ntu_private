@@ -483,6 +483,30 @@ class InitDenoiser(nn.Module):
 
                     head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
+                    edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
+                        pos_s=pos_s,  # [n_agent, n_step, 2]
+                        head_s=theta,  # [n_agent, n_step]
+                        head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
+                        batch_s=batch,  # [n_agent*n_step]
+                        mask=None,  # [n_agent, n_step]
+                        max_radius=60,
+                        max_num_neighbors=20,
+                        agent_train_mask=None,
+                        layer_num=self.num_layers,
+                        counter_feat_a=None,
+                        dis_edge_mask=None
+                    )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+                    if batch_pl.max().item() != num_graphs - 1:
+                        pos_s,theta=transform_to_global(
+                            pos_s,
+                            theta,
+                            tokenized_agent["batch_ego_pos"],
+                            tokenized_agent["batch_ego_heading"]
+                        )
+
+                        batch = batch%(batch_pl.max().item()+1) #t,a
+
                     edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
                         pos_pl=pos_pl,  # [n_pl, 2]
                         orient_pl=orient_pl,  # [n_pl]
@@ -497,20 +521,6 @@ class InitDenoiser(nn.Module):
                         agent_train_mask=None,
                         layer_num=self.num_layers
                     )
-
-                    edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
-                        pos_s=pos_s,  # [n_agent, n_step, 2]
-                        head_s=theta,  # [n_agent, n_step]
-                        head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
-                        batch_s=batch,  # [n_agent*n_step]
-                        mask=None,  # [n_agent, n_step]
-                        max_radius=60,
-                        max_num_neighbors=20,
-                        agent_train_mask=None,
-                        layer_num=self.num_layers,
-                        counter_feat_a=None,
-                        dis_edge_mask=None
-                    )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
                     # ego_theta = torch.atan2(self.normal_mean[:, 3], self.normal_mean[:, 2]).repeat(num_graphs)
                     # ego_pos=self.normal_mean[:,:2].repeat(num_graphs,1)

@@ -246,14 +246,6 @@ class EdgeEncoder(nn.Module):
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
                                               max_num_neighbors=max_num_neighbors)
-        # edge_index_pl2a = radius(
-        #     x=pos_s[:, :2],
-        #     y=pos_pl[:, :2],
-        #     r=self.pl2a_radius,
-        #     batch_x=batch_s,
-        #     batch_y=batch_pl,
-        #     max_num_neighbors=300,
-        # )
         # #edge_index[0] → indices in y (query points)            edge_index[1] → indices in x (neighbor points)
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]   #src, dst
         rel_orient_pl2a = wrap_angle(
@@ -270,19 +262,6 @@ class EdgeEncoder(nn.Module):
             ],
             dim=-1,
         )
-
-
-        # r_pl2a = torch.stack(
-        #     [
-        #         torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
-        #         angle_between_2d_vectors(
-        #             ctr_vector=head_vector_s[edge_index_pl2a[1]],
-        #             nbr_vector=rel_pos_pl2a[:, :2],
-        #         ),
-        #         rel_orient_pl2a,
-        #     ],
-        #     dim=-1,
-        # )
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 

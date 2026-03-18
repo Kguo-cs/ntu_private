@@ -94,10 +94,12 @@ class InitDiffusion(nn.Module):
 
         ego_embedding=self.G.ego_embedding(ego_local_traj)
 
-        if "initial_map_feature" not in tokenized_agent.keys() :
+        if "initial_map_feature" not in tokenized_agent.keys():
             map_feature=tokenized_agent["map_feature"]
 
             if self.use_all_agent and self.training:
+                # initial_map_feature= map_feature
+                # tokenized_agent["initial_map_feature"] =map_feature
                 batch = torch.stack(
                     [
                         map_feature["batch"] + (tokenized_agent["num_graphs"]//81) * t
@@ -131,11 +133,12 @@ class InitDiffusion(nn.Module):
         orient_pl = initial_map_feature["orientation"]
         feat_map = initial_map_feature["pt_token"]
 
-        pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
-                                               orient_pl,  # [:,None],
-                                               ego_position[batch_pl],
-                                               ego_heading[batch_pl],
-                                               )
+        if batch_pl.max().item()==num_graphs-1:
+            pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
+                                                   orient_pl,  # [:,None],
+                                                   ego_position[batch_pl],
+                                                   ego_heading[batch_pl],
+                                                   )
 
         if self.G.net.use_padding  or (self.use_gan and self.D.use_entry_former):
             map_feature = self.G.net.padding(pos_pl, orient_pl, feat_map, batch_pl, tokenized_agent["num_graphs"])
