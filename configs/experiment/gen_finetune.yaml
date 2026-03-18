@@ -40,7 +40,7 @@ model:
 ckpt_path: './waymo_data/dit256_noscale.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: AIRL20_ALL203_sample20_noise1e2_disa10 #_grad_dis5e5
+task_name: AIRL20_ALL203_sample20_noise1e2_disapl10 #_grad_dis5e5
 
 logger:
   wandb:
