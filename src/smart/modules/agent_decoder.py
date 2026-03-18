@@ -92,10 +92,10 @@ class SMARTAgentDecoder(nn.Module):
 
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature,shape, n_current=0):
 
-        # if self.discriminator:
-        #     pos_a=pos_a+torch.randn_like(pos_a)*1e-3
-        #     head_a=head_a+torch.randn_like(head_a)*1e-3
-        #     shape=shape+torch.randn_like(shape)*1e-3
+        if self.discriminator:
+            pos_a=pos_a+torch.randn_like(pos_a)*1e-2
+            head_a=head_a+torch.randn_like(head_a)*1e-2
+            shape=shape+torch.randn_like(shape)*1e-2
 
         n_agent, n_step = head_a.shape
 
