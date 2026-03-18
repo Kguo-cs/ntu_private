@@ -484,9 +484,10 @@ class SMART(LightningModule):
     def test_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)
         map_feature = self.encoder.map_encoder(tokenized_map)
+        tokenized_agent["map_feature"] = map_feature
 
         # ! only closed-loop vlidation
-        pred_traj, pred_z, pred_head = [], [], []
+        pred_traj, pred_z, pred_head ,pred_sizes= [], [], [],[]
         for _ in range(self.n_rollout_closed_val):
             pred = self.encoder.agent_encoder.inference(
                 tokenized_agent, map_feature,  # post_sampling=True
@@ -494,10 +495,12 @@ class SMART(LightningModule):
             pred_traj.append(pred["pred_traj_10hz"])
             pred_z.append(pred["pred_z_10hz"])
             pred_head.append(pred["pred_head_10hz"])
+            pred_sizes.append(pred["shape"])
 
         pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
         pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
         pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+        pred_sizes=torch.stack(pred_sizes, dim=1)
 
         # ! WOSAC submission save
         self.wosac_submission.update(
@@ -507,6 +510,7 @@ class SMART(LightningModule):
             pred_traj=pred_traj,
             pred_z=pred_z,
             pred_head=pred_head,
+            pred_sizes=pred_sizes,
             global_rank=self.global_rank,
         )
         _gpu_dict_sync = self.wosac_submission.compute()

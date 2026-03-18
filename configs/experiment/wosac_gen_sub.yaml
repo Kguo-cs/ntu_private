@@ -28,6 +28,12 @@ model:
     finetune: true
     smart : false
 
+    decoder:
+      #hist_drop_prob: 0.1 #0.1 #0.1
+
+      dis_a2a_radius: 10
+      dis_a2a_neighbor: 20
+
     token_processor:
       pred_init: True
       learn_init: True
@@ -44,12 +50,10 @@ trainer:
 data:
   train_batch_size: 2
   val_batch_size: 256
-  test_batch_size: 128
+  test_batch_size: 256
   num_workers: 32
   shuffle: false
   pin_memory: false
 
-action: validate
-
-#256 Validation DataLoader 0:   1%|          | 1/173 [01:14<3:33:23,  0.01it/s] Validation DataLoader 0:   1%|          | 2/173 [02:41<3:49:53,  0.01it/s]
-#128
+#action: validate
+action: test
