@@ -575,6 +575,8 @@ class TokenProcessor(torch.nn.Module):
                 ego_mask[:-1] = batch[:-1] != batch[1:]
                 ego_mask=ego_mask.bool()
 
+                tokenized_agent["batch_a"]=batch[~ego_mask]
+
                 batch = torch.stack(
                     [
                         batch + tokenized_agent["num_graphs"] * t
@@ -595,7 +597,7 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["ego_traj"] = pos[ego_mask][:,1:].unfold(dimension=1, size=10, step=1).transpose(0,1)
 
                 tokenized_agent["num_graphs"]=data.num_graphs*81
-
+                tokenized_agent["non_ego_valid"] =valid[:,~ego_mask]
 
 
 

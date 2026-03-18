@@ -498,14 +498,32 @@ class InitDenoiser(nn.Module):
                     )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
                     if batch_pl.max().item() != num_graphs - 1:
-                        pos_s,theta=transform_to_global(
+                        valid=tokenized_agent["non_ego_valid"]
+                        n_step=valid.shape[0]
+
+                        pos_global,theta_global=transform_to_global(
                             pos_s,
                             theta,
                             tokenized_agent["batch_ego_pos"],
                             tokenized_agent["batch_ego_heading"]
                         )
 
-                        batch = batch%(batch_pl.max().item()+1) #t,a
+                        pos_b=torch.zeros([valid.shape[0],valid.shape[1],2],device=device)
+                        theta_b=torch.zeros([valid.shape[0],valid.shape[1]],device=device)
+
+                        pos_b[valid]=pos_global
+                        theta_b[valid]=theta_global
+
+                        pos_s=pos_b.transpose(0,1)
+                        theta=theta_b.transpose(0,1)
+                        mask=valid.transpose(0,1)
+
+                        head_vector_s=torch.stack([theta.cos(), theta.sin()], dim=-1)
+
+                        batch=tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
+
+                    else:
+                        mask=None
 
                     edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
                         pos_pl=pos_pl,  # [n_pl, 2]
@@ -513,7 +531,7 @@ class InitDenoiser(nn.Module):
                         pos_a=pos_s,  # [n_agent, n_step, 2]
                         head_a=theta,  # [n_agent, n_step]
                         head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
-                        mask=None,  # [n_agent, n_step]
+                        mask=mask,  # [n_agent, n_step]
                         batch_s=batch,  # [n_agent,n_step]
                         batch_pl=batch_pl,  # [n_pl*n_step]
                         pl2a_radius=40,
@@ -634,11 +652,11 @@ class InitDenoiser(nn.Module):
 
                 res_theta=torch.atan2(res[:,3],res[:,2])
 
-                global_pos,global_theta = transform_to_global(
+                local_pos,local_theta = transform_to_global(
                     res[:,:2],
                     res_theta,
-                    pos_s,
-                    theta,
+                    m_delta[:, :2],
+                    torch.atan2(m_delta[:,3],m_delta[:,2]),
                 )
 
                 local_vel=res[:,6:]
@@ -660,7 +678,7 @@ class InitDenoiser(nn.Module):
                     global_vel=local_vel#rotate_to_global(local_vel,theta)
 
                 res = torch.cat(
-                    [global_pos, torch.cos(global_theta)[:, None], torch.sin(global_theta)[:, None], res[:, 4:6],
+                    [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
                      global_vel], dim=-1)[:, None]
 
                 res=self.normalize(res)
