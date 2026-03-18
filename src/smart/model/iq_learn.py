@@ -66,7 +66,7 @@ class IQ_SoftQ(LightningModule):
 
         self.pred_init=self.token_processor.pred_init
 
-        if self.encoder.agent_encoder.init_decoder.use_gan:
+        if self.pred_init and self.encoder.agent_encoder.init_decoder.use_gan:
 
             self.automatic_optimization=False
 
