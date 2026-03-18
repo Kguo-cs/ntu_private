@@ -97,29 +97,13 @@ class InitDiffusion(nn.Module):
         if "initial_map_feature" not in tokenized_agent.keys():
             map_feature=tokenized_agent["map_feature"]
 
-            # if self.use_all_agent and self.training:
-            #     # initial_map_feature= map_feature
-            #     # tokenized_agent["initial_map_feature"] =map_feature
-            #     batch = torch.stack(
-            #         [
-            #             map_feature["batch"] + (tokenized_agent["num_graphs"]//81) * t
-            #             for t in range(81)
-            #         ],
-            #         dim=1,
-            #     ).transpose(0,1).flatten()  # [n_step*n_agent]
-            #
-            #     map_feature["batch"] = batch
-            #     map_feature["position"] = map_feature["position"][None].repeat(81,1,1).flatten(0,1)
-            #     map_feature["orientation"]= map_feature["orientation"][None].repeat(81,1).flatten(0,1)
-            #     map_feature["pt_token"]= map_feature["pt_token"][None].repeat(81,1,1).flatten(0,1)
-
             batch_pl = map_feature["batch"]
 
             pos_pt = map_feature["position"]
 
-            ego_position = ego_position.reshape(-1,batch_pl.max().item()+1,2)
+            ego_pos = ego_position.reshape(-1,batch_pl.max().item()+1,2)
 
-            dist=torch.norm(ego_position[:,batch_pl]-pos_pt[None],dim=-1).amin(0)
+            dist=torch.norm(ego_pos[:,batch_pl]-pos_pt[None],dim=-1).amin(0)
 
             initial_map_feature = {}
 
