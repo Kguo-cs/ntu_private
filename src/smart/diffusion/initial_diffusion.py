@@ -31,6 +31,8 @@ class InitDiffusion(nn.Module):
 
         self.use_all_pos=token_processor.use_all_pos
 
+        self.use_all_agent=True
+
         self.learn_autoencoder = token_processor.learn_autoencoder
         if self.learn_autoencoder:
             self.use_gan = False
@@ -67,7 +69,7 @@ class InitDiffusion(nn.Module):
 
         ego_position = tokenized_agent["initial_pos"][ego_mask]
         ego_heading = tokenized_agent["initial_heading"][ego_mask]
-        nonego_batch = tokenized_agent["batch"][non_ego].clone()
+        nonego_batch = tokenized_agent["batch"][non_ego]
         tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
         tokenized_agent["batch_ego_heading"] = ego_heading[nonego_batch]
 
@@ -84,7 +86,7 @@ class InitDiffusion(nn.Module):
         type_counts = torch.bincount(
             idx,
             minlength=num_graphs * num_types
-        ).view(num_graphs, num_types)
+        ).view(-1, num_types)
 
         tokenized_agent["type_counts"]=type_counts
 
@@ -92,8 +94,22 @@ class InitDiffusion(nn.Module):
 
         ego_embedding=self.G.ego_embedding(ego_local_traj)
 
-        if "initial_map_feature" not in tokenized_agent.keys():
+        if "initial_map_feature" not in tokenized_agent.keys() :
             map_feature=tokenized_agent["map_feature"]
+
+            if self.use_all_agent and self.training:
+                batch = torch.stack(
+                    [
+                        map_feature["batch"] + (tokenized_agent["num_graphs"]//81) * t
+                        for t in range(81)
+                    ],
+                    dim=1,
+                ).transpose(0,1).flatten()  # [n_step*n_agent]
+
+                map_feature["batch"] = batch
+                map_feature["position"] = map_feature["position"][None].repeat(81,1,1).flatten(0,1)
+                map_feature["orientation"]= map_feature["orientation"][None].repeat(81,1).flatten(0,1)
+                map_feature["pt_token"]= map_feature["pt_token"][None].repeat(81,1,1).flatten(0,1)
 
             batch_pl = map_feature["batch"]
 

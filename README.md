@@ -4,7 +4,7 @@ nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
 rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/testing_map2light 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/AIRL28_203_l4_nonego_start1_0.7841.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
+rsync -avz /home/ke/code/sim/src/waymo_data/training_map2_all_light ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/dit256_noscale.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
@@ -12,7 +12,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyu
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=5-step=22830.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/epoch=63-step=121792.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_all_light ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_noscale_start1/2026-03-15_13-57-23/bc/86x9ylmo/checkpoints/epoch=51-step=98956.ckpt ./
 

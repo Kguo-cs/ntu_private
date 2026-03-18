@@ -32,9 +32,7 @@ from src.smart.utils import (
     angle_between_2d_vectors,
 rotate_to_local
 )
-from scipy.optimize import linear_sum_assignment
-from torch.nn.utils.rnn import pad_sequence
-from .attr_tokenizer import Attr_Tokenizer
+from src.smart.utils.edge_utils import build_batch
 
 class TokenProcessor(torch.nn.Module):
 
@@ -78,22 +76,6 @@ class TokenProcessor(torch.nn.Module):
 
         if not self.training:
             tokenized_map = self.tokenize_map(data)
-
-            # if self.pred_init:
-            #     batch = data["agent"]["batch"]
-            #
-            #     type = data["agent"]["type"]
-            #
-            #     ego_mask = torch.ones_like(batch)
-            #     ego_mask[:-1] = batch[:-1] != batch[1:]
-            #
-            #     sort_rank = batch.to(torch.float64)  * 30+ego_mask.to(torch.float64)*3 + type.to(torch.float64)
-            #
-            #     sort_idx = sort_rank.argsort()
-            #
-            #     for key in ['valid_mask', 'role', 'id', 'type', 'position', 'heading', 'velocity', 'shape']:
-            #         data["agent"][key] = data["agent"][key][sort_idx]
-
             tokenized_agent = self.tokenize_agent(data)
 
             if self.pred_init:
@@ -593,26 +575,40 @@ class TokenProcessor(torch.nn.Module):
                 ego_mask[:-1] = batch[:-1] != batch[1:]
                 ego_mask=ego_mask.bool()
 
-                start_idx = 10
+                batch = torch.stack(
+                    [
+                        batch + tokenized_agent["num_graphs"] * t
+                        for t in range(81)
+                    ],
+                    dim=1,
+                ).transpose(0,1)  # [n_agent*n_step]
 
-                valid = valid_mask[:, start_idx]
+                valid=valid_mask[:, :-10].transpose(0,1)
 
-                tokenized_agent["initial_heading"] = heading[:, start_idx][valid]
-                tokenized_agent["initial_pos"] = pos[:, start_idx][valid]  # [valid]
-                tokenized_agent["initial_shape"] = shape[valid]
-                tokenized_agent["initial_type"] = type[valid]
+                tokenized_agent["initial_heading"] = heading[:, :-10].transpose(0,1)[valid]
+                tokenized_agent["initial_pos"] = pos[:, :-10].transpose(0,1)[valid]
+                tokenized_agent["initial_shape"] = shape[:,None].repeat(1,81,1).transpose(0,1)[valid]
+                tokenized_agent["initial_type"] = type[:,None].repeat(1,81).transpose(0,1)[valid].long()
                 tokenized_agent["batch"] = batch[valid]
+                tokenized_agent["initial_vel"] = vel[:, :-10].transpose(0,1)[valid]
+                tokenized_agent["ego_mask"] = ego_mask[:,None].repeat(1,81).transpose(0,1)[valid]
+                tokenized_agent["ego_traj"] = pos[ego_mask][:,1:].unfold(dimension=1, size=10, step=1).transpose(0,1)
 
-                if self.use_all_pos:
-                    tokenized_agent["all_pos"] = torch.cat((pos[:,:start_idx],pos[:,start_idx+1:]),dim=1)[valid]
-                    tokenized_agent["all_heading"] = torch.cat((heading[:,:start_idx],heading[:,start_idx+1:]),dim=1)[valid]
-                    tokenized_agent["valid_mask"] = torch.cat((valid_mask[:,:start_idx],valid_mask[:,start_idx+1:]),dim=1)[valid]
-                    ego_traj = pos[ego_mask, :10].contiguous()
-                else:
-                    tokenized_agent["initial_vel"] = vel[:, start_idx][valid]
-                    ego_traj = pos[ego_mask, start_idx + 1:start_idx + 11].contiguous()
+                tokenized_agent["num_graphs"]=data.num_graphs*81
 
-                tokenized_agent["ego_traj"] = ego_traj
+
+
+
+                # if self.use_all_pos:
+                #     tokenized_agent["all_pos"] = torch.cat((pos[:,:start_idx],pos[:,start_idx+1:]),dim=1)[valid]
+                #     tokenized_agent["all_heading"] = torch.cat((heading[:,:start_idx],heading[:,start_idx+1:]),dim=1)[valid]
+                #     tokenized_agent["valid_mask"] = torch.cat((valid_mask[:,:start_idx],valid_mask[:,start_idx+1:]),dim=1)[valid]
+                #     ego_traj = pos[ego_mask, :10].contiguous()
+                # else:
+                #     tokenized_agent["initial_vel"] = vel[:, start_idx][valid]
+                #     ego_traj = pos[ego_mask, start_idx + 1:start_idx + 11].contiguous()
+                #
+                # tokenized_agent["ego_traj"] = ego_traj
 
             else:
                 tokenized_agent=self.tokenize_agent(data)
