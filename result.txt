@@ -728,6 +728,16 @@ bc40_start0eval0_inter2
 0.7846
 
 
+diffusion gail
+
+
+
+
+decomp gail for discriminator
+
+
+
+
 dit256_cfg3_schedule_nohead
 
 dit256_cfg3_schedule1_70_nohead

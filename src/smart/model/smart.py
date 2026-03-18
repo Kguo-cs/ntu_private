@@ -39,6 +39,14 @@ from src.smart.metrics.wosac_metrics import WOSACMetrics
 import time
 from src.smart.metrics.gen_metrics import compute_gen_samples,compute_agent_metrics
 import numpy as np
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    angle_between_2d_vectors,
+    weight_init
+)
 
 class SMART(LightningModule):
 
@@ -196,7 +204,6 @@ class SMART(LightningModule):
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
             pred_traj, pred_z, pred_head,pred_sizes,pred_vels = [], [], [],[],[]
-            # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"]=map_feature
 
@@ -215,13 +222,14 @@ class SMART(LightningModule):
                     pred_sizes.append(pred["shape"])
                     pred_vels.append(pred["initial_vel"])
 
-
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
             pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
 
             if self.challenge_type == ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
+                pred_head=wrap_angle(pred_head)
+                pred_sizes=torch.clamp_min(pred_sizes,min=0.1)
 
                 if not self.wosac_submission.is_active:
                     compute_gen_samples(data, tokenized_agent, pred_traj, pred_vels, pred_head, pred_sizes, self.samples,
@@ -306,13 +314,6 @@ class SMART(LightningModule):
                     pred_sizes=pred_sizes,
                     global_rank=self.global_rank,
                 )
-                # print(data["scenario_id"].mean())
-                # print(data["agent"]["id"].mean())
-                # print(data["agent"]["batch"].mean())
-                # print(pred_traj.mean())
-                # print(pred_z.mean())
-                # print(pred_head.mean())
-                # print(pred_sizes.mean())
 
                 _gpu_dict_sync = self.wosac_submission.compute()
                 if self.global_rank == 0:
