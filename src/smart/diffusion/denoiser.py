@@ -117,7 +117,7 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
         self.normal_initialized = False
 
-        self.use_noise=False
+        self.use_noise=True
 
         if self.use_roformer:
             if self.use_dit:
@@ -630,7 +630,7 @@ class InitDenoiser(nn.Module):
 
                 res=self.to_out_m_delta(feat_a)
 
-               # res=self.denormalize(res)
+                # res=self.denormalize(res)
 
                 res_theta=torch.atan2(res[:,3],res[:,2])
 

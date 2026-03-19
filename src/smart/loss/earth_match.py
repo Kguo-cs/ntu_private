@@ -10,14 +10,32 @@ from src.smart.utils import (
     wrap_angle,
 )
 
+def gaussian_nll_2d(mu, log_sigma, target):
+    # mu: (..., 2)
+    # sigma: (..., 2)  (std, must be >0)
+    # target: (..., 2)
+
+    dx = target - mu
+    sigma = torch.exp(log_sigma)+1e-5
+    var = sigma ** 2
+
+    loss = 0.5 * (dx**2 / var).sum(dim=-1)
+    loss += torch.log(sigma).sum(dim=-1)
+    loss += math.log(2 * math.pi)
+
+    return loss.mean()
+
 def matching_loss(
     fake_state,
     real_state,
     w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
 ):
 
-    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
-    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
+    fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:8]
+    real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:8]
+
+
+    pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]
 
     # Position: L1 or L2
 
@@ -25,7 +43,32 @@ def matching_loss(
     #
     # pos_loss = dist.mean()
 
-    pos_loss=F.l1_loss(fake_pos, real_pos)
+    if pos_std.shape[1]==0:
+        pos_loss=F.l1_loss(fake_pos, real_pos)
+
+        heading_loss = F.l1_loss(fake_heading, real_heading)
+        shape_loss = F.l1_loss(fake_shape, real_shape)
+
+        # Shape: L1
+
+        # cluster_valid_mask=~torch.isnan(real_shape[:,2:])
+
+        # cluster_valid_mask1=cluster_valid_mask.reshape(-1,90,2)
+
+        vel_loss = F.l1_loss(fake_vel, real_vel)
+
+    else:
+        pos_loss=gaussian_nll_2d(fake_pos,pos_std, real_pos)
+        heading_loss = gaussian_nll_2d(fake_heading,heading_std, real_heading)
+        shape_loss = gaussian_nll_2d(fake_shape, shape_std,real_shape)
+        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_shape)
+
+
+        # Shape: L1
+
+        # cluster_valid_mask=~torch.isnan(real_shape[:,2:])
+
+        # cluster_valid_mask1=cluster_valid_mask.reshape(-1,90,2)
 
     # Heading: periodic-safe loss
     # heading_diff = torch.atan2(
@@ -35,17 +78,7 @@ def matching_loss(
     # heading_diff=wrap_angle(fake_heading - real_heading)
     # heading_loss = heading_diff.abs().mean()
 
-    heading_loss= F.l1_loss(fake_heading, real_heading)
 
-    # Shape: L1
-    shape_loss = F.l1_loss(fake_shape[:,:2], real_shape[:,:2])
-
-
-    cluster_valid_mask=~torch.isnan(real_shape[:,2:])
-
-    #cluster_valid_mask1=cluster_valid_mask.reshape(-1,90,2)
-
-    vel_loss = F.l1_loss(fake_shape[:,2:][cluster_valid_mask], real_shape[:,2:][cluster_valid_mask])
 
     total_loss = (
         w_pos * pos_loss +

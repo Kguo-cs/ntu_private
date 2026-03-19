@@ -273,7 +273,9 @@ class ScaleFlow(nn.Module):
 
                 # v_target = (x - z) /denom
                 #
-                v_pred = (x_pred - z) /denom
+               # v_pred = (x_pred - z) /denom
+                #loss=F.mse_loss(x_pred , x,reduction="none")
+                loss=torch.tensor(0.0,device=device)
 
             else:
                 v_target =x - e
@@ -282,7 +284,7 @@ class ScaleFlow(nn.Module):
 
                 x_pred =e+v_pred
 
-        return F.mse_loss(x_pred , x,reduction="none") ,x_pred[:,0],z,denom[:,0]
+        return loss ,x_pred[:,0],z,denom[:,0]
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
