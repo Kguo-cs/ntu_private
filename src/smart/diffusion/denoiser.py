@@ -117,7 +117,7 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
         self.normal_initialized = False
 
-        self.use_noise=True
+        self.use_noise=False
 
         if self.use_roformer:
             if self.use_dit:
