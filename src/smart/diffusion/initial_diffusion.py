@@ -160,7 +160,7 @@ class InitDiffusion(nn.Module):
                     if self.use_match:
                         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                             tokenized_agent,
-                            self.G.net.denormalize(x_pred),
+                            x_pred,
                             m_init,
                             x_pred,
                             self.G.net.normalize(m_init),

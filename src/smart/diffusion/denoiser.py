@@ -117,6 +117,7 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
         self.normal_initialized = False
 
+        self.use_noise=False
 
         if self.use_roformer:
             if self.use_dit:
@@ -142,7 +143,11 @@ class InitDenoiser(nn.Module):
                 else:
                     self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
-                self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
+                if self.use_noise:
+                    self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim*2)
+                else:
+                    self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
+
 
                 if self.use_graph:
                     self.use_padding = False
@@ -258,18 +263,7 @@ class InitDenoiser(nn.Module):
         return (input - self.normal_mean) / self.normal_scale
 
     def denormalize(self,input):
-        return input* self.normal_scale+self.normal_mean
-
-    def normalize_z(self,z):
-        m_delta = z[:, 0]
-
-        m_delta = self.denormalize(m_delta)
-
-        m_delta[:, 2:4] = m_delta[:, 2:4] / torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
-
-        z = self.normalize(m_delta)
-
-        return z[:,None]
+        return input* self.normal_scale[None]+self.normal_mean[None]
 
     def drop_labels(self, labels,ego_embedding,mode):
 
@@ -359,20 +353,8 @@ class InitDenoiser(nn.Module):
             self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
             self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
             self.normal_initialized = True
-            # valid = ~torch.isnan(m_init)
-            # count = valid.sum(0, keepdim=True).clamp_min(1)
-            #
-            # mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
-            # std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
-            #     1e-8)
 
-            # self.normal_mean = mean
-            # self.normal_scale = std
-
-        # m_init=self.normalize(m_init)
-
-        #m_init=self.denormalize(m_init)
-        diff_input = self.normalize(diff_input)
+        # diff_input = self.normalize(diff_input)
 
         return diff_input,m_init,nonego_batch
 
@@ -428,7 +410,7 @@ class InitDenoiser(nn.Module):
 
             else:
 
-                m_delta=self.denormalize(m_delta)
+                #m_delta=self.denormalize(m_delta)
 
                 if self.ego_rel:
                     feat_a=self.proj_in_m_delta(m_delta[:,4:])
@@ -648,7 +630,7 @@ class InitDenoiser(nn.Module):
 
                 res=self.to_out_m_delta(feat_a)
 
-                res=self.denormalize(res)
+               # res=self.denormalize(res)
 
                 res_theta=torch.atan2(res[:,3],res[:,2])
 
@@ -681,7 +663,7 @@ class InitDenoiser(nn.Module):
                     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
                      global_vel], dim=-1)[:, None]
 
-                res=self.normalize(res)
+               # res=self.normalize(res)
         else:
             beta_emb = self.noise_emb(beta)
             # num_agents x 128
@@ -806,7 +788,7 @@ class InitDenoiser(nn.Module):
 
     def get_output(self, pred_init, tokenized_agent, non_ego):
 
-        pred_init = self.denormalize(pred_init)
+        #pred_init = self.denormalize(pred_init)
         gt_initial_pos = tokenized_agent["initial_pos"].clone()
         gt_initial_heading = tokenized_agent["initial_heading"].clone()
 
