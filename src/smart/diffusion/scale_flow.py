@@ -362,7 +362,7 @@ class ScaleFlow(nn.Module):
             t_n[padding_mask]=0
 
         # conditional
-        x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+        x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)[...,:z.shape[-1]]
         v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
         if self.net.label_drop_prob>0:
