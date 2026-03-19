@@ -174,7 +174,7 @@ class ScaleFlow(nn.Module):
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
-        e = torch.randn_like(x)  # base distribution N(0, I)
+        e = torch.rand_like(x)  # base distribution N(0, I)
 
         e=self.net.denormalize(e)
 
@@ -301,10 +301,6 @@ class ScaleFlow(nn.Module):
 
             z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
             z[increasing] = (1-t_next[increasing])*torch.randn_like(x[increasing])+ t_next[increasing] * x[increasing]
-
-            # z[~clustering]=z[~clustering]+ (0.9+0.1*t_next - t_n[~clustering]) * v_pred[~clustering]
-            #
-            # z[clustering]=0.1*torch.randn_like(x[clustering])+ 0.9 * x[clustering]
         elif self.use_vp:
             dt = t_next - t_n  # negative
 
@@ -401,7 +397,7 @@ class ScaleFlow(nn.Module):
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
-        z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)
+        z = torch.rand(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)
 
         z=self.net.denormalize(z)
 
