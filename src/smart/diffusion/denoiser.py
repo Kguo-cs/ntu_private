@@ -35,11 +35,35 @@ from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_typ
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges,project_to_local_frame
 from src.smart.layers.relative_transformer import padding
-from torch_geometric.nn.pool import knn_graph,knn
-# from lpips import LPIPS
 from src.smart.utils.cluster import cluster_point_per_type
 from torch_scatter import scatter_sum
 from .diffusion_planner.decoder import  DiT
+
+def batch_histogram_categorical(m_init, bins=8, value_range=None):
+    # m_init: (B, 8)
+    B, D = m_init.shape
+    assert D == 8  # your case
+
+    hist_list = []
+
+    for d in range(D):
+        col = m_init[:, d]
+
+        hist = torch.histc(
+            col,
+            bins=bins,
+            min=value_range[0] if value_range else col.min(),
+            max=value_range[1] if value_range else col.max()
+        )
+
+        hist_list.append(hist)
+
+    hist = torch.stack(hist_list, dim=0)  # (8, bins)
+
+    # normalize → categorical distribution
+    probs = hist / (hist.sum(dim=-1, keepdim=True) + 1e-8)
+
+    return probs  # (8, bins)
 
 class InitDenoiser(nn.Module):
 
@@ -115,6 +139,11 @@ class InitDenoiser(nn.Module):
 
         self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
+
+        self.register_buffer("init_probs", torch.ones(m_delta_dim,100))
+        self.register_buffer("init_min", torch.ones(m_delta_dim))
+        self.register_buffer("init_max", torch.ones(m_delta_dim))
+
         self.normal_initialized = False
 
         self.use_noise=False
@@ -257,13 +286,98 @@ class InitDenoiser(nn.Module):
             # ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
-        self.apply(weight_init)
+        # self.denoising_steps= 20
+        # self.ft_denoising_steps= 10
+        #
+        # self.learn_explore_noise_from: int = self.denoising_steps-self.ft_denoising_steps
+        # self.initial_noise_scheduler_type: str = 'learn_decay'
+        # self.min_logprob_denoising_std: float = 0.08
+        # self.max_logprob_denoising_std: float = 0.16
+        # self.learn_explore_time_embedding: bool  = False
+        # self.device='cuda' if torch.cuda.is_available() else 'cpu'
+        #
+        # self.set_logprob_noise_levels()
+        #
+        # self.apply(weight_init)
+
+    @torch.no_grad()
+    def stochastic_interpolate(self, t):
+        valid_noise_schedulers = ['vp', 'lin', 'const', 'const_schedule_itr', 'learn_decay']
+        if self.initial_noise_scheduler_type == 'vp':
+            a = 0.2  # 2.0
+            std = torch.sqrt(a * t * (1 - t))
+        elif self.initial_noise_scheduler_type == 'lin':
+            k = 0.1
+            b = 0.0
+            std = k * t + b
+        elif self.initial_noise_scheduler_type == 'const' or 'const_schedule_itr':
+            std = torch.ones_like(t) * self.min_logprob_denoising_std
+        else:
+            raise ValueError(
+                f"Invalid noise scheduler type {self.initial_noise_scheduler_type}, must be in the following: {valid_noise_schedulers}")
+        return std
+
+    @torch.no_grad()
+    def set_logprob_noise_levels(self, force_level=None, verbose=False):
+        '''
+        create noise std for logrporbability calcualion.
+        generate a tensor `self.logprob_noise_levels` of shape `[1, self.denoising_steps,  self.policy.horizion_steps x self.policy.act_dim]`
+        '''
+        self.logprob_noise_levels = torch.zeros(self.denoising_steps, device=self.device, requires_grad=False)
+
+        steps = torch.linspace(0, 1 - 1 / self.denoising_steps, self.denoising_steps, device=self.device)
+        for i, t in enumerate(steps):
+            if force_level:
+                self.logprob_noise_levels[i] = torch.tensor(force_level, device=self.device)
+            else:
+                self.logprob_noise_levels[i] = self.stochastic_interpolate(t)
+
+        self.logprob_noise_levels = self.logprob_noise_levels.clamp(min=self.min_logprob_denoising_std,
+                                                                    max=self.max_logprob_denoising_std)
+
+        self.logprob_noise_levels = self.logprob_noise_levels.unsqueeze(0).unsqueeze(-1).repeat(1, 1,8)
+
+    def init_exploration_noise_net(self):
+        if self.use_time_independent_noise:
+            noise_input_dim = self.policy.cond_enc_dim
+            if not self.noise_hidden_dims:
+                self.noise_hidden_dims = [16]
+        else:
+            if self.learn_explore_time_embedding:
+                noise_input_dim = self.time_dim_explore + self.policy.cond_enc_dim
+                self.time_embedding_explore = nn.Embedding(num_embeddings=self.denoising_steps,
+                                                           embedding_dim=self.time_dim_explore,
+                                                           device=self.device)
+            else:
+                noise_input_dim = self.policy.time_dim + self.policy.cond_enc_dim
+                if not self.noise_hidden_dims:
+                    self.noise_hidden_dims = [int(np.sqrt(noise_input_dim ** 2 + self.policy.act_dim_total ** 2))]
+
+        self.explore_noise_net = ExploreNoiseNet(in_dim=noise_input_dim,
+                                                 out_dim=self.policy.act_dim_total,
+                                                 logprob_denoising_std_range=[self.min_logprob_denoising_std,
+                                                                              self.max_logprob_denoising_std],
+                                                 device=self.device,
+                                                 hidden_dims=self.noise_hidden_dims,
+                                                 activation_type=self.noise_activation_type)
 
     def normalize(self,input):
         return (input - self.normal_mean) / self.normal_scale
 
     def denormalize(self,input):
-        return input* self.normal_scale[None]+self.normal_mean[None]
+
+        D, K = self.init_probs.shape
+
+        idx = torch.multinomial(self.init_probs, len(input),replacement=True).transpose(0,1)#.squeeze(-1)
+        u = torch.rand((len(input),D), device=input.device)
+
+        width = (self.init_max - self.init_min) / K
+
+        x = self.init_min[None] + (idx.float() + u) * width[None]
+
+       # x=input* self.normal_scale[None]+self.normal_mean[None]
+
+        return x[:,None]
 
     def drop_labels(self, labels,ego_embedding,mode):
 
@@ -353,6 +467,11 @@ class InitDenoiser(nn.Module):
             self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
             self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
             self.normal_initialized = True
+
+            probs=batch_histogram_categorical(m_init,bins=100)
+            self.init_probs.copy_(probs)
+            self.init_min.copy_(m_init.amin(0))
+            self.init_max.copy_(m_init.amax(0))
 
         # diff_input = self.normalize(diff_input)
 
@@ -896,6 +1015,57 @@ class InitDenoiser(nn.Module):
 
         return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
 
+
+class ExploreNoiseNet(nn.Module):
+    '''
+    Neural network to generate learnable exploration noise, conditioned on time embeddings and or state embeddings.
+    \sigma(s,t) or \sigma(s)
+    '''
+
+    def __init__(self,
+                 in_dim: int,
+                 out_dim: int,
+                 logprob_denoising_std_range: list,  # [min_std, max_std]
+                 device,
+                 hidden_dims=[16],  # [8]  [32],
+                 activation_type='Tanh'
+                 ):
+        super().__init__()
+        self.device = device
+        self.mlp_logvar = MLPLayer(in_dim,hidden_dims,out_dim)
+
+        self.set_noise_range(logprob_denoising_std_range)
+
+    def set_noise_range(self, logprob_denoising_std_range: list):
+        self.logprob_denoising_std_range = logprob_denoising_std_range
+        min_logprob_denoising_std = self.logprob_denoising_std_range[0]
+        max_logprob_denoising_std = self.logprob_denoising_std_range[1]
+        self.logvar_min = torch.nn.Parameter(
+            torch.log(torch.tensor(min_logprob_denoising_std ** 2, dtype=torch.float32, device=self.device)),
+            requires_grad=False)
+        self.logvar_max = torch.nn.Parameter(
+            torch.log(torch.tensor(max_logprob_denoising_std ** 2, dtype=torch.float32, device=self.device)),
+            requires_grad=False)
+
+    def forward(self, noise_feature: torch.Tensor):
+        '''
+        '''
+        noise_logvar = self.mlp_logvar(noise_feature)
+        noise_std = self.process_noise(noise_logvar)
+        return noise_std
+
+    def process_noise(self, noise_logvar):
+        '''
+        input:
+            torch.Tensor([B, Ta , Da])   log \sigma^2
+        output:
+            torch.Tensor([B, 1, Ta * Da]), sigma, floating point values, bounded in [min_logprob_denoising_std, max_logprob_denoising_std]
+        '''
+        noise_logvar = noise_logvar
+        noise_logvar = torch.tanh(noise_logvar)
+        noise_logvar = self.logvar_min + (self.logvar_max - self.logvar_min) * (noise_logvar + 1) / 2.0
+        noise_std = torch.exp(0.5 * noise_logvar)
+        return noise_std
 
 
 class SkipMLP(torch.nn.Module):
