@@ -21,6 +21,7 @@ from typing import Dict, Mapping, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.ao.nn.quantized.functional import clamp
 from torch_cluster import radius
 from torch_geometric.data import Batch
 from torch_geometric.data import HeteroData
@@ -174,7 +175,7 @@ class ScaleFlow(nn.Module):
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
-        e = torch.rand_like(x)  # base distribution N(0, I)
+        e = torch.randn_like(x)  # base distribution N(0, I)
 
         e=self.net.denormalize(e)
 
@@ -397,7 +398,7 @@ class ScaleFlow(nn.Module):
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
-        z = torch.rand(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)
+        z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device).clamp(min=-3,max=3)
 
         z=self.net.denormalize(z)
 

@@ -366,18 +366,18 @@ class InitDenoiser(nn.Module):
 
     def denormalize(self,input):
 
-        D, K = self.init_probs.shape
+        # D, K = self.init_probs.shape
+        #
+        # idx = torch.multinomial(self.init_probs, len(input),replacement=True).transpose(0,1)#.squeeze(-1)
+        # u = torch.rand((len(input),D), device=input.device)
+        #
+        # width = (self.init_max - self.init_min) / K
+        #
+        # x = self.init_min[None] + (idx.float() + u) * width[None]
 
-        idx = torch.multinomial(self.init_probs, len(input),replacement=True).transpose(0,1)#.squeeze(-1)
-        u = torch.rand((len(input),D), device=input.device)
+        x=input* self.normal_scale[None]+self.normal_mean[None]
 
-        width = (self.init_max - self.init_min) / K
-
-        x = self.init_min[None] + (idx.float() + u) * width[None]
-
-       # x=input* self.normal_scale[None]+self.normal_mean[None]
-
-        return x[:,None]
+        return x#[:,None]
 
     def drop_labels(self, labels,ego_embedding,mode):
 
