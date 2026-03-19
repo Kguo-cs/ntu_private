@@ -501,7 +501,7 @@ class SMART(LightningModule):
         pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
         pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
         pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
-        pred_sizes=torch.stack(pred_sizes, dim=1)
+        pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
 
         # ! WOSAC submission save
         self.wosac_submission.update(
