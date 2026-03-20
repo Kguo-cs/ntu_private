@@ -140,9 +140,9 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
 
-        self.register_buffer("init_probs", torch.ones(m_delta_dim,100))
-        self.register_buffer("init_min", torch.ones(m_delta_dim))
-        self.register_buffer("init_max", torch.ones(m_delta_dim))
+        # self.register_buffer("init_probs", torch.ones(m_delta_dim,100))
+        # self.register_buffer("init_min", torch.ones(m_delta_dim))
+        # self.register_buffer("init_max", torch.ones(m_delta_dim))
 
         self.normal_initialized = False
 
