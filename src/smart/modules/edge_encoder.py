@@ -350,7 +350,6 @@ class EdgeEncoder(nn.Module):
             new_dst = map_global_to_compact_time[dst_global]
             edge_index_pl2a = torch.stack([edge_index_pl2a[0], new_dst], dim=0)
 
-
         return edge_index_pl2a, r_pl2a
 
 def topo_rank_among_edges( dst, dist_3d):

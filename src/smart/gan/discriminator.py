@@ -136,6 +136,41 @@ class InitDiscriminator(nn.Module):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
 
+    def get_reward(self,samples,tokenized_agent, map_feature,key):
+
+        Logits, weight,end_index = self.forward(samples, map_feature, tokenized_agent, return_weight=True)
+
+        agent_n = len(samples)
+        ego_logits = Logits[:agent_n]
+        interact_logits = Logits[agent_n:]
+
+        if key == "expert":
+            target=1
+            reward = None
+
+        else:
+            target=0
+
+            valid_ego_reward = ego_logits.detach()
+
+            if self.use_decompose:
+
+                weight_logit= interact_logits.detach() * weight
+
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=len(samples))#
+
+                reward = valid_ego_reward + valid_interact_reward
+
+
+        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target,
+                                                           reduction='mean')
+
+        interact_bce_loss = F.binary_cross_entropy_with_logits(interact_logits,
+                                                               torch.zeros_like(interact_logits) + target,
+                                                               weight=weight, reduction='mean')
+
+        return bce_loss+interact_bce_loss,reward
+
 
     def get_gan_loss(self,RealSamples,FakeSamples,map_feature,tokenized_agent,denom):
 
@@ -234,8 +269,8 @@ class InitDiscriminator(nn.Module):
 
         return loss
 
-    def padding(self, pos, heading, feature, batch, batch_num):
-        lengths = torch.bincount(batch, minlength=batch_num).tolist()
+    def padding(self, pos, heading, feature, batch, num_graphs):
+        lengths = torch.bincount(batch, minlength=num_graphs).tolist()
 
         padding_pos_a = padding(pos, lengths, padding_value=0)  # b, n, d
         padding_heading_a = padding(heading, lengths, padding_value=0)  # b, n, d
@@ -243,7 +278,7 @@ class InitDiscriminator(nn.Module):
 
         return padding_pos_a, padding_heading_a, padding_features_a
 
-    def embed_input(self, initial_pos, initial_heading, initial_type, initial_shape, batch, batch_num):
+    def embed_input(self, initial_pos, initial_heading, initial_type, initial_shape, batch, num_graphs):
         type_embedding = self.type_embedding(initial_type)
        # pos_embedding = self.pos_embedding(initial_pos)
         #heading_embedding = self.head_embedding(initial_heading[:, None])
@@ -251,7 +286,7 @@ class InitDiscriminator(nn.Module):
 
         feat_a = type_embedding + shape_embedding#+ heading_embedding + pos_embedding
 
-        pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch, batch_num)
+        pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch, num_graphs)
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
@@ -259,19 +294,21 @@ class InitDiscriminator(nn.Module):
 
     def forward(self,inputs, map_feature,  tokenized_agent,return_weight=False):
 
-        pos_a=inputs[:,:2]
-        head_a=torch.atan2(inputs[:,3],inputs[:,2])#inputs[:,2]#
-        shape=inputs[:,-4:]
+        pos_a=inputs[...,:2]
+        head_a=torch.atan2(inputs[...,3],inputs[...,2])
+        shape=inputs[...,-4:]
 
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type_sorted"]
-        batch_num = tokenized_agent["num_graphs"]
-        head_a = wrap_angle(head_a)
+        num_graphs = tokenized_agent["num_graphs"]
+        ego_embedding = tokenized_agent["ego_embedding"]
 
         if self.use_entry_former:
+            head_a = wrap_angle(head_a)
+
             pos_pl, orient_pl, feat_map, map_mask = map_feature
 
-            pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, batch_num)
+            pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, num_graphs)
 
             feat_map=feat_map.detach()
 
@@ -309,21 +346,6 @@ class InitDiscriminator(nn.Module):
 
             head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-            edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-                pos_pl=pos_pl,  # [n_pl, 2]
-                orient_pl=orient_pl,  # [n_pl]
-                pos_a=pos_a,  # [n_agent, n_step, 2]
-                head_a=head_a,  # [n_agent, n_step]
-                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                mask=None,  # [n_agent, n_step]
-                batch_s=batch,  # [n_agent,n_step]
-                batch_pl=batch_pl,  # [n_pl*n_step]
-                pl2a_radius=40,
-                max_num_neighbors=20,
-                agent_train_mask=None,
-                layer_num=1
-            )
-
             edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
                 pos_s=pos_a,  # [n_agent, n_step, 2]
                 head_s=head_a,  # [n_agent, n_step]
@@ -337,10 +359,42 @@ class InitDiscriminator(nn.Module):
                 counter_feat_a=None
             )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
+            if batch_pl.max().item() != num_graphs - 1:
+                batch = tokenized_agent["repeat_batch"]
+
+                n_step = batch.shape[1]
+
+                pos_b = pos_a.reshape(n_step, -1, 2)
+                theta_b = head_a.reshape(n_step, -1)
+
+                pos_a = pos_b.transpose(0, 1)
+                head_a = theta_b.transpose(0, 1)
+
+                head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+                mask = torch.ones_like(batch).to(torch.bool)
+            else:
+                mask = None
+
+            edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                pos_pl=pos_pl,  # [n_pl, 2]
+                orient_pl=orient_pl,  # [n_pl]
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_a=head_a,  # [n_agent, n_step]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                mask=mask,  # [n_agent, n_step]
+                batch_s=batch,  # [n_agent,n_step]
+                batch_pl=batch_pl,  # [n_pl*n_step]
+                pl2a_radius=40,
+                max_num_neighbors=20,
+                agent_train_mask=None,
+                layer_num=1
+            )
+
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
-            feat_a = type_embedding + shape_embedding
+            feat_a = type_embedding + shape_embedding+ego_embedding
 
             if self.use_decompose:
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
@@ -370,7 +424,7 @@ class InitDiscriminator(nn.Module):
             else:
                 weight = None
 
-            return score, weight
+            return score, weight,end_index
 
         return score
 
@@ -442,7 +496,7 @@ class InitGeneator(nn.Module):
 
         batch = tokenized_agent["batch"]
 
-        batch_num = tokenized_agent["num_graphs"]
+        num_graphs = tokenized_agent["num_graphs"]
 
         type = type[~ego_mask]
 
@@ -452,7 +506,7 @@ class InitGeneator(nn.Module):
 
         z = torch.randn(agent_num, self.noise_dim, device=type.device)  #pos,heading and shape
 
-        lengths = torch.bincount(batch, minlength=batch_num).tolist()
+        lengths = torch.bincount(batch, minlength=num_graphs).tolist()
 
         padding_type = padding(type, lengths, padding_value=3)
 

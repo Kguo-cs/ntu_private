@@ -53,8 +53,8 @@ class IQ_SoftQ(LightningModule):
 
         if self.gail:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
-            self.ego_return_meanstd = RunningMeanStdTorch(shape=(1))
-            self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
+            # self.ego_return_meanstd = RunningMeanStdTorch(shape=(1))
+            # self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
         self.use_gradient_penalty = False

@@ -10,20 +10,20 @@ from src.smart.utils import (
     wrap_angle,
 )
 
-def gaussian_nll_2d(mu, log_sigma, target):
+def gaussian_nll_2d(mu, sigma, target):
     # mu: (..., 2)
     # sigma: (..., 2)  (std, must be >0)
     # target: (..., 2)
 
     dx = target - mu
-    sigma = torch.exp(log_sigma)+1e-5
+    sigma = torch.clamp(sigma, min=1e-5)
     var = sigma ** 2
 
     loss = 0.5 * (dx**2 / var).sum(dim=-1)
     loss += torch.log(sigma).sum(dim=-1)
     loss += math.log(2 * math.pi)
 
-    return loss.mean()
+    return loss#.mean()
 
 def matching_loss(
     fake_state,
@@ -58,10 +58,10 @@ def matching_loss(
         vel_loss = F.l1_loss(fake_vel, real_vel)
 
     else:
-        pos_loss=gaussian_nll_2d(fake_pos,pos_std, real_pos)
-        heading_loss = gaussian_nll_2d(fake_heading,heading_std, real_heading)
-        shape_loss = gaussian_nll_2d(fake_shape, shape_std,real_shape)
-        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_shape)
+        pos_loss=gaussian_nll_2d(fake_pos,pos_std, real_pos).mean()
+        heading_loss = gaussian_nll_2d(fake_heading,heading_std, real_heading).mean()
+        shape_loss = gaussian_nll_2d(fake_shape, shape_std,real_shape).mean()
+        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_shape).mean()
 
 
         # Shape: L1

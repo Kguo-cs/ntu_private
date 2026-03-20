@@ -730,7 +730,7 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_rand_epoch=29-step=57090.ckpt
 
-test:
+test: 0.6350
 
 
 

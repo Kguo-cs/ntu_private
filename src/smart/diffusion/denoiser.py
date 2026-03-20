@@ -282,7 +282,7 @@ class InitDenoiser(nn.Module):
             # ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
-        self.use_noise=False
+        self.use_noise=True
 
         if self.use_noise:
             self.denoising_steps= 20
@@ -356,13 +356,15 @@ class InitDenoiser(nn.Module):
                 # if not self.noise_hidden_dims:
                 #     self.noise_hidden_dims = [int(np.sqrt(noise_input_dim ** 2 + self.policy.act_dim_total ** 2))]
 
-        self.explore_noise_net = ExploreNoiseNet(in_dim=noise_input_dim,
-                                                 out_dim=self.output_dim,
-                                                 logprob_denoising_std_range=[self.min_logprob_denoising_std,
-                                                                              self.max_logprob_denoising_std],
-                                                 device=self.device,
-                                                 hidden_dims=self.hidden_dim,
-                                                 activation_type='Tanh')
+        self.explore_noise_net=MLPLayer(self.hidden_dim,self.hidden_dim,self.output_dim)
+
+        # self.explore_noise_net = ExploreNoiseNet(in_dim=noise_input_dim,
+        #                                          out_dim=self.output_dim,
+        #                                          logprob_denoising_std_range=[self.min_logprob_denoising_std,
+        #                                                                       self.max_logprob_denoising_std],
+        #                                          device=self.device,
+        #                                          hidden_dims=self.hidden_dim,
+        #                                          activation_type='Tanh')
 
     def normalize(self,input):
         return (input - self.normal_mean) / self.normal_scale
@@ -552,37 +554,6 @@ class InitDenoiser(nn.Module):
 
                 if self.use_graph:
 
-                    # # number of agents per batch
-                    # counts = torch.bincount(batch)
-                    #
-                    # # first index of each batch
-                    # first_idx = torch.cumsum(counts, dim=0) - counts
-                    #
-                    # ego_tokens = ego_embedding[first_idx]  # (B, A)
-                    # B = ego_tokens.shape[0]
-                    # N = feat_a.shape[0]
-                    #
-                    # new_feature = torch.cat([feat_a, ego_tokens], dim=0)
-                    # new_batch = torch.cat([batch, batch[first_idx]], dim=0)
-                    #
-                    # ego_theta=torch.atan2(self.normal_mean[:,3],self.normal_mean[:,2])
-                    #
-                    # pos_s=torch.cat([pos_s, torch.zeros_like(ego_tokens[:,:2])+self.normal_mean[:,:2]], dim=0)
-                    # theta=torch.cat([theta, torch.zeros_like(ego_tokens[:,0])+ego_theta], dim=0)
-                    #
-                    # order = torch.argsort(new_batch)
-                    # feat_a = new_feature[order]
-                    # batch = new_batch[order]
-                    # theta=theta[order]
-                    # pos_s=pos_s[order]
-                    #
-                    # # mask BEFORE sorting
-                    # non_ego_mask = torch.cat([
-                    #     torch.ones(N, dtype=torch.bool, device=batch.device),
-                    #     torch.zeros(B, dtype=torch.bool, device=batch.device)
-                    # ], dim=0)
-                    # non_ego_mask = non_ego_mask[order]
-
                     pos_pl, orient_pl, batch_pl, feat_map=scene_enc
 
                     head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
@@ -602,29 +573,39 @@ class InitDenoiser(nn.Module):
                     )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
                     if batch_pl.max().item() != num_graphs - 1:
-                        valid=tokenized_agent["non_ego_valid"]
-                        n_step=valid.shape[0]
+                        if self.use_noise:
+                            batch = tokenized_agent["repeat_batch"]
 
-                        pos_global,theta_global=transform_to_global(
-                            pos_s,
-                            theta,
-                            tokenized_agent["batch_ego_pos"],
-                            tokenized_agent["batch_ego_heading"]
-                        )
+                            n_step = batch.shape[1]
 
-                        pos_b=torch.zeros([valid.shape[0],valid.shape[1],2],device=device)
-                        theta_b=torch.zeros([valid.shape[0],valid.shape[1]],device=device)
+                            pos_b = pos_s.reshape(n_step, -1, 2)
+                            theta_b = theta.reshape(n_step, -1)
 
-                        pos_b[valid]=pos_global
-                        theta_b[valid]=theta_global
+                            mask = torch.ones_like(batch).to(torch.bool)
+                        else:
+
+                            valid=tokenized_agent["non_ego_valid"]
+                            n_step=valid.shape[0]
+
+                            pos_global,theta_global=transform_to_global(
+                                pos_s,
+                                theta,
+                                tokenized_agent["batch_ego_pos"],
+                                tokenized_agent["batch_ego_heading"]
+                            )
+
+                            pos_b=torch.zeros([valid.shape[0],valid.shape[1],2],device=device)
+                            theta_b=torch.zeros([valid.shape[0],valid.shape[1]],device=device)
+
+                            pos_b[valid]=pos_global
+                            theta_b[valid]=theta_global
+                            mask=valid.transpose(0,1)
+                            batch=tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
 
                         pos_s=pos_b.transpose(0,1)
                         theta=theta_b.transpose(0,1)
-                        mask=valid.transpose(0,1)
 
                         head_vector_s=torch.stack([theta.cos(), theta.sin()], dim=-1)
-
-                        batch=tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
 
                     else:
                         mask=None
@@ -827,12 +808,17 @@ class InitDenoiser(nn.Module):
             out_m_delta = out_m_delta.view(-1, self.num_samples, self.hidden_dim)
             res=self.proj_out_m_delta(out_m_delta)
 
-        if self.use_noise:
+        if self.use_noise :
 
-            noise_std = self.explore_noise_net.forward(feat_a)
+            noise_std = self.explore_noise_net(feat_a)
+            #
+            # noise_std=self.denormalize(noise_std[:,None])
+            noise_std = torch.exp(noise_std)+1e-3
 
-            print(1)
+            res=torch.cat([res,noise_std[:,None]],dim=-1)
 
+            if self.training:
+                tokenized_agent["noise_feat"]=feat_a
 
         return res
 

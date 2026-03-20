@@ -50,6 +50,7 @@ from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_typ
 from .denoiser import InitDenoiser
 from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
+from src.smart.layers import MLPLayer
 
 
 def power_schedule(steps, device, alpha=2.0):
@@ -129,18 +130,16 @@ class ScaleFlow(nn.Module):
             from .flow_planner.flow_ode import FlowODE
             from flow_matching.path.affine import  AffineProbPath
             from flow_matching.path.scheduler import  CondOTScheduler
-
             from .flow_planner.time_sampler import TimeSampler
             path=AffineProbPath(CondOTScheduler())
-
-
             time_sampler=TimeSampler(device='cuda',eps=1e-3,alpha=1.0,beta=1.5)
-
-
             self.flow_ode=FlowODE(path,time_sampler,cfg_weight=1.8,sample_steps=self.steps+1,sample_method='midpoint',sample_temperature=1)
 
         if self.use_vp:
             self.sde = VPSDE_linear()
+
+        if self.net.use_noise:
+            self.value_network = MLPLayer(args.hidden_dim, args.hidden_dim * 2, 1)
 
         self.apply(weight_init)
 
@@ -324,7 +323,7 @@ class ScaleFlow(nn.Module):
         else:
 
             z = z + (t_next - t_n) * v_pred
-        return z,x
+        return z,x,t_n
 
     @torch.no_grad()
     def _heun_step(self, z, t, t_next, labels):
@@ -350,10 +349,6 @@ class ScaleFlow(nn.Module):
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
 
         if self.use_scale:
-            # if self.use_cluster:
-            #     t_n[tokenized_agent["clustering"]]=0.9
-            #     t_n[~tokenized_agent["clustering"]]=0.9+0.1*t_n[~tokenized_agent["clustering"]]
-
             padding_mask=tokenized_agent["padding_mask"]
 
             t_n[padding_mask]=0
@@ -362,7 +357,7 @@ class ScaleFlow(nn.Module):
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)#[...,:z.shape[-1]]
 
         if x_cond.shape[-1]!=z.shape[-1]:
-            x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:].exp()+1e-5)
+            x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
         else:
             x_cond=x_cond[...,:z.shape[-1]]
 
@@ -398,9 +393,15 @@ class ScaleFlow(nn.Module):
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
-        z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)*0.9 #.clamp(min=-3,max=3)
+        z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
+
+        t_list=[]
+        step_list=[]
 
         z=self.net.denormalize(z)
+
+        z_list=[z]
+        x_list=[]
 
         if self.use_scale:
             agent_type = tokenized_agent["nonego_type_sorted"]
@@ -430,11 +431,8 @@ class ScaleFlow(nn.Module):
             steps=schedule.shape[1]-1#max(veh_rank)+1#self.steps#512#
 
         else:
-            steps=20
+            steps=10
 
-        x_list=[]
-        batch_list=[]
-        step_list=[]
 
         if self.mean_flow:
             t = torch.ones(num_agents, device=agent_batch.device)[:,None]
@@ -486,17 +484,11 @@ class ScaleFlow(nn.Module):
                 denoise_to_zero=True,
             )[:,None]
         else:
-            #dt = 1.0 / steps
-            #timesteps = cosine_schedule(steps+1, z.device)
             if self.use_vp:
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
                 timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
 
-            #timesteps = power_schedule(steps+1, z.device, alpha=2)
-           # ts[0] = 1e-4
-           # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
-            # ode
             for i in range(steps):# - 1
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
@@ -520,40 +512,18 @@ class ScaleFlow(nn.Module):
                         t=noise_scedule[:,i][agent_batch][eval_mask]
                         t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
 
-                    z[eval_mask],x_cond=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
+                    z[eval_mask],x_cond,t_n=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
                 else:
-                    z,x_cond =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+                    z,x_cond,t_n =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
-                    #print(z[0])
-
-                #x_list.append(x_cond)
+                x_list.append(x_cond)
+                z_list.append(z)
+                t_list.append(t_n)
                 # batch_list.append(tokenized_agent_scale["nonego_batch"])
                 # step_list.append(torch.zeros_like(tokenized_agent_scale["nonego_batch"])+i)
 
-            # last step euler
-           # z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
-
-            # for i in range(steps):
-            #        # t = ts[i].expand(z.shape[0],z.shape[1])
-            #        # dt = ts[i + 1] - ts[i]
-            #
-            #     t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
-            #     if self.x_pred:
-            #         x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-            #
-            #         v_pred = (x_pred - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
-            #     else:
-            #         v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-            #
-            #     z = z + v_pred * dt
-
-                #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
-
-        # if self.use_all_type:
-        #     tokenized_agent['nonego_type_sorted']=torch.argmax(type_count,dim=-1)
-
-        return z[:,0],x_list,batch_list,step_list
+        return z[:,0],x_list,z_list,step_list,t_list
 
     def get_loss_vd(self,
                     m_init,
