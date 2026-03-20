@@ -728,6 +728,28 @@ bc40_start0eval0_inter2
 0.7846
 
 
+/home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_rand_epoch=29-step=57090.ckpt
+
+test:
+
+
+
+/home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_clip3_all_epoch=63-step=121792.ckpt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 diffusion gail
 
 

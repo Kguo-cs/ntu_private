@@ -175,9 +175,9 @@ class ScaleFlow(nn.Module):
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
-        e = torch.rand_like(x)  # base distribution N(0, I)
+        e = torch.randn_like(x)  # base distribution N(0, I)
 
-        e=self.net.denormalize(e)
+        #e=self.net.denormalize(e)
 
         if "step_idx" in tokenized_agent.keys():
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
@@ -398,9 +398,9 @@ class ScaleFlow(nn.Module):
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
-        z = torch.rand(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)#.clamp(min=-3,max=3)
+        z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device) #.clamp(min=-3,max=3)
 
-        z=self.net.denormalize(z)
+        #z=self.net.denormalize(z)
 
         if self.use_scale:
             agent_type = tokenized_agent["nonego_type_sorted"]

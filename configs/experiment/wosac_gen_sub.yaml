@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_rand_epoch=29-step=57090.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_clip3_all_epoch=63-step=121792.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -55,5 +55,5 @@ data:
   shuffle: false
   pin_memory: false
 
-#action: validate
-action: test
+action: validate
+#action: test
