@@ -61,9 +61,9 @@ class InitDiffusion(nn.Module):
         args = parser.parse_args()
         self.G = ScaleFlow(args,token_processor)
 
-        self.use_noise=self.G.net.use_noise
+        self.use_gail=True
 
-        if self.use_noise:
+        if self.use_gail:
             self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
@@ -187,7 +187,7 @@ class InitDiffusion(nn.Module):
 
                         match_loss= loss_diff_init.mean()
 
-                    if self.use_noise:
+                    if self.use_gail:
                         expert_dis_loss,_ = self.D.get_reward(expert_state[:,0],tokenized_agent, map_feature,"expert")
 
                         with torch.no_grad():
@@ -276,7 +276,7 @@ class InitDiffusion(nn.Module):
             else:
                 tokenized_agent['nonego_type_sorted']= nonego_type
 
-                pred_init, pred_list, batch_list, step_list = self.G.sample( tokenized_agent, map_feature,None)
+                pred_init, x_list,z_list, step_list,t_list = self.G.sample( tokenized_agent, map_feature,None)
 
 
             if self.latent_diffusion:

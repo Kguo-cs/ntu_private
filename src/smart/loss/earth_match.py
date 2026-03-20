@@ -61,7 +61,7 @@ def matching_loss(
         pos_loss=gaussian_nll_2d(fake_pos,pos_std, real_pos).mean()
         heading_loss = gaussian_nll_2d(fake_heading,heading_std, real_heading).mean()
         shape_loss = gaussian_nll_2d(fake_shape, shape_std,real_shape).mean()
-        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_shape).mean()
+        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel).mean()
 
 
         # Shape: L1
