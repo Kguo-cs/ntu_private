@@ -815,6 +815,9 @@ class InitDenoiser(nn.Module):
             # noise_std=self.denormalize(noise_std[:,None])
             noise_std = torch.exp(noise_std)+1e-3
 
+            if not self.training:
+                noise_std=torch.zeros_like(noise_std)
+
             res=torch.cat([res,noise_std[:,None]],dim=-1)
 
             if self.training:
