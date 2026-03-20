@@ -732,10 +732,13 @@ bc40_start0eval0_inter2
 
 test: 0.6350
 
-
-
 /home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_clip3_all_epoch=63-step=121792.ckpt
 
+0.6377
+
+
+
+/home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt
 
 
 
