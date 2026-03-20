@@ -146,7 +146,6 @@ class InitDenoiser(nn.Module):
 
         self.normal_initialized = False
 
-        self.use_noise=False
 
         if self.use_roformer:
             if self.use_dit:
@@ -172,10 +171,7 @@ class InitDenoiser(nn.Module):
                 else:
                     self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
-                if self.use_noise:
-                    self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim*2)
-                else:
-                    self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
+                self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
 
                 if self.use_graph:
@@ -286,19 +282,26 @@ class InitDenoiser(nn.Module):
             # ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
-        # self.denoising_steps= 20
-        # self.ft_denoising_steps= 10
-        #
-        # self.learn_explore_noise_from: int = self.denoising_steps-self.ft_denoising_steps
-        # self.initial_noise_scheduler_type: str = 'learn_decay'
-        # self.min_logprob_denoising_std: float = 0.08
-        # self.max_logprob_denoising_std: float = 0.16
-        # self.learn_explore_time_embedding: bool  = False
-        # self.device='cuda' if torch.cuda.is_available() else 'cpu'
-        #
-        # self.set_logprob_noise_levels()
-        #
-        # self.apply(weight_init)
+        self.use_noise=False
+
+        if self.use_noise:
+            self.denoising_steps= 20
+            self.ft_denoising_steps= 10
+
+            self.learn_explore_noise_from: int = self.denoising_steps-self.ft_denoising_steps
+            self.initial_noise_scheduler_type: str = 'learn_decay'
+            self.min_logprob_denoising_std: float = 0.08
+            self.max_logprob_denoising_std: float = 0.16
+            self.learn_explore_time_embedding: bool  = False
+            self.device='cuda' if torch.cuda.is_available() else 'cpu'
+
+            self.set_logprob_noise_levels()
+
+            self.use_time_independent_noise = False
+
+            self.init_exploration_noise_net()
+
+        self.apply(weight_init)
 
     @torch.no_grad()
     def stochastic_interpolate(self, t):
@@ -349,17 +352,17 @@ class InitDenoiser(nn.Module):
                                                            embedding_dim=self.time_dim_explore,
                                                            device=self.device)
             else:
-                noise_input_dim = self.policy.time_dim + self.policy.cond_enc_dim
-                if not self.noise_hidden_dims:
-                    self.noise_hidden_dims = [int(np.sqrt(noise_input_dim ** 2 + self.policy.act_dim_total ** 2))]
+                noise_input_dim = self.hidden_dim
+                # if not self.noise_hidden_dims:
+                #     self.noise_hidden_dims = [int(np.sqrt(noise_input_dim ** 2 + self.policy.act_dim_total ** 2))]
 
         self.explore_noise_net = ExploreNoiseNet(in_dim=noise_input_dim,
-                                                 out_dim=self.policy.act_dim_total,
+                                                 out_dim=self.output_dim,
                                                  logprob_denoising_std_range=[self.min_logprob_denoising_std,
                                                                               self.max_logprob_denoising_std],
                                                  device=self.device,
-                                                 hidden_dims=self.noise_hidden_dims,
-                                                 activation_type=self.noise_activation_type)
+                                                 hidden_dims=self.hidden_dim,
+                                                 activation_type='Tanh')
 
     def normalize(self,input):
         return (input - self.normal_mean) / self.normal_scale
@@ -640,92 +643,12 @@ class InitDenoiser(nn.Module):
                         agent_train_mask=None,
                         layer_num=self.num_layers
                     )
-
-                    # ego_theta = torch.atan2(self.normal_mean[:, 3], self.normal_mean[:, 2]).repeat(num_graphs)
-                    # ego_pos=self.normal_mean[:,:2].repeat(num_graphs,1)
-                    #
-                    # ego_batch=torch.arange(num_graphs).to(device)
-                    #
-                    # edge_index_ego2a, r_ego2a = self.ego_encoder.build_map2agent_edge(
-                    #     pos_pl=ego_pos,  # [n_pl, 2]
-                    #     orient_pl=ego_theta,  # [n_pl]
-                    #     pos_a=pos_s,  # [n_agent, n_step, 2]
-                    #     head_a=theta,  # [n_agent, n_step]
-                    #     head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
-                    #     mask=None,  # [n_agent, n_step]
-                    #     batch_s=batch,  # [n_agent,n_step]
-                    #     batch_pl=ego_batch,  # [n_pl*n_step]
-                    #     pl2a_radius=1000,
-                    #     max_num_neighbors=1,
-                    #     agent_train_mask=None,
-                    #     layer_num=self.num_layers
-                    # )
-
-                    #
-                    # rel_pos_a2ego = pos_s-ego_pos
-                    # rel_head_a2ego = wrap_angle(theta-ego_theta)
-                    #
-                    # r_a2ego = torch.cat(
-                    #     [
-                    #         project_to_local_frame(rel_pos_a2ego, head_vector_s, False),
-                    #         rel_head_a2ego[:, None],
-                    #     ],
-                    #     dim=-1,
-                    # )
-                    #
-                    # r_a2ego = self.ego_encoder.r_a2a_emb(continuous_inputs=r_a2ego, categorical_embs=None)#+ego_embedding
-
-                    # edge_index_a2ego=torch.arange(len(feat_a))
-
-                    # feat_a = feat_a + r_a2ego
-
                     feat_a=feat_a+ego_embedding
 
-
-                    #clustering=tokenized_agent["clustering"]
-
-                    # if torch.any(clustering):
-                    #
-                    #     clustering_mask=clustering[batch]
-
-                    # pos_pl, orient_pl, map_emb, map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl,
-                    #                                                     num_graphs)  # pos, heading, feature, batch, batch_num
-                    # padding_pos_a, padding_heading_a, padding_features_a, mask_a = self.padding(pos_s, theta, feat_a, batch,
-                    #                                                                             num_graphs)  # pos, heading, feature, batch, batch_num
-
-                    # pos_pl=pos_pl[clustering]
-                    # orient_pl=orient_pl[clustering]
-                    # map_emb=map_emb[clustering]
-                    # map_mask=map_mask[clustering]
-                    # padding_pos_a=padding_pos_a[clustering]
-                    # padding_heading_a=padding_heading_a[clustering]
-                    # padding_features_a=padding_features_a[clustering]
-                    # mask_a=mask_a[clustering]
-
-                    # for layer_i in range(self.num_layers):
-
-                        # feat_a1 = padding_features_a[mask_a]
-
                     for layer_i in range(self.num_layers):
-                        # padding_pos_a, padding_heading_a, padding_features_a, mask_a = self.padding(pos_s, theta, feat_a,
-                        #                                                                             batch,
-                        #                                                                             num_graphs)  # pos, heading, feature, batch, batch_num
-                        #
-                        # # feat_a = self.a2ego_attn_layers[layer_i]((ego_embedding, feat_a), r_ego2a, edge_index_ego2a)
-                        # padding_features_a = self.entry_formers[layer_i](padding_features_a,
-                        #                                 padding_pos_a, padding_heading_a, mask_a,
-                        #                                 map_emb,
-                        #                                 pos_pl, orient_pl, map_mask
-                        #                                 )
-
-                        # feat_a = padding_features_a[mask_a]
-
                         feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                         feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-
-                    # if torch.any(clustering):
-                    #     feat_a[clustering_mask]=feat_a1
 
                 else:
                     pos_pl, orient_pl, map_emb,map_mask=scene_enc
@@ -903,6 +826,14 @@ class InitDenoiser(nn.Module):
             out_m_delta = self.to_out_m_delta(m_out_delta)
             out_m_delta = out_m_delta.view(-1, self.num_samples, self.hidden_dim)
             res=self.proj_out_m_delta(out_m_delta)
+
+        if self.use_noise:
+
+            noise_std = self.explore_noise_net.forward(feat_a)
+
+            print(1)
+
+
         return res
 
     def get_output(self, pred_init, tokenized_agent, non_ego):
