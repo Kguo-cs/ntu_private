@@ -468,10 +468,10 @@ class InitDenoiser(nn.Module):
             self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
             self.normal_initialized = True
 
-            probs=batch_histogram_categorical(m_init,bins=100)
-            self.init_probs.copy_(probs)
-            self.init_min.copy_(m_init.amin(0))
-            self.init_max.copy_(m_init.amax(0))
+            # probs=batch_histogram_categorical(m_init,bins=100)
+            # self.init_probs.copy_(probs)
+            # self.init_min.copy_(m_init.amin(0))
+            # self.init_max.copy_(m_init.amax(0))
 
         # diff_input = self.normalize(diff_input)
 
