@@ -68,7 +68,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor,discriminator)
 
-        self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
+        self.interative_decoder = InterativeDecoder(hidden_dim,time_span,
                                                     pl2a_radius,a2a_radius,num_freq_bands,
                                                     num_layers,num_heads,head_dim,
                                                     dropout,hist_drop_prob,n_token_agent,

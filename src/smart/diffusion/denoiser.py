@@ -38,6 +38,8 @@ from src.smart.layers.relative_transformer import padding
 from src.smart.utils.cluster import cluster_point_per_type
 from torch_scatter import scatter_sum
 from .diffusion_planner.decoder import  DiT
+from src.smart.modules.interative_decoder import InterativeDecoder
+from src.smart.utils.edge_utils import build_batch
 
 def batch_histogram_categorical(m_init, bins=8, value_range=None):
     # m_init: (B, 8)
@@ -140,6 +142,9 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
 
+        if self.use_all_pos:
+            m_delta_dim=6
+
         # self.register_buffer("init_probs", torch.ones(m_delta_dim,100))
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
         # self.register_buffer("init_max", torch.ones(m_delta_dim))
@@ -171,70 +176,57 @@ class InitDenoiser(nn.Module):
                 else:
                     self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
-                self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
 
                 if self.use_graph:
                     self.use_padding = False
 
-                    self.edge_encoder = EdgeEncoder(hidden_dim,
-                                                    num_freq_bands,
-                                                    use_a2a=True,
-                                                    use_pl2a=True
-                                                    )
+                    if self.use_all_pos:
+                        self.interative_decoder = InterativeDecoder(hidden_dim,
+                                                                    60,
+                                                                    40, 60, num_freq_bands,
+                                                                    num_layers, num_heads, head_dim,
+                                                                    dropout, 0, m_delta_dim,
+                                                                    10, 10,
+                                                                    token_processor,
+                                                                    )
 
+                    else:
 
-                    # self.ego_encoder = EdgeEncoder(hidden_dim,
-                    #                                 num_freq_bands,
-                    #                                 use_pl2a=True,
-                    #                                 )
+                        self.edge_encoder = EdgeEncoder(hidden_dim,
+                                                        num_freq_bands,
+                                                        use_a2a=True,
+                                                        use_pl2a=True
+                                                        )
+                        self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
-                    #
-                    self.pt2a_attn_layers = nn.ModuleList(
-                        [
-                            AttentionLayer(
-                                hidden_dim=hidden_dim,
-                                num_heads=num_heads,
-                                head_dim=head_dim,
-                                dropout=dropout,
-                                bipartite=True,
-                                has_pos_emb=True,
-                            )
-                            for _ in range(num_layers)
-                        ]
-                    )
+                        self.pt2a_attn_layers = nn.ModuleList(
+                            [
+                                AttentionLayer(
+                                    hidden_dim=hidden_dim,
+                                    num_heads=num_heads,
+                                    head_dim=head_dim,
+                                    dropout=dropout,
+                                    bipartite=True,
+                                    has_pos_emb=True,
+                                )
+                                for _ in range(num_layers)
+                            ]
+                        )
 
-                    self.a2a_attn_layers = nn.ModuleList(
-                        [
-                            AttentionLayer(
-                                hidden_dim=hidden_dim,
-                                num_heads=num_heads,
-                                head_dim=head_dim,
-                                dropout=dropout,
-                                bipartite=False,
-                                has_pos_emb=True,
-                            )
-                            for _ in range(num_layers)
-                        ]
-                    )
-
-                    # self.a2ego_attn_layers = nn.ModuleList(
-                    #     [
-                    #         AttentionLayer(
-                    #             hidden_dim=hidden_dim,
-                    #             num_heads=num_heads,
-                    #             head_dim=head_dim,
-                    #             dropout=dropout,
-                    #             bipartite=True,
-                    #             has_pos_emb=True,
-                    #         )
-                    #         for _ in range(num_layers)
-                    #     ]
-                    # )
-                    # module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                    #                                   hist_len=1000000)  # replace with gnn
-                    # self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
-
+                        self.a2a_attn_layers = nn.ModuleList(
+                            [
+                                AttentionLayer(
+                                    hidden_dim=hidden_dim,
+                                    num_heads=num_heads,
+                                    head_dim=head_dim,
+                                    dropout=dropout,
+                                    bipartite=False,
+                                    has_pos_emb=True,
+                                )
+                                for _ in range(num_layers)
+                            ]
+                        )
                 else:
                     module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                       hist_len=1000000)  # replace with gnn
@@ -427,8 +419,8 @@ class InitDenoiser(nn.Module):
         if self.use_all_pos:
             local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"],
                                            tokenized_agent["all_heading"],
-                                           non_ego_pos,
-                                           non_ego_head)
+                                           batch_ego_pos,
+                                           batch_ego_heading)
 
             local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
 
@@ -496,7 +488,7 @@ class InitDenoiser(nn.Module):
                 m_delta,
                 beta,
                 tokenized_agent: HeteroData,
-                scene_enc: Mapping[str, torch.Tensor],
+                map_feature: Mapping[str, torch.Tensor],
                 eval_mask=None,
                 num_samples=1,
                 mode=0
@@ -546,125 +538,165 @@ class InitDenoiser(nn.Module):
 
                 #m_delta=self.denormalize(m_delta)
 
-                if self.training:
-                    m_delta[torch.isnan(m_delta)] = 0
-
-                if self.ego_rel:
-                    feat_a=self.proj_in_m_delta(m_delta[:,4:])
-                else:
-                    feat_a=self.proj_in_m_delta(m_delta)
-
-                # m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
-
-                #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
-                beta_emb_m = self.noise_embedding(beta.reshape(-1,1)) +self.type_a_emb(type)
-
-                feat_a = feat_a + beta_emb_m
-
+                # if self.training:
+                #     m_delta[torch.isnan(m_delta)] = 0
                 theta=torch.atan2(m_delta[:,3],m_delta[:,2])
 
                 pos_s=m_delta[:, :2]
 
-                if self.use_graph:
+                beta_emb_m = self.noise_embedding(beta.reshape(-1,1)) +self.type_a_emb(type)+ego_embedding
 
-                    pos_pl, orient_pl, batch_pl, feat_map=scene_enc
+                if self.use_all_pos:
+                    shape=m_delta[:,4:6]
 
-                    head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
+                    m_delta_fut=m_delta[:, 6:].reshape(-1,90,4)
 
-                    edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
-                        pos_s=pos_s,  # [n_agent, n_step, 2]
-                        head_s=theta,  # [n_agent, n_step]
-                        head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
-                        batch_s=batch,  # [n_agent*n_step]
-                        mask=None,  # [n_agent, n_step]
-                        max_radius=60,
-                        max_num_neighbors=20,
-                        agent_train_mask=None,
-                        layer_num=self.num_layers,
-                        counter_feat_a=None,
-                        dis_edge_mask=None
-                    )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+                    fut_pos=m_delta_fut[:,:,:2]
 
-                    if batch_pl.max().item() != num_graphs - 1:
-                        if self.use_noise:
-                            batch = tokenized_agent["repeat_batch"]
+                    fut_heading=torch.atan2(m_delta_fut[:,:,3],m_delta_fut[:,:,2])
 
-                            n_step = batch.shape[1]
+                    feat_a = self.proj_in_m_delta(shape)
 
-                            pos_b = pos_s.reshape(n_step, -1, 2)
-                            theta_b = theta.reshape(n_step, -1)
+                    feat_a = feat_a + beta_emb_m
 
-                            mask = torch.ones_like(batch).to(torch.bool)
-                        else:
+                    pos_a=torch.cat((fut_pos[:,:10],pos_s[:,None],fut_pos[:,10:]),dim=1)
 
-                            valid=tokenized_agent["non_ego_valid"]
-                            n_step=valid.shape[0]
+                    head_a=torch.cat((fut_heading[:,:10],theta[:,None],fut_heading[:,10:]),dim=1)
 
-                            pos_global,theta_global=transform_to_global(
-                                pos_s,
-                                theta,
-                                tokenized_agent["batch_ego_pos"],
-                                tokenized_agent["batch_ego_heading"]
-                            )
+                    mask_a=~torch.isnan(head_a)#t,a
 
-                            pos_b=torch.zeros([valid.shape[0],valid.shape[1],2],device=device)
-                            theta_b=torch.zeros([valid.shape[0],valid.shape[1]],device=device)
+                    n_step=pos_a.shape[1]
+                    n_agent=pos_a.shape[0]
+                    head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-                            pos_b[valid]=pos_global
-                            theta_b[valid]=theta_global
-                            mask=valid.transpose(0,1)
-                            batch=tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
+                    feat_a_token=feat_a.repeat(n_step,1,1)[mask_a.transpose(0,1)]
 
-                        pos_s=pos_b.transpose(0,1)
-                        theta=theta_b.transpose(0,1)
+                    agent_token_emb=None
 
-                        head_vector_s=torch.stack([theta.cos(), theta.sin()], dim=-1)
+                    batch_a = tokenized_agent["batch"]
+                    batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
 
-                    else:
-                        mask=None
+                    batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1,
+                                                                                                  n_agent).transpose(0,
+                                                                                                                     1)
 
-                    edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-                        pos_pl=pos_pl,  # [n_pl, 2]
-                        orient_pl=orient_pl,  # [n_pl]
-                        pos_a=pos_s,  # [n_agent, n_step, 2]
-                        head_a=theta,  # [n_agent, n_step]
-                        head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
-                        mask=mask,  # [n_agent, n_step]
-                        batch_s=batch,  # [n_agent,n_step]
-                        batch_pl=batch_pl,  # [n_pl*n_step]
-                        pl2a_radius=40,
-                        max_num_neighbors=20,
-                        agent_train_mask=None,
-                        layer_num=self.num_layers
-                    )
-                    feat_a=feat_a+ego_embedding
+                    all_features = [pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s]
 
-                    for layer_i in range(self.num_layers):
-                        feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                    res, feat_a, rewards, weight, a2a_feature = self.interative_decoder(all_features,
+                                                                                                      feat_a_token,
+                                                                                                      agent_token_emb,
+                                                                                                      map_feature,
+                                                                                                      None,
+                                                                                                      0,
+                                                                                                      tokenized_agent)
+                    mask_t=mask_a.transpose(0,1)
+                    pos_s=pos_a.transpose(0,1)[mask_t]
 
-                        feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                    theta=head_a.transpose(0,1)[mask_t]
 
                 else:
-                    pos_pl, orient_pl, map_emb,map_mask=scene_enc
+                    if self.ego_rel:
+                        feat_a=self.proj_in_m_delta(m_delta[:,4:])
+                    else:
+                        feat_a=self.proj_in_m_delta(m_delta)
 
-                    pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.padding(pos_s, theta, feat_a, batch,
-                                                                            num_graphs)  # b, n, d
+                    feat_a = feat_a + beta_emb_m
 
-                    # pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
-                    #
-                    # feat_a_b=feat_a_b+pos_emb
+                    if self.use_graph:
 
-                    for mod in self.entry_formers:
-                        feat_a_b = mod(feat_a_b, pos_a_b,
-                                       heading_a_b, mask_a_b,
-                                       map_emb,
-                                       pos_pl,
-                                       orient_pl, map_mask
-                                       )
+                        pos_pl, orient_pl, batch_pl, feat_map=map_feature
 
-                    feat_a = feat_a_b[mask_a_b]
+                        head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
-                res=self.to_out_m_delta(feat_a)
+                        edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
+                            pos_s=pos_s,  # [n_agent, n_step, 2]
+                            head_s=theta,  # [n_agent, n_step]
+                            head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
+                            batch_s=batch,  # [n_agent*n_step]
+                            mask=None,  # [n_agent, n_step]
+                            max_radius=60,
+                            max_num_neighbors=20,
+                            agent_train_mask=None,
+                            layer_num=self.num_layers,
+                            counter_feat_a=None,
+                            dis_edge_mask=None
+                        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+                        if batch_pl.max().item() != num_graphs - 1:
+                            if self.use_noise:
+                                batch = tokenized_agent["repeat_batch"]
+
+                                n_step = batch.shape[1]
+
+                                pos_b = pos_s.reshape(n_step, -1, 2)
+                                theta_b = theta.reshape(n_step, -1)
+
+                                mask = torch.ones_like(batch).to(torch.bool)
+                            else:
+
+                                valid=tokenized_agent["non_ego_valid"]
+                                n_step=valid.shape[0]
+
+                                pos_global,theta_global=transform_to_global(
+                                    pos_s,
+                                    theta,
+                                    tokenized_agent["batch_ego_pos"],
+                                    tokenized_agent["batch_ego_heading"]
+                                )
+
+                                pos_b=torch.zeros([valid.shape[0],valid.shape[1],2],device=device)
+                                theta_b=torch.zeros([valid.shape[0],valid.shape[1]],device=device)
+
+                                pos_b[valid]=pos_global
+                                theta_b[valid]=theta_global
+                                mask=valid.transpose(0,1)
+                                batch=tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
+
+                            pos_s=pos_b.transpose(0,1)
+                            theta=theta_b.transpose(0,1)
+
+                            head_vector_s=torch.stack([theta.cos(), theta.sin()], dim=-1)
+
+                        else:
+                            mask=None
+
+                        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                            pos_pl=pos_pl,  # [n_pl, 2]
+                            orient_pl=orient_pl,  # [n_pl]
+                            pos_a=pos_s,  # [n_agent, n_step, 2]
+                            head_a=theta,  # [n_agent, n_step]
+                            head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
+                            mask=mask,  # [n_agent, n_step]
+                            batch_s=batch,  # [n_agent,n_step]
+                            batch_pl=batch_pl,  # [n_pl*n_step]
+                            pl2a_radius=40,
+                            max_num_neighbors=20,
+                            agent_train_mask=None,
+                            layer_num=self.num_layers
+                        )
+
+                        for layer_i in range(self.num_layers):
+                            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                            feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                        res=self.to_out_m_delta(feat_a)
+
+                    else:
+                        pos_pl, orient_pl, map_emb,map_mask=map_feature
+
+                        pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.padding(pos_s, theta, feat_a, batch,
+                                                                                num_graphs)  # b, n, d
+
+                        for mod in self.entry_formers:
+                            feat_a_b = mod(feat_a_b, pos_a_b,
+                                           heading_a_b, mask_a_b,
+                                           map_emb,
+                                           pos_pl,
+                                           orient_pl, map_mask
+                                           )
+
+                        feat_a = feat_a_b[mask_a_b]
+
 
                 # res=self.denormalize(res)
 
@@ -673,31 +705,37 @@ class InitDenoiser(nn.Module):
                 local_pos,local_theta = transform_to_global(
                     res[:,:2],
                     res_theta,
-                    m_delta[:, :2],
-                    torch.atan2(m_delta[:,3],m_delta[:,2]),
+                    pos_s,
+                    theta,
                 )
 
-                local_vel=res[:,6:]
+                if self.use_all_pos:
+                    new_pos=torch.zeros([n_step,n_agent,2],device=device)
+                    new_shape=torch.zeros_like(new_pos)
+                    new_theta=torch.zeros([n_step,n_agent],device=device)
 
-                # if self.use_all_pos:
-                #     loca_posHead=local_vel.reshape(-1, 90, 4)
-                #
-                #     loca_heading=torch.atan2(loca_posHead[:,:,3],loca_posHead[:,:,2])
-                #
-                #     global_vpos,global_vheading=transform_to_global(
-                #         loca_posHead[:,:,:2],
-                #         loca_heading,
-                #         pos_s,
-                #         theta,
-                #     )
-                #
-                #     global_vel=torch.cat([global_vpos,torch.cos(global_vheading)[:,:,None],torch.sin(global_vheading)[:,:,None]],dim=-1).flatten(1,2)
-                # else:
-                #     global_vel=local_vel#rotate_to_global(local_vel,theta)
+                    new_pos[mask_t]=local_pos
+                    new_theta[mask_t]=local_theta
 
-                res = torch.cat(
-                    [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
-                     local_vel], dim=-1)[:, None]
+                    new_pose=torch.cat([new_pos,new_theta.cos()[:,:,None],new_theta.sin()[:,:,None]],dim=-1)
+
+                    new_shape[mask_t]=res[:,4:6]
+
+                    mean_shape=new_shape.sum(dim=0)/mask_t.sum(dim=0)[:,None]
+
+                    res=torch.cat([new_pose[10],mean_shape,new_pose[:10].transpose(0,1).flatten(1,2),new_pose[11:].transpose(0,1).flatten(1,2)],dim=-1)[:,None]
+
+
+                    # res = torch.cat(
+                    #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
+                    #      local_vel], dim=-1)[:, None]
+
+                else:
+                    local_vel=res[:,6:]
+
+                    res = torch.cat(
+                        [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
+                         local_vel], dim=-1)[:, None]
 
                # res=self.normalize(res)
         else:
@@ -874,8 +912,8 @@ class InitDenoiser(nn.Module):
             all_pos,all_heading=transform_to_global(
                 all_pos,
                 all_heading,
-                global_pos,
-                global_heading,
+                batch_ego_pos,
+                batch_ego_heading,
             )
 
             gt_initial_pos=torch.cat([all_pos[:,:10],global_pos[:,None],all_pos[:,10:]],dim=1)

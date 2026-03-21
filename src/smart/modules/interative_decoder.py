@@ -30,8 +30,6 @@ class InterativeDecoder(nn.Module):
     def __init__(
             self,
             hidden_dim: int,
-            num_historical_steps: int,
-            num_future_steps: int,
             time_span: Optional[int],
             pl2a_radius: float,
             a2a_radius: float,
@@ -45,17 +43,15 @@ class InterativeDecoder(nn.Module):
             pt2a_neighbor: int,
             a2a_neighbor: int,
             token_processor,
-            dis_weight,
-            dist_decay,
-            reward_weight,
-            reward_decay,
+            dis_weight=0,
+            dist_decay=0,
+            reward_weight=0,
+            reward_decay=0,
             discriminator=False,
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
-        self.num_historical_steps = num_historical_steps
-        self.num_future_steps = num_future_steps
-        self.time_span = time_span if time_span is not None else num_historical_steps
+        self.time_span = time_span
         self.num_layers = num_layers
         self.shift = token_processor.shift
         self.hist_drop_prob = hist_drop_prob

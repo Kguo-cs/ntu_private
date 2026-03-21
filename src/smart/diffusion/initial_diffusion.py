@@ -140,7 +140,7 @@ class InitDiffusion(nn.Module):
         if self.G.net.use_padding  or (self.use_gan and self.D.use_entry_former):
             map_feature = self.G.net.padding(pos_pl, orient_pl, feat_map, batch_pl, tokenized_agent["num_graphs"])
         else:
-            map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
+            map_feature =initial_map_feature #(pos_pl, orient_pl, batch_pl, feat_map)
 
         if self.training:
 
