@@ -740,13 +740,16 @@ test: 0.6350
 
 /home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt
 
-
+0.6389
 
 
 /home/zs/code/sim/src/logs/bc48_t60_noego_l3_diff_ep64/2026-03-20_13-49-24/epoch=63-step=649344.ckpt
 
 
+0.7840
 
+
+/home/ke/code/sim/src/waymo_data/AIRL19_103_disdiff_nonego_all_start1_epoch=5-step=153792.ckpt
 
 
 

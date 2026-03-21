@@ -187,7 +187,7 @@ class InitDenoiser(nn.Module):
                                                                     40, 60, num_freq_bands,
                                                                     num_layers, num_heads, head_dim,
                                                                     dropout, 0, m_delta_dim,
-                                                                    10, 10,
+                                                                    20, 20,
                                                                     token_processor,
                                                                     )
 
