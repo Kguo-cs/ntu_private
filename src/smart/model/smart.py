@@ -233,7 +233,7 @@ class SMART(LightningModule):
 
                 pred_traj=data["agent"]["position"][:, None,: ,:2].repeat(1,self.n_rollout_closed_val,1,1)
                 pred_head=data["agent"]["heading"][:, None,:].repeat(1,self.n_rollout_closed_val,1)
-                pred_sizes=data["agent"]["shape"][:, None,None,:2].repeat(1,self.n_rollout_closed_val,pred_traj.shape[2],1)
+                pred_sizes=data["agent"]["shape"][:, None,None].repeat(1,self.n_rollout_closed_val,pred_traj.shape[2],1)
 
                 if not self.wosac_submission.is_active:
                     compute_gen_samples(data, tokenized_agent, pred_traj, pred_vels, pred_head, pred_sizes, self.samples,

@@ -74,7 +74,7 @@ model_checkpoint:
 
 data:
   train_batch_size: 1
-  val_batch_size: 256
+  val_batch_size: 2
   test_batch_size: 10
   num_workers: 8
   train_raw_dir: ${paths.cache_root}/training_map2_init0_light #all_light #init0_light #all_light #init10_inter #init0_light #init10_inter #init0_light #a_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
