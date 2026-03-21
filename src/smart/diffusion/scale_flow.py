@@ -116,7 +116,7 @@ class ScaleFlow(nn.Module):
 
         self.P_mean=2
 
-        self.steps=100
+        self.steps=20
 
         self.use_cluster=False
 
@@ -431,7 +431,7 @@ class ScaleFlow(nn.Module):
             steps=schedule.shape[1]-1#max(veh_rank)+1#self.steps#512#
 
         else:
-            steps=20
+            steps=self.steps
 
 
         if self.mean_flow:
@@ -473,8 +473,6 @@ class ScaleFlow(nn.Module):
             dpm_solver = DPM_Solver(
                 model_fn, noise_schedule, algorithm_type="dpmsolver++", **dpm_solver_params) # w.o. dynamic thresholding
 
-            # Steps in [10, 20] can generate quite good samples.
-            # And steps = 20 can almost converge.
             z = dpm_solver.sample(
                 z[:,0],
                 steps=diffusion_steps,

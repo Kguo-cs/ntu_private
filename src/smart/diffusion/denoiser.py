@@ -282,7 +282,7 @@ class InitDenoiser(nn.Module):
             # ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
-        self.use_noise=True
+        self.use_noise=False
 
         if self.use_noise:
             self.denoising_steps= 20
@@ -427,14 +427,14 @@ class InitDenoiser(nn.Module):
         if self.use_all_pos:
             local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"][non_ego],
                                            tokenized_agent["all_heading"][non_ego],
-                                           batch_ego_pos,
-                                           batch_ego_heading)
+                                           non_ego_pos,
+                                           non_ego_head)
 
             local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
 
             tokenized_agent["nonego_valid_mask"]=tokenized_agent["valid_mask"][non_ego]
 
-            local_vel[~tokenized_agent["nonego_valid_mask"]]=0
+            local_vel[~tokenized_agent["nonego_valid_mask"]]=torch.nan
 
             local_vel=local_vel.flatten(1,2)
 
@@ -469,8 +469,18 @@ class InitDenoiser(nn.Module):
             diff_input = m_init
 
         if not self.normal_initialized:
-            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
-            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+
+            valid = ~torch.isnan(m_init)
+            count = valid.sum(0, keepdim=True).clamp_min(1)
+
+            mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
+            std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
+                1e-8)
+            self.normal_mean.copy_(mean)
+            self.normal_scale.copy_(std)
+
+            # self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
+            # self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
             self.normal_initialized = True
 
             # probs=batch_histogram_categorical(m_init,bins=100)
@@ -535,6 +545,9 @@ class InitDenoiser(nn.Module):
             else:
 
                 #m_delta=self.denormalize(m_delta)
+
+                if self.training:
+                    m_delta[torch.isnan(m_delta)] = 0
 
                 if self.ego_rel:
                     feat_a=self.proj_in_m_delta(m_delta[:,4:])
@@ -666,25 +679,25 @@ class InitDenoiser(nn.Module):
 
                 local_vel=res[:,6:]
 
-                if self.use_all_pos:
-                    loca_posHead=local_vel.reshape(-1, 90, 4)
-
-                    loca_heading=torch.atan2(loca_posHead[:,:,3],loca_posHead[:,:,2])
-
-                    global_vpos,global_vheading=transform_to_global(
-                        loca_posHead[:,:,:2],
-                        loca_heading,
-                        pos_s,
-                        theta,
-                    )
-
-                    global_vel=torch.cat([global_vpos,torch.cos(global_vheading)[:,:,None],torch.sin(global_vheading)[:,:,None]],dim=-1).flatten(1,2)
-                else:
-                    global_vel=local_vel#rotate_to_global(local_vel,theta)
+                # if self.use_all_pos:
+                #     loca_posHead=local_vel.reshape(-1, 90, 4)
+                #
+                #     loca_heading=torch.atan2(loca_posHead[:,:,3],loca_posHead[:,:,2])
+                #
+                #     global_vpos,global_vheading=transform_to_global(
+                #         loca_posHead[:,:,:2],
+                #         loca_heading,
+                #         pos_s,
+                #         theta,
+                #     )
+                #
+                #     global_vel=torch.cat([global_vpos,torch.cos(global_vheading)[:,:,None],torch.sin(global_vheading)[:,:,None]],dim=-1).flatten(1,2)
+                # else:
+                #     global_vel=local_vel#rotate_to_global(local_vel,theta)
 
                 res = torch.cat(
                     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
-                     global_vel], dim=-1)[:, None]
+                     local_vel], dim=-1)[:, None]
 
                # res=self.normalize(res)
         else:
@@ -861,8 +874,8 @@ class InitDenoiser(nn.Module):
             all_pos,all_heading=transform_to_global(
                 all_pos,
                 all_heading,
-                batch_ego_pos,
-                batch_ego_heading,
+                global_pos,
+                global_heading,
             )
 
             gt_initial_pos=torch.cat([all_pos[:,:10],global_pos[:,None],all_pos[:,10:]],dim=1)
