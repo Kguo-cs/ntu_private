@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98
 
 rsync -avz /home/ke/code/sim/src/waymo_data/AIRL20_203_disdiff_nonego_all_start1_ep4.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/AIRL20_203_disdiff_nonego_all_start1_ep4.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/bc48_t60_noego_l3_diff_ep64_epoch=63-step=649344.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
@@ -17,7 +17,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_all_li
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_sample20_l2_norm_clip3_all/2026-03-19_23-11-18/bc/owtpstd6/checkpoints/epoch=63-step=121792.ckpt ./
 
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_ep64/2026-03-15_14-11-37/bc/s3oqx3d2/checkpoints/epoch=63-step=779200.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc48_t60_noego_l3_diff_ep64/2026-03-20_13-49-24/bc/hu1djhl6/checkpoints/epoch=63-step=649344.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit256_sample20_l2_norm/2026-03-19_09-50-07/bc/1t010moa/checkpoints/epoch=59-step=114180.ckpt ./

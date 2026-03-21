@@ -743,7 +743,7 @@ test: 0.6350
 
 
 
-
+/home/zs/code/sim/src/logs/bc48_t60_noego_l3_diff_ep64/2026-03-20_13-49-24/epoch=63-step=649344.ckpt
 
 
 
