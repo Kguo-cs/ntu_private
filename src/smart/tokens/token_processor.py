@@ -580,17 +580,17 @@ class TokenProcessor(torch.nn.Module):
                 if self.use_all_pos:
                     start_idx = 10
 
-                    valid = valid_mask[:, start_idx]
+                    #valid = valid_mask[:, start_idx]
 
-                    tokenized_agent["initial_heading"] = heading[:, start_idx][valid]
-                    tokenized_agent["initial_pos"] = pos[:, start_idx][valid]  # [valid]
-                    tokenized_agent["initial_shape"] = shape[valid]
-                    tokenized_agent["initial_type"] = type[valid].long()
-                    tokenized_agent["batch"] = batch[valid]
+                    tokenized_agent["initial_heading"] = heading[:, start_idx]#[valid]
+                    tokenized_agent["initial_pos"] = pos[:, start_idx]#[valid]  # [valid]
+                    tokenized_agent["initial_shape"] = shape#[valid]
+                    tokenized_agent["initial_type"] = type.long()#[valid]
+                    tokenized_agent["batch"] = batch#[valid]
 
-                    tokenized_agent["all_pos"] = torch.cat((pos[:,:start_idx],pos[:,start_idx+1:]),dim=1)[valid]
-                    tokenized_agent["all_heading"] = torch.cat((heading[:,:start_idx],heading[:,start_idx+1:]),dim=1)[valid]
-                    tokenized_agent["valid_mask"] = torch.cat((valid_mask[:,:start_idx],valid_mask[:,start_idx+1:]),dim=1)[valid]
+                    tokenized_agent["all_pos"] = torch.cat((pos[:,:start_idx],pos[:,start_idx+1:]),dim=1)#[valid]
+                    tokenized_agent["all_heading"] = torch.cat((heading[:,:start_idx],heading[:,start_idx+1:]),dim=1)#[valid]
+                    tokenized_agent["valid_mask"] = torch.cat((valid_mask[:,:start_idx],valid_mask[:,start_idx+1:]),dim=1)#[valid]
                     ego_traj = pos[ego_mask, :10].contiguous()
 
                     tokenized_agent["ego_traj"] = ego_traj
