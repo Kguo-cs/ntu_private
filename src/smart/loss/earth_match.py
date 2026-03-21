@@ -81,10 +81,10 @@ def matching_loss(
 
 
     total_loss = (
-        w_pos * w_pos *pos_loss +
-        w_heading *w_heading * heading_loss +
-        w_shape * w_shape *shape_loss+
-        w_vel*w_vel*vel_loss
+        w_pos  *pos_loss +
+        w_heading  * heading_loss +
+        w_shape  *shape_loss+
+        w_vel*vel_loss
     )
 
     return total_loss,pos_loss,heading_loss,shape_loss,vel_loss
