@@ -753,6 +753,7 @@ test: 0.6350
 
 
 
+/home/ke/code/sim/src/waymo_data/AIRL20_ALL203_sample20_noise1e2.ckpt
 
 
 

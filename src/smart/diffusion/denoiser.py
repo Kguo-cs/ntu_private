@@ -570,19 +570,20 @@ class InitDenoiser(nn.Module):
 
                     local_traj=torch.cat([local_pos,local_head.cos()[:,:,None],local_head.sin()[:,:,None]],dim=-1).reshape(-1,n_step,16)
 
-                    local_traj[torch.isnan(local_traj)]=-10
+                    local_traj[torch.isnan(local_traj)]=-100
 
                     mask_a=~torch.isnan(head_a)#t,a
+                    mask_t=mask_a.transpose(0,1)
 
                     head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-                    beta_emb_m=beta_emb_m[None].repeat(n_step,1,1)[mask_a.transpose(0,1)]
+                    beta_emb_m=beta_emb_m[None].repeat(n_step,1,1)[mask_t]
 
                     shape=shape[:,None].repeat(1,n_step,1)
 
                     input_feature = torch.cat([shape,local_traj],dim=-1)
 
-                    feat_a = self.proj_in_m_delta(input_feature).transpose(0,1)[mask_a.transpose(0,1)]
+                    feat_a = self.proj_in_m_delta(input_feature).transpose(0,1)[mask_t]
 
                     feat_a_token = feat_a + beta_emb_m
 
@@ -604,7 +605,6 @@ class InitDenoiser(nn.Module):
                                                                                       None,
                                                                                       0,
                                                                                       tokenized_agent)
-                    mask_t=mask_a.transpose(0,1)
                     pos_s=pos_a.transpose(0,1)[mask_t]
 
                     theta=head_a.transpose(0,1)[mask_t]
