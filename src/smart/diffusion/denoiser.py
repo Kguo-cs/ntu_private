@@ -725,11 +725,6 @@ class InitDenoiser(nn.Module):
 
                     res=torch.cat([new_pose[10],mean_shape,new_pose[:10].transpose(0,1).flatten(1,2),new_pose[11:].transpose(0,1).flatten(1,2)],dim=-1)[:,None]
 
-
-                    # res = torch.cat(
-                    #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
-                    #      local_vel], dim=-1)[:, None]
-
                 else:
                     local_vel=res[:,6:]
 
