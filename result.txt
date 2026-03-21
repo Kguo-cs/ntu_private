@@ -783,5 +783,40 @@ WO53LWBDQV
 
 
 take all position for generation
+simformer: For each
+agent, it sequentially predicts (a) an agent type token,
+(b) a position token, (c) tokens for size and dynamic
+attributes, and (d) a sequence of trajectory tokens.
+Each prediction is conditioned on the map, ego history,
+agent type specification, and all previously generated
+agents.
 
+
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.66234016 |
+| Linear Speed Likelihood               | 0.37729618 |
+| Linear Acceleration Likelihood        | 0.5030157  |
+| Angular Speed Likelihood              | 0.60581106 |
+| Angular Acceleration Likelihood       | 0.68027556 |
+| Distance To Nearest Object Likelihood | 0.30762887 |
+| Collision Likelihood                  | 0.866547   |
+| Time To Collision Likelihood          | 0.8635248  |
+| Distance To Road Edge Likelihood      | 0.3524368  |
+| Offroad Likelihood                    | 0.6178145  |
+
+
+my
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.63506687 |
+| Linear Speed Likelihood               | 0.2934765  |
+| Linear Acceleration Likelihood        | 0.45989117 |
+| Angular Speed Likelihood              | 0.57634467 |
+| Angular Acceleration Likelihood       | 0.6708272  |
+| Distance To Nearest Object Likelihood | 0.25452054 |
+| Collision Likelihood                  | 0.87218755 |
+| Time To Collision Likelihood          | 0.83758754 |
+| Distance To Road Edge Likelihood      | 0.27507257 |
+| Offroad Likelihood                    | 0.5845219  |
 

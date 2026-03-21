@@ -39,7 +39,7 @@ class AgentTokenEncoder(nn.Module):
             self.shape_emb = MLPLayer(self.shape_dim, hidden_dim, hidden_dim)
             input_dim_x_a=2
             
-            self.differentiable_edge=False
+            self.differentiable_edge=not discriminator
 
         self.use_goal = self.token_processor.use_goal & ((not discriminator) | self.token_processor.use_bird)
         self.use_bird=token_processor.use_bird
