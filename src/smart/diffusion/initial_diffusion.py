@@ -106,20 +106,22 @@ class InitDiffusion(nn.Module):
         ego_embedding=self.G.ego_embedding(ego_local_traj)
 
         if "initial_map_feature" not in tokenized_agent.keys():
-            map_feature=tokenized_agent["map_feature"]
+            map_feature = tokenized_agent["map_feature"]
+            if self.use_all_pos:
+                initial_map_feature =map_feature
+            else:
+                batch_pl = map_feature["batch"]
 
-            batch_pl = map_feature["batch"]
+                pos_pt = map_feature["position"]
 
-            pos_pt = map_feature["position"]
+                ego_pos = ego_position.reshape(-1,batch_pl.max().item()+1,2)
 
-            ego_pos = ego_position.reshape(-1,batch_pl.max().item()+1,2)
+                dist=torch.norm(ego_pos[:,batch_pl]-pos_pt[None],dim=-1).amin(0)
 
-            dist=torch.norm(ego_pos[:,batch_pl]-pos_pt[None],dim=-1).amin(0)
+                initial_map_feature = {}
 
-            initial_map_feature = {}
-
-            for key in map_feature.keys():
-                initial_map_feature[key] = map_feature[key][dist < 100]
+                for key in map_feature.keys():
+                    initial_map_feature[key] = map_feature[key][dist < 100]
 
             tokenized_agent["initial_map_feature"] = initial_map_feature
         else:

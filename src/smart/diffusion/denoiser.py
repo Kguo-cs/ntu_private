@@ -143,7 +143,7 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
 
         if self.use_all_pos:
-            m_delta_dim=6
+            m_delta_dim=6+4*4
 
         # self.register_buffer("init_probs", torch.ones(m_delta_dim,100))
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
@@ -536,10 +536,6 @@ class InitDenoiser(nn.Module):
 
             else:
 
-                #m_delta=self.denormalize(m_delta)
-
-                # if self.training:
-                #     m_delta[torch.isnan(m_delta)] = 0
                 theta=torch.atan2(m_delta[:,3],m_delta[:,2])
 
                 pos_s=m_delta[:, :2]
@@ -555,21 +551,40 @@ class InitDenoiser(nn.Module):
 
                     fut_heading=torch.atan2(m_delta_fut[:,:,3],m_delta_fut[:,:,2])
 
-                    feat_a = self.proj_in_m_delta(shape)
+                    all_pos=torch.cat((fut_pos[:,:10],pos_s[:,None],fut_pos[:,10:],torch.zeros_like(fut_pos[:,:4])+torch.nan),dim=1).reshape(-1,19,5,2)
 
-                    feat_a = feat_a + beta_emb_m
+                    all_head=torch.cat((fut_heading[:,:10],theta[:,None],fut_heading[:,10:],torch.zeros_like(fut_heading[:,:4])+torch.nan),dim=1).reshape(-1,19,5)
 
-                    pos_a=torch.cat((fut_pos[:,:10],pos_s[:,None],fut_pos[:,10:]),dim=1)
+                    pos_a=all_pos[:,:,0]
 
-                    head_a=torch.cat((fut_heading[:,:10],theta[:,None],fut_heading[:,10:]),dim=1)
-
-                    mask_a=~torch.isnan(head_a)#t,a
+                    head_a=all_head[:,:,0]
 
                     n_step=pos_a.shape[1]
                     n_agent=pos_a.shape[0]
+
+                    rel_pos=all_pos[:,:,1:]
+
+                    rel_head=all_head[:,:,1:]
+
+                    local_pos,local_head=transform_to_local(rel_pos.flatten(0,1),rel_head.flatten(0,1),pos_a.flatten(0,1),head_a.flatten(0,1))
+
+                    local_traj=torch.cat([local_pos,local_head.cos()[:,:,None],local_head.sin()[:,:,None]],dim=-1).reshape(-1,n_step,16)
+
+                    local_traj[torch.isnan(local_traj)]=-10
+
+                    mask_a=~torch.isnan(head_a)#t,a
+
                     head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-                    feat_a_token=feat_a.repeat(n_step,1,1)[mask_a.transpose(0,1)]
+                    beta_emb_m=beta_emb_m[None].repeat(n_step,1,1)[mask_a.transpose(0,1)]
+
+                    shape=shape[:,None].repeat(1,n_step,1)
+
+                    input_feature = torch.cat([shape,local_traj],dim=-1)
+
+                    feat_a = self.proj_in_m_delta(input_feature).transpose(0,1)[mask_a.transpose(0,1)]
+
+                    feat_a_token = feat_a + beta_emb_m
 
                     agent_token_emb=None
 
@@ -583,12 +598,12 @@ class InitDenoiser(nn.Module):
                     all_features = [pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s]
 
                     res, feat_a, rewards, weight, a2a_feature = self.interative_decoder(all_features,
-                                                                                                      feat_a_token,
-                                                                                                      agent_token_emb,
-                                                                                                      map_feature,
-                                                                                                      None,
-                                                                                                      0,
-                                                                                                      tokenized_agent)
+                                                                                      feat_a_token,
+                                                                                      agent_token_emb,
+                                                                                      map_feature,
+                                                                                      None,
+                                                                                      0,
+                                                                                      tokenized_agent)
                     mask_t=mask_a.transpose(0,1)
                     pos_s=pos_a.transpose(0,1)[mask_t]
 
@@ -723,7 +738,25 @@ class InitDenoiser(nn.Module):
 
                     mean_shape=new_shape.sum(dim=0)/mask_t.sum(dim=0)[:,None]
 
-                    res=torch.cat([new_pose[10],mean_shape,new_pose[:10].transpose(0,1).flatten(1,2),new_pose[11:].transpose(0,1).flatten(1,2)],dim=-1)[:,None]
+                    local_traj=res[:,6:].reshape(-1,4,4)
+
+                    local_traj_pos=local_traj[:,:,:2]
+
+                    local_traj_theta=torch.atan2(local_traj[:,:,3],local_traj[:,:,2])
+
+                    local_traj_pos,local_traj_theta=transform_to_global(local_traj_pos,local_traj_theta,local_pos,local_theta)
+
+                    new_traj_pos=torch.zeros([n_step,n_agent,4,2],device=device)
+                    new_traj_theta=torch.zeros([n_step,n_agent,4],device=device)
+
+                    new_traj_pos[mask_t]=local_traj_pos
+                    new_traj_theta[mask_t]=local_traj_theta
+
+                    new_traj_pose=torch.cat([new_traj_pos,new_traj_theta.cos()[...,None],new_traj_theta.sin()[...,None]],dim=-1)
+
+                    new_pose=torch.cat([new_pose[:,:,None],new_traj_pose],dim=-2).transpose(1,2).reshape(-1,n_agent,4)#19,n_step,5
+
+                    res=torch.cat([new_pose[10],mean_shape,new_pose[:10].transpose(0,1).flatten(1,2),new_pose[11:91].transpose(0,1).flatten(1,2)],dim=-1)[:,None]
 
                 else:
                     local_vel=res[:,6:]
