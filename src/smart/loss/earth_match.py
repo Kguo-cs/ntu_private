@@ -50,7 +50,7 @@ def matching_loss(
         shape_loss = F.l1_loss(fake_shape, real_shape)
 
         fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
-        real_vel=torch.cat([fake_pos,real_vel],dim=-1)
+        real_vel=torch.cat([real_pos,real_vel],dim=-1)
 
         cluster_valid_mask=~torch.isnan(real_vel)
 
