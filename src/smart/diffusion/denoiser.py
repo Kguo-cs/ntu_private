@@ -425,22 +425,22 @@ class InitDenoiser(nn.Module):
         head_cosine = torch.cat([local_heading.cos().unsqueeze(-1), local_heading.sin().unsqueeze(-1)], dim=-1)  # [0,2]
 
         if self.use_all_pos:
-            local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"][non_ego],
-                                           tokenized_agent["all_heading"][non_ego],
+            local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"],
+                                           tokenized_agent["all_heading"],
                                            non_ego_pos,
                                            non_ego_head)
 
             local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
 
-            tokenized_agent["nonego_valid_mask"]=tokenized_agent["valid_mask"][non_ego]
-
-            local_vel[~tokenized_agent["nonego_valid_mask"]]=torch.nan
+            local_vel[~tokenized_agent["valid_mask"]]=torch.nan
 
             local_vel=local_vel.flatten(1,2)
 
-            valid=tokenized_agent["nonego_valid_mask"][:,:,None].repeat(1,1,4).flatten(1,2)
+            #tokenized_agent["nonego_valid_mask"]=tokenized_agent["valid_mask"]
 
-            tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
+            # valid=tokenized_agent["nonego_valid_mask"][:,:,None].repeat(1,1,4).flatten(1,2)
+            #
+            # tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
            local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
 

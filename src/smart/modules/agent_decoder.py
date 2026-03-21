@@ -183,7 +183,7 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.token_processor.use_all_pos:
                 out_dict = {
-                    "shape": tokenized_agent["shape"],
+                    "shape": shape,
                     "pred_traj_10hz": pos_a,
                     "pred_head_10hz": head_a,
                     "pred_z_10hz": torch.zeros_like(pos_a[:, :, 0]),

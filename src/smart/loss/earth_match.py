@@ -28,7 +28,7 @@ def gaussian_nll_2d(mu, sigma, target):
 def matching_loss(
     fake_state,
     real_state,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
+    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=1
 ):
 
     fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
