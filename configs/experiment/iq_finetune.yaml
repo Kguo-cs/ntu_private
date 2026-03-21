@@ -35,7 +35,7 @@ model:
       dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
-      dis_weight: 10
+      dis_weight: 5
       dist_decay: 3
       reward_weight: 0
       reward_decay: 2.5
@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL19_53_disdiff_nonego_all_start1 #_t3_no_R #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL19_53_disdiff_all_start1 #_t3_no_R_nonego #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0
