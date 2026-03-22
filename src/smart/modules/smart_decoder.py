@@ -203,14 +203,6 @@ class SMARTDecoder(nn.Module):
 
         return pred_dict
 
-    def get_Q(self,feat_a,action):
-
-        state_action=torch.cat([feat_a,action],dim=-1)
-
-        current_Q = self.critic.token_predict_head(state_action)[...,0]
-
-        return current_Q
-
     def inference(
         self,
         tokenized_map: Dict[str, Tensor],
