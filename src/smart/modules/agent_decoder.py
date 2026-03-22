@@ -197,7 +197,7 @@ class SMARTAgentDecoder(nn.Module):
                 current_step = 1
 
             mask=torch.ones_like(mask[:, :current_step])
-            token_mask = torch.ones_like(token_mask[:, :current_step])
+            token_mask = torch.zeros_like(token_mask[:, :current_step])
 
         n_agent = sampled_idx.shape[0]
         next_mask=mask[:, -1]
