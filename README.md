@@ -14,7 +14,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_all_light ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_sample20_l2_norm_clip3_all/2026-03-19_23-11-18/bc/owtpstd6/checkpoints/epoch=63-step=121792.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_sample10_l2_noise/2026-03-20_21-16-10/bc/vzjrodu7/checkpoints/epoch=63-step=121792.ckpt ./
 
 
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc48_t60_noego_l3_diff_ep64/2026-03-20_13-49-24/bc/hu1djhl6/checkpoints/epoch=63-step=649344.ckpt ./
