@@ -4,9 +4,9 @@ nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
 rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/testing_map2light 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/AIRL19_103_disdiff_nonego_all_start1_noise_epoch=5-step=153792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
+rsync -avz /home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/AIRL19_103_disdiff_nonego_all_start1_noise_epoch=5-step=153792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 

@@ -57,12 +57,11 @@ class SMARTAgentDecoder(nn.Module):
             discriminator=False
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
-        self.hidden_dim = hidden_dim
         self.num_historical_steps = num_historical_steps
         self.num_future_steps = num_future_steps
-        self.time_span = time_span if time_span is not None else num_historical_steps
         self.token_processor= token_processor
         self.discriminator=discriminator
+        self.alpha = alpha
 
         self.shift = token_processor.shift
 
@@ -81,7 +80,6 @@ class SMARTAgentDecoder(nn.Module):
                                                     discriminator=discriminator
                                                     )
 
-        self.alpha = alpha
 
         self.pred_init=token_processor.pred_init & (not discriminator)
 
@@ -197,7 +195,7 @@ class SMARTAgentDecoder(nn.Module):
                 current_step = 1
 
             mask=torch.ones_like(mask[:, :current_step])
-            token_mask = torch.zeros_like(token_mask[:, :current_step])
+            token_mask = torch.ones_like(token_mask[:, :current_step])
 
         n_agent = sampled_idx.shape[0]
         next_mask=mask[:, -1]
