@@ -49,7 +49,7 @@ trainer:
   #check_val_every_n_epoch: 1
   #val_check_interval: 0.2
   #val_check_interval: 0.000002
-  max_epochs: 10
+  max_epochs: 12
   gradient_clip_val: 0.0
 
 data:
