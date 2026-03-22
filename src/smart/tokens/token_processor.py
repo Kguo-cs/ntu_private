@@ -272,6 +272,10 @@ class TokenProcessor(torch.nn.Module):
         )
         #valid,pos,heading,vel=extrapolate_agent_to_first_step_vectorized(valid, pos, heading, vel)
 
+        if self.pred_init and not self.learn_init and self.training:
+            pos[:,:11]=pos[:,:11]+torch.randn_like(pos[:,:11])*0.01
+            heading[:,:11]=heading[:,:11]+torch.randn_like(heading[:,:11])*0.01
+
         role_mask = data["agent"]["role"]
 
         pred_mask = role_mask[:, 0] | role_mask[:, 2]
@@ -281,7 +285,7 @@ class TokenProcessor(torch.nn.Module):
         # ! prepare output dict
         tokenized_agent = {
             "num_graphs": data.num_graphs,
-            "type": data["agent"]["type"],
+            "type": data["agent"]["type"].long(),
             "shape": data["agent"]["shape"].clone(),
             "ego_mask": ego_mask,  # [n_agent]
             "token_agent_shape":  agent_shape,  # [n_agent, 2]
@@ -358,12 +362,14 @@ class TokenProcessor(torch.nn.Module):
             "sampled_idx": [],
             "sampled_pos": [],#pos[:, 0]
             "sampled_heading": [],
-            'gt_idx':[],
+            #'gt_idx':[],
             'token_mask':[],
-            "token_contour":[]
+            #"token_contour":[]
            # 'token_valid':[]
         }
-        n_step = 11
+
+        if not self.training:
+            n_step = 11
 
         for i in range(shift, n_step, shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - shift] & valid[:, i]  # [n_agent]
@@ -384,7 +390,7 @@ class TokenProcessor(torch.nn.Module):
             all_dist=torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1)
             min_dist, token_idx_gt = torch.min(all_dist, dim=-1)  # [n_agent]
 
-            out_dict["gt_idx"].append(token_idx_gt)
+            #out_dict["gt_idx"].append(token_idx_gt)
 
             # if self.training and self.noise:
             #     topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
@@ -394,7 +400,7 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
-            out_dict["token_contour"].append(token_contour_gt)
+           # out_dict["token_contour"].append(token_contour_gt)
 
             token_valid=min_dist<error_dist
             _valid_mask[~token_valid]=False
