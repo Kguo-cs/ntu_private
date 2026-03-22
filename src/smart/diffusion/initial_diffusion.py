@@ -32,7 +32,7 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
         self.use_dit=False
         self.sep_map=False
-        self.use_match=False
+        self.use_match=True
 
         self.use_all_pos=token_processor.use_all_pos
 
@@ -133,7 +133,7 @@ class InitDiffusion(nn.Module):
         feat_map = initial_map_feature["pt_token"]
 
         if batch_pl.max().item()==num_graphs-1:
-            pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
+            initial_map_feature["position"], initial_map_feature["orientation"] = transform_to_local(pos_pl,  # [:,None],
                                                    orient_pl,  # [:,None],
                                                    ego_position[batch_pl],
                                                    ego_heading[batch_pl],

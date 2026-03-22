@@ -176,8 +176,6 @@ class InitDenoiser(nn.Module):
                 else:
                     self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
-
-
                 if self.use_graph:
                     self.use_padding = False
 
@@ -408,14 +406,6 @@ class InitDenoiser(nn.Module):
         non_ego_pos=tokenized_agent["initial_pos"][non_ego]
         non_ego_head=tokenized_agent["initial_heading"][non_ego]
 
-        local_pos, local_heading = transform_to_local(non_ego_pos,
-                                                    non_ego_head,
-                                                    batch_ego_pos,
-                                                    batch_ego_heading,
-                                                    )
-
-        head_cosine = torch.cat([local_heading.cos().unsqueeze(-1), local_heading.sin().unsqueeze(-1)], dim=-1)  # [0,2]
-
         if self.use_all_pos:
             local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"],
                                            tokenized_agent["all_heading"],
@@ -424,8 +414,6 @@ class InitDenoiser(nn.Module):
 
             # local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
 
-            local_allheading[~tokenized_agent["valid_mask"]]=torch.nan
-            local_allpos[~tokenized_agent["valid_mask"]]=torch.nan
 
             local_allpos=local_allpos.reshape(-1,19,5,2)
 
@@ -459,6 +447,15 @@ class InitDenoiser(nn.Module):
             #
             # tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
+            local_pos, local_heading = transform_to_local(non_ego_pos,
+                                                          non_ego_head,
+                                                          batch_ego_pos,
+                                                          batch_ego_heading,
+                                                          )
+
+            head_cosine = torch.cat([local_heading.cos().unsqueeze(-1), local_heading.sin().unsqueeze(-1)],
+                                    dim=-1)  # [0,2]
+
             local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
 
             if self.use_speed:
@@ -585,11 +582,12 @@ class InitDenoiser(nn.Module):
                     n_step=pos_a.shape[1]
                     n_agent=pos_a.shape[0]
 
-                    local_traj=torch.cat([rel_pos,rel_heading_cos.cos()[...,None],rel_heading_sin.sin()[...,None]],dim=-1).reshape(-1,n_step,16)
+                    local_traj=torch.cat([rel_pos,rel_heading_cos[...,None],rel_heading_sin[...,None]],dim=-1).reshape(-1,n_step,16)
 
                     local_traj[torch.isnan(local_traj)]=-100
 
                     mask_a=~torch.isnan(head_a)#t,a
+
                     mask_t=mask_a.transpose(0,1)
 
                     head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
@@ -640,7 +638,10 @@ class InitDenoiser(nn.Module):
 
                     if self.use_graph:
 
-                        pos_pl, orient_pl, batch_pl, feat_map=map_feature
+                        batch_pl = map_feature["batch"]
+                        pos_pl = map_feature["position"]
+                        orient_pl = map_feature["orientation"]
+                        feat_map = map_feature["pt_token"]
 
                         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 

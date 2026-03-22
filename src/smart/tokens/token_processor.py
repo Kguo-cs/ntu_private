@@ -63,7 +63,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal=False
         self.token_initial=False
 
-        self.use_all_pos=True
+        self.use_all_pos=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -594,6 +594,8 @@ class TokenProcessor(torch.nn.Module):
                     ego_traj = pos[ego_mask, :10].contiguous()
 
                     tokenized_agent["ego_traj"] = ego_traj
+                    tokenized_agent["all_pos"][~tokenized_agent["valid_mask"]] = torch.nan
+                    tokenized_agent["all_heading"][~tokenized_agent["valid_mask"]] = torch.nan
 
                 else:
 

@@ -43,14 +43,14 @@ def matching_loss(
     # pos_loss = dist.mean()
 
     if fake_state.shape[1]!=16:
-        #pos_loss=F.l1_loss(fake_pos, real_pos)
-        pos_loss=torch.tensor(0.0).to(real_state.device)
+        pos_loss=F.l1_loss(fake_pos, real_pos)
+        #pos_loss=torch.tensor(0.0).to(real_state.device)
 
         heading_loss = F.l1_loss(fake_heading, real_heading)
         shape_loss = F.l1_loss(fake_shape, real_shape)
 
-        fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
-        real_vel=torch.cat([real_pos,real_vel],dim=-1)
+        #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
+        #real_vel=torch.cat([real_pos,real_vel],dim=-1)
 
         cluster_valid_mask=~torch.isnan(real_vel)
 
