@@ -925,63 +925,91 @@ class InitDenoiser(nn.Module):
         gt_initial_pos = tokenized_agent["initial_pos"].clone()
         gt_initial_heading = tokenized_agent["initial_heading"].clone()
 
-        pred_trans, pred_head, pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4], pred_init[..., 4:6], \
-        pred_init[..., 6:]
-
-        pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-
         shape = tokenized_agent["initial_shape"].clone()
-
-        shape[non_ego, :2] = pred_shape[:, :2]
-
-        batch_ego_pos=tokenized_agent["batch_ego_pos"]
-        batch_ego_heading=tokenized_agent["batch_ego_heading"]
-
-        global_pos,global_heading=transform_to_global(
-            pred_trans,
-            pred_head,
-            batch_ego_pos,
-            batch_ego_heading,
-        )
+        batch_ego_pos = tokenized_agent["batch_ego_pos"]
+        batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
         if self.use_all_pos:
+            n_step=19
 
-            all_posHeading=pred_vel.reshape(-1,90,4)
+            shape[non_ego, :2] = pred_init[:, -2:]
 
-            all_pos=all_posHeading[:,:,:2]
+            pos_a = pred_init[:, :2 * n_step].reshape(-1, n_step, 2)
 
-            all_heading=torch.atan2(all_posHeading[:,:,3],all_posHeading[:,:,2])
+            inter_heading_cos = pred_init[:, 2 * n_step:3 * n_step]
+
+            inter_heading_sin = pred_init[:, 3 * n_step:4 * n_step]
+
+            head_a = torch.atan2(inter_heading_sin, inter_heading_cos)
+
+            rel_pos = pred_init[:, 4 * n_step:12 * n_step].reshape(-1, n_step, 4, 2)
+
+            rel_heading_cos = pred_init[:, 12 * n_step:16 * n_step].reshape(-1, n_step, 4)
+
+            rel_heading_sin = pred_init[:, 16 * n_step:20 * n_step].reshape(-1, n_step, 4)
+
+            rel_heading = torch.atan2(rel_heading_sin, rel_heading_cos)
+
 
             all_pos,all_heading=transform_to_global(
-                all_pos,
-                all_heading,
+                pos_a,
+                head_a,
                 batch_ego_pos,
                 batch_ego_heading,
             )
 
-            gt_initial_pos=torch.cat([all_pos[:,:10],global_pos[:,None],all_pos[:,10:]],dim=1)
+            rel_pos,rel_heading=transform_to_global(
+                rel_pos.flatten(0,1),
+                rel_heading.flatten(0,1),
+                all_pos.flatten(0,1),
+                all_heading.flatten(0,1),
+            )
 
-            gt_initial_heading=torch.cat([all_heading[:,:10],global_heading[:,None],all_heading[:,10:]],dim=1)
+            rel_pos=rel_pos.reshape(-1, n_step, 4, 2)
+            rel_heading=rel_heading.reshape(-1, n_step, 4)
+
+            gt_initial_pos=torch.cat([all_pos[:,:,None],rel_pos],dim=2)
+
+            gt_initial_heading=torch.cat([all_heading[:,:,None],rel_heading],dim=2)
+
+            gt_initial_pos=gt_initial_pos.reshape(-1, n_step*5,2)[:,:-4]
+
+            gt_initial_heading=gt_initial_heading.reshape(-1,n_step*5)[:,:-4]
 
             gt_initial_vel= (gt_initial_pos[:,15]-gt_initial_pos[:,10])/0.5
             gt_initial_idx=None
         else:
+            pred_trans, pred_head, pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4], pred_init[..., 4:6], \
+                pred_init[..., 6:]
+
+            pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+
+
+            shape[non_ego, :2] = pred_shape[:, :2]
+
+
+            global_pos,global_heading=transform_to_global(
+                pred_trans,
+                pred_head,
+                batch_ego_pos,
+                batch_ego_heading,
+            )
 
             if self.use_speed:
-                global_pred_vel=torch.stack([global_heading.cos(),global_heading.sin()],dim=-1)*pred_vel
+                global_pred_vel = torch.stack([global_heading.cos(), global_heading.sin()], dim=-1) * pred_vel
             else:
-                global_pred_vel=rotate_to_global(pred_vel[:,:2],global_heading)
+                global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
 
-            gt_initial_pos[non_ego]=global_pos
-            gt_initial_heading[non_ego]=global_heading
+            gt_initial_pos[non_ego] = global_pos
+            gt_initial_heading[non_ego] = global_heading
 
-            gt_initial_vel=tokenized_agent["initial_vel"].clone()
+            gt_initial_vel = tokenized_agent["initial_vel"].clone()
 
-            gt_initial_vel[non_ego] =global_pred_vel
+            gt_initial_vel[non_ego] = global_pred_vel
 
-            rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
+            rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
 
-            use_corner=False
+            use_corner = False
 
             if use_corner:
                 center_token_traj = tokenized_agent["token_traj"].flatten(1, 2)
