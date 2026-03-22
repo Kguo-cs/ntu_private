@@ -275,11 +275,11 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_init and not self.learn_init and self.training:
             first_valid=valid[:,0]
-            pos[first_valid,:6]=pos[first_valid,:6]+torch.randn_like(pos[first_valid,:6])*0.02
-            heading[first_valid,:6]=heading[first_valid,:6]+torch.randn_like(heading[first_valid,:6])*0.02
+            pos[first_valid,:6]=pos[first_valid,:6]+torch.randn_like(pos[first_valid,:6]).clamp(min=-3,max=3)*0.02
+            heading[first_valid,:6]=heading[first_valid,:6]+torch.randn_like(heading[first_valid,:6]).clamp(min=-3,max=3)*0.02
             first_nonvalid=~first_valid
-            pos[first_nonvalid,:11]=pos[first_nonvalid,:11]+torch.randn_like(pos[first_nonvalid,:11])*0.01
-            heading[first_nonvalid,:11]=heading[first_nonvalid,:11]+torch.randn_like(heading[first_nonvalid,:11])*0.02
+            pos[first_nonvalid,:11]=pos[first_nonvalid,:11]+torch.randn_like(pos[first_nonvalid,:11]).clamp(min=-3,max=3)*0.02
+            heading[first_nonvalid,:11]=heading[first_nonvalid,:11]+torch.randn_like(heading[first_nonvalid,:11]).clamp(min=-3,max=3)*0.02
 
             shape=shape+torch.randn_like(shape)*0.02
 
