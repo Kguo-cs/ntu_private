@@ -749,7 +749,7 @@ test: 0.6350
 0.7840
 
 
-/home/ke/code/sim/src/waymo_data/AIRL19_103_disdiff_nonego_all_start1_epoch=5-step=153792.ckpt
+/home/ke/code/sim/src/waymo_data/AIRL19_103_disdiff_nonego_all_start1_noise_epoch=5-step=153792.ckpt
 
 0.7852
 
