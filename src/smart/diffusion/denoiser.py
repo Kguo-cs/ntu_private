@@ -134,7 +134,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim=m_delta_dim+2
 
         if self.use_all_pos:
-            m_delta_dim=m_delta_dim+90*4-2
+            m_delta_dim=m_delta_dim+94*4-2
 
         self.output_dim=m_delta_dim
         self.label_drop_prob=0
@@ -422,11 +422,36 @@ class InitDenoiser(nn.Module):
                                            batch_ego_pos,
                                            batch_ego_heading)
 
-            local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
+            # local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
 
-            local_vel[~tokenized_agent["valid_mask"]]=torch.nan
+            local_allheading[~tokenized_agent["valid_mask"]]=torch.nan
+            local_allpos[~tokenized_agent["valid_mask"]]=torch.nan
 
-            local_vel=local_vel.flatten(1,2)
+            local_allpos=local_allpos.reshape(-1,19,5,2)
+
+            local_allheading=local_allheading.reshape(-1,19,5)
+
+            inter_pos=local_allpos[:,:,0]
+
+            inter_heading=local_allheading[:,:,0]
+
+            rel_pos,rel_heading=transform_to_local(
+                local_allpos[:,:,1:].flatten(0,1),
+                local_allheading[:,:,1:].flatten(0,1),
+                inter_pos.flatten(0,1),
+                inter_heading.flatten(0,1)
+            )
+
+            rel_pos=rel_pos.reshape(-1,19,4,2)
+
+            rel_heading=rel_heading.reshape(-1,19,4)
+
+            n_agent=len(rel_pos)
+
+            m_init = torch.cat([inter_pos.reshape(n_agent,-1), inter_heading.reshape(n_agent,-1).cos(),inter_heading.reshape(n_agent,-1).sin(),
+                                rel_pos.reshape(n_agent, -1), rel_heading.reshape(n_agent, -1).cos(),rel_heading.reshape(n_agent, -1).sin(),
+                                    initial_shape[:, :2]], dim=-1)
+
 
             #tokenized_agent["nonego_valid_mask"]=tokenized_agent["valid_mask"]
 
@@ -434,19 +459,19 @@ class InitDenoiser(nn.Module):
             #
             # tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
-           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
+            local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
 
-           if self.use_speed:
+            if self.use_speed:
                local_vel=local_vel.norm(dim=-1,keepdim=True)
 
-           tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
+            tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
-           if self.use_prev_head:
+            if self.use_prev_head:
                 prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],non_ego_head)
 
                 local_vel = torch.cat([local_vel, prev_heading.cos()[:,None],prev_heading.sin()[:,None]], dim=-1)
 
-        m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
+            m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
 
         tokenized_agent['nonego_type_sorted'] = nonego_type
 
@@ -536,39 +561,31 @@ class InitDenoiser(nn.Module):
 
             else:
 
-                theta=torch.atan2(m_delta[:,3],m_delta[:,2])
-
-                pos_s=m_delta[:, :2]
-
                 beta_emb_m = self.noise_embedding(beta.reshape(-1,1)) +self.type_a_emb(type)+ego_embedding
 
                 if self.use_all_pos:
-                    shape=m_delta[:,4:6]
+                    shape=m_delta[:,-2:]
 
-                    m_delta_fut=m_delta[:, 6:].reshape(-1,90,4)
+                    n_step=19
 
-                    fut_pos=m_delta_fut[:,:,:2]
+                    pos_a=m_delta[:,:2*n_step].reshape(-1,n_step,2)
 
-                    fut_heading=torch.atan2(m_delta_fut[:,:,3],m_delta_fut[:,:,2])
+                    inter_heading_cos=m_delta[:,2*n_step:3*n_step]
 
-                    all_pos=torch.cat((fut_pos[:,:10],pos_s[:,None],fut_pos[:,10:],torch.zeros_like(fut_pos[:,:4])+torch.nan),dim=1).reshape(-1,19,5,2)
+                    inter_heading_sin=m_delta[:,3*n_step:4*n_step]
 
-                    all_head=torch.cat((fut_heading[:,:10],theta[:,None],fut_heading[:,10:],torch.zeros_like(fut_heading[:,:4])+torch.nan),dim=1).reshape(-1,19,5)
+                    head_a=torch.atan2(inter_heading_sin,inter_heading_cos)
 
-                    pos_a=all_pos[:,:,0]
+                    rel_pos=m_delta[:,4*n_step:12*n_step].reshape(-1,n_step,4,2)
 
-                    head_a=all_head[:,:,0]
+                    rel_heading_cos=m_delta[:,12*n_step:16*n_step].reshape(-1,n_step,4)
+
+                    rel_heading_sin=m_delta[:,16*n_step:20*n_step].reshape(-1,n_step,4)
 
                     n_step=pos_a.shape[1]
                     n_agent=pos_a.shape[0]
 
-                    rel_pos=all_pos[:,:,1:]
-
-                    rel_head=all_head[:,:,1:]
-
-                    local_pos,local_head=transform_to_local(rel_pos.flatten(0,1),rel_head.flatten(0,1),pos_a.flatten(0,1),head_a.flatten(0,1))
-
-                    local_traj=torch.cat([local_pos,local_head.cos()[:,:,None],local_head.sin()[:,:,None]],dim=-1).reshape(-1,n_step,16)
+                    local_traj=torch.cat([rel_pos,rel_heading_cos.cos()[...,None],rel_heading_sin.sin()[...,None]],dim=-1).reshape(-1,n_step,16)
 
                     local_traj[torch.isnan(local_traj)]=-100
 
@@ -610,6 +627,10 @@ class InitDenoiser(nn.Module):
                     theta=head_a.transpose(0,1)[mask_t]
 
                 else:
+                    theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
+
+                    pos_s = m_delta[:, :2]
+
                     if self.ego_rel:
                         feat_a=self.proj_in_m_delta(m_delta[:,4:])
                     else:
@@ -732,31 +753,25 @@ class InitDenoiser(nn.Module):
                     new_pos[mask_t]=local_pos
                     new_theta[mask_t]=local_theta
 
-                    new_pose=torch.cat([new_pos,new_theta.cos()[:,:,None],new_theta.sin()[:,:,None]],dim=-1)
-
                     new_shape[mask_t]=res[:,4:6]
 
                     mean_shape=new_shape.sum(dim=0)/mask_t.sum(dim=0)[:,None]
 
-                    local_traj=res[:,6:].reshape(-1,4,4)
+                    local_traj=torch.zeros([n_step,n_agent,16],device=device)
 
-                    local_traj_pos=local_traj[:,:,:2]
+                    local_traj[mask_t]=res[:,6:]
 
-                    local_traj_theta=torch.atan2(local_traj[:,:,3],local_traj[:,:,2])
+                    rel_pos=local_traj[:,:,:8]
 
-                    local_traj_pos,local_traj_theta=transform_to_global(local_traj_pos,local_traj_theta,local_pos,local_theta)
+                    rel_heading_cos=local_traj[:,:,8:12]
 
-                    new_traj_pos=torch.zeros([n_step,n_agent,4,2],device=device)
-                    new_traj_theta=torch.zeros([n_step,n_agent,4],device=device)
+                    rel_heading_sin=local_traj[:,:,12:]
 
-                    new_traj_pos[mask_t]=local_traj_pos
-                    new_traj_theta[mask_t]=local_traj_theta
-
-                    new_traj_pose=torch.cat([new_traj_pos,new_traj_theta.cos()[...,None],new_traj_theta.sin()[...,None]],dim=-1)
-
-                    new_pose=torch.cat([new_pose[:,:,None],new_traj_pose],dim=-2).transpose(1,2).reshape(-1,n_agent,4)#19,n_step,5
-
-                    res=torch.cat([new_pose[10],mean_shape,new_pose[:10].transpose(0,1).flatten(1,2),new_pose[11:91].transpose(0,1).flatten(1,2)],dim=-1)[:,None]
+                    res = torch.cat([new_pos.transpose(0,1).reshape(n_agent, -1), new_theta.transpose(0,1).reshape(n_agent, -1).cos(),
+                                        new_theta.transpose(0,1).reshape(n_agent, -1).sin(),
+                                        rel_pos.transpose(0,1).reshape(n_agent, -1), rel_heading_cos.transpose(0,1).reshape(n_agent, -1),
+                                        rel_heading_sin.transpose(0,1).reshape(n_agent, -1).sin(),
+                                        mean_shape], dim=-1)[:, None]
 
                 else:
                     local_vel=res[:,6:]

@@ -588,9 +588,9 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent["initial_type"] = type.long()#[valid]
                     tokenized_agent["batch"] = batch#[valid]
 
-                    tokenized_agent["all_pos"] = torch.cat((pos[:,:start_idx],pos[:,start_idx+1:]),dim=1)#[valid]
-                    tokenized_agent["all_heading"] = torch.cat((heading[:,:start_idx],heading[:,start_idx+1:]),dim=1)#[valid]
-                    tokenized_agent["valid_mask"] = torch.cat((valid_mask[:,:start_idx],valid_mask[:,start_idx+1:]),dim=1)#[valid]
+                    tokenized_agent["all_pos"] = torch.cat((pos,pos[:,:4]),dim=1)#[valid]
+                    tokenized_agent["all_heading"] = torch.cat((heading,heading[:,:4]),dim=1)#[valid]
+                    tokenized_agent["valid_mask"] = torch.cat((valid_mask,torch.zeros_like(valid_mask)[:,:4]),dim=1)#[valid]
                     ego_traj = pos[ego_mask, :10].contiguous()
 
                     tokenized_agent["ego_traj"] = ego_traj

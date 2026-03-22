@@ -275,7 +275,9 @@ class ScaleFlow(nn.Module):
                 #
                # v_pred = (x_pred - z) /denom
                 #loss=F.mse_loss(x_pred , x,reduction="none")
-                loss=torch.tensor(0.0,device=device)
+                non_nan_mask=~torch.isnan(x)
+
+                loss=F.l1_loss(x_pred[non_nan_mask],x[non_nan_mask],reduction="none")
 
             else:
                 v_target =x - e

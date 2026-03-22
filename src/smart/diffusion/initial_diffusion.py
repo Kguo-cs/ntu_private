@@ -32,7 +32,7 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
         self.use_dit=False
         self.sep_map=False
-        self.use_match=True
+        self.use_match=False
 
         self.use_all_pos=token_processor.use_all_pos
 
