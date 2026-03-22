@@ -133,7 +133,7 @@ class InitDiffusion(nn.Module):
         feat_map = initial_map_feature["pt_token"]
 
         if batch_pl.max().item()==num_graphs-1:
-            initial_map_feature["position"], initial_map_feature["orientation"] = transform_to_local(pos_pl,  # [:,None],
+            pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                    orient_pl,  # [:,None],
                                                    ego_position[batch_pl],
                                                    ego_heading[batch_pl],
@@ -142,7 +142,12 @@ class InitDiffusion(nn.Module):
         if self.G.net.use_padding  or (self.use_gan and self.D.use_entry_former):
             map_feature = self.G.net.padding(pos_pl, orient_pl, feat_map, batch_pl, tokenized_agent["num_graphs"])
         else:
-            map_feature =initial_map_feature #(pos_pl, orient_pl, batch_pl, feat_map)
+            map_feature={
+                "pt_token": feat_map,
+                "position": pos_pl,
+                "orientation": orient_pl,
+                "batch": batch_pl,
+            }
 
         if self.training:
 
@@ -153,7 +158,7 @@ class InitDiffusion(nn.Module):
             tokenized_agent["nonego_batch"]=nonego_batch
             tokenized_agent["ego_embedding"] = ego_embedding
 
-            data=(m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, nonego_batch, batch_pl)
+            # data=(m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, nonego_batch, batch_pl)
 
             if self.learn_autoencoder:
                 rec_loss,agent_loss,kl_loss,x_pred =self.autoencoder.loss(data)

@@ -439,13 +439,6 @@ class InitDenoiser(nn.Module):
             m_init = torch.cat([inter_pos.reshape(n_agent,-1), inter_heading.reshape(n_agent,-1).cos(),inter_heading.reshape(n_agent,-1).sin(),
                                 rel_pos.reshape(n_agent, -1), rel_heading.reshape(n_agent, -1).cos(),rel_heading.reshape(n_agent, -1).sin(),
                                     initial_shape[:, :2]], dim=-1)
-
-
-            #tokenized_agent["nonego_valid_mask"]=tokenized_agent["valid_mask"]
-
-            # valid=tokenized_agent["nonego_valid_mask"][:,:,None].repeat(1,1,4).flatten(1,2)
-            #
-            # tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
             local_pos, local_heading = transform_to_local(non_ego_pos,
                                                           non_ego_head,
@@ -457,9 +450,6 @@ class InitDenoiser(nn.Module):
                                     dim=-1)  # [0,2]
 
             local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
-
-            if self.use_speed:
-               local_vel=local_vel.norm(dim=-1,keepdim=True)
 
             tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
@@ -473,11 +463,6 @@ class InitDenoiser(nn.Module):
         tokenized_agent['nonego_type_sorted'] = nonego_type
 
         if self.use_scale:
-            if self.use_all_type:
-                one_hot = F.one_hot(tokenized_agent["nonego_type_sorted"], num_classes=tokenized_agent["type_counts"].shape[-1])
-
-                m_init = torch.cat([m_init, one_hot], dim=-1)
-
             diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
         else:
             diff_input = m_init
@@ -539,7 +524,6 @@ class InitDenoiser(nn.Module):
                 map_emb[~map_mask]=0
 
                 lengths = torch.bincount(batch, minlength=num_graphs).tolist()
-
 
                 feat_a = padding(m_delta, lengths, padding_value=0)  # b, n, d
 
@@ -716,6 +700,7 @@ class InitDenoiser(nn.Module):
                             feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                             feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+
                         res=self.to_out_m_delta(feat_a)
 
                     else:
@@ -733,9 +718,6 @@ class InitDenoiser(nn.Module):
                                            )
 
                         feat_a = feat_a_b[mask_a_b]
-
-
-                # res=self.denormalize(res)
 
                 res_theta=torch.atan2(res[:,3],res[:,2])
 
@@ -780,8 +762,6 @@ class InitDenoiser(nn.Module):
                     res = torch.cat(
                         [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
                          local_vel], dim=-1)[:, None]
-
-               # res=self.normalize(res)
         else:
             beta_emb = self.noise_emb(beta)
             # num_agents x 128
@@ -985,9 +965,7 @@ class InitDenoiser(nn.Module):
 
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
-
             shape[non_ego, :2] = pred_shape[:, :2]
-
 
             global_pos,global_heading=transform_to_global(
                 pred_trans,
