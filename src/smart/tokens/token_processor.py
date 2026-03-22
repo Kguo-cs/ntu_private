@@ -271,6 +271,8 @@ class TokenProcessor(torch.nn.Module):
             valid, pos, heading, vel
         )
 
+        shape=data["agent"]["shape"].clone()
+
         if self.pred_init and not self.learn_init and self.training:
             first_valid=valid[:,0]
             pos[first_valid,:6]=pos[first_valid,:6]+torch.randn_like(pos[first_valid,:6])*0.01
@@ -278,6 +280,8 @@ class TokenProcessor(torch.nn.Module):
             first_nonvalid=~first_valid
             pos[first_nonvalid,:11]=pos[first_nonvalid,:11]+torch.randn_like(pos[first_nonvalid,:11])*0.01
             heading[first_nonvalid,:11]=heading[first_nonvalid,:11]+torch.randn_like(heading[first_nonvalid,:11])*0.01
+
+            shape=shape+torch.randn_like(shape)*0.01
 
         role_mask = data["agent"]["role"]
 
@@ -289,7 +293,7 @@ class TokenProcessor(torch.nn.Module):
         tokenized_agent = {
             "num_graphs": data.num_graphs,
             "type": data["agent"]["type"].long(),
-            "shape": data["agent"]["shape"].clone(),
+            "shape": shape,
             "ego_mask": ego_mask,  # [n_agent]
             "token_agent_shape":  agent_shape,  # [n_agent, 2]
             "batch": data["agent"]["batch"],
