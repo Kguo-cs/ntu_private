@@ -272,7 +272,7 @@ class InitDenoiser(nn.Module):
             # ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
-        self.use_noise=False
+        self.use_noise=True
 
         if self.use_noise:
             self.denoising_steps= 20
@@ -486,8 +486,6 @@ class InitDenoiser(nn.Module):
             # self.init_probs.copy_(probs)
             # self.init_min.copy_(m_init.amin(0))
             # self.init_max.copy_(m_init.amax(0))
-
-        # diff_input = self.normalize(diff_input)
 
         return diff_input,m_init,nonego_batch
 
