@@ -8,7 +8,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/dit256_sample10_l2_noise_epoch=63-st
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/dit256_sample10_l2_noise_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/dit256_sample10_l2_noise_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
+rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init0_light zs@10.87.225.106:~/code/sim/src/waymo_data/full/
 
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 

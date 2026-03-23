@@ -252,18 +252,9 @@ class InitDiffusion(nn.Module):
 
                         ppo_loss = -(agent_log_prob * advantages).mean()
 
-                        critic_loss = expert_dis_loss + agent_dis_loss
-
-                        # self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
-                        # self.log("train/running_var", self.return_meanstd.var, on_step=True, batch_size=1)
-                        # self.log("train/ppo_loss", ppo_loss.item(), on_step=True, batch_size=1)
-                        # self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
-                        # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-                        # self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
-
                         policy_loss = match_loss + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
 
-                        match_loss = critic_loss + policy_loss
+                        match_loss = expert_dis_loss + agent_dis_loss + policy_loss
 
                     loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 

@@ -296,6 +296,12 @@ class InitDiscriminator(nn.Module):
 
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
+
+
+        if self.discriminator:
+            pos_a=pos_a+torch.randn_like(pos_a)*1e-2
+            head_a=head_a+torch.randn_like(head_a)*1e-2
+
         shape=inputs[...,-4:]
 
         batch = tokenized_agent["nonego_batch"]
