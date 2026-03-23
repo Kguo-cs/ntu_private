@@ -40,7 +40,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = True
+        self.use_decompose = False
 
         self.dis_weight=1
         self.dist_decay=2.5
@@ -153,7 +153,7 @@ class InitDiscriminator(nn.Module):
         else:
             target=0
 
-            valid_ego_reward = ego_logits.detach()
+            reward = ego_logits.detach()
 
             if self.use_decompose:
 
@@ -161,7 +161,7 @@ class InitDiscriminator(nn.Module):
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=len(samples))#
 
-                reward = valid_ego_reward + valid_interact_reward
+                reward = reward + valid_interact_reward
 
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target,
@@ -299,12 +299,13 @@ class InitDiscriminator(nn.Module):
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
 
+        shape=inputs[...,4:]
 
         #if self.discriminator:
-        # pos_a=pos_a+torch.randn_like(pos_a)*1e-2
-        # head_a=head_a+torch.randn_like(head_a)*1e-2
+        pos_a=pos_a+torch.randn_like(pos_a)*1e-2
+        head_a=head_a+torch.randn_like(head_a)*1e-2
+        shape[:,:-1]=shape[:,:-1]+torch.randn_like(shape[:,:-1])*1e-2
 
-        shape=inputs[...,4:]
 
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type_sorted"]
@@ -418,6 +419,7 @@ class InitDiscriminator(nn.Module):
                 interact_logits = self.a2a_head(feat_interact)
             else:
                 feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
+                end_index = None
 
             attr_feature = self.pt2a_attn_layers[0]((feat_map, feat_a), r_pl2a,
                                                     edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
@@ -425,20 +427,13 @@ class InitDiscriminator(nn.Module):
         score = self.score_decoder(attr_feature)
 
         if self.use_decompose:
-
             score=torch.cat([score, interact_logits], dim=0)
 
+            weight = torch.exp(-dist[:, None] / self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
+        else:
+            weight = None
 
-        if return_weight :
-            if self.use_decompose:
-                weight = torch.exp(-dist[:,None]/ self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
-            else:
-                weight = None
-
-            return score, weight,end_index
-
-        return score
-
+        return score, weight, end_index
 
 
 class InitGeneator(nn.Module):
