@@ -263,7 +263,7 @@ class ScaleFlow(nn.Module):
 
                 x_pred =e+v_pred
 
-        return loss ,x_pred[:,0],z,denom[:,0],t[:,0]
+        return loss ,x_pred[:,0],z[:,0],denom[:,0],t[:,0]
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):

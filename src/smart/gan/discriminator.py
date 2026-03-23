@@ -120,7 +120,7 @@ class InitDiscriminator(nn.Module):
                 )
 
         self.type_embedding = nn.Embedding(3, hidden_dim)
-        self.shape_embedding = MLPLayer(9, hidden_dim, hidden_dim)
+        self.shape_embedding = MLPLayer(8, hidden_dim, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
@@ -138,7 +138,7 @@ class InitDiscriminator(nn.Module):
 
     def get_reward(self,samples,t,tokenized_agent, map_feature,key):
 
-        samples=torch.cat([samples,t],dim=-1)
+        #samples=torch.cat([samples,t],dim=-1)
 
         Logits, weight,end_index = self.forward(samples, map_feature, tokenized_agent, return_weight=True)
 
