@@ -172,7 +172,7 @@ class InitDiffusion(nn.Module):
 
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
-                loss_diff_init,x_pred ,expert_state,denom = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
+                loss_diff_init,x_pred ,expert_state,denom,t = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
 
                 if self.use_gan:
                     loss=self.D.get_gan_loss(m_init,self.G.net.denormalize(x_pred),map_feature, tokenized_agent,denom)
@@ -195,7 +195,7 @@ class InitDiffusion(nn.Module):
                         match_loss= loss_diff_init.mean()
 
                     if self.use_gail:
-                        expert_dis_loss,_ = self.D.get_reward(expert_state[:,0],tokenized_agent, map_feature,"expert")
+                        expert_dis_loss,_ = self.D.get_reward(expert_state[:,0],t,tokenized_agent, map_feature,"expert")
 
                         with torch.no_grad():
                             pred_init, x_list,z_list, step_list,t_list = self.G.sample(tokenized_agent, map_feature, None)
@@ -232,7 +232,7 @@ class InitDiffusion(nn.Module):
 
                             tokenized_agent["ego_embedding"]=ego_embedding[None].repeat(n_step,1,1).flatten(0,1)
 
-                        agent_dis_loss,agent_rewards = self.D.get_reward(agent_next_state,tokenized_agent, map_feature,"agent")
+                        agent_dis_loss,agent_rewards = self.D.get_reward(agent_next_state, t, tokenized_agent, map_feature,"agent")
 
                         x_pred = self.G.net(agent_input_state, t, tokenized_agent, map_feature, mode=1)[:,0]
 

@@ -120,7 +120,7 @@ class InitDiscriminator(nn.Module):
                 )
 
         self.type_embedding = nn.Embedding(3, hidden_dim)
-        self.shape_embedding = MLPLayer(4, hidden_dim, hidden_dim)
+        self.shape_embedding = MLPLayer(5, hidden_dim, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
@@ -136,7 +136,9 @@ class InitDiscriminator(nn.Module):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
 
-    def get_reward(self,samples,tokenized_agent, map_feature,key):
+    def get_reward(self,samples,t,tokenized_agent, map_feature,key):
+
+        samples=torch.cat([samples,t],dim=-1)
 
         Logits, weight,end_index = self.forward(samples, map_feature, tokenized_agent, return_weight=True)
 
@@ -302,7 +304,7 @@ class InitDiscriminator(nn.Module):
         pos_a=pos_a+torch.randn_like(pos_a)*1e-2
         head_a=head_a+torch.randn_like(head_a)*1e-2
 
-        shape=inputs[...,-4:]
+        shape=inputs[...,4:]
 
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type_sorted"]
