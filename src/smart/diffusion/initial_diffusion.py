@@ -249,9 +249,9 @@ class InitDiffusion(nn.Module):
 
                         rewards=torch.zeros_like(value)
 
-                        print(agent_rewards.shape,value.shape,rewards.shape)
+                        #print(agent_rewards.shape,value.shape,rewards.shape)
 
-                        rewards[-1]=agent_rewards
+                        rewards[-1]=agent_rewards[:,0]
 
                         advantages, value_loss = compute_advantages(rewards, value)
 
