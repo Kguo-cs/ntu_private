@@ -285,6 +285,10 @@ class TokenProcessor(torch.nn.Module):
 
             shape=shape+torch.randn_like(shape)*0.05
 
+            pos=pos[:,5:]
+            heading=heading[:,5:]
+            valid=valid[:,5:]
+
         role_mask = data["agent"]["role"]
 
         pred_mask = role_mask[:, 0] | role_mask[:, 2]
