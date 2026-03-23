@@ -299,8 +299,8 @@ class InitDiscriminator(nn.Module):
 
 
         #if self.discriminator:
-        pos_a=pos_a+torch.randn_like(pos_a)*1e-2
-        head_a=head_a+torch.randn_like(head_a)*1e-2
+        # pos_a=pos_a+torch.randn_like(pos_a)*1e-2
+        # head_a=head_a+torch.randn_like(head_a)*1e-2
 
         shape=inputs[...,-4:]
 
