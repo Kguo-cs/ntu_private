@@ -40,7 +40,7 @@ model:
 ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: baseline_val1 #_seg32AIRL60_initfrist005clip_shape_start5
+task_name: baseline_val2 #_seg32AIRL60_initfrist005clip_shape_start5
 
 
 trainer:
