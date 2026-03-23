@@ -236,7 +236,7 @@ class InitDiffusion(nn.Module):
 
                         x_pred = self.G.net(agent_input_state, t, tokenized_agent, map_feature, mode=1)[:,0]
 
-                        agent_log_prob=gaussian_nll_2d(x_pred[:,:8], x_pred[:,8:], agent_action)
+                        agent_log_prob=-gaussian_nll_2d(x_pred[:,:8], x_pred[:,8:], agent_action)
 
                         feat_a = tokenized_agent["noise_feat"]  # [-2]
 

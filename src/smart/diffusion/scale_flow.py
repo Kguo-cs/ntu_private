@@ -91,12 +91,12 @@ class ScaleFlow(nn.Module):
             mean_flow=self.mean_flow
         )
 
-        self.var_sched = VarianceSchedule(
-            num_steps=args.num_diffusion_steps,
-            beta_1=args.beta_1,
-            beta_T=args.beta_T,
-            mode='linear'
-        )
+        # self.var_sched = VarianceSchedule(
+        #     num_steps=args.num_diffusion_steps,
+        #     beta_1=args.beta_1,
+        #     beta_T=args.beta_T,
+        #     mode='linear'
+        # )
         self.infer_time_per_step = []
         self.GPU_incre_memory = []
         probs = torch.tensor([0.5])
@@ -154,22 +154,12 @@ class ScaleFlow(nn.Module):
         else:
             return self.get_loss_vd(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples)
 
-
-    def sample_t(self, n: int, device=None):
-        # z = torch.randn(n, device=device) * self.P_std + self.P_mean
-        # z = torch.sigmoid(z)
-        #timesteps = power_schedule(self.steps+1, device, alpha=2)
-        #dist = torch.distributions.Beta(0.5, 1)
-        #z = dist.sample((n,)).to(device)
-        z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
-        return z
-
     def flow_matching_loss(self,x, tokenized_agent, scene_enc,eval_mask,num_samples):
         """
         x1: target samples, shape [B, 2]
         """
         device = x.device
-        num_scenes = tokenized_agent["num_graphs"]
+        num_graphs = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
@@ -183,16 +173,15 @@ class ScaleFlow(nn.Module):
             t_batch = timesteps[tokenized_agent["step_idx"]]
             t_batch = t_batch[:, None, None]
         elif self.use_flow_ode:
-            t_batch = self.flow_ode.time_sampler.sample(num_scenes).to(device)[:, None,None]
+            t_batch = self.flow_ode.time_sampler.sample(num_graphs).to(device)[:, None,None]
         else:
-            t_batch = self.sample_t(num_scenes, device=device)[:, None,None].to(device)  # t ~ U[0,1]
+            t_batch = torch.rand(num_graphs, device=device)[:, None,None]  # t ~ U[0,1]
 
-        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
+        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
 
         if self.mean_flow:
-
             # r ~ U[0, t]
-            r_batch = torch.rand(num_scenes, device=device) [:, None]* t_batch
+            r_batch = torch.rand(num_graphs, device=device) [:, None]* t_batch
 
             t=t_batch[agent_batch]
             r=r_batch[agent_batch]
@@ -252,8 +241,6 @@ class ScaleFlow(nn.Module):
 
             else:
                 z = (1 - t) * e + t * x #large t, low noise
-
-            #z=self.net.normalize_z(z)
 
             if self.x_pred:
 
@@ -325,7 +312,6 @@ class ScaleFlow(nn.Module):
         z_next = z + (t_next - t) * v_pred
         return z_next
 
-
     @torch.no_grad()
     def _forward_sample(self, z, t_n, labels):
 
@@ -377,10 +363,10 @@ class ScaleFlow(nn.Module):
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
         agent_batch = tokenized_agent["nonego_batch"]
-        num_scenes = tokenized_agent["num_graphs"]
+        num_graphs = tokenized_agent["num_graphs"]
         num_agents = len(agent_batch)
 
-        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
+        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
 
         z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
 
@@ -405,7 +391,7 @@ class ScaleFlow(nn.Module):
 
             cumsum = torch.cumsum(mask.long(), dim=0)
 
-            per_group = torch.bincount(idx[mask], minlength=num_scenes * num_types)
+            per_group = torch.bincount(idx[mask], minlength=num_graphs * num_types)
 
             offsets = torch.cumsum(per_group, dim=0)
             offsets = torch.cat([torch.zeros(1, device=offsets.device).to(torch.long), offsets[:-1]])
@@ -512,39 +498,6 @@ class ScaleFlow(nn.Module):
 
         return z[:,0],x_list,z_list,step_list,t_list
 
-    def get_loss_vd(self,
-                    m_init,
-                    tokenized_agent: HeteroData,
-                    scene_enc: Mapping[str, torch.Tensor],
-                    eval_mask,
-                    num_samples=1, ) -> Dict[str, torch.Tensor]:
-        # m: [num_agents, d_latent]
-
-        agent_batch = tokenized_agent["nonego_batch"]
-        num_scenes = tokenized_agent["num_graphs"]
-
-        x_init_0 = m_init.unsqueeze(1).repeat(1, num_samples, 1)
-        device = m_init.device
-
-        t = torch.tensor(self.var_sched.uniform_sample_t(num_scenes)).to(device)
-
-        alpha_bar = self.var_sched.alpha_bars[t][:, None].to(device)
-        beta = self.var_sched.betas[t][:, None].to(device)[agent_batch]
-        c0 = torch.sqrt(alpha_bar).unsqueeze(-1).repeat(1, num_samples, 1)
-        c1 = torch.sqrt(1 - alpha_bar).unsqueeze(-1).repeat(1, num_samples, 1)
-
-        e_init_rand = torch.randn_like(x_init_0).to(device)
-
-        x_init_t = c0[agent_batch] * x_init_0 + c1[agent_batch] * e_init_rand
-        mode = self.B_dist.sample()
-        # now delta_rot_pred is angle! add the ego initial angle, then we can get the heading relative to its own
-        g_init_theta = self.net(copy.deepcopy(x_init_t), beta, tokenized_agent, scene_enc, num_samples=num_samples, eval_mask=eval_mask,mode=mode)
-
-        loss_init = ((e_init_rand - g_init_theta) ** 2)  # .mean()
-
-      #  x_init_0_reconstructed = (x_init_t - c1[agent_batch] * g_init_theta) / c0[agent_batch]
-        return loss_init#, x_init_0_reconstructed
-
     def sample(self,
                data: HeteroData,
                scene_enc: Mapping[str, torch.Tensor],
@@ -562,146 +515,3 @@ class ScaleFlow(nn.Module):
         else:
             return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,
                                   eval_mask, sampling, stride)
-
-    def sample_vd(self,
-                  num_samples: int,
-                  data: HeteroData,
-                  scene_enc: Mapping[str, torch.Tensor],
-                  if_output_diffusion_process=False,
-                  start_data=None,
-                  reverse_steps=None,
-                  eval_mask=None,
-                  sampling="ddpm",
-                  stride=20,
-                  ) -> Dict[str, torch.Tensor]:
-
-        if reverse_steps is None:
-            reverse_steps = self.var_sched.num_steps
-
-        device = eval_mask.device
-
-        num_agents = eval_mask.sum()
-
-        e_init_rand = torch.randn([num_agents, num_samples, self.net.output_dim]).to(device)
-
-        if start_data == None:
-            x_init_T = e_init_rand
-
-        else:
-            c0 = torch.sqrt(self.var_sched.alpha_bars[reverse_steps]).to(device)
-            c1 = torch.sqrt(1 - self.var_sched.alpha_bars[reverse_steps]).to(device)
-            x_init_T = c0 * start_data.unsqueeze(1) + c1 * e_init_rand
-
-        x_init_t_list = [x_init_T]
-        torch.cuda.empty_cache()
-
-        for t in range(reverse_steps, 0, -stride):
-
-            beta = self.var_sched.betas[t]
-
-            alpha_bar = self.var_sched.alpha_bars[t]
-
-            x_init_t = x_init_t_list[-1]
-
-            with torch.no_grad():
-                beta = beta.unsqueeze(-1).repeat(num_agents * num_samples, 1).to(device)
-                g_init_theta = self.net(copy.deepcopy(x_init_t), beta, data, scene_enc, num_samples=num_samples,
-                                        eval_mask=eval_mask, mode=1)
-
-            if sampling == 'ddpm':
-
-                z_init = torch.randn_like(x_init_T) if t > 1 else torch.zeros_like(x_init_T)
-
-                alpha = self.var_sched.alphas[t]
-
-                c0 = 1 / torch.sqrt(alpha)
-                c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
-                sigma = self.var_sched.get_sigmas(t, 0)
-
-                x_init_next = c0 * (x_init_t - c1 * g_init_theta) + sigma * z_init
-
-            elif sampling == 'ddim':
-                alpha_bar_next = self.var_sched.alpha_bars[t - stride]
-
-                x0_init_t = (x_init_t - g_init_theta * (1 - alpha_bar).sqrt()) / alpha_bar.sqrt()
-                x_init_next = alpha_bar_next.sqrt() * x0_init_t + (1 - alpha_bar_next).sqrt() * g_init_theta
-
-            if True in torch.isnan(x_init_next):
-                print('nan:', t)
-            x_init_t_list.append(x_init_next.detach())
-            if not if_output_diffusion_process:
-                x_init_t_list.pop(0)
-
-        if if_output_diffusion_process:
-            return x_init_t_list
-        else:
-            return x_init_t_list[-1]
-
-
-
-class VarianceSchedule(nn.Module):
-
-    def __init__(self, num_steps, mode='linear', beta_1=1e-4, beta_T=5e-2, cosine_s=8e-3):
-        super().__init__()
-        assert mode in ('linear', 'cosine')
-        self.num_steps = num_steps
-        self.beta_1 = beta_1
-        self.beta_T = beta_T
-        self.mode = mode
-
-        if mode == 'linear':
-            betas = torch.linspace(beta_1, beta_T, steps=num_steps)
-        elif mode == 'cosine':
-            timesteps = (
-                    torch.arange(num_steps + 1) / num_steps + cosine_s
-            )
-            alphas = timesteps / (1 + cosine_s) * math.pi / 2
-            alphas = torch.cos(alphas).pow(2)
-            alphas = alphas / alphas[0]
-            betas = 1 - alphas[1:] / alphas[:-1]
-            betas = betas.clamp(max=0.999)
-
-        betas = torch.cat([torch.zeros([1]), betas], dim=0)  # Padding
-
-        alphas = 1 - betas
-
-        log_alphas = torch.log(alphas)
-        for i in range(1, log_alphas.size(0)):  # 1 to T
-            log_alphas[i] += log_alphas[i - 1]
-        alpha_bars = log_alphas.exp()
-        sigmas_flex = torch.sqrt(betas)
-        sigmas_inflex = torch.zeros_like(sigmas_flex)
-        for i in range(1, sigmas_flex.size(0)):
-            sigmas_inflex[i] = ((1 - alpha_bars[i - 1]) / (1 - alpha_bars[i])) * betas[i]
-        sigmas_inflex = torch.sqrt(sigmas_inflex)
-
-        self.register_buffer('betas', betas)
-        self.register_buffer('alphas', alphas)
-        self.register_buffer('alpha_bars', alpha_bars)
-        self.register_buffer('sigmas_flex', sigmas_flex)
-        self.register_buffer('sigmas_inflex', sigmas_inflex)
-
-        # kt
-        sqrt_alpha_bars = torch.sqrt(alpha_bars)
-        kt = 1 - sqrt_alpha_bars  # shifted diffusion
-        self.register_buffer('kt', kt)
-
-        inv_sqrt_alpha = 1 / torch.sqrt(alphas)
-        co_g = betas / torch.sqrt(1 - alpha_bars)
-        co_st = torch.sqrt(alphas[1:]) * (1 - alpha_bars[:-1]) / (1 - alpha_bars[1:])
-        co_st = torch.cat([torch.tensor([0]), co_st])
-        co_z = torch.sqrt((1 - alpha_bars[:-1]) / (1 - alpha_bars[1:]) * betas[1:])
-        co_z = torch.cat([torch.tensor([0]), co_z])
-        self.register_buffer('inv_sqrt_alpha', inv_sqrt_alpha)
-        self.register_buffer('co_g', co_g)
-        self.register_buffer('co_st', co_st)
-        self.register_buffer('co_z', co_z)
-
-    def uniform_sample_t(self, batch_size):
-        ts = np.random.choice(np.arange(1, self.num_steps + 1), batch_size)
-        return ts.tolist()
-
-    def get_sigmas(self, t, flexibility):
-        assert 0 <= flexibility and flexibility <= 1
-        sigmas = self.sigmas_flex[t] * flexibility + self.sigmas_inflex[t] * (1 - flexibility)
-        return sigmas
