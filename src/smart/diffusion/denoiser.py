@@ -719,6 +719,10 @@ class InitDenoiser(nn.Module):
 
                 res_theta=torch.atan2(res[:,3],res[:,2])
 
+                if self.use_noise:
+                    pos_s = m_delta[:, :2]
+                    theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
+
                 local_pos,local_theta = transform_to_global(
                     res[:,:2],
                     res_theta,

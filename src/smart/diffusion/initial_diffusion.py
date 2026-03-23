@@ -61,10 +61,10 @@ class InitDiffusion(nn.Module):
         args = parser.parse_args()
         self.G = ScaleFlow(args,token_processor)
 
-        self.use_gail=False
+        self.use_gail=True
 
         if self.use_gail:
-            self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
+            # self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)

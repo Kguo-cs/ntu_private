@@ -116,7 +116,7 @@ class ScaleFlow(nn.Module):
 
         self.P_mean=2
 
-        self.steps=20
+        self.steps=10
 
         self.use_cluster=False
 
@@ -181,17 +181,7 @@ class ScaleFlow(nn.Module):
         if "step_idx" in tokenized_agent.keys():
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
-            # timesteps1=tokenized_agent["noise_schedule"]
-            #
-            # t_batch=timesteps1[torch.arange(len(timesteps1)), tokenized_agent["step_idx"]]
-            #
-            # print(torch.all(t_batch1>t_batch))
-            # t_batch=torch.zeros_like(t_batch)
-            #
             t_batch = t_batch[:, None, None]
-            # if self.use_cluster:
-            #     t_batch[tokenized_agent["clustering"]]=0.9
-            #     t_batch[~tokenized_agent["clustering"]]=0.9+0.1*t_batch[~tokenized_agent["clustering"]]
         elif self.use_flow_ode:
             t_batch = self.flow_ode.time_sampler.sample(num_scenes).to(device)[:, None,None]
         else:
@@ -293,13 +283,11 @@ class ScaleFlow(nn.Module):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
 
         if self.use_cluster:
-
             #t_next=torch.zeros_like(x)+t_next
             tokenized_agent, scene_enc, eval_mask = labels
             #z_next=(1 - t_next) * torch.randn_like(x)+ t_next * x
             increasing=tokenized_agent["increasing"]
             non_increasing=~increasing
-
 
             z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
             z[increasing] = (1-t_next[increasing])*torch.randn_like(x[increasing])+ t_next[increasing] * x[increasing]
@@ -323,7 +311,6 @@ class ScaleFlow(nn.Module):
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         else:
-
             z = z + (t_next - t_n) * v_pred
         return z,x,t_n
 
