@@ -40,7 +40,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = False
+        self.use_decompose = True
 
         self.dis_weight=1
         self.dist_decay=2.5
