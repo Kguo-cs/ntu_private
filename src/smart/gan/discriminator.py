@@ -167,11 +167,14 @@ class InitDiscriminator(nn.Module):
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target,
                                                            reduction='mean')
 
-        interact_bce_loss = F.binary_cross_entropy_with_logits(interact_logits,
-                                                               torch.zeros_like(interact_logits) + target,
-                                                               weight=weight, reduction='mean')
+        if self.use_decompose:
+            interact_bce_loss = F.binary_cross_entropy_with_logits(interact_logits,
+                                                                   torch.zeros_like(interact_logits) + target,
+                                                                   weight=weight, reduction='mean')
 
-        return bce_loss+interact_bce_loss,reward
+            bce_loss=bce_loss+interact_bce_loss
+
+        return bce_loss,reward
 
 
     def get_gan_loss(self,RealSamples,FakeSamples,map_feature,tokenized_agent,denom):
