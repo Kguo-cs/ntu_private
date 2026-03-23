@@ -235,7 +235,7 @@ pip install torch_geometric==2.6.1
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
 pip install -r install/requirements.txt
-pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
+pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.7
 pip install shapely==2.1.1
 
 

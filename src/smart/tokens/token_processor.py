@@ -51,7 +51,6 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.pred_entry=pred_entry
         self.pred_init=pred_init
         self.learn_init=learn_init
         self.learn_autoencoder = learn_autoencoder
@@ -270,8 +269,6 @@ class TokenProcessor(torch.nn.Module):
         valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
             valid, pos, heading, vel
         )
-
-        #print(torch.all(valid[:,10]))
 
         shape=data["agent"]["shape"].clone()
 

@@ -126,7 +126,7 @@ class SMART(LightningModule):
         if self.token_processor.pred_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
             self.para_num=2
-            self.n_rollout_closed_val=2
+            self.n_rollout_closed_val=1
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
             self.para_num=32
@@ -231,9 +231,9 @@ class SMART(LightningModule):
                 pred_head=wrap_angle(pred_head)
                 pred_sizes=torch.clamp_min(pred_sizes,min=0.1)
 
-                # pred_traj=data["agent"]["position"][:, None,: ,:2].repeat(1,self.n_rollout_closed_val,1,1)
-                # pred_head=data["agent"]["heading"][:, None,:].repeat(1,self.n_rollout_closed_val,1)
-                # pred_sizes=data["agent"]["shape"][:, None,None].repeat(1,self.n_rollout_closed_val,pred_traj.shape[2],1)
+                pred_traj=data["agent"]["position"][:, None,: ,:2].repeat(1,self.n_rollout_closed_val,1,1)
+                pred_head=data["agent"]["heading"][:, None,:].repeat(1,self.n_rollout_closed_val,1)
+                pred_sizes=data["agent"]["shape"][:, None,None].repeat(1,self.n_rollout_closed_val,pred_traj.shape[2],1)
 
                 if not self.wosac_submission.is_active:
                     compute_gen_samples(data, tokenized_agent, pred_traj, pred_vels, pred_head, pred_sizes, self.samples,
@@ -364,6 +364,7 @@ class SMART(LightningModule):
                             scenario_rollouts=scenario_rollouts[:32]
                         if len(scenario_rollouts) > self.para_num:
                             for i in range(np.ceil(len(scenario_rollouts) / self.para_num).astype(int)):  # 64
+                                print(i)# [05:45<00:00] para  [05:27<00:00] resample 64: [06:11<00:00,
                                 self.wosac_metrics.update(tfrecord_path[self.para_num * i:self.para_num * (i + 1)],
                                                           scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
                         else:
