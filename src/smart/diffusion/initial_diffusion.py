@@ -200,6 +200,8 @@ class InitDiffusion(nn.Module):
                         with torch.no_grad():
                             pred_init, x_list,z_list, step_list,t_list = self.G.sample(tokenized_agent, map_feature, None)
 
+                        print(z_list[-1].shape,m_init.shape)
+
                         agent_dis_loss, agent_rewards = self.D.get_reward(z_list[-1], t, tokenized_agent,
                                                                           map_feature, "agent")
 
