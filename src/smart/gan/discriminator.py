@@ -120,7 +120,7 @@ class InitDiscriminator(nn.Module):
                 )
 
         self.type_embedding = nn.Embedding(3, hidden_dim)
-        self.shape_embedding = MLPLayer(5, hidden_dim, hidden_dim)
+        self.shape_embedding = MLPLayer(9, hidden_dim, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
@@ -296,15 +296,17 @@ class InitDiscriminator(nn.Module):
 
     def forward(self,inputs, map_feature,  tokenized_agent,return_weight=False):
 
+        inputs[:,:-1]=inputs[:,:-1]+torch.randn_like(inputs[:,:-1])*1e-2
+
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
 
-        shape=inputs[...,4:]
+        shape=inputs#[...,4:]
 
         #if self.discriminator:
-        pos_a=pos_a+torch.randn_like(pos_a)*1e-2
-        head_a=head_a+torch.randn_like(head_a)*1e-2
-        shape[:,:-1]=shape[:,:-1]+torch.randn_like(shape[:,:-1])*1e-2
+        # pos_a=pos_a+torch.randn_like(pos_a)*1e-2
+        # head_a=head_a+torch.randn_like(head_a)*1e-2
+        # shape[:,:-1]=shape[:,:-1]+torch.randn_like(shape[:,:-1])*1e-2
 
 
         batch = tokenized_agent["nonego_batch"]
