@@ -298,9 +298,9 @@ class InitDiscriminator(nn.Module):
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
 
 
-        if self.discriminator:
-            pos_a=pos_a+torch.randn_like(pos_a)*1e-2
-            head_a=head_a+torch.randn_like(head_a)*1e-2
+        #if self.discriminator:
+        pos_a=pos_a+torch.randn_like(pos_a)*1e-2
+        head_a=head_a+torch.randn_like(head_a)*1e-2
 
         shape=inputs[...,-4:]
 
@@ -361,7 +361,7 @@ class InitDiscriminator(nn.Module):
                 head_vector_s=head_vector_a,  # [n_agent, n_step, 2]
                 batch_s=batch,  # [n_agent*n_step]
                 mask=None,  # [n_agent, n_step]
-                max_radius=10,
+                max_radius=60,
                 max_num_neighbors=20,
                 agent_train_mask=None,
                 layer_num=1,
@@ -394,7 +394,7 @@ class InitDiscriminator(nn.Module):
                 mask=mask,  # [n_agent, n_step]
                 batch_s=batch,  # [n_agent,n_step]
                 batch_pl=batch_pl,  # [n_pl*n_step]
-                pl2a_radius=10,
+                pl2a_radius=40,
                 max_num_neighbors=20,
                 agent_train_mask=None,
                 layer_num=1
