@@ -124,7 +124,7 @@ class InitDiscriminator(nn.Module):
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
-        self.global_step=0
+        self.use_GAIL=False
 
         self.use_Rp=False
 
@@ -225,15 +225,15 @@ class InitDiscriminator(nn.Module):
 
         g_loss=self.get_g_loss(map_feature, tokenized_agent,policy_net,e,rollout_samples)
 
-        teacher_initial_noise = policy_net.net.denormalize(torch.randn_like(e)[:,None])[:,0]
+        #teacher_initial_noise = policy_net.net.denormalize(torch.randn_like(e)[:,None])[:,0]
 
-        g_loss1=self.get_g_loss(map_feature, tokenized_agent,policy_net,teacher_initial_noise,RealSamples)
+        #g_loss1=self.get_g_loss(map_feature, tokenized_agent,policy_net,teacher_initial_noise,RealSamples)
 
-        loss = g_loss +g_loss1+ match_loss
+        loss = g_loss + match_loss#+g_loss1
 
         logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
         logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
-        logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
+        #logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
 
         opt_G.zero_grad()
         loss.backward()#
@@ -273,6 +273,9 @@ class InitDiscriminator(nn.Module):
             real_bce_loss = F.binary_cross_entropy_with_logits(RealLogits1, torch.ones_like(RealLogits1),
                                                                reduction='mean')
             dis_loss = fake_bce_loss + real_bce_loss
+
+            gen_rewards=-torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
+
             if len(fake_interact_logits) > 0:
                 fake_loss = F.binary_cross_entropy_with_logits(
                     fake_interact_logits,
@@ -314,6 +317,8 @@ class InitDiscriminator(nn.Module):
         torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
+        return gen_rewards
+
     def update(self,logger,optimizer,policy_net,inputs):
         RealSamples, match_loss, map_feature, tokenized_agent= inputs
 
@@ -322,11 +327,57 @@ class InitDiscriminator(nn.Module):
 
         opt_G, opt_D = optimizer
 
-        self.update_dis(logger,opt_D,inputs,rollout_samples)
-        loss=self.update_policy(logger,opt_G,policy_net,inputs,rollout_samples,z_list[0][:,0] )
+        gen_rewards=self.update_dis(logger,opt_D,inputs,rollout_samples)        # Group samples by prompt
+
+        #rollout_n =3
+        #num_mc_samples=8
+
+        if self.use_GAIL:
+            group_mean = gen_rewards.mean()
+            group_std = gen_rewards.std() + 1e-8
+
+            group_advantages = (gen_rewards - group_mean) / group_std
+        else:
+            loss=self.update_policy(logger,opt_G,policy_net,inputs,rollout_samples,z_list[0][:,0] )
 
         return loss
 
+    @staticmethod
+    def compute_advantages_grouped(
+        rewards: torch.Tensor,
+        sample_infos
+    ) -> torch.Tensor:
+        """
+        Compute advantages grouped by prompt (GRPO-style).
+
+        Args:
+            rewards: Reward values [B*n]
+            sample_infos: Sample information for grouping
+
+        Returns:
+            advantages: Computed advantages [B*n]
+        """
+        advantages = torch.zeros_like(rewards)
+
+        # Group samples by prompt
+        prompt_groups = {}
+        for i, info in enumerate(sample_infos):
+            prompt_idx = info.prompt_idx
+            if prompt_idx not in prompt_groups:
+                prompt_groups[prompt_idx] = []
+            prompt_groups[prompt_idx].append(i)
+
+        # Compute advantages within each group
+        for group_indices in prompt_groups.values():
+            group_rewards = rewards[group_indices]
+            group_mean = group_rewards.mean()
+            group_std = group_rewards.std() + 1e-8
+
+            group_advantages = (group_rewards - group_mean) / group_std
+            for i, idx in enumerate(group_indices):
+                advantages[idx] = group_advantages[i]
+
+        return advantages
 
     def padding(self, pos, heading, feature, batch, num_graphs):
         lengths = torch.bincount(batch, minlength=num_graphs).tolist()
