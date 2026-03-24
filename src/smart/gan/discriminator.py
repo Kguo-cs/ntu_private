@@ -296,7 +296,7 @@ class InitDiscriminator(nn.Module):
                                                                reduction='mean')
             dis_loss = fake_bce_loss + real_bce_loss
 
-            gen_rewards=torch.nn.functional.logsigmoid(FakeLogits1.mean(-1)).detach()#FakeLogits1.mean(-1)#
+            gen_rewards=FakeLogits1.mean(-1).detach()##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if len(fake_interact_logits) > 0:
                 fake_loss = F.binary_cross_entropy_with_logits(
