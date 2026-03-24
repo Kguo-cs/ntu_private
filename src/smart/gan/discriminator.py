@@ -130,9 +130,6 @@ class InitDiscriminator(nn.Module):
 
         self.Gamma=1
 
-
-
-
     def get_reward(self,samples,t,tokenized_agent, map_feature,key):
 
         #samples=torch.cat([samples,t],dim=-1)
@@ -196,7 +193,7 @@ class InitDiscriminator(nn.Module):
         t_next = t_expanded + dt_expanded
         t_next = torch.clamp(t_next, max=0.999)
 
-        velocity_pred=(x_pred - z) / (t_expanded)#.clamp_min(0.05)
+        velocity_pred=(x_pred - z) / (t_expanded.clamp_min(0.01))#
 
         x_t_next_packed = x + dt_expanded * velocity_pred
 
@@ -227,6 +224,7 @@ class InitDiscriminator(nn.Module):
         loss = g_loss + match_loss
 
         logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
+        logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
 
         opt_G.zero_grad()
         loss.backward()#
