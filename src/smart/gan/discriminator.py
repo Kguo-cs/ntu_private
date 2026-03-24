@@ -134,45 +134,7 @@ class InitDiscriminator(nn.Module):
 
         self.Gamma=1
 
-    def get_reward(self,samples,t,tokenized_agent, map_feature,key):
 
-        #samples=torch.cat([samples,t],dim=-1)
-
-        Logits, weight,end_index = self.forward(samples, map_feature, tokenized_agent, return_weight=True)
-
-        agent_n = len(samples)
-        ego_logits = Logits[:agent_n]
-        interact_logits = Logits[agent_n:]
-
-        if key == "expert":
-            target=1
-            reward = None
-
-        else:
-            target=0
-
-            reward = ego_logits.detach()
-
-            if self.use_decompose:
-
-                weight_logit= interact_logits * weight
-
-                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=len(samples))
-
-                reward = reward + valid_interact_reward.detach()
-
-
-        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target,
-                                                           reduction='mean')
-
-        if self.use_decompose:
-            interact_bce_loss = F.binary_cross_entropy_with_logits(interact_logits,
-                                                                   torch.zeros_like(interact_logits) + target,
-                                                                   weight=weight, reduction='mean')
-
-            bce_loss=bce_loss+interact_bce_loss
-
-        return bce_loss,reward
 
     def get_g_loss(self,map_feature, tokenized_agent,G,e,x):
 
@@ -326,7 +288,7 @@ class InitDiscriminator(nn.Module):
 
         r1 = R1Penalty.mean()  # 0.1+(1-self.global_step/10000.0)
         r2= R2Penalty.mean()
-        loss = dis_loss #+ r1 + r2
+        loss = dis_loss + r1 + r2
 
         logger("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
         logger("train/r1", r1.item(), on_step=True, batch_size=1)
@@ -361,9 +323,47 @@ class InitDiscriminator(nn.Module):
 
         #rollout_n =3
         #num_mc_samples=8
-
-
         return loss
+
+    def get_reward(self,samples,t,tokenized_agent, map_feature,key):
+
+        #samples=torch.cat([samples,t],dim=-1)
+
+        Logits, weight,end_index = self.forward(samples, map_feature, tokenized_agent, return_weight=True)
+
+        agent_n = len(samples)
+        ego_logits = Logits[:agent_n]
+        interact_logits = Logits[agent_n:]
+
+        if key == "expert":
+            target=1
+            reward = None
+
+        else:
+            target=0
+
+            reward = ego_logits.detach()
+
+            if self.use_decompose:
+
+                weight_logit= interact_logits * weight
+
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=len(samples))
+
+                reward = reward + valid_interact_reward.detach()
+
+
+        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target,
+                                                           reduction='mean')
+
+        if self.use_decompose:
+            interact_bce_loss = F.binary_cross_entropy_with_logits(interact_logits,
+                                                                   torch.zeros_like(interact_logits) + target,
+                                                                   weight=weight, reduction='mean')
+
+            bce_loss=bce_loss+interact_bce_loss
+
+        return bce_loss,reward
 
     def padding(self, pos, heading, feature, batch, num_graphs):
         lengths = torch.bincount(batch, minlength=num_graphs).tolist()
