@@ -189,6 +189,10 @@ class InitDiscriminator(nn.Module):
 
         FakeSamples = policy_net.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
 
+        dt=0.01
+
+        FakeSamples=((1-t)*x-dt*FakeSamples)/(1-dt-t)  #t=0 x-fakesamples
+
         FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
 
         agent_n=len(FakeSamples)
@@ -217,7 +221,7 @@ class InitDiscriminator(nn.Module):
 
         opt_G.zero_grad()
         loss.backward()#
-        torch.nn.utils.clip_grad_norm_( policy_net.parameters(),   max_norm=1   )
+        #torch.nn.utils.clip_grad_norm_( policy_net.parameters(),   max_norm=1   )
         opt_G.step()
 
         return loss
@@ -291,7 +295,7 @@ class InitDiscriminator(nn.Module):
 
         opt_D.zero_grad()
         loss.backward(retain_graph=True)
-        torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
+        #torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
     def update(self,logger,optimizer,policy_net,inputs):
