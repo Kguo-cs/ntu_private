@@ -157,7 +157,7 @@ class InitDiscriminator(nn.Module):
 
                 weight_logit= interact_logits.detach() * weight
 
-                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=len(samples))#
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=len(samples))
 
                 reward = reward + valid_interact_reward
 
@@ -295,7 +295,7 @@ class InitDiscriminator(nn.Module):
                                                                reduction='mean')
             dis_loss = fake_bce_loss + real_bce_loss
 
-            gen_rewards=FakeLogits1.mean(-1).detach()##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
+            gen_rewards=FakeLogits1[:,0].detach()##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if len(fake_interact_logits) > 0:
                 fake_loss = F.binary_cross_entropy_with_logits(
@@ -318,7 +318,7 @@ class InitDiscriminator(nn.Module):
 
                 weight_logit= fake_interact_logits.detach() * fake_weight
 
-                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=agent_n)#
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=agent_n)[:,0]#
 
                 gen_rewards = gen_rewards + valid_interact_reward
 
