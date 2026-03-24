@@ -170,9 +170,7 @@ class InitDiscriminator(nn.Module):
 
         return bce_loss,reward
 
-    def update_policy(self,logger,opt_G,policy_net,inputs,x,e):
-
-        RealSamples, match_loss, map_feature, tokenized_agent = inputs
+    def get_g_loss(self,map_feature, tokenized_agent,policy_net,e,x):
 
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
@@ -210,8 +208,6 @@ class InitDiscriminator(nn.Module):
             g_loss = AdversarialLoss.mean()
         else:
             FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-            # fake_bce_loss =  F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
-            #                                           reduction='mean')
             fake_bce_loss = FakeLogits
             g_loss = -fake_bce_loss.mean()
             if len(fake_interact_logits) > 0:
@@ -221,10 +217,23 @@ class InitDiscriminator(nn.Module):
 
                 g_loss = g_loss - fake_interact_bce_loss
 
-        loss = g_loss + match_loss
+        return g_loss
+
+    def update_policy(self,logger,opt_G,policy_net,inputs,rollout_samples,e):
+
+        RealSamples, match_loss, map_feature, tokenized_agent = inputs
+
+        g_loss=self.get_g_loss(map_feature, tokenized_agent,policy_net,e,rollout_samples)
+
+        teacher_initial_noise = policy_net.net.denormalize(torch.randn_like(e)[:,None])[:,0]
+
+        g_loss1=self.get_g_loss(map_feature, tokenized_agent,policy_net,teacher_initial_noise,RealSamples)
+
+        loss = g_loss +g_loss1+ match_loss
 
         logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
         logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
+        logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
 
         opt_G.zero_grad()
         loss.backward()#
