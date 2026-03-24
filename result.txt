@@ -773,6 +773,10 @@ test: 0.6350
 
 /home/ke/code/sim/src/waymo_data/AIRL19_53_disdiff_all_start1_epoch=5-step=153792.ckpt
 
+0.7850
+
+
+
 
 
 decomp gail for discriminator

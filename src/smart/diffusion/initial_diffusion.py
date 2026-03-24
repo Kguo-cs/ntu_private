@@ -165,8 +165,6 @@ class InitDiffusion(nn.Module):
                 with torch.no_grad():
                     pred_init, x_list, z_list, step_list, t_list = self.G.sample(tokenized_agent, map_feature, None)
 
-                #print(z_list[-1].shape,m_init.shape)
-
                 agent_dis_loss, agent_rewards = self.D.get_reward(z_list[-1][:,0], t, tokenized_agent,
                                                                   map_feature, "agent")
 
@@ -240,23 +238,9 @@ class InitDiffusion(nn.Module):
             tokenized_agent["ego_embedding"] = ego_embedding
             tokenized_agent["nonego_batch"]=nonego_batch
 
-            if self.learn_autoencoder:
-                m_init,sort_idx = self.get_data(tokenized_agent, non_ego, nonego_batch, nonego_type, gt_initial_pos,
-                                       gt_initial_heading, ego_position, ego_heading)
+            tokenized_agent['nonego_type_sorted']= nonego_type
 
-                data = (m_init, tokenized_agent['nonego_type_sorted'],num_graphs, ego_embedding,feat_map, nonego_batch, batch_pl)
-
-                pred_init = self.autoencoder.forward_encoder(data)
-            else:
-                tokenized_agent['nonego_type_sorted']= nonego_type
-
-                pred_init, x_list,z_list, step_list,t_list = self.G.sample( tokenized_agent, map_feature,None)
-
-
-            if self.latent_diffusion:
-                pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
-
-                pred_init = self.autoencoder.forward_decoder(pred_init,tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,nonego_batch,batch_pl)
+            pred_init, x_list,z_list, step_list,t_list = self.G.sample( tokenized_agent, map_feature,None)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent, non_ego
