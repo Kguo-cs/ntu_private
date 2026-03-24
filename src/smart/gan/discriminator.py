@@ -185,13 +185,22 @@ class InitDiscriminator(nn.Module):
 
         t = t_batch[agent_batch]
 
-        z = (1 - t) * e[:,0] + t * x  # large t, low noise
+        z = (1 - t) * e+ t * x  # large t, low noise
 
-        FakeSamples = policy_net.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
+        x_pred = policy_net.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
 
-        dt=0.01
+        t_expanded=1-t
 
-        FakeSamples=((1-t)*x-dt*FakeSamples)/(1-dt-t)  #t=0 x-fakesamples
+        dt_expanded=0.01
+
+        t_next = t_expanded + dt_expanded
+        t_next = torch.clamp(t_next, max=0.999)
+
+        velocity_pred=(x_pred - z) / (t_expanded).clamp_min(0.05)
+
+        x_t_next_packed = x + dt_expanded * velocity_pred
+
+        FakeSamples = (x_t_next_packed - t_next * e) / (1 - t_next)
 
         FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
 
@@ -295,7 +304,7 @@ class InitDiscriminator(nn.Module):
 
         opt_D.zero_grad()
         loss.backward(retain_graph=True)
-        #torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
+        torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
     def update(self,logger,optimizer,policy_net,inputs):
@@ -307,7 +316,7 @@ class InitDiscriminator(nn.Module):
         opt_G, opt_D = optimizer
 
         self.update_dis(logger,opt_D,inputs,rollout_samples)
-        loss=self.update_policy(logger,opt_G,policy_net,inputs,rollout_samples,z_list[0])
+        loss=self.update_policy(logger,opt_G,policy_net,inputs,rollout_samples,z_list[0][:,0] )
 
         return loss
 

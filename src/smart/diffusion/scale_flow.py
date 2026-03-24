@@ -250,7 +250,7 @@ class ScaleFlow(nn.Module):
 
                 # v_target = (x - z) /denom
                 #
-               # v_pred = (x_pred - z) /denom
+               # v_pred = (x - z) /denom
                 #loss=F.mse_loss(x_pred , x,reduction="none")
                 non_nan_mask=~torch.isnan(x[:,:,0])
 
