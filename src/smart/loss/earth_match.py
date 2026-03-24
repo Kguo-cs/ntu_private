@@ -300,8 +300,6 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
 
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,
-    fake_norm_state,
-    real_norm_state,
     denom ,all_state=False,use_col=False,use_all_type=False
     ):
     initial_type, batch=tokenized_agent['nonego_type_sorted'],tokenized_agent["nonego_batch"]

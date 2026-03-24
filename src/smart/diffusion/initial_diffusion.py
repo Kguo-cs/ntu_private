@@ -10,7 +10,6 @@ from src.smart.utils import (
     rotate_to_global,
     rotate_to_local,
 )
-from src.smart.loss.earth_match import get_matching_loss
 from src.smart.metrics.gen_metrics import plot_scene
 from src.smart.layers import MLPLayer
 from src.smart.gan.discriminator import InitDiscriminator, InitGeneator
@@ -153,24 +152,9 @@ class InitDiffusion(nn.Module):
             tokenized_agent["nonego_batch"]=nonego_batch
             tokenized_agent["ego_embedding"] = ego_embedding
 
-            loss_diff_init,x_pred ,expert_state,denom,t = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
+            loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
 
-            if self.use_match:
-                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                    tokenized_agent,
-                    x_pred,
-                    m_init,
-                    x_pred,
-                    m_init,
-                    denom,
-                    all_state=False,
-                    use_col=False,
-                    use_all_type=False
-                    )
-            else:
-                pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0, device=non_ego.device)
-
-                match_loss= loss_diff_init.mean()
+            match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
             if self.use_gan:
                 return  (m_init,match_loss,map_feature, tokenized_agent)
@@ -248,7 +232,7 @@ class InitDiffusion(nn.Module):
 
                 match_loss = expert_dis_loss + agent_dis_loss + policy_loss
 
-            loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+            loss = (match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
             return loss
         else:

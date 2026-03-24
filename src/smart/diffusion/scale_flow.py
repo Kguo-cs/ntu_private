@@ -52,6 +52,7 @@ from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 from src.smart.layers import MLPLayer
 
+from src.smart.loss.earth_match import get_matching_loss
 
 def power_schedule(steps, device, alpha=2.0):
     return  1 - (1 - torch.linspace(0, 1, steps, device=device)) **alpha
@@ -140,6 +141,8 @@ class ScaleFlow(nn.Module):
 
         if self.net.use_noise:
             self.value_network = MLPLayer(args.hidden_dim, args.hidden_dim * 2, 1)
+
+        self.use_match=True
 
         self.apply(weight_init)
 
@@ -248,15 +251,29 @@ class ScaleFlow(nn.Module):
 
                 denom = (1 - t).clamp_min(self.t_eps)
 
-                v_target = (x - z) /denom
+                if self.use_match:
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                        tokenized_agent,
+                        x_pred[:,0],
+                        x[:,0],
+                        denom,
+                        all_state=False,
+                        use_col=False,
+                        use_all_type=False
+                    )
+                else:
+                    pos_loss = heading_loss = shape_loss = vel_loss = collision_loss = torch.tensor(0.0,
+                                                                                                    device=device)
 
-                v_pred = (x - z) /denom
+                    v_target = (x - z) /denom
 
-                loss=F.mse_loss(v_pred , v_target,reduction="mean")
+                    v_pred = (x - z) /denom
 
-                #non_nan_mask=~torch.isnan(x[:,:,0])
+                    match_loss=F.mse_loss(v_pred , v_target,reduction="mean")
 
-                #loss=F.l1_loss(x_pred[non_nan_mask][...,:x.shape[-1]],x[non_nan_mask],reduction="none")
+                    #non_nan_mask=~torch.isnan(x[:,:,0])
+
+                    #loss=F.l1_loss(x_pred[non_nan_mask][...,:x.shape[-1]],x[non_nan_mask],reduction="none")
 
             else:
                 v_target =x - e
@@ -265,7 +282,9 @@ class ScaleFlow(nn.Module):
 
                 x_pred =e+v_pred
 
-        return loss ,x_pred[:,0],z[:,0],denom[:,0],t[:,0]
+        loss=(match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+
+        return loss ,x_pred[:,0],z[:,0],t[:,0]
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):

@@ -232,9 +232,10 @@ class InitDiscriminator(nn.Module):
 
             advantages = self.return_meanstd.normalize(gen_rewards)
 
-            new_loss,x_pred ,expert_state,denom,t = G.get_loss(RealSamples, tokenized_agent, map_feature,None)
+            new_loss = G.get_loss(RealSamples, tokenized_agent, map_feature,None)[0][0]
 
             loss_diff = new_loss.detach() - new_loss
+
             fpo_ratio = torch.exp(loss_diff)
 
             clipped_advantages = torch.clamp(advantages, -5, 5)
