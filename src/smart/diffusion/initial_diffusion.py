@@ -161,7 +161,7 @@ class InitDiffusion(nn.Module):
                     x_pred,
                     m_init,
                     x_pred,
-                    self.G.net.normalize(m_init),
+                    m_init,
                     denom,
                     all_state=False,
                     use_col=False,
@@ -173,7 +173,7 @@ class InitDiffusion(nn.Module):
                 match_loss= loss_diff_init.mean()
 
             if self.use_gan:
-                return  (m_init,match_loss,map_feature, tokenized_agent)#self.D.get_gan_loss
+                return  (m_init,match_loss,map_feature, tokenized_agent)
 
             if self.use_gail:
                 expert_dis_loss, _ = self.D.get_reward(m_init, t, tokenized_agent, map_feature, "expert")
