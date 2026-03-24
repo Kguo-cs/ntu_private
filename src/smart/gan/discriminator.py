@@ -23,6 +23,8 @@ import torch.nn.functional as F
 import copy
 from torch import Tensor
 from src.smart.loss.earth_match import get_matching_loss
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
+    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
 
 class InitDiscriminator(nn.Module):
     def __init__(
@@ -124,9 +126,12 @@ class InitDiscriminator(nn.Module):
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
-        self.use_GAIL=False
+        self.use_GAIL=True
 
         self.use_Rp=False
+
+        if self.use_GAIL:
+            self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.Gamma=1
 
@@ -170,7 +175,7 @@ class InitDiscriminator(nn.Module):
 
         return bce_loss,reward
 
-    def get_g_loss(self,map_feature, tokenized_agent,policy_net,e,x):
+    def get_g_loss(self,map_feature, tokenized_agent,G,e,x):
 
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
@@ -182,7 +187,7 @@ class InitDiscriminator(nn.Module):
 
         z = (1 - t) * e+ t * x  # large t, low noise
 
-        x_pred = policy_net.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
+        x_pred = G.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
 
         t_expanded=1-t
 
@@ -219,15 +224,31 @@ class InitDiscriminator(nn.Module):
 
         return g_loss
 
-    def update_policy(self,logger,opt_G,policy_net,inputs,rollout_samples,e):
-
+    def update_policy(self,logger,opt_G,G,inputs,rollout_samples,e,gen_rewards):
         RealSamples, match_loss, map_feature, tokenized_agent = inputs
 
-        g_loss=self.get_g_loss(map_feature, tokenized_agent,policy_net,e,rollout_samples)
+        if self.use_GAIL:
+            self.return_meanstd.update(gen_rewards)
 
-        #teacher_initial_noise = policy_net.net.denormalize(torch.randn_like(e)[:,None])[:,0]
+            advantages = self.return_meanstd.normalize(gen_rewards)
 
-        #g_loss1=self.get_g_loss(map_feature, tokenized_agent,policy_net,teacher_initial_noise,RealSamples)
+            new_loss,x_pred ,expert_state,denom,t = G.get_loss(RealSamples, tokenized_agent, map_feature,None)
+
+            loss_diff = new_loss.detach() - new_loss
+            fpo_ratio = torch.exp(loss_diff)
+
+            clipped_advantages = torch.clamp(advantages, -5, 5)
+
+            per_sample_policy_loss = - fpo_ratio * clipped_advantages
+
+            g_loss = per_sample_policy_loss.mean()
+
+        else:
+            g_loss=self.get_g_loss(map_feature, tokenized_agent,G,e,rollout_samples)
+
+            #teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
+
+            #g_loss1=self.get_g_loss(map_feature, tokenized_agent,G,teacher_initial_noise,RealSamples)
 
         loss = g_loss + match_loss#+g_loss1
 
@@ -237,7 +258,7 @@ class InitDiscriminator(nn.Module):
 
         opt_G.zero_grad()
         loss.backward()#
-        #torch.nn.utils.clip_grad_norm_( policy_net.parameters(),   max_norm=1   )
+        #torch.nn.utils.clip_grad_norm_( G.parameters(),   max_norm=1   )
         opt_G.step()
 
         return loss
@@ -274,7 +295,7 @@ class InitDiscriminator(nn.Module):
                                                                reduction='mean')
             dis_loss = fake_bce_loss + real_bce_loss
 
-            gen_rewards=-torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
+            gen_rewards=-torch.nn.functional.logsigmoid(FakeLogits1.mean(-1)).detach()
 
             if len(fake_interact_logits) > 0:
                 fake_loss = F.binary_cross_entropy_with_logits(
@@ -319,65 +340,22 @@ class InitDiscriminator(nn.Module):
 
         return gen_rewards
 
-    def update(self,logger,optimizer,policy_net,inputs):
+    def update(self,logger,optimizer,G,inputs):
         RealSamples, match_loss, map_feature, tokenized_agent= inputs
 
         with torch.no_grad():
-            rollout_samples, x_list, z_list, step_list, t_list = policy_net.sample(tokenized_agent, map_feature, None)
+            rollout_samples, x_list, z_list, step_list, t_list = G.sample(tokenized_agent, map_feature, None)
 
         opt_G, opt_D = optimizer
 
-        gen_rewards=self.update_dis(logger,opt_D,inputs,rollout_samples)        # Group samples by prompt
+        gen_rewards=self.update_dis(logger,opt_D,inputs,rollout_samples)
+        loss = self.update_policy(logger, opt_G, G, inputs, rollout_samples, z_list[0][:, 0], gen_rewards)
 
         #rollout_n =3
         #num_mc_samples=8
 
-        if self.use_GAIL:
-            group_mean = gen_rewards.mean()
-            group_std = gen_rewards.std() + 1e-8
-
-            group_advantages = (gen_rewards - group_mean) / group_std
-        else:
-            loss=self.update_policy(logger,opt_G,policy_net,inputs,rollout_samples,z_list[0][:,0] )
 
         return loss
-
-    @staticmethod
-    def compute_advantages_grouped(
-        rewards: torch.Tensor,
-        sample_infos
-    ) -> torch.Tensor:
-        """
-        Compute advantages grouped by prompt (GRPO-style).
-
-        Args:
-            rewards: Reward values [B*n]
-            sample_infos: Sample information for grouping
-
-        Returns:
-            advantages: Computed advantages [B*n]
-        """
-        advantages = torch.zeros_like(rewards)
-
-        # Group samples by prompt
-        prompt_groups = {}
-        for i, info in enumerate(sample_infos):
-            prompt_idx = info.prompt_idx
-            if prompt_idx not in prompt_groups:
-                prompt_groups[prompt_idx] = []
-            prompt_groups[prompt_idx].append(i)
-
-        # Compute advantages within each group
-        for group_indices in prompt_groups.values():
-            group_rewards = rewards[group_indices]
-            group_mean = group_rewards.mean()
-            group_std = group_rewards.std() + 1e-8
-
-            group_advantages = (group_rewards - group_mean) / group_std
-            for i, idx in enumerate(group_indices):
-                advantages[idx] = group_advantages[i]
-
-        return advantages
 
     def padding(self, pos, heading, feature, batch, num_graphs):
         lengths = torch.bincount(batch, minlength=num_graphs).tolist()

@@ -248,13 +248,15 @@ class ScaleFlow(nn.Module):
 
                 denom = (1 - t).clamp_min(self.t_eps)
 
-                # v_target = (x - z) /denom
-                #
-               # v_pred = (x - z) /denom
-                #loss=F.mse_loss(x_pred , x,reduction="none")
-                non_nan_mask=~torch.isnan(x[:,:,0])
+                v_target = (x - z) /denom
 
-                loss=F.l1_loss(x_pred[non_nan_mask][...,:x.shape[-1]],x[non_nan_mask],reduction="none")
+                v_pred = (x - z) /denom
+
+                loss=F.mse_loss(v_pred , v_target,reduction="mean")
+
+                #non_nan_mask=~torch.isnan(x[:,:,0])
+
+                #loss=F.l1_loss(x_pred[non_nan_mask][...,:x.shape[-1]],x[non_nan_mask],reduction="none")
 
             else:
                 v_target =x - e
