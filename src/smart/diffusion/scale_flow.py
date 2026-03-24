@@ -151,13 +151,14 @@ class ScaleFlow(nn.Module):
                  tokenized_agent: HeteroData,
                  scene_enc: Mapping[str, torch.Tensor],
                  eval_mask,
+                 use_match=True,
                  num_samples=1) :
         if self.flow_matching:
-            return self.flow_matching_loss(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples )
+            return self.flow_matching_loss(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples,use_match )
         else:
             return self.get_loss_vd(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples)
 
-    def flow_matching_loss(self,x, tokenized_agent, scene_enc,eval_mask,num_samples):
+    def flow_matching_loss(self,x, tokenized_agent, scene_enc,eval_mask,num_samples,use_match):
         """
         x1: target samples, shape [B, 2]
         """
@@ -251,12 +252,12 @@ class ScaleFlow(nn.Module):
 
                 denom = (1 - t).clamp_min(self.t_eps)
 
-                if self.use_match:
+                if use_match:
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                         tokenized_agent,
                         x_pred[:,0],
                         x[:,0],
-                        denom,
+                        denom[:,0],
                         all_state=False,
                         use_col=False,
                         use_all_type=False
@@ -284,7 +285,7 @@ class ScaleFlow(nn.Module):
 
         loss=(match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
-        return loss ,x_pred[:,0],z[:,0],t[:,0]
+        return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):

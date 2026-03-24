@@ -10,6 +10,7 @@ from src.smart.utils import (
     rotate_to_global,
     rotate_to_local,
 )
+from src.smart.loss.earth_match import get_matching_loss
 from src.smart.metrics.gen_metrics import plot_scene
 from src.smart.layers import MLPLayer
 from src.smart.gan.discriminator import InitDiscriminator, InitGeneator
@@ -47,8 +48,6 @@ class InitDiffusion(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=hidden_dim,latent_dim=8,num_heads=8)
 
-        if self.use_gan:
-            self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         parser = ArgumentParser()
         self.add_model_specific_args(parser)
@@ -57,7 +56,7 @@ class InitDiffusion(nn.Module):
 
         self.use_gail=True and self.G.net.use_noise
 
-        if self.use_gail:
+        if self.use_gail or self.use_gan:
             # self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 

@@ -304,8 +304,6 @@ def get_matching_loss(
     ):
     initial_type, batch=tokenized_agent['nonego_type_sorted'],tokenized_agent["nonego_batch"]
 
-
-
     fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
 
 

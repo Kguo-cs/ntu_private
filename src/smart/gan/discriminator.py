@@ -193,7 +193,7 @@ class InitDiscriminator(nn.Module):
 
             advantages = self.return_meanstd.normalize(gen_rewards)
 
-            new_loss = G.get_loss(rollout_samples, tokenized_agent, map_feature,None)[0][0]
+            new_loss = G.get_loss(rollout_samples, tokenized_agent, map_feature,None,use_match=False)[0][0]
 
             loss_diff = new_loss.detach() - new_loss
 
