@@ -116,7 +116,7 @@ class ScaleFlow(nn.Module):
 
         self.P_mean=2
 
-        self.steps=10
+        self.steps=20
 
         self.use_cluster=False
 

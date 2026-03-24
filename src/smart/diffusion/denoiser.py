@@ -272,7 +272,7 @@ class InitDenoiser(nn.Module):
             # ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
-        self.use_noise=True
+        self.use_noise=False
 
         if self.use_noise:
             self.denoising_steps= 20
