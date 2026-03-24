@@ -173,7 +173,7 @@ class InitDiscriminator(nn.Module):
 
         return bce_loss,reward
 
-    def update_policy(self,logger,opt_G,inputs):
+    def update_policy(self,logger,opt_G,policy_net,inputs):
 
         RealSamples, FakeSamples, map_feature, tokenized_agent, denom = inputs
 
@@ -227,6 +227,7 @@ class InitDiscriminator(nn.Module):
 
         opt_G.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_( policy_net.parameters(),   max_norm=1   )
         opt_G.step()
 
         return loss
@@ -303,12 +304,12 @@ class InitDiscriminator(nn.Module):
         torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
-    def update(self,logger,optimizer,inputs):
+    def update(self,logger,optimizer,policy_net,inputs):
 
         opt_G, opt_D = optimizer
 
         self.update_dis(logger,opt_D,inputs)
-        loss=self.update_policy(logger,opt_G,inputs)
+        loss=self.update_policy(logger,opt_G,policy_net,inputs)
 
         return loss
 

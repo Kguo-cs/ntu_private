@@ -119,7 +119,7 @@ class IQ_SoftQ(LightningModule):
         if pred["initial_logit"] is not None:
 
             if self.encoder.agent_encoder.init_decoder.use_gan:
-                loss=self.encoder.agent_encoder.init_decoder.D.update( self.log,self.optimizers(), pred["initial_logit"])
+                loss=self.encoder.agent_encoder.init_decoder.D.update( self.log,self.optimizers(), self.encoder.agent_encoder.init_decoder.G,pred["initial_logit"])
             else:
                 if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
                     loss, agent_loss, kl_loss = pred["initial_logit"]
