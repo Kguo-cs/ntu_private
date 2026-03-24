@@ -42,7 +42,7 @@ class InitDiscriminator(nn.Module):
         self.use_transformer=False
         self.use_decompose = True
 
-        self.dis_weight=1
+        self.dis_weight=10
         self.dist_decay=3
 
         if self.use_entry_former:
@@ -132,9 +132,6 @@ class InitDiscriminator(nn.Module):
 
 
 
-    def ZeroCenteredGradientPenalty(self,Samples, Critics):
-        Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
-        return Gradient.square().sum([-1])
 
     def get_reward(self,samples,t,tokenized_agent, map_feature,key):
 
@@ -176,103 +173,145 @@ class InitDiscriminator(nn.Module):
 
         return bce_loss,reward
 
+    def update_policy(self,logger,opt_G,inputs):
 
-    def get_gan_loss(self,RealSamples,FakeSamples,map_feature,tokenized_agent,denom):
+        RealSamples, FakeSamples, map_feature, tokenized_agent, denom = inputs
+
+        FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
 
         agent_n=len(FakeSamples)
 
-        if self.global_step % 10 == 0:
-
-            RealSamples = RealSamples.detach().requires_grad_(True)
-            FakeSamples = FakeSamples.detach().requires_grad_(True)
-
-            RealLogits,real_weight = self.forward(RealSamples, map_feature, tokenized_agent,return_weight=True)
-            FakeLogits,fake_weight = self.forward(FakeSamples, map_feature, tokenized_agent,return_weight=True)
-
-            R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-            R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
-
-            if self.use_Rp:
-                RelativisticLogits = RealLogits - FakeLogits
-                AdversarialLoss = nn.functional.softplus(-RelativisticLogits).mean()
-            else:
-                FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-                RealLogits, real_interact_logits = RealLogits[:agent_n], RealLogits[agent_n:]
-
-                fake_bce_loss = F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
-                                                              reduction='mean')
-                real_bce_loss = F.binary_cross_entropy_with_logits(RealLogits, torch.ones_like(RealLogits),
-                                                              reduction='mean')
-                AdversarialLoss =fake_bce_loss+real_bce_loss
-                # AdversarialLoss = FakeLogits.mean() - RealLogits.mean()
-                if len(fake_interact_logits) > 0:
-                    fake_loss = F.binary_cross_entropy_with_logits(
-                        fake_interact_logits,
-                        torch.zeros_like(fake_interact_logits),
-                        reduction='none'
-                    )
-
-                    fake_interact_bce_loss = (fake_loss * fake_weight).mean()
-
-                    real_loss = F.binary_cross_entropy_with_logits(
-                        real_interact_logits,
-                        torch.ones_like(real_interact_logits),
-                        reduction='none'
-                    )
-
-                    real_interact_bce_loss= (real_loss * real_weight).mean()
-
-                    AdversarialLoss =  AdversarialLoss +fake_interact_bce_loss +real_interact_bce_loss#
-
-            w = 1  # 0.1+(1-self.global_step/10000.0)
-
-            #R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
-
-            loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean(),FakeLogits,RealLogits)  # cosine schedule
+        if self.use_Rp:
+            RealLogits = self.forward(RealSamples, map_feature, tokenized_agent)
+            RelativisticLogits = FakeLogits - RealLogits
+            AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+            g_loss = AdversarialLoss.mean()
         else:
-            self.eval()
-            FakeLogits, fake_weight = self.forward(FakeSamples, map_feature, tokenized_agent, return_weight=True)
-            self.train()
+            FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+            # fake_bce_loss =  F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
+            #                                           reduction='mean')
+            fake_bce_loss = FakeLogits
+            g_loss = -fake_bce_loss.mean()
+            if len(fake_interact_logits) > 0:
+                # fake_loss = F.binary_cross_entropy_with_logits(
+                #     fake_interact_logits,
+                #     torch.zeros_like(fake_interact_logits),
+                #     reduction='none'
+                # )
+                fake_loss = fake_interact_logits
 
-            if self.use_Rp:
-                RealLogits = self.forward(RealSamples, map_feature, tokenized_agent)
-                RelativisticLogits = FakeLogits - RealLogits
-                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
-                loss = AdversarialLoss.mean()
-            else:
-                FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-                # fake_bce_loss =  F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
-                #                                           reduction='mean')
-                fake_bce_loss = FakeLogits
-                loss = -fake_bce_loss.mean()
-                if len(fake_interact_logits) > 0:
-                    # fake_loss = F.binary_cross_entropy_with_logits(
-                    #     fake_interact_logits,
-                    #     torch.zeros_like(fake_interact_logits),
-                    #     reduction='none'
-                    # )
-                    fake_loss = fake_interact_logits
+                fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
 
-                    fake_interact_bce_loss = (fake_loss * fake_weight).sum()/agent_n
+                g_loss = g_loss - fake_interact_bce_loss
 
-                    loss = loss - fake_interact_bce_loss
+        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+            tokenized_agent,
+            FakeSamples,
+            RealSamples,
+            0,
+            0,
+            denom,
+            all_state=False,
+            use_col=False,
+            use_all_type=False
+        )
 
-            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                tokenized_agent,
-                FakeSamples,
-                RealSamples,
-                0,
-                0,
-                denom,
-                all_state=False,
-                use_col=False,
-                use_all_type=False
-            )
+        loss = g_loss + match_loss
 
-            loss = (loss, match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
-        self.global_step += 1
+        logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
+        logger("train/pos_loss", pos_loss.item(), on_step=True, batch_size=1)
+        logger("train/heading_loss", heading_loss.item(), on_step=True, batch_size=1)
+        logger("train/shape_loss", shape_loss.item(), on_step=True, batch_size=1)
+        logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
+        logger("train/vel_loss", vel_loss.item(), on_step=True, batch_size=1)
+
+        opt_G.zero_grad()
+        loss.backward()
+        opt_G.step()
 
         return loss
+
+    def ZeroCenteredGradientPenalty(self,Samples, Critics):
+        Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
+        return Gradient.square().sum([-1])
+
+    def update_dis(self,logger,opt_D,inputs):
+
+        RealSamples, FakeSamples, map_feature, tokenized_agent, denom = inputs
+
+        agent_n=len(FakeSamples)
+
+        RealSamples = RealSamples.detach().requires_grad_(True)
+        FakeSamples = FakeSamples.detach().requires_grad_(True)
+
+        RealLogits, real_weight,_ = self.forward(RealSamples, map_feature, tokenized_agent)
+        FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
+
+        R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+        R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+
+        if self.use_Rp:
+            RelativisticLogits = RealLogits - FakeLogits
+            dis_loss = nn.functional.softplus(-RelativisticLogits).mean()
+        else:
+            FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+            RealLogits, real_interact_logits = RealLogits[:agent_n], RealLogits[agent_n:]
+
+            fake_bce_loss = F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
+                                                               reduction='mean')
+            real_bce_loss = F.binary_cross_entropy_with_logits(RealLogits, torch.ones_like(RealLogits),
+                                                               reduction='mean')
+            dis_loss = fake_bce_loss + real_bce_loss
+            if len(fake_interact_logits) > 0:
+                fake_loss = F.binary_cross_entropy_with_logits(
+                    fake_interact_logits,
+                    torch.zeros_like(fake_interact_logits),
+                    reduction='none'
+                )
+
+                fake_interact_bce_loss = (fake_loss * fake_weight).mean()
+
+                real_loss = F.binary_cross_entropy_with_logits(
+                    real_interact_logits,
+                    torch.ones_like(real_interact_logits),
+                    reduction='none'
+                )
+
+                real_interact_bce_loss = (real_loss * real_weight).mean()
+
+                dis_loss = dis_loss + fake_interact_bce_loss + real_interact_bce_loss  #
+
+        r1 = R1Penalty.mean()  # 0.1+(1-self.global_step/10000.0)
+        r2=R2Penalty.mean()
+        loss = dis_loss + r1 + r2
+
+        logger("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
+        #logger("train/r1", r1.item(), on_step=True, batch_size=1)
+       # logger("train/r2", r2.item(), on_step=True, batch_size=1)
+        logger("train/d_loss", loss.item(), on_step=True, batch_size=1)
+        disc_val = torch.sigmoid(FakeLogits)
+
+        logger("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+        logger("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+        disc_val = torch.sigmoid(RealLogits)
+
+        logger("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+        logger("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+
+        opt_D.zero_grad()
+        loss.backward(retain_graph=True)
+        torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
+        opt_D.step()
+
+    def update(self,logger,optimizer,inputs):
+
+        opt_G, opt_D = optimizer
+
+        self.update_dis(logger,opt_D,inputs)
+        loss=self.update_policy(logger,opt_G,inputs)
+
+        return loss
+
 
     def padding(self, pos, heading, feature, batch, num_graphs):
         lengths = torch.bincount(batch, minlength=num_graphs).tolist()
@@ -297,9 +336,9 @@ class InitDiscriminator(nn.Module):
 
         return pos_a_b, heading_a_b, feat_a_b, mask_a_b
 
-    def forward(self,inputs, map_feature,  tokenized_agent,return_weight=False):
+    def forward(self,inputs, map_feature,  tokenized_agent):
 
-        inputs[:,:-1]=inputs[:,:-1]+torch.randn_like(inputs[:,:-1])*1e-2
+        #inputs[:,:-1]=inputs[:,:-1]+torch.randn_like(inputs[:,:-1])*1e-2
 
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])

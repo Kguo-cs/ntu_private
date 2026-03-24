@@ -21,15 +21,9 @@ class IQ_SoftQ(LightningModule):
         self.gail = self.encoder.gail
         self.alpha = self.encoder.alpha
 
-        self.use_target_q = False
-
-        self.bce_loss = nn.BCELoss()
-
         self.buffer_len = 1
 
         self.replay_buffer = deque(maxlen=self.buffer_len)
-
-        self.rollout_freq = 1
 
         self.use_kl_penalty = self.encoder.use_kl_penalty
 
@@ -58,8 +52,6 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf = self.encoder.use_lcf
         self.use_gradient_penalty = False
-        self.token_cls_loss = nn.CrossEntropyLoss()
-        self.mse = nn.MSELoss()
 
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
@@ -127,43 +119,7 @@ class IQ_SoftQ(LightningModule):
         if pred["initial_logit"] is not None:
 
             if self.encoder.agent_encoder.init_decoder.use_gan:
-                opt_G, opt_D = self.optimizers()
-
-                if len(pred["initial_logit"]) == 5:
-                    dis_loss, r1, r2, FakeLogits, RealLogits = pred["initial_logit"]
-                    loss = dis_loss + r1 + r2
-                    self.log("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/r1", r1.item(), on_step=True, batch_size=1)
-                    self.log("train/r2", r2.item(), on_step=True, batch_size=1)
-                    self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
-                    disc_val = torch.sigmoid(FakeLogits)
-
-                    self.log("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-                    self.log("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
-                    disc_val = torch.sigmoid(RealLogits)
-
-                    self.log("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-                    self.log("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
-
-                    opt_D.zero_grad()
-                    loss.backward()
-                    opt_D.step()
-
-                else:
-                    g_loss, match_loss, pos_loss, heading_loss, shape_loss, vel_loss = pred["initial_logit"]
-
-                    loss = g_loss + match_loss
-
-                    self.log("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/pos_loss", pos_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/heading_loss", heading_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/shape_loss", shape_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/vel_loss", vel_loss.item(), on_step=True, batch_size=1)
-
-                    opt_G.zero_grad()
-                    loss.backward()
-                    opt_G.step()
+                loss=self.encoder.agent_encoder.init_decoder.D.update( self.log,self.optimizers(), pred["initial_logit"])
             else:
                 if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
                     loss, agent_loss, kl_loss = pred["initial_logit"]
