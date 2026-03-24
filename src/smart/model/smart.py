@@ -47,6 +47,7 @@ from src.smart.utils import (
     angle_between_2d_vectors,
     weight_init
 )
+import os
 
 class SMART(LightningModule):
 
@@ -104,19 +105,6 @@ class SMART(LightningModule):
                 for p in self.encoder.map_encoder1.parameters():
                     p.requires_grad = True
 
-                # if not self.encoder.agent_encoder.use_gan and self.encoder.agent_encoder.init_decoder.latent_diffusion and not self.encoder.agent_encoder.init_decoder.learn_autoencoder:
-                #     for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
-                #         p.requires_grad = False
-                #     for p in self.encoder.agent_encoder.init_decoder.G.pose_embedding.parameters():
-                #         p.requires_grad = False
-                #     for p in self.encoder.agent_encoder.init_decoder.G.ego_embedding.parameters():
-                #         p.requires_grad = False
-                # for p in self.encoder.map_encoder.parameters():
-                #     p.requires_grad = False
-
-        # else:
-        #     for p in self.encoder.map_encoder.parameters():
-        #             p.requires_grad = False
         self.n_rollout_closed_val = model_config.n_rollout_closed_val
         self.n_vis_batch = model_config.n_vis_batch
         self.n_vis_scenario = model_config.n_vis_scenario
@@ -125,7 +113,12 @@ class SMART(LightningModule):
 
         if self.token_processor.pred_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
-            self.para_num=32
+            working_dir = os.getcwd()
+
+            if (('keguo' in working_dir) or ("guoke" in working_dir)):
+                self.para_num=32
+            else:
+                self.para_num=2
             self.n_rollout_closed_val=2
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS

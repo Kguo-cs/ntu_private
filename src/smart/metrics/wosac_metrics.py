@@ -32,7 +32,6 @@ from waymo_open_dataset.utils.sim_agents import submission_specs
 from tqdm import tqdm
 _ChallengeType = submission_specs.ChallengeType
 
-working_dir=os.getcwd()
 
 class WOSACMetrics(Metric):
     """
@@ -98,7 +97,7 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) :
-        if  (('keguo' in working_dir) or ("guoke" in working_dir)):#True and self.challenge_type==_ChallengeType.SIM_AGENTS:#('keguo_projects' not in working_dir) :#Sor "guoke" in working_diros.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
+        if  True:#True and self.challenge_type==_ChallengeType.SIM_AGENTS:#('keguo_projects' not in working_dir) :#Sor "guoke" in working_diros.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)
