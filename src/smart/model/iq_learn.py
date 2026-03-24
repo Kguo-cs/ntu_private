@@ -251,9 +251,6 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.learn_dis:
             agent_dis_loss, agent_rewards, nei_rewards, agent_gp, _ = self.get_reward(
                 tokenized_agent_rollout, "agent", expert_dis_mask)
-        else:
-            with torch.no_grad():
-                agent_dis_loss, agent_rewards, nei_rewards,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
         critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
 
@@ -266,6 +263,13 @@ class IQ_SoftQ(LightningModule):
         critic_loss.backward()
 
         discriminator_optimizer.step()
+
+        with torch.no_grad():
+            self.encoder.discriminator.eval()
+
+            agent_dis_loss, agent_rewards, nei_rewards,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+
+            self.encoder.discriminator.train()
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
