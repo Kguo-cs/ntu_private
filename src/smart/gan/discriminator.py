@@ -196,7 +196,7 @@ class InitDiscriminator(nn.Module):
         t_next = t_expanded + dt_expanded
         t_next = torch.clamp(t_next, max=0.999)
 
-        velocity_pred=(x_pred - z) / (t_expanded).clamp_min(0.05)
+        velocity_pred=(x_pred - z) / (t_expanded)#.clamp_min(0.05)
 
         x_t_next_packed = x + dt_expanded * velocity_pred
 
