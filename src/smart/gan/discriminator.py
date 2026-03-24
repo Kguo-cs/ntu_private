@@ -173,9 +173,21 @@ class InitDiscriminator(nn.Module):
 
         return bce_loss,reward
 
-    def update_policy(self,logger,opt_G,policy_net,inputs):
+    def update_policy(self,logger,opt_G,policy_net,inputs,x,e):
 
-        RealSamples, FakeSamples, map_feature, tokenized_agent, denom = inputs
+        RealSamples, match_loss, map_feature, tokenized_agent = inputs
+
+        device = x.device
+        num_graphs = tokenized_agent["num_graphs"]
+        agent_batch = tokenized_agent["nonego_batch"]
+
+        t_batch = torch.rand(num_graphs, device=device)[:,  None]  # t ~ U[0,1]
+
+        t = t_batch[agent_batch]
+
+        z = (1 - t) * e[:,0] + t * x  # large t, low noise
+
+        FakeSamples = policy_net.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
 
         FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
 
@@ -193,40 +205,18 @@ class InitDiscriminator(nn.Module):
             fake_bce_loss = FakeLogits
             g_loss = -fake_bce_loss.mean()
             if len(fake_interact_logits) > 0:
-                # fake_loss = F.binary_cross_entropy_with_logits(
-                #     fake_interact_logits,
-                #     torch.zeros_like(fake_interact_logits),
-                #     reduction='none'
-                # )
                 fake_loss = fake_interact_logits
 
                 fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
 
                 g_loss = g_loss - fake_interact_bce_loss
 
-        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-            tokenized_agent,
-            FakeSamples,
-            RealSamples,
-            0,
-            0,
-            denom,
-            all_state=False,
-            use_col=False,
-            use_all_type=False
-        )
-
         loss = g_loss + match_loss
 
         logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
-        logger("train/pos_loss", pos_loss.item(), on_step=True, batch_size=1)
-        logger("train/heading_loss", heading_loss.item(), on_step=True, batch_size=1)
-        logger("train/shape_loss", shape_loss.item(), on_step=True, batch_size=1)
-        logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
-        logger("train/vel_loss", vel_loss.item(), on_step=True, batch_size=1)
 
         opt_G.zero_grad()
-        loss.backward()
+        loss.backward()#
         torch.nn.utils.clip_grad_norm_( policy_net.parameters(),   max_norm=1   )
         opt_G.step()
 
@@ -236,9 +226,9 @@ class InitDiscriminator(nn.Module):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
 
-    def update_dis(self,logger,opt_D,inputs):
+    def update_dis(self,logger,opt_D,inputs,FakeSamples):
 
-        RealSamples, FakeSamples, map_feature, tokenized_agent, denom = inputs
+        RealSamples, _, map_feature, tokenized_agent= inputs
 
         agent_n=len(FakeSamples)
 
@@ -247,7 +237,7 @@ class InitDiscriminator(nn.Module):
 
         RealLogits, real_weight,_ = self.forward(RealSamples, map_feature, tokenized_agent)
         FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
-
+#
         R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
         R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
@@ -255,12 +245,12 @@ class InitDiscriminator(nn.Module):
             RelativisticLogits = RealLogits - FakeLogits
             dis_loss = nn.functional.softplus(-RelativisticLogits).mean()
         else:
-            FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-            RealLogits, real_interact_logits = RealLogits[:agent_n], RealLogits[agent_n:]
+            FakeLogits1, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+            RealLogits1, real_interact_logits = RealLogits[:agent_n], RealLogits[agent_n:]
 
-            fake_bce_loss = F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
+            fake_bce_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1),
                                                                reduction='mean')
-            real_bce_loss = F.binary_cross_entropy_with_logits(RealLogits, torch.ones_like(RealLogits),
+            real_bce_loss = F.binary_cross_entropy_with_logits(RealLogits1, torch.ones_like(RealLogits1),
                                                                reduction='mean')
             dis_loss = fake_bce_loss + real_bce_loss
             if len(fake_interact_logits) > 0:
@@ -283,12 +273,12 @@ class InitDiscriminator(nn.Module):
                 dis_loss = dis_loss + fake_interact_bce_loss + real_interact_bce_loss  #
 
         r1 = R1Penalty.mean()  # 0.1+(1-self.global_step/10000.0)
-        r2=R2Penalty.mean()
-        loss = dis_loss + r1 + r2
+        r2= R2Penalty.mean()
+        loss = dis_loss #+ r1 + r2
 
         logger("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
-        #logger("train/r1", r1.item(), on_step=True, batch_size=1)
-       # logger("train/r2", r2.item(), on_step=True, batch_size=1)
+        logger("train/r1", r1.item(), on_step=True, batch_size=1)
+        logger("train/r2", r2.item(), on_step=True, batch_size=1)
         logger("train/d_loss", loss.item(), on_step=True, batch_size=1)
         disc_val = torch.sigmoid(FakeLogits)
 
@@ -305,11 +295,15 @@ class InitDiscriminator(nn.Module):
         opt_D.step()
 
     def update(self,logger,optimizer,policy_net,inputs):
+        RealSamples, match_loss, map_feature, tokenized_agent= inputs
+
+        with torch.no_grad():
+            rollout_samples, x_list, z_list, step_list, t_list = policy_net.sample(tokenized_agent, map_feature, None)
 
         opt_G, opt_D = optimizer
 
-        self.update_dis(logger,opt_D,inputs)
-        loss=self.update_policy(logger,opt_G,policy_net,inputs)
+        self.update_dis(logger,opt_D,inputs,rollout_samples)
+        loss=self.update_policy(logger,opt_G,policy_net,inputs,rollout_samples,z_list[0])
 
         return loss
 

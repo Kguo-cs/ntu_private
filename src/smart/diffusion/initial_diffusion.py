@@ -155,100 +155,100 @@ class InitDiffusion(nn.Module):
 
             loss_diff_init,x_pred ,expert_state,denom,t = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
 
-            if self.use_gan:
-                loss=(m_init,x_pred,map_feature, tokenized_agent,denom)#self.D.get_gan_loss
+            if self.use_match:
+                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    tokenized_agent,
+                    x_pred,
+                    m_init,
+                    x_pred,
+                    self.G.net.normalize(m_init),
+                    denom,
+                    all_state=False,
+                    use_col=False,
+                    use_all_type=False
+                    )
             else:
-                if self.use_match:
-                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        tokenized_agent,
-                        x_pred,
-                        m_init,
-                        x_pred,
-                        self.G.net.normalize(m_init),
-                        denom,
-                        all_state=False,
-                        use_col=False,
-                        use_all_type=False
-                        )
-                else:
-                    pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0, device=non_ego.device)
+                pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0, device=non_ego.device)
 
-                    match_loss= loss_diff_init.mean()
+                match_loss= loss_diff_init.mean()
 
-                if self.use_gail:
-                    expert_dis_loss,_ = self.D.get_reward(m_init,t,tokenized_agent, map_feature,"expert")
+            if self.use_gan:
+                return  (m_init,match_loss,map_feature, tokenized_agent)#self.D.get_gan_loss
 
-                    with torch.no_grad():
-                        pred_init, x_list,z_list, step_list,t_list = self.G.sample(tokenized_agent, map_feature, None)
+            if self.use_gail:
+                expert_dis_loss, _ = self.D.get_reward(m_init, t, tokenized_agent, map_feature, "expert")
 
-                    #print(z_list[-1].shape,m_init.shape)
+                with torch.no_grad():
+                    pred_init, x_list, z_list, step_list, t_list = self.G.sample(tokenized_agent, map_feature, None)
 
-                    agent_dis_loss, agent_rewards = self.D.get_reward(z_list[-1][:,0], t, tokenized_agent,
-                                                                      map_feature, "agent")
+                #print(z_list[-1].shape,m_init.shape)
 
-                    agent_action=torch.cat(x_list,dim=1).transpose(0, 1).flatten(0,1)   #action_list
+                agent_dis_loss, agent_rewards = self.D.get_reward(z_list[-1][:,0], t, tokenized_agent,
+                                                                  map_feature, "agent")
 
-                    agent_state=torch.cat(z_list,dim=1)
+                agent_action=torch.cat(x_list,dim=1).transpose(0, 1).flatten(0,1)   #action_list
 
-                    t=torch.cat(t_list,dim=1).transpose(0, 1).flatten(0,1)
+                agent_state=torch.cat(z_list,dim=1)
 
-                    n_step=agent_state.shape[1]-1
+                t=torch.cat(t_list,dim=1).transpose(0, 1).flatten(0,1)
 
-                    batch=tokenized_agent["nonego_batch"]
+                n_step=agent_state.shape[1]-1
 
-                    tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step) #n_agent ,n_step
+                batch=tokenized_agent["nonego_batch"]
 
-                    batch = torch.stack(
-                        [
-                            batch + num_graphs * t
-                            for t in range(n_step)
-                        ],
-                        dim=1,
-                    ).transpose(0, 1).flatten(0,1)  # [n_agent*n_step]
+                tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step) #n_agent ,n_step
 
-                    tokenized_agent["nonego_batch"]=batch
+                batch = torch.stack(
+                    [
+                        batch + num_graphs * t
+                        for t in range(n_step)
+                    ],
+                    dim=1,
+                ).transpose(0, 1).flatten(0,1)  # [n_agent*n_step]
 
-                    tokenized_agent["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][None].repeat(n_step,1).flatten(0,1)
+                tokenized_agent["nonego_batch"]=batch
 
-                    agent_input_state=agent_state[:,:-1].transpose(0, 1).flatten(0,1) #t,a
+                tokenized_agent["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][None].repeat(n_step,1).flatten(0,1)
 
-                    agent_next_state=agent_state[:,1:].transpose(0, 1).flatten(0,1) #t,a
+                agent_input_state=agent_state[:,:-1].transpose(0, 1).flatten(0,1) #t,a
 
-                    tokenized_agent["num_graphs"]=num_graphs*n_step
+                agent_next_state=agent_state[:,1:].transpose(0, 1).flatten(0,1) #t,a
 
-                    tokenized_agent["ego_embedding"]=ego_embedding[None].repeat(n_step,1,1).flatten(0,1)
+                tokenized_agent["num_graphs"]=num_graphs*n_step
 
-                    #agent_dis_loss,agent_rewards = self.D.get_reward(agent_next_state, t, tokenized_agent, map_feature,"agent")
+                tokenized_agent["ego_embedding"]=ego_embedding[None].repeat(n_step,1,1).flatten(0,1)
 
-                    x_pred = self.G.net(agent_input_state, t, tokenized_agent, map_feature, mode=1)[:,0]
+                #agent_dis_loss,agent_rewards = self.D.get_reward(agent_next_state, t, tokenized_agent, map_feature,"agent")
 
-                    agent_log_prob=-gaussian_nll_2d(x_pred[:,:8], x_pred[:,8:], agent_action)
+                x_pred = self.G.net(agent_input_state, t, tokenized_agent, map_feature, mode=1)[:,0]
 
-                    feat_a = tokenized_agent["noise_feat"]  # [-2]
+                agent_log_prob=-gaussian_nll_2d(x_pred[:,:8], x_pred[:,8:], agent_action)
 
-                    value = self.G.value_network(feat_a)[..., 0].view(n_step,-1)
+                feat_a = tokenized_agent["noise_feat"]  # [-2]
 
-                    rewards=torch.zeros_like(value)
+                value = self.G.value_network(feat_a)[..., 0].view(n_step,-1)
 
-                    #print(agent_rewards.shape,value.shape,rewards.shape)
+                rewards=torch.zeros_like(value)
 
-                    rewards[-1]=agent_rewards[:,0]
+                #print(agent_rewards.shape,value.shape,rewards.shape)
 
-                    advantages, value_loss = compute_advantages(rewards, value)
+                rewards[-1]=agent_rewards[:,0]
 
-                    advantages=advantages.view(-1)
+                advantages, value_loss = compute_advantages(rewards, value)
 
-                    self.return_meanstd.update(advantages.detach())
+                advantages=advantages.view(-1)
 
-                    advantages = self.return_meanstd.normalize(advantages)
+                self.return_meanstd.update(advantages.detach())
 
-                    ppo_loss = -(agent_log_prob * advantages).mean()
+                advantages = self.return_meanstd.normalize(advantages)
 
-                    policy_loss = match_loss + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
+                ppo_loss = -(agent_log_prob * advantages).mean()
 
-                    match_loss = expert_dis_loss + agent_dis_loss + policy_loss
+                policy_loss = match_loss + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
 
-                loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                match_loss = expert_dis_loss + agent_dis_loss + policy_loss
+
+            loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
             return loss
         else:

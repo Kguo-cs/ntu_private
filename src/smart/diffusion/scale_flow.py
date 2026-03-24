@@ -339,11 +339,6 @@ class ScaleFlow(nn.Module):
         v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
         if self.net.label_drop_prob>0:
-
-
-            # tokenized_agent["nonego_type_sorted"]=torch.full_like(tokenized_agent["nonego_type_sorted"], self.net.num_classes)
-            #tokenized_agent["ego_embedding"]=torch.full_like(tokenized_agent["ego_embedding"], 0)
-
             # unconditional
             x_uncond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=0)
             v_uncond = (x_uncond - z) / (1.0 - t_n).clamp_min(self.t_eps)
