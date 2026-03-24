@@ -23,8 +23,7 @@ import torch.nn.functional as F
 import copy
 from torch import Tensor
 from src.smart.loss.earth_match import get_matching_loss
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
-    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch
 
 class InitDiscriminator(nn.Module):
     def __init__(
@@ -42,7 +41,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = False
+        self.use_decompose = True
 
         self.dis_weight=10
         self.dist_decay=3
@@ -278,7 +277,7 @@ class InitDiscriminator(nn.Module):
         FakeSamples = FakeSamples.detach().requires_grad_(True)
 
         RealLogits, real_weight,_ = self.forward(RealSamples, map_feature, tokenized_agent)
-        FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
+        FakeLogits, fake_weight,end_index = self.forward(FakeSamples, map_feature, tokenized_agent)
 #
         R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
         R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
@@ -315,7 +314,13 @@ class InitDiscriminator(nn.Module):
 
                 real_interact_bce_loss = (real_loss * real_weight).mean()
 
-                dis_loss = dis_loss + fake_interact_bce_loss + real_interact_bce_loss  #
+                dis_loss = dis_loss + fake_interact_bce_loss + real_interact_bce_loss
+
+                weight_logit= fake_interact_logits.detach() * fake_weight
+
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=agent_n)#
+
+                gen_rewards = gen_rewards + valid_interact_reward
 
         r1 = R1Penalty.mean()  # 0.1+(1-self.global_step/10000.0)
         r2= R2Penalty.mean()
