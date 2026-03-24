@@ -97,7 +97,7 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) :
-        if  True:#True and self.challenge_type==_ChallengeType.SIM_AGENTS:#('keguo_projects' not in working_dir) :#Sor "guoke" in working_diros.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
+        if  len(scenario_rollouts)>1:#True and self.challenge_type==_ChallengeType.SIM_AGENTS:#('keguo_projects' not in working_dir) :#Sor "guoke" in working_diros.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)

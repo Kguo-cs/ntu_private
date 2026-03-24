@@ -116,8 +116,10 @@ class SMART(LightningModule):
             working_dir = os.getcwd()
             if (('keguo' in working_dir) or ("guoke" in working_dir)):
                 self.para_num=32
+            elif 'zs' in working_dir:
+                self.para_num=2
             else:
-                self.para_num=4
+                self.para_num=1
             self.n_rollout_closed_val=2
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
