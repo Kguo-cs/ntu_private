@@ -155,11 +155,11 @@ class InitDiscriminator(nn.Module):
 
             if self.use_decompose:
 
-                weight_logit= interact_logits.detach() * weight
+                weight_logit= interact_logits * weight
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=len(samples))
 
-                reward = reward + valid_interact_reward
+                reward = reward + valid_interact_reward.detach()
 
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target,
@@ -297,7 +297,7 @@ class InitDiscriminator(nn.Module):
 
             gen_rewards=FakeLogits1[:,0].detach()##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
-            if len(fake_interact_logits) > 0:
+            if self.use_decompose:
                 fake_loss = F.binary_cross_entropy_with_logits(
                     fake_interact_logits,
                     torch.zeros_like(fake_interact_logits),
@@ -320,7 +320,7 @@ class InitDiscriminator(nn.Module):
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=agent_n)[:,0]#
 
-                gen_rewards = gen_rewards + valid_interact_reward
+                gen_rewards = gen_rewards + valid_interact_reward.detach()
 
         r1 = R1Penalty.mean()  # 0.1+(1-self.global_step/10000.0)
         r2= R2Penalty.mean()
