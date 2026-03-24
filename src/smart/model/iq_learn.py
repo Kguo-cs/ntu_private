@@ -267,8 +267,6 @@ class IQ_SoftQ(LightningModule):
 
         discriminator_optimizer.step()
 
-
-
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
         agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')

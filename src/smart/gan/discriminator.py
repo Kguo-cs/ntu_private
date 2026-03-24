@@ -297,7 +297,7 @@ class InitDiscriminator(nn.Module):
 
             gen_rewards=FakeLogits1[:,0].detach()##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
-            gen_rewards=torch.nn.functional.logsigmoid(gen_rewards)
+            # gen_rewards=torch.nn.functional.logsigmoid(gen_rewards)
 
             if self.use_decompose:
                 fake_loss = F.binary_cross_entropy_with_logits(
@@ -390,7 +390,7 @@ class InitDiscriminator(nn.Module):
 
     def forward(self,inputs, map_feature,  tokenized_agent):
 
-        #inputs[:,:-1]=inputs[:,:-1]+torch.randn_like(inputs[:,:-1])*1e-2
+        inputs=inputs+torch.randn_like(inputs)*1e-2
 
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
