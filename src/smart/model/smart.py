@@ -117,7 +117,7 @@ class SMART(LightningModule):
             if (('keguo' in working_dir) or ("guoke" in working_dir)):
                 self.para_num=32
             elif 'zs' in working_dir:
-                self.para_num=2
+                self.para_num=1
             else:
                 self.para_num=1
             self.n_rollout_closed_val=2

@@ -41,7 +41,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = True
+        self.use_decompose = False
 
         self.dis_weight=10
         self.dist_decay=3
@@ -296,6 +296,8 @@ class InitDiscriminator(nn.Module):
             dis_loss = fake_bce_loss + real_bce_loss
 
             gen_rewards=FakeLogits1[:,0].detach()##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
+
+            gen_rewards=torch.nn.functional.logsigmoid(gen_rewards)
 
             if self.use_decompose:
                 fake_loss = F.binary_cross_entropy_with_logits(

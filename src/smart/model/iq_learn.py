@@ -58,7 +58,7 @@ class IQ_SoftQ(LightningModule):
 
         self.pred_init=self.token_processor.pred_init
 
-        if self.pred_init and self.encoder.agent_encoder.init_decoder.use_gan:
+        if self.gail or self.encoder.agent_encoder.init_decoder.use_gan:
 
             self.automatic_optimization=False
 
@@ -248,12 +248,6 @@ class IQ_SoftQ(LightningModule):
 
         agent_train_mask= get_train_mask(tokenized_agent_rollout,max(0,self.gail_start_step-1))
 
-        self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
-
-        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')
-
-        self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
-
         if self.encoder.learn_dis:
             agent_dis_loss, agent_rewards, nei_rewards, agent_gp, _ = self.get_reward(
                 tokenized_agent_rollout, "agent", expert_dis_mask)
@@ -261,20 +255,32 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 agent_dis_loss, agent_rewards, nei_rewards,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
-        feat_a = tokenized_agent_rollout["feat_a"]#[-2]
+        critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
+
+        self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+
+        actor_optimizer, discriminator_optimizer=self.optimizers()
+
+        discriminator_optimizer.zero_grad()
+
+        critic_loss.backward()
+
+        discriminator_optimizer.step()
+
+
+
+        self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
+
+        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')
+
+        self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
+
+
+        feat_a = tokenized_agent_rollout["feat_a"]
 
         value = self.encoder.value_network(feat_a)[..., 0]
 
         advantages, value_loss=compute_advantages(agent_rewards[max(0,1-self.gail_start_step):], value)
-
-        if len(nei_rewards) and self.use_lcf:
-            nei_value = self.encoder.nei_value_network(feat_a)[..., 0]
-
-            nei_advantages, nei_value_loss = compute_advantages(nei_rewards, nei_value)
-
-            value_loss =value_loss+nei_value_loss
-
-            advantages = 1/2 * advantages + 1/2 * nei_advantages
 
         advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
 
@@ -284,16 +290,19 @@ class IQ_SoftQ(LightningModule):
 
         ppo_loss = -(agent_log_prob * advantages).mean()
 
-        critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
-
         self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var, on_step=True, batch_size=1)
         self.log("train/ppo_loss", ppo_loss.item(), on_step=True, batch_size=1)
         self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-        self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
+
+        actor_optimizer.zero_grad()
+
+        policy_loss.backward()
+
+        actor_optimizer.step()
 
         loss = critic_loss + policy_loss
 

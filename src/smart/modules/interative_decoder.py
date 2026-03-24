@@ -344,6 +344,9 @@ class InterativeDecoder(nn.Module):
             orient_pl = map_feature["orientation"]
             feat_map = map_feature["pt_token"]
 
+            if self.discriminator:
+                feat_map=feat_map.detach()
+
             edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
                 pos_pl=pos_pl,  # [n_pl, 2]
                 orient_pl=orient_pl,  # [n_pl]
