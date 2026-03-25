@@ -167,7 +167,7 @@ class InitDiscriminator(nn.Module):
                     -v_pred,
                     z,
                     G.net.denormalize,
-                    noise_level=0.7
+                    noise_level=0.01
                 )[0]
 
                 fpo_ratio=log_prob[:,0].mean(-1)

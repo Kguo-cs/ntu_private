@@ -627,6 +627,7 @@ class ScaleFlow(nn.Module):
                 t_list.append(t_n)
                 # batch_list.append(tokenized_agent_scale["nonego_batch"])
                 # step_list.append(torch.zeros_like(tokenized_agent_scale["nonego_batch"])+i)
+        t_list.append(torch.ones_like(t_n))
 
         return z[:,0],x_list,z_list,step_list,t_list
 
