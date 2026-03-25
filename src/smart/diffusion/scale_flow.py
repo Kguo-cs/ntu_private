@@ -404,16 +404,16 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        elif self.use_flux:
-            z = sde_step_with_logprob(
-                1-t_n,
-                1-t_next,
-                v_pred,
-                z,
-                self.net.denormalize
-            )[0]
-
-            #print(z.mean())
+        # elif self.use_flux:
+        #     z = sde_step_with_logprob(
+        #         1-t_n,
+        #         1-t_next,
+        #         v_pred,
+        #         z,
+        #         self.net.denormalize
+        #     )[0]
+        #
+        #     #print(z.mean())
 
         else:
             z = z + (t_next - t_n) * v_pred
