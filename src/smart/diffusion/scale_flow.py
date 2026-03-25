@@ -73,7 +73,7 @@ def sde_step_with_logprob(
         model_output: torch.FloatTensor,
         sample: torch.FloatTensor,
         denormalize,
-        noise_level: float = 0.1,
+        noise_level: float = 0,
         prev_sample: Optional[torch.FloatTensor] = None,
         sde_type: Optional[str] = 'sde',
         return_sqrt_dt: Optional[bool] = False,
@@ -101,6 +101,7 @@ def sde_step_with_logprob(
         # our sde
         prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
                     1 + std_dev_t ** 2 * (1 - sigma) / (2 * sigma)) * dt
+
 
         if prev_sample is None:
             variance_noise = torch.randn_like( model_output )
@@ -404,16 +405,15 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        # elif self.use_flux:
-        #     z = sde_step_with_logprob(
-        #         1-t_n,
-        #         1-t_next,
-        #         v_pred,
-        #         z,
-        #         self.net.denormalize
-        #     )[0]
-        #
-        #     #print(z.mean())
+        elif self.use_flux:
+            z = sde_step_with_logprob(
+                1-t_n,
+                1-t_next,
+                -v_pred,
+                z,
+                self.net.denormalize
+            )[0]
+
 
         else:
             z = z + (t_next - t_n) * v_pred
