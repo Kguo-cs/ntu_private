@@ -390,7 +390,7 @@ class InitDiscriminator(nn.Module):
 
     def forward(self,inputs, map_feature,  tokenized_agent):
 
-        inputs=inputs+torch.randn_like(inputs)*1e-2
+        #inputs=inputs+torch.randn_like(inputs)*1e-2
 
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
