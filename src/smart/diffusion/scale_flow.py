@@ -70,7 +70,6 @@ def calculate_shift(
 def sde_step_with_logprob(
         sigma,
         sigma_prev,
-        sigma_max,
         model_output: torch.FloatTensor,
         sample: torch.FloatTensor,
         noise_level: float = 0.7,
@@ -95,7 +94,7 @@ def sde_step_with_logprob(
     dt = sigma_prev - sigma
 
     if sde_type == 'sde':
-        std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_max, sigma))) * noise_level
+        std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))) * noise_level
 
         # our sde
         prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
@@ -405,14 +404,15 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        # elif self.use_flux:
-        #     z = sde_step_with_logprob(
-        #         sigma,
-        #         sigma_prev,
-        #         sigma_max,
-        #         v_pred,
-        #         z
-        #     )
+        elif self.use_flux:
+            z = sde_step_with_logprob(
+                1-t_n,
+                1-t_next,
+                v_pred,
+                z
+            )[0]
+
+            #print(z.mean())
 
         else:
             z = z + (t_next - t_n) * v_pred
@@ -588,6 +588,8 @@ class ScaleFlow(nn.Module):
                 sigma = mu * t_batch / (1 + (mu - 1) * t_batch)
 
                 timesteps=1-sigma
+
+                timesteps[0]=0
 
                 timesteps=timesteps[:,agent_batch][:,:,None,None]
 
