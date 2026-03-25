@@ -73,7 +73,7 @@ def sde_step_with_logprob(
         model_output: torch.FloatTensor,
         sample: torch.FloatTensor,
         denormalize,
-        noise_level: float = 0,
+        noise_level: float = 0.1,
         prev_sample: Optional[torch.FloatTensor] = None,
         sde_type: Optional[str] = 'sde',
         return_sqrt_dt: Optional[bool] = False,
