@@ -135,7 +135,6 @@ class InitDiscriminator(nn.Module):
         self.Gamma=1
 
 
-
     def get_g_loss(self,map_feature, tokenized_agent,G,e,x,rewards):
         if self.use_GAIL:
             self.return_meanstd.update(rewards)

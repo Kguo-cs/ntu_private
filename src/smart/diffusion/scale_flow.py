@@ -54,6 +54,18 @@ from src.smart.layers import MLPLayer
 
 from src.smart.loss.earth_match import get_matching_loss
 
+def calculate_shift(
+    image_seq_len,
+    base_seq_len: int = 256,
+    max_seq_len: int = 4096,
+    base_shift: float = 0.5,
+    max_shift: float = 1.15,
+):
+    m = (max_shift - base_shift) / (max_seq_len - base_seq_len)
+    b = base_shift - m * base_seq_len
+    mu = image_seq_len * m + b
+    return mu
+
 def power_schedule(steps, device, alpha=2.0):
     return  1 - (1 - torch.linspace(0, 1, steps, device=device)) **alpha
 
@@ -117,7 +129,7 @@ class ScaleFlow(nn.Module):
 
         self.P_mean=2
 
-        self.steps=10
+        self.steps=20
 
         self.use_cluster=False
 
@@ -138,6 +150,8 @@ class ScaleFlow(nn.Module):
 
         if self.use_vp:
             self.sde = VPSDE_linear()
+
+        self.use_flux=True
 
         if self.net.use_noise:
             self.value_network = MLPLayer(args.hidden_dim, args.hidden_dim * 2, 1)
@@ -221,6 +235,20 @@ class ScaleFlow(nn.Module):
         else:
             if self.steps==1:
                 t_batch=torch.zeros_like(t_batch)
+
+
+            if self.use_flux:
+                count=tokenized_agent["type_counts"].sum(-1)
+
+                mu = calculate_shift(
+                    count,
+                    base_seq_len=32,#256,
+                    max_seq_len=512,#4096,
+                    base_shift=0.5,
+                    max_shift=1.15
+                )[:,None,None]
+
+                t_batch = t_batch ** mu / (t_batch ** mu + (1 - t_batch) ** mu)
 
             t=t_batch[agent_batch]
 
