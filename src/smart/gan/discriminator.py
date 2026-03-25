@@ -41,7 +41,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = False
+        self.use_decompose = True
 
         self.dis_weight=10
         self.dist_decay=3
@@ -244,17 +244,20 @@ class InitDiscriminator(nn.Module):
         else:
             FakeLogits1, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
 
-            dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
-                                                               reduction='mean')
+            # dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
+            #                                                    reduction='mean')
+
+            dis_loss = torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
 
             gen_rewards = FakeLogits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if self.use_decompose:
-                fake_loss = F.binary_cross_entropy_with_logits(
-                    fake_interact_logits,
-                    torch.zeros_like(fake_interact_logits)+target,
-                    reduction='none'
-                )
+                # fake_loss = F.binary_cross_entropy_with_logits(
+                #     fake_interact_logits,
+                #     torch.zeros_like(fake_interact_logits)+target,
+                #     reduction='none'
+                # )
+                fake_loss = torch.mean(F.relu(1.0 + (1 - 2 * target) * fake_interact_logits))  # 0->1
 
                 fake_interact_bce_loss = (fake_loss * fake_weight).mean()
 
@@ -266,7 +269,7 @@ class InitDiscriminator(nn.Module):
 
                 gen_rewards = gen_rewards + valid_interact_reward
 
-        return dis_loss,torch.nn.functional.logsigmoid(gen_rewards).detach(),Penalty,FakeLogits1
+        return dis_loss,gen_rewards.detach(),Penalty,FakeLogits1
 
     def update_dis(self,logger,opt_D,inputs,FakeSamples):
 
@@ -518,228 +521,68 @@ class InitDiscriminator(nn.Module):
 
         return score, weight, end_index
 
-
-class InitGeneator(nn.Module):
-    def __init__(
-            self,
-            hidden_dim: int,
-            num_heads: int,
-            num_freq_bands,
-            token_processor,
-    ) -> None:
-        super(InitGeneator, self).__init__()
-        self.token_processor = token_processor
-
-        self.hidden_dim = hidden_dim
-
-        self.use_entry_former = True
-        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
-
-        if self.use_entry_former:
-
-            module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                                  hist_len=1000000)  # replace with gnn
-            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
-        else:
-            decoder_layer = nn.TransformerDecoderLayer(
-                d_model=self.hidden_dim,
-                nhead=num_heads,
-                dim_feedforward=self.hidden_dim*4,
-                dropout=0,
-                norm_first=True,
-                batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
-            )
-
-            self.transformer_decoder = nn.TransformerDecoder(
-                decoder_layer,
-                num_layers=1
-            )
-
-        self.type_embedding = nn.Embedding(3, hidden_dim)
-
-        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
-
-        self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
-
-        self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-        self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-
-        if self.token_processor.pred_vel:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 4)
-
-            self.noise_dim=8
-        else:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-
-            self.noise_dim=6
-
-        self.noise_embedding = MLPLayer(self.noise_dim, hidden_dim, hidden_dim)
-
-    def forward(self, map_features, tokenized_agent):
-        pos_pl, orient_pl, feat_map, map_mask = map_features
-
-        ego_mask = tokenized_agent["ego_mask"]
-
-        type = tokenized_agent["initial_type"]
-
-        batch = tokenized_agent["batch"]
-
-        num_graphs = tokenized_agent["num_graphs"]
-
-        type = type[~ego_mask]
-
-        batch = batch[~ego_mask]
-
-        agent_num = len(type)
-
-        z = torch.randn(agent_num, self.noise_dim, device=type.device)  #pos,heading and shape
-
-        lengths = torch.bincount(batch, minlength=num_graphs).tolist()
-
-        padding_type = padding(type, lengths, padding_value=3)
-
-        mask_a_b = padding_type != 3
-
-        count = torch.arange(padding_type.shape[1], device=type.device)[None].repeat(padding_type.shape[0], 1)
-
-        sort_idx = torch.argsort(padding_type, dim=-1)
-
-        value = torch.zeros_like(count)
-
-        # Scatter count into value at sort_idx positions (row-wise)
-        value.scatter_(dim=1, index=sort_idx, src=count)
-
-        value = value[mask_a_b]
-
-        feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
-
-        feat_a_b = padding(feature, lengths, padding_value=0)  # b, n, d
-
-
-        feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
-
-        if self.use_entry_former:
-            pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
-            heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
-
-            for mod in  self.entry_formers:
-                feat_a_b = mod(feat_a_b, pos_a_b,
-                              heading_a_b, mask_a_b,
-                              feat_map,
-                              pos_pl,
-                              orient_pl, map_mask
-                )
-
-            # n_agent = feat_a_b.shape[1]
-            # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-            #                                                   heading_a_b, mask_a_b,
-            #                                                   feat_map,
-            #                                                   pos_pl,
-            #                                                   orient_pl, map_mask)
-            #
-            # entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-            #                                                 use_time=False, use_causal=False)  #
-            #
-            # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
-            #                                                   heading_a_b, mask_a_b,
-            #                                                   feat_map,
-            #                                                   pos_pl,
-            #                                                   orient_pl, map_mask)
-            #
-            # entry_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-            #                                                 use_time=False, use_causal=False)  #
-
-        else:
-            feat_a_b = self.transformer_decoder(
-                tgt=feat_a_b,  # self-attention queries
-                memory=feat_map,  # cross-attention keys/values
-                tgt_key_padding_mask=~mask_a_b,
-                memory_key_padding_mask=~map_mask
-            )
-            # x=feat_a_b
-            # tgt_key_padding_mask=~mask_a_b
-            # tgt_mask=None
-            # tgt_is_causal=None
-            # memory=feat_map
-            # memory_mask=None
-            # memory_key_padding_mask=None
-            # memory_is_causal=None
-            #
-            # x = x + self._mha_block(
-            #     self.norm2(x),
-            #     memory,
-            #     memory_mask,
-            #     memory_key_padding_mask,
-            #     False,
-            # )
-            #
-            # # x = x + self._sa_block(
-            # #     self.norm1(x), tgt_mask, tgt_key_padding_mask, tgt_is_causal
-            # # )
-            # entry_feature = x + self._ff_block(self.norm3(x))
-
-        # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
-        #                                                   heading_a_b, mask_a_b,
-        #                                                   feat_map,
-        #                                                   pos_pl,
-        #                                                   orient_pl, map_mask)
-        #
-        #
-        # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False,use_causal=False)
-
-        attr_feature = feat_a_b[mask_a_b]
-
-        pos = self.pos_decoder(attr_feature) #* 80
-
-        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-
-        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-
-        res=torch.cat([pos, heading, shape], dim=1)
-
-        return res
-
-  # # self-attention block
-  #   def _sa_block(
-  #       self,
-  #       x: Tensor,
-  #       attn_mask: Optional[Tensor],
-  #       key_padding_mask: Optional[Tensor],
-  #       is_causal: bool = False,
-  #   ) -> Tensor:
-  #       x = self.self_attn(
-  #           x,
-  #           x,
-  #           x,
-  #           attn_mask=attn_mask,
-  #           key_padding_mask=key_padding_mask,
-  #           is_causal=is_causal,
-  #           need_weights=False,
-  #       )[0]
-  #       return self.dropout1(x)
-  #
-  #   # multihead attention block
-  #   def _mha_block(
-  #       self,
-  #       x: Tensor,
-  #       mem: Tensor,
-  #       attn_mask: Optional[Tensor],
-  #       key_padding_mask: Optional[Tensor],
-  #       is_causal: bool = False,
-  #   ) -> Tensor:
-  #       x = self.multihead_attn(
-  #           x,
-  #           mem,
-  #           mem,
-  #           attn_mask=attn_mask,
-  #           key_padding_mask=key_padding_mask,
-  #           is_causal=is_causal,
-  #           need_weights=False,
-  #       )[0]
-  #       return self.dropout2(x)
-  #
-  #   # feed forward block
-  #   def _ff_block(self, x: Tensor) -> Tensor:
-  #       x = self.linear2(self.dropout(self.activation(self.linear1(x))))
-  #       return self.dropout3(x)
+#
+# def sde_step_with_logprob_new(
+#         self: FlowMatchEulerDiscreteScheduler,
+#         model_output: torch.FloatTensor,
+#         timestep: Union[float, torch.FloatTensor],
+#         sample: torch.FloatTensor,
+#         noise_level: float = 0.7,
+#         prev_sample: Optional[torch.FloatTensor] = None,
+#         generator: Optional[torch.Generator] = None,
+# ):
+#     """
+#     Predict the sample from the previous timestep by reversing the SDE. This function propagates the flow
+#     process from the learned model outputs (most often the predicted velocity).
+#
+#     Args:
+#         model_output (`torch.FloatTensor`):
+#             The direct output from learned flow model.
+#         timestep (`float`):
+#             The current discrete timestep in the diffusion chain.
+#         sample (`torch.FloatTensor`):
+#             A current instance of a sample created by the diffusion process.
+#         generator (`torch.Generator`, *optional*):
+#             A random number generator.
+#     """
+#     # bf16 can overflow here when compute prev_sample_mean, we must convert all variable to fp32
+#     model_output = model_output.float()
+#     sample = sample.float()
+#     if prev_sample is not None:
+#         prev_sample = prev_sample.float()
+#
+#     step_index = [self.index_for_timestep(t) for t in timestep]
+#     prev_step_index = [step + 1 for step in step_index]
+#     sigma = self.sigmas[step_index].view(-1, *([1] * (len(sample.shape) - 1)))
+#     sigma_prev = self.sigmas[prev_step_index].view(-1, *([1] * (len(sample.shape) - 1)))
+#     sigma_max = self.sigmas[1].item()
+#     dt = sigma_prev - sigma
+#
+#     # Flow-SDE
+#     # std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_max, sigma)))*noise_level * torch.sqrt(-1*dt)
+#     # prev_sample_mean = sample*(1+std_dev_t**2/(2*sigma)*dt)+model_output*(1+std_dev_t**2*(1-sigma)/(2*sigma))*dt
+#
+#     # Flow-CPS
+#     std_dev_t = sigma_prev * math.sin(noise_level * math.pi / 2)  # sigma_t in paper
+#     pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
+#     noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
+#     prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
+#         sigma_prev ** 2 - std_dev_t ** 2)
+#     # import pdb; pdb.set_trace()
+#
+#     if prev_sample is None:
+#         variance_noise = randn_tensor(
+#             model_output.shape,
+#             generator=generator,
+#             device=model_output.device,
+#             dtype=model_output.dtype,
+#         )
+#         prev_sample = prev_sample_mean + std_dev_t * variance_noise
+#
+#     # remove all constants
+#     log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)
+#
+#     # mean along all but batch dimension
+#     log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
+#
+#     return prev_sample, log_prob, prev_sample_mean, std_dev_t
