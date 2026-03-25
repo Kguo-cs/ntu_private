@@ -214,6 +214,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=True
 
+
         if self.net.use_noise:
             self.value_network = MLPLayer(args.hidden_dim, args.hidden_dim * 2, 1)
 
@@ -303,7 +304,9 @@ class ScaleFlow(nn.Module):
 
                 mu = calculate_shift(  count,  )[:,None,None]
 
-                t_batch = mu * t_batch / (1 + (mu - 1) * t_batch)
+                sigma = mu * t_batch / (1 + (mu - 1) * t_batch)
+
+                t_batch=1-sigma
 
                 #t_batch = t_batch ** mu / (t_batch ** mu + (1 - t_batch) ** mu)
 
@@ -403,7 +406,13 @@ class ScaleFlow(nn.Module):
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         # elif self.use_flux:
-        #     z = sde_step_with_logprob()
+        #     z = sde_step_with_logprob(
+        #         sigma,
+        #         sigma_prev,
+        #         sigma_max,
+        #         v_pred,
+        #         z
+        #     )
 
         else:
             z = z + (t_next - t_n) * v_pred
@@ -576,7 +585,9 @@ class ScaleFlow(nn.Module):
                 t_batch=timesteps[:,None]
 
                 #timesteps = timesteps ** mu / (timesteps ** mu + (1 - timesteps) ** mu)
-                timesteps = mu * t_batch / (1 + (mu - 1) * t_batch)
+                sigma = mu * t_batch / (1 + (mu - 1) * t_batch)
+
+                timesteps=1-sigma
 
                 timesteps=timesteps[:,agent_batch][:,:,None,None]
 
