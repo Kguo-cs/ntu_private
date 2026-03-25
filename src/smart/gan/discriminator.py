@@ -136,64 +136,13 @@ class InitDiscriminator(nn.Module):
 
 
 
-    def get_g_loss(self,map_feature, tokenized_agent,G,e,x):
-
-        device = x.device
-        num_graphs = tokenized_agent["num_graphs"]
-        agent_batch = tokenized_agent["nonego_batch"]
-
-        t_batch = torch.rand(num_graphs, device=device)[:,  None]  # t ~ U[0,1]
-
-        t = t_batch[agent_batch]
-
-        z = (1 - t) * e+ t * x  # large t, low noise
-
-        x_pred = G.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
-
-        t_expanded=1-t
-
-        dt_expanded=0.01
-
-        t_next = t_expanded + dt_expanded
-        t_next = torch.clamp(t_next, max=0.999)
-
-        velocity_pred=(x_pred - z) / (t_expanded.clamp_min(0.01))#
-
-        x_t_next_packed = x + dt_expanded * velocity_pred
-
-        FakeSamples = (x_t_next_packed - t_next * e) / (1 - t_next)
-
-        FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
-
-        agent_n=len(FakeSamples)
-
-        if self.use_Rp:
-            RealLogits = self.forward(RealSamples, map_feature, tokenized_agent)
-            RelativisticLogits = FakeLogits - RealLogits
-            AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
-            g_loss = AdversarialLoss.mean()
-        else:
-            FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-            fake_bce_loss = FakeLogits
-            g_loss = -fake_bce_loss.mean()
-            if len(fake_interact_logits) > 0:
-                fake_loss = fake_interact_logits
-
-                fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
-
-                g_loss = g_loss - fake_interact_bce_loss
-
-        return g_loss
-
-    def update_policy(self,logger,opt_G,G,inputs,rollout_samples,e,gen_rewards):
-        RealSamples, match_loss, map_feature, tokenized_agent = inputs
-
+    def get_g_loss(self,map_feature, tokenized_agent,G,e,x,rewards):
         if self.use_GAIL:
-            self.return_meanstd.update(gen_rewards)
+            self.return_meanstd.update(rewards)
 
-            advantages = self.return_meanstd.normalize(gen_rewards)
+            advantages = self.return_meanstd.normalize(rewards)
 
-            new_loss = G.get_loss(rollout_samples, tokenized_agent, map_feature,None,use_match=False)[0][0]
+            new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
 
             loss_diff = new_loss.detach() - new_loss
 
@@ -206,17 +155,68 @@ class InitDiscriminator(nn.Module):
             g_loss = per_sample_policy_loss.mean()
 
         else:
-            g_loss=self.get_g_loss(map_feature, tokenized_agent,G,e,rollout_samples)
 
-            #teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
+            device = x.device
+            num_graphs = tokenized_agent["num_graphs"]
+            agent_batch = tokenized_agent["nonego_batch"]
 
-            #g_loss1=self.get_g_loss(map_feature, tokenized_agent,G,teacher_initial_noise,RealSamples)
+            t_batch = torch.rand(num_graphs, device=device)[:,  None]  # t ~ U[0,1]
 
-        loss = g_loss + match_loss#+g_loss1
+            t = t_batch[agent_batch]
+
+            z = (1 - t) * e+ t * x  # large t, low noise
+
+            x_pred = G.net(z[:,None], t[:,None], tokenized_agent, map_feature, mode=1)[:,0]
+
+            t_expanded=1-t
+
+            dt_expanded=0.01
+
+            t_next = t_expanded + dt_expanded
+            t_next = torch.clamp(t_next, max=0.999)
+
+            velocity_pred=(x_pred - z) / (t_expanded.clamp_min(0.01))#
+
+            x_t_next_packed = x + dt_expanded * velocity_pred
+
+            FakeSamples = (x_t_next_packed - t_next * e) / (1 - t_next)
+
+            FakeLogits, fake_weight,_ = self.forward(FakeSamples, map_feature, tokenized_agent)
+
+            agent_n=len(FakeSamples)
+
+            if self.use_Rp:
+                RealLogits = self.forward(RealSamples, map_feature, tokenized_agent)
+                RelativisticLogits = FakeLogits - RealLogits
+                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                g_loss = AdversarialLoss.mean()
+            else:
+                FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+                fake_bce_loss = FakeLogits
+                g_loss = -fake_bce_loss.mean()
+                if len(fake_interact_logits) > 0:
+                    fake_loss = fake_interact_logits
+
+                    fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
+
+                    g_loss = g_loss - fake_interact_bce_loss
+
+        return g_loss
+
+    def update_policy(self,logger,opt_G,G,inputs,rollout_samples,e,gen_rewards,expert_rewards):
+        RealSamples, match_loss, map_feature, tokenized_agent = inputs
+
+        g_loss=self.get_g_loss(map_feature, tokenized_agent,G,e,rollout_samples,gen_rewards)
+
+        teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
+
+        g_loss1=self.get_g_loss(map_feature, tokenized_agent,G,teacher_initial_noise,RealSamples,expert_rewards)
+
+        loss = g_loss + match_loss+g_loss1
 
         logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
         logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
-        #logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
+        logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
 
         opt_G.zero_grad()
         loss.backward()#
@@ -229,37 +229,25 @@ class InitDiscriminator(nn.Module):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
 
-    def update_dis(self,logger,opt_D,inputs,FakeSamples):
+    def get_d_loss(self,FakeSamples,target,map_feature, tokenized_agent):
+        agent_n = len(FakeSamples)
 
-        RealSamples, _, map_feature, tokenized_agent= inputs
-
-        agent_n=len(FakeSamples)
-
-        RealSamples = RealSamples.detach().requires_grad_(True)
         FakeSamples = FakeSamples.detach().requires_grad_(True)
 
-        RealLogits, real_weight,_ = self.forward(RealSamples, map_feature, tokenized_agent)
-        FakeLogits, fake_weight,end_index = self.forward(FakeSamples, map_feature, tokenized_agent)
-#
-        R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-        R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+        FakeLogits, fake_weight, end_index = self.forward(FakeSamples, map_feature, tokenized_agent)
+
+        Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits).mean()
 
         if self.use_Rp:
             RelativisticLogits = RealLogits - FakeLogits
             dis_loss = nn.functional.softplus(-RelativisticLogits).mean()
         else:
             FakeLogits1, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-            RealLogits1, real_interact_logits = RealLogits[:agent_n], RealLogits[agent_n:]
 
-            fake_bce_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1),
+            dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
                                                                reduction='mean')
-            real_bce_loss = F.binary_cross_entropy_with_logits(RealLogits1, torch.ones_like(RealLogits1),
-                                                               reduction='mean')
-            dis_loss = fake_bce_loss + real_bce_loss
 
-            gen_rewards=FakeLogits1[:,0].detach()##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
-
-            # gen_rewards=torch.nn.functional.logsigmoid(gen_rewards)
+            gen_rewards = FakeLogits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if self.use_decompose:
                 fake_loss = F.binary_cross_entropy_with_logits(
@@ -270,25 +258,24 @@ class InitDiscriminator(nn.Module):
 
                 fake_interact_bce_loss = (fake_loss * fake_weight).mean()
 
-                real_loss = F.binary_cross_entropy_with_logits(
-                    real_interact_logits,
-                    torch.ones_like(real_interact_logits),
-                    reduction='none'
-                )
+                dis_loss = dis_loss + fake_interact_bce_loss
 
-                real_interact_bce_loss = (real_loss * real_weight).mean()
+                weight_logit = fake_interact_logits.detach() * fake_weight
 
-                dis_loss = dis_loss + fake_interact_bce_loss + real_interact_bce_loss
+                valid_interact_reward = scatter_sum(weight_logit, end_index, dim=0, dim_size=agent_n)[:, 0]  #
 
-                weight_logit= fake_interact_logits.detach() * fake_weight
+                gen_rewards = gen_rewards + valid_interact_reward
 
-                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=agent_n)[:,0]#
+        return dis_loss,gen_rewards.detach(),Penalty,FakeLogits1
 
-                gen_rewards = gen_rewards + valid_interact_reward.detach()
+    def update_dis(self,logger,opt_D,inputs,FakeSamples):
 
-        r1 = R1Penalty.mean()  # 0.1+(1-self.global_step/10000.0)
-        r2= R2Penalty.mean()
-        loss = dis_loss + r1 + r2
+        RealSamples, _, map_feature, tokenized_agent= inputs
+
+        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent)
+        expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1,map_feature, tokenized_agent)
+
+        loss = expert_dis_loss+dis_loss + r1 + r2
 
         logger("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
         logger("train/r1", r1.item(), on_step=True, batch_size=1)
@@ -308,7 +295,7 @@ class InitDiscriminator(nn.Module):
         torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
-        return gen_rewards
+        return gen_rewards,expert_rewards
 
     def update(self,logger,optimizer,G,inputs):
         RealSamples, match_loss, map_feature, tokenized_agent= inputs
@@ -318,8 +305,8 @@ class InitDiscriminator(nn.Module):
 
         opt_G, opt_D = optimizer
 
-        gen_rewards=self.update_dis(logger,opt_D,inputs,rollout_samples)
-        loss = self.update_policy(logger, opt_G, G, inputs, rollout_samples, z_list[0][:, 0], gen_rewards)
+        gen_rewards,expert_rewards=self.update_dis(logger,opt_D,inputs,rollout_samples)
+        loss = self.update_policy(logger, opt_G, G, inputs, rollout_samples, z_list[0][:, 0], gen_rewards,expert_rewards)
 
         #rollout_n =3
         #num_mc_samples=8

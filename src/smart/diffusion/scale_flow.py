@@ -142,8 +142,6 @@ class ScaleFlow(nn.Module):
         if self.net.use_noise:
             self.value_network = MLPLayer(args.hidden_dim, args.hidden_dim * 2, 1)
 
-        self.use_match=True
-
         self.apply(weight_init)
 
     def get_loss(self,
