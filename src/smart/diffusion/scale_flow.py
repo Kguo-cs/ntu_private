@@ -56,8 +56,8 @@ from src.smart.loss.earth_match import get_matching_loss
 
 def calculate_shift(
     image_seq_len,
-    base_seq_len: int =32, #256,
-    max_seq_len: int = 512,#4096,
+    base_seq_len: int =16, #256,
+    max_seq_len: int = 256,#4096,
     base_shift: float = 0.5,
     max_shift: float = 1.15,
 ):
@@ -242,7 +242,9 @@ class ScaleFlow(nn.Module):
 
                 mu = calculate_shift(  count,  )[:,None,None]
 
-                t_batch = t_batch ** mu / (t_batch ** mu + (1 - t_batch) ** mu)
+                t_batch = mu * t_batch / (1 + (mu - 1) * t_batch)
+
+                #t_batch = t_batch ** mu / (t_batch ** mu + (1 - t_batch) ** mu)
 
             t=t_batch[agent_batch]
 
@@ -506,9 +508,10 @@ class ScaleFlow(nn.Module):
 
                 mu = calculate_shift( count)[None]
 
-                timesteps=timesteps[:,None]
+                t_batch=timesteps[:,None]
 
-                timesteps = timesteps ** mu / (timesteps ** mu + (1 - timesteps) ** mu)
+                #timesteps = timesteps ** mu / (timesteps ** mu + (1 - timesteps) ** mu)
+                timesteps = mu * t_batch / (1 + (mu - 1) * t_batch)
 
                 timesteps=timesteps[:,agent_batch][:,:,None,None]
 

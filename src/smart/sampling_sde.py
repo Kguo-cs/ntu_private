@@ -1,6 +1,6 @@
 from diffusers import FluxPipeline
 from diffusers.pipelines.flux.pipeline_flux import retrieve_timesteps,calculate_shift
-
+from diffusers import StableDiffusion3Pipeline, FlowMatchEulerDiscreteScheduler
 
 def pipeline_with_logprob(device,x):
     num_inference_steps: int = 28
