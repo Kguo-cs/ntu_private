@@ -13,7 +13,7 @@ from src.smart.utils import (
 from src.smart.loss.earth_match import get_matching_loss
 from src.smart.metrics.gen_metrics import plot_scene
 from src.smart.layers import MLPLayer
-from src.smart.gan.discriminator import InitDiscriminator, InitGeneator
+from src.smart.gan.discriminator import InitDiscriminator
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
     get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
 from src.smart.loss.earth_match import gaussian_nll_2d
