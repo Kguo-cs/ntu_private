@@ -412,9 +412,6 @@ class InitDenoiser(nn.Module):
                                            batch_ego_pos,
                                            batch_ego_heading)
 
-            # local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
-
-
             local_allpos=local_allpos.reshape(-1,19,5,2)
 
             local_allheading=local_allheading.reshape(-1,19,5)
