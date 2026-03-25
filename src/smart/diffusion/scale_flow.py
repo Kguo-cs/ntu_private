@@ -72,10 +72,12 @@ def sde_step_with_logprob(
         sigma_prev,
         model_output: torch.FloatTensor,
         sample: torch.FloatTensor,
+        denormalize,
         noise_level: float = 0.7,
         prev_sample: Optional[torch.FloatTensor] = None,
         sde_type: Optional[str] = 'sde',
         return_sqrt_dt: Optional[bool] = False,
+
 ):
     """
     Predict the sample from the previous timestep by reversing the SDE. This function propagates the flow
@@ -102,6 +104,8 @@ def sde_step_with_logprob(
 
         if prev_sample is None:
             variance_noise = torch.randn_like( model_output )
+
+            variance_noise=denormalize(variance_noise)
 
             prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1 * dt) * variance_noise
 
@@ -294,10 +298,6 @@ class ScaleFlow(nn.Module):
             # Perceptual Loss
             x_init_0_reconstructed = z - t[:,:,None] * u_out
         else:
-            if self.steps==1:
-                t_batch=torch.zeros_like(t_batch)
-
-
             if self.use_flux:
                 count=tokenized_agent["type_counts"].sum(-1)
 
@@ -409,7 +409,8 @@ class ScaleFlow(nn.Module):
                 1-t_n,
                 1-t_next,
                 v_pred,
-                z
+                z,
+                self.net.denormalize
             )[0]
 
             #print(z.mean())
@@ -476,7 +477,7 @@ class ScaleFlow(nn.Module):
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask,infer_steps=20):
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
         num_agents = len(agent_batch)
@@ -518,10 +519,10 @@ class ScaleFlow(nn.Module):
 
             schedule,noise_scedule=batch_increasing_schedule(counts)#[agent_batch]
 
-            steps=schedule.shape[1]-1#max(veh_rank)+1#self.steps#512#
+            steps=schedule.shape[1]-1
 
         else:
-            steps=self.steps
+            steps=infer_steps
 
 
         if self.mean_flow:
@@ -633,6 +634,7 @@ class ScaleFlow(nn.Module):
                data: HeteroData,
                scene_enc: Mapping[str, torch.Tensor],
                eval_mask,
+               infer_steps,
                num_samples=1,
                start_data=None,
                reverse_steps=None,
@@ -641,7 +643,7 @@ class ScaleFlow(nn.Module):
                if_output_diffusion_process=False,
                ) -> Dict[str, torch.Tensor]:
         if self.flow_matching:
-            return self.sample_flow(num_samples, data, scene_enc,    eval_mask)
+            return self.sample_flow(num_samples, data, scene_enc,    eval_mask,infer_steps)
 
         else:
             return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,

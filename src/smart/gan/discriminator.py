@@ -24,6 +24,7 @@ import copy
 from torch import Tensor
 from src.smart.loss.earth_match import get_matching_loss
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch
+from src.smart.diffusion.scale_flow import sde_step_with_logprob
 
 class InitDiscriminator(nn.Module):
     def __init__(
@@ -134,18 +135,34 @@ class InitDiscriminator(nn.Module):
 
         self.Gamma=1
 
+        self.use_sde=True
 
-    def get_g_loss(self,map_feature, tokenized_agent,G,e,x,rewards):
+
+    def get_g_loss(self,map_feature, tokenized_agent,G,z_list, t_list,rewards):
+
+        x=z_list[-1]
+
         if self.use_GAIL:
             self.return_meanstd.update(rewards)
 
             advantages = self.return_meanstd.normalize(rewards)
 
-            new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
+            if self.use_sde:
 
-            loss_diff = new_loss.detach() - new_loss
+                z_list=1
 
-            fpo_ratio = torch.exp(loss_diff)
+                x_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
+
+                new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)
+
+                fpo_ratio= sde_step_with_logprob()
+            else:
+
+                new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
+
+                loss_diff = new_loss.detach() - new_loss
+
+                fpo_ratio = torch.exp(loss_diff)
 
             clipped_advantages = torch.clamp(advantages, -5, 5)
 
@@ -154,6 +171,8 @@ class InitDiscriminator(nn.Module):
             g_loss = per_sample_policy_loss.mean()
 
         else:
+
+            e=z_list[0][:,0]
 
             device = x.device
             num_graphs = tokenized_agent["num_graphs"]
@@ -202,10 +221,11 @@ class InitDiscriminator(nn.Module):
 
         return g_loss
 
-    def update_policy(self,logger,opt_G,G,inputs,rollout_samples,e,gen_rewards,expert_rewards):
+    def update_policy(self,logger,opt_G,G,inputs,z_list, t_list,gen_rewards,expert_rewards):
         RealSamples, match_loss, map_feature, tokenized_agent = inputs
 
-        g_loss=self.get_g_loss(map_feature, tokenized_agent,G,e,rollout_samples,gen_rewards)
+
+        g_loss=self.get_g_loss(map_feature, tokenized_agent,G,z_list, t_list,gen_rewards)
 
         #teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
 
@@ -308,7 +328,7 @@ class InitDiscriminator(nn.Module):
         opt_G, opt_D = optimizer
 
         gen_rewards,expert_rewards=self.update_dis(logger,opt_D,inputs,rollout_samples)
-        loss = self.update_policy(logger, opt_G, G, inputs, rollout_samples, z_list[0][:, 0], gen_rewards,expert_rewards)
+        loss = self.update_policy(logger, opt_G, G, inputs, z_list, t_list,gen_rewards,expert_rewards)
 
         #rollout_n =3
         #num_mc_samples=8
