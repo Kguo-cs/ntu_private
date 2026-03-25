@@ -56,8 +56,8 @@ from src.smart.loss.earth_match import get_matching_loss
 
 def calculate_shift(
     image_seq_len,
-    base_seq_len: int = 256,
-    max_seq_len: int = 4096,
+    base_seq_len: int =32, #256,
+    max_seq_len: int = 512,#4096,
     base_shift: float = 0.5,
     max_shift: float = 1.15,
 ):
@@ -240,13 +240,7 @@ class ScaleFlow(nn.Module):
             if self.use_flux:
                 count=tokenized_agent["type_counts"].sum(-1)
 
-                mu = calculate_shift(
-                    count,
-                    base_seq_len=32,#256,
-                    max_seq_len=512,#4096,
-                    base_shift=0.5,
-                    max_shift=1.15
-                )[:,None,None]
+                mu = calculate_shift(  count,  )[:,None,None]
 
                 t_batch = t_batch ** mu / (t_batch ** mu + (1 - t_batch) ** mu)
 
@@ -368,6 +362,8 @@ class ScaleFlow(nn.Module):
 
         if self.use_cluster:
             t_n=t_n[:,None,None]
+        elif self.use_flux:
+            t_n=t_n
         else:
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
 
@@ -504,6 +500,17 @@ class ScaleFlow(nn.Module):
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
                 timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
+
+            if self.use_flux:
+                count=tokenized_agent["type_counts"].sum(-1)
+
+                mu = calculate_shift( count)[None]
+
+                timesteps=timesteps[:,None]
+
+                timesteps = timesteps ** mu / (timesteps ** mu + (1 - timesteps) ** mu)
+
+                timesteps=timesteps[:,agent_batch][:,:,None,None]
 
             for i in range(steps):# - 1
                 t = timesteps[i]
