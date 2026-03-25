@@ -41,7 +41,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = True
+        self.use_decompose = False
 
         self.dis_weight=10
         self.dist_decay=3
@@ -266,7 +266,7 @@ class InitDiscriminator(nn.Module):
 
                 gen_rewards = gen_rewards + valid_interact_reward
 
-        return dis_loss,gen_rewards.detach(),Penalty,FakeLogits1
+        return dis_loss,torch.nn.functional.logsigmoid(gen_rewards).detach(),Penalty,FakeLogits1
 
     def update_dis(self,logger,opt_D,inputs,FakeSamples):
 
