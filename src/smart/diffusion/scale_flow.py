@@ -582,7 +582,7 @@ class ScaleFlow(nn.Module):
 
                 mu = calculate_shift( count)[None]
 
-                t_batch=timesteps[:,None]
+                t_batch=1-timesteps[:,None]
 
                 #timesteps = timesteps ** mu / (timesteps ** mu + (1 - timesteps) ** mu)
                 sigma = mu * t_batch / (1 + (mu - 1) * t_batch)
