@@ -140,7 +140,7 @@ class InitDiscriminator(nn.Module):
 
     def get_g_loss(self,map_feature, tokenized_agent,G,z_list, t_list,rewards):
 
-        x=z_list[-1]
+        x=z_list[-1][:,0]
 
         if self.use_GAIL:
             self.return_meanstd.update(rewards)
@@ -149,13 +149,29 @@ class InitDiscriminator(nn.Module):
 
             if self.use_sde:
 
-                z_list=1
+                timestep = torch.randint(0, len(z_list)-1, (1,))
 
-                x_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
+                z=z_list[timestep]
 
-                new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)
+                t_n=t_list[timestep]
 
-                fpo_ratio= sde_step_with_logprob()
+                t_next=t_list[timestep+1]
+
+                x_pred = G.net(z, t_n, tokenized_agent, map_feature,mode=1)
+
+                v_pred = (x_pred - z) / (1.0 - t_n).clamp_min(0.05)
+
+                log_prob = sde_step_with_logprob(
+                    1 - t_n,
+                    1 - t_next,
+                    -v_pred,
+                    z,
+                    G.net.denormalize,
+                    noise_level=0.1
+                )[0]
+
+                fpo_ratio=log_prob[:,0].mean(-1)
+
             else:
 
                 new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
