@@ -252,7 +252,7 @@ class InitDiscriminator(nn.Module):
             if self.use_decompose:
                 fake_loss = F.binary_cross_entropy_with_logits(
                     fake_interact_logits,
-                    torch.zeros_like(fake_interact_logits),
+                    torch.zeros_like(fake_interact_logits)+target,
                     reduction='none'
                 )
 
@@ -266,7 +266,7 @@ class InitDiscriminator(nn.Module):
 
                 gen_rewards = gen_rewards + valid_interact_reward
 
-        return dis_loss,torch.nn.functional.logsigmoid(gen_rewards).detach(),Penalty,FakeLogits1
+        return dis_loss,gen_rewards.detach(),Penalty,FakeLogits1
 
     def update_dis(self,logger,opt_D,inputs,FakeSamples):
 
