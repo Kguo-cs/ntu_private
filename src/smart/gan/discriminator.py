@@ -208,15 +208,15 @@ class InitDiscriminator(nn.Module):
 
         g_loss=self.get_g_loss(map_feature, tokenized_agent,G,e,rollout_samples,gen_rewards)
 
-        teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
+        #teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
 
-        g_loss1=self.get_g_loss(map_feature, tokenized_agent,G,teacher_initial_noise,RealSamples,expert_rewards)
+       # g_loss1=self.get_g_loss(map_feature, tokenized_agent,G,teacher_initial_noise,RealSamples,expert_rewards)
 
-        loss = g_loss + match_loss+g_loss1
+        loss = g_loss + match_loss#+g_loss1
 
         logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
         logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
-        logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
+        #logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
 
         opt_G.zero_grad()
         loss.backward()#
