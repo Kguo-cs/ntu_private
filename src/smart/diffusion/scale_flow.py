@@ -57,7 +57,7 @@ from src.smart.loss.earth_match import get_matching_loss
 def calculate_shift(
     image_seq_len,
     base_seq_len: int =16, #256,
-    max_seq_len: int = 256,#4096,
+    max_seq_len: int = 512,#4096,
     base_shift: float = 0.5,
     max_shift: float = 1.15,
 ):
