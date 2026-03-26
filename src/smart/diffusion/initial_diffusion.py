@@ -159,13 +159,13 @@ class InitDiffusion(nn.Module):
                 return  (m_init,match_loss.mean(),initial_map_feature, tokenized_agent)
 
             if self.use_gail:
-                expert_dis_loss, _ = self.D.get_reward(m_init, t, tokenized_agent, map_feature, "expert")
+                expert_dis_loss, _ = self.D.get_reward(m_init, t, tokenized_agent, initial_map_feature, "expert")
 
                 with torch.no_grad():
-                    pred_init, x_list, z_list, step_list, t_list = self.G.sample(tokenized_agent, map_feature, None)
+                    pred_init, x_list, z_list, step_list, t_list = self.G.sample(tokenized_agent, initial_map_feature, None)
 
                 agent_dis_loss, agent_rewards = self.D.get_reward(z_list[-1][:,0], t, tokenized_agent,
-                                                                  map_feature, "agent")
+                                                                  initial_map_feature, "agent")
 
                 agent_action=torch.cat(x_list,dim=1).transpose(0, 1).flatten(0,1)   #action_list
 
@@ -201,7 +201,7 @@ class InitDiffusion(nn.Module):
 
                 #agent_dis_loss,agent_rewards = self.D.get_reward(agent_next_state, t, tokenized_agent, map_feature,"agent")
 
-                x_pred = self.G.net(agent_input_state, t, tokenized_agent, map_feature, mode=1)[:,0]
+                x_pred = self.G.net(agent_input_state, t, tokenized_agent, initial_map_feature, mode=1)[:,0]
 
                 agent_log_prob=-gaussian_nll_2d(x_pred[:,:8], x_pred[:,8:], agent_action)
 
@@ -238,7 +238,7 @@ class InitDiffusion(nn.Module):
             tokenized_agent["nonego_batch"]=nonego_batch
             tokenized_agent['nonego_type']= nonego_type
 
-            pred_init, x_list,z_list,t_list = self.G.sample( tokenized_agent, map_feature,None)
+            pred_init, x_list,z_list,t_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent, non_ego
