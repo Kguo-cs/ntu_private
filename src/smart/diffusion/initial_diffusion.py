@@ -31,7 +31,7 @@ class InitDiffusion(nn.Module):
         super(InitDiffusion, self).__init__()
 
         self.latent_diffusion=False
-        self.use_gan = True
+        self.use_gan = False
         self.use_dit=False
         self.sep_map=False
         self.use_match=True
