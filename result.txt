@@ -777,6 +777,8 @@ test: 0.6350
 
 AIRL19_13_disdiff_all_start1_noise
 
+0.7805
+
 
 
 decomp gail for discriminator

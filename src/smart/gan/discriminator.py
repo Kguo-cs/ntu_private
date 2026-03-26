@@ -339,7 +339,7 @@ class InitDiscriminator(nn.Module):
         RealSamples, match_loss, map_feature, tokenized_agent= inputs
 
         with torch.no_grad():
-            rollout_samples, x_list, z_list, step_list, t_list = G.sample(tokenized_agent, map_feature, None)
+            rollout_samples, x_list, z_list, step_list, t_list = G.sample(tokenized_agent, map_feature,infer_steps=10, eval_mask=None,noise_level=0.1)
 
         opt_G, opt_D = optimizer
 

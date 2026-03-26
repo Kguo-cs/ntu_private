@@ -374,7 +374,7 @@ class ScaleFlow(nn.Module):
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
     @torch.no_grad()
-    def _euler_step(self, z, t, t_next, labels):
+    def _euler_step(self, z, t, t_next, labels,noise_level):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
 
         if self.use_cluster:
@@ -411,7 +411,8 @@ class ScaleFlow(nn.Module):
                 1-t_next,
                 -v_pred,
                 z,
-                self.net.denormalize
+                self.net.denormalize,
+                noise_level
             )[0]
 
 
@@ -477,7 +478,7 @@ class ScaleFlow(nn.Module):
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask,infer_steps=20):
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask,infer_steps=20,noise_level=0):
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
         num_agents = len(agent_batch)
@@ -620,7 +621,7 @@ class ScaleFlow(nn.Module):
                     z[eval_mask],x_cond,t_n=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
                 else:
-                    z,x_cond,t_n =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+                    z,x_cond,t_n =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask),noise_level)
 
                 x_list.append(x_cond)
                 z_list.append(z)
@@ -637,6 +638,7 @@ class ScaleFlow(nn.Module):
                eval_mask,
                infer_steps=20,
                num_samples=1,
+               noise_level=0,
                start_data=None,
                reverse_steps=None,
                sampling="ddim",
@@ -644,7 +646,7 @@ class ScaleFlow(nn.Module):
                if_output_diffusion_process=False,
                ) -> Dict[str, torch.Tensor]:
         if self.flow_matching:
-            return self.sample_flow(num_samples, data, scene_enc,    eval_mask,infer_steps)
+            return self.sample_flow(num_samples, data, scene_enc,    eval_mask,infer_steps,noise_level)
 
         else:
             return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,
