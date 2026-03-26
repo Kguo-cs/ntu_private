@@ -133,9 +133,9 @@ class InitDiscriminator(nn.Module):
         if self.use_GAIL:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
-        self.Gamma=1
+        self.Gamma=10
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.noise_level=0.7
 
@@ -150,14 +150,6 @@ class InitDiscriminator(nn.Module):
             advantages = self.return_meanstd.normalize(rewards)
 
             if self.use_sde:
-
-                # timestep = torch.randint(0, len(z_list)-1, (1,))
-                #
-                # z=z_list[timestep]
-                #
-                # t_n=t_list[timestep]
-                #
-                # t_next=t_list[timestep+1]
                 num_graphs=tokenized_agent["num_graphs"]
 
                 agent_state = torch.cat(z_list, dim=1)

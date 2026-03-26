@@ -216,8 +216,7 @@ class ScaleFlow(nn.Module):
         if self.use_vp:
             self.sde = VPSDE_linear()
 
-        self.use_flux=True
-
+        self.use_flux=False
 
         if self.net.use_noise:
             self.value_network = MLPLayer(args.hidden_dim, args.hidden_dim * 2, 1)
@@ -330,7 +329,7 @@ class ScaleFlow(nn.Module):
                 z=path_sample.x_t
 
             else:
-                z = (1 - t) * e + t * x #large t, low noise
+                z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
 
             if self.x_pred:
 
@@ -354,13 +353,9 @@ class ScaleFlow(nn.Module):
 
                     v_target = (x - z) /denom
 
-                    v_pred = (x - z) /denom
+                    v_pred = (x_pred - z) /denom
 
-                    match_loss=F.mse_loss(v_pred , v_target,reduction="mean")
-
-                    #non_nan_mask=~torch.isnan(x[:,:,0])
-
-                    #loss=F.l1_loss(x_pred[non_nan_mask][...,:x.shape[-1]],x[non_nan_mask],reduction="none")
+                    match_loss=F.l1_loss(v_pred , v_target,reduction="mean")
 
             else:
                 v_target =x - e
@@ -478,7 +473,8 @@ class ScaleFlow(nn.Module):
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask,infer_steps=20,noise_level=0):
+    def sample(self,tokenized_agent,scene_enc,eval_mask,infer_steps=20,num_samples=1,     noise_level=0):
+
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
         num_agents = len(agent_batch)
@@ -524,7 +520,6 @@ class ScaleFlow(nn.Module):
 
         else:
             steps=infer_steps
-
 
         if self.mean_flow:
             t = torch.ones(num_agents, device=agent_batch.device)[:,None]
@@ -632,22 +627,3 @@ class ScaleFlow(nn.Module):
 
         return z[:,0],x_list,z_list,step_list,t_list
 
-    def sample(self,
-               data: HeteroData,
-               scene_enc: Mapping[str, torch.Tensor],
-               eval_mask,
-               infer_steps=20,
-               num_samples=1,
-               noise_level=0,
-               start_data=None,
-               reverse_steps=None,
-               sampling="ddim",
-               stride=1,
-               if_output_diffusion_process=False,
-               ) -> Dict[str, torch.Tensor]:
-        if self.flow_matching:
-            return self.sample_flow(num_samples, data, scene_enc,    eval_mask,infer_steps,noise_level)
-
-        else:
-            return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,
-                                  eval_mask, sampling, stride)
