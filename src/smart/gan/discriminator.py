@@ -27,48 +27,47 @@ from src.smart.loss.rollout_buffer import RunningMeanStdTorch
 from src.smart.diffusion.scale_flow import sde_step_with_logprob
 
 
-def get_g_loss( map_feature, tokenized_agent, G, z_list, t_list, advantages,use_GAIL=True,use_sde=False):
+def get_g_loss( map_feature, tokenized_agent, G, z_list, t_list, advantages,n_step=1,use_GAIL=True,use_sde=False):
     x = z_list[-1][:, 0]
 
     if use_GAIL:
-        # self.return_meanstd.update(rewards)
-        #
-        # advantages = self.return_meanstd.normalize(rewards)
 
-        num_graphs = tokenized_agent["num_graphs"]
+        if n_step >1:
 
-        agent_state = torch.cat(z_list, dim=1)
+            num_graphs = tokenized_agent["num_graphs"]
 
-        t_n = torch.cat(t_list, dim=1)[:, :-1].transpose(0, 1).flatten(0, 1)
+            agent_state = torch.cat(z_list, dim=1)
 
-        t_next = torch.cat(t_list, dim=1)[:, 1:].transpose(0, 1).flatten(0, 1)
+            t_n = torch.cat(t_list, dim=1)[:, :-1].transpose(0, 1).flatten(0, 1)
 
-        n_step = agent_state.shape[1] - 1
+            t_next = torch.cat(t_list, dim=1)[:, 1:].transpose(0, 1).flatten(0, 1)
 
-        batch = tokenized_agent["nonego_batch"]
+            n_step = agent_state.shape[1] - 1
+            prev_sample = agent_state[:, 1:].transpose(0, 1).flatten(0, 1)  # t,a
 
-        tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
+            z = agent_state[:, :-1].transpose(0, 1).flatten(0, 1)  # t,a
 
-        batch = torch.stack(
-            [
-                batch + num_graphs * t
-                for t in range(n_step)
-            ],
-            dim=1,
-        ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
+            batch = tokenized_agent["nonego_batch"]
 
-        tokenized_agent["nonego_batch"] = batch
+            tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
 
-        tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0, 1)
-        prev_sample = agent_state[:, 1:].transpose(0, 1).flatten(0, 1)  # t,a
+            batch = torch.stack(
+                [
+                    batch + num_graphs * t
+                    for t in range(n_step)
+                ],
+                dim=1,
+            ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
 
-        z = agent_state[:, :-1].transpose(0, 1).flatten(0, 1)  # t,a
+            tokenized_agent["nonego_batch"] = batch
 
-        tokenized_agent["num_graphs"] = num_graphs * n_step
+            tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0, 1)
 
-        tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1, 1).flatten(0, 1)
+            tokenized_agent["num_graphs"] = num_graphs * n_step
 
-        advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
+            tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1, 1).flatten(0, 1)
+
+            advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
 
         if use_sde:
 
@@ -383,7 +382,12 @@ class InitDiscriminator(nn.Module):
         opt_G, opt_D = optimizer
 
         gen_rewards,expert_rewards=self.update_dis(logger,opt_D,inputs,rollout_samples)
-        loss = update_policy(logger, opt_G, G, inputs, z_list, t_list,gen_rewards,expert_rewards)
+
+        self.return_meanstd.update(gen_rewards)
+
+        advantages = self.return_meanstd.normalize(gen_rewards)
+
+        loss = update_policy(logger, opt_G, G, inputs, z_list, t_list,advantages,expert_rewards)
 
         #rollout_n =3
         #num_mc_samples=8

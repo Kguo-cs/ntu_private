@@ -31,7 +31,7 @@ class InitDiffusion(nn.Module):
         super(InitDiffusion, self).__init__()
 
         self.latent_diffusion=False
-        self.use_gan = True
+        self.use_gan = False
         self.use_dit=False
         self.sep_map=False
         self.use_match=True
@@ -229,7 +229,7 @@ class InitDiffusion(nn.Module):
 
                 match_loss = expert_dis_loss + agent_dis_loss + policy_loss
 
-            loss = (match_loss.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+            loss = (match_loss.mean(), collision_loss, pos_loss.mean(), heading_loss.mean(), shape_loss.mean(), vel_loss.mean())
 
             return loss
         else:

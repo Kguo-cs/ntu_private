@@ -313,20 +313,19 @@ class IQ_SoftQ(LightningModule):
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent_rollout)
 
-            self.log('train/match_loss', match_loss.mean(), on_step=True, batch_size=1)
+            self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
             self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
             self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
             self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
             self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
             self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
 
-            advantages=advantages[:-len(agent_log_prob)]
+            advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
 
             z_list=tokenized_agent["z_list"]
             t_list=tokenized_agent["t_list"]
 
-            g_loss = get_g_loss(tokenized_agent["initial_map_feature"], tokenized_agent, self.agen, z_list, t_list, advantages)
-            loss = g_loss + match_loss  # +g_loss1
+            g_loss = get_g_loss(tokenized_agent["initial_map_feature"], tokenized_agent, self.encoder.agent_encoder.init_decoder.G, z_list, t_list, advantages)
 
             policy_loss=policy_loss+g_loss+match_loss
 
