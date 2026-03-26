@@ -34,8 +34,6 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
         self.use_dit=False
         self.sep_map=False
-        self.use_match=True
-
         self.use_all_pos=token_processor.use_all_pos
 
         self.learn_autoencoder = token_processor.learn_autoencoder
@@ -65,12 +63,11 @@ class InitDiffusion(nn.Module):
     def forward(self, tokenized_agent):
         num_graphs = tokenized_agent["num_graphs"]
 
+        ego_mask = tokenized_agent["ego_mask"]
+        non_ego = ~ego_mask
 
         if self.use_all_pos:
             non_ego=torch.ones_like(non_ego)
-
-        ego_mask = tokenized_agent["ego_mask"]
-        non_ego = ~ego_mask
 
         ego_position = tokenized_agent["initial_pos"][ego_mask]
         ego_heading = tokenized_agent["initial_heading"][ego_mask]
