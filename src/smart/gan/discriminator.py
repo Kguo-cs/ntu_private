@@ -148,49 +148,50 @@ class InitDiscriminator(nn.Module):
             self.return_meanstd.update(rewards)
 
             advantages = self.return_meanstd.normalize(rewards)
+            num_graphs = tokenized_agent["num_graphs"]
+
+            agent_state = torch.cat(z_list, dim=1)
+
+            t_n = torch.cat(t_list, dim=1)[:, :-1].transpose(0, 1).flatten(0, 1)
+
+            t_next = torch.cat(t_list, dim=1)[:, 1:].transpose(0, 1).flatten(0, 1)
+
+            n_step = agent_state.shape[1] - 1
+
+            batch = tokenized_agent["nonego_batch"]
+
+            tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
+
+            batch = torch.stack(
+                [
+                    batch + num_graphs * t
+                    for t in range(n_step)
+                ],
+                dim=1,
+            ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
+
+            tokenized_agent["nonego_batch"] = batch
+
+            tokenized_agent["nonego_type_sorted"] = tokenized_agent["nonego_type_sorted"][None].repeat(n_step,
+                                                                                                       1).flatten(0,
+                                                                                                                  1)
+            prev_sample = agent_state[:, 1:].transpose(0, 1).flatten(0, 1)  # t,a
+
+            z = agent_state[:, :-1].transpose(0, 1).flatten(0, 1)  # t,a
+
+            tokenized_agent["num_graphs"] = num_graphs * n_step
+
+            tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1, 1).flatten(0, 1)
+
+            advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
+
+            x_pred = G.net(z, t_n, tokenized_agent, map_feature, mode=1)[:, 0]
+
+            denom=(1.0 - t_n).clamp_min(G.t_eps)
+
+            v_pred = (x_pred - z) / denom
 
             if self.use_sde:
-                num_graphs=tokenized_agent["num_graphs"]
-
-                agent_state = torch.cat(z_list, dim=1)
-
-                t_n = torch.cat(t_list, dim=1)[:,:-1].transpose(0, 1).flatten(0, 1)
-
-                t_next=torch.cat(t_list, dim=1)[:,1:].transpose(0, 1).flatten(0, 1)
-
-                n_step = agent_state.shape[1] - 1
-
-                batch = tokenized_agent["nonego_batch"]
-
-                tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
-
-                batch = torch.stack(
-                    [
-                        batch + num_graphs * t
-                        for t in range(n_step)
-                    ],
-                    dim=1,
-                ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
-
-                tokenized_agent["nonego_batch"] = batch
-
-                tokenized_agent["nonego_type_sorted"] = tokenized_agent["nonego_type_sorted"][None].repeat(n_step,
-                                                                                                           1).flatten(0,
-                                                                                                                      1)
-                prev_sample = agent_state[:, 1:].transpose(0, 1).flatten(0, 1)  # t,a
-
-                z = agent_state[:, :-1].transpose(0, 1).flatten(0, 1)  # t,a
-
-                tokenized_agent["num_graphs"] = num_graphs * n_step
-
-                tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1, 1).flatten(0, 1)
-
-                advantages=advantages[None].repeat(n_step, 1).flatten(0, 1)
-
-                x_pred = G.net(z, t_n, tokenized_agent, map_feature,mode=1)[:,0]
-
-                v_pred = (x_pred - z) / (1.0 - t_n).clamp_min(G.t_eps)
-
                 log_prob = sde_step_with_logprob(
                     1 - t_n,
                     1 - t_next,
@@ -204,8 +205,13 @@ class InitDiscriminator(nn.Module):
                 fpo_ratio=log_prob.mean(-1)
 
             else:
+                x=x[None].repeat(n_step, 1,1).flatten(0, 1)
 
-                new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
+                v_target = (x - z) / denom
+
+                new_loss = F.l1_loss(v_pred, v_target, reduction="none").mean(-1)
+
+                # new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
 
                 loss_diff = new_loss.detach() - new_loss
 
