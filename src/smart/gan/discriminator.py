@@ -213,11 +213,11 @@ class InitDiscriminator(nn.Module):
                 #
                 # new_loss = F.l1_loss(v_pred, v_target, reduction="none").mean(-1)
 
-                new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
+                new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=True)[0][0]
 
                 loss_diff = new_loss.detach() - new_loss
 
-                fpo_ratio =loss_diff #torch.exp(loss_diff)
+                fpo_ratio =torch.exp(loss_diff)
 
             clipped_advantages = torch.clamp(advantages, -5, 5)
 
@@ -470,7 +470,7 @@ class InitDiscriminator(nn.Module):
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type_sorted"]
         num_graphs = tokenized_agent["num_graphs"]
-       # ego_embedding = tokenized_agent["ego_embedding"]
+        ego_embedding = tokenized_agent["ego_embedding"].detach()
 
         if self.use_entry_former:
             head_a = wrap_angle(head_a)
@@ -566,7 +566,7 @@ class InitDiscriminator(nn.Module):
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
-            feat_a = type_embedding + shape_embedding#+ego_embedding
+            feat_a = type_embedding + shape_embedding+ego_embedding
 
             if self.use_decompose:
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
