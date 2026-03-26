@@ -639,7 +639,7 @@ class InitDenoiser(nn.Module):
                         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
                         if batch_pl.max().item() != num_graphs - 1:
-                            if self.use_noise:
+                            if "non_ego_valid" not in tokenized_agent.keys():
                                 batch = tokenized_agent["repeat_batch"]
 
                                 n_step = batch.shape[1]
@@ -716,7 +716,7 @@ class InitDenoiser(nn.Module):
 
                 res_theta=torch.atan2(res[:,3],res[:,2])
 
-                if self.use_noise:
+                if "non_ego_valid" not in tokenized_agent.keys():
                     pos_s = m_delta[:, :2]
                     theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
 
