@@ -75,8 +75,8 @@ class InterativeDecoder(nn.Module):
         self.use_full_feature=False
         self.use_airl=False
 
-        self.gail_start_step=1
-        self.dis_start_step=1
+        self.gail_start_step=0
+        self.dis_start_step=0
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
