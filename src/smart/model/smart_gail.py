@@ -108,9 +108,9 @@ class SMART_IQ(IQ_SoftQ, SMART):
 
             if self.encoder.gail:
                 if self.token_processor.learn_init:
-                    actor_optimizer = torch.optim.AdamW(list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
+                    actor_optimizer = torch.optim.AdamW(list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters())  +list(self.encoder.init_value_network.parameters()) , lr=self.lr)
                 else:
-                    actor_optimizer = torch.optim.AdamW(list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
+                    actor_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())  +list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
 
                 discriminator_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(), lr=self.lr)
             else:

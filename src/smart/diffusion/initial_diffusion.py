@@ -65,11 +65,12 @@ class InitDiffusion(nn.Module):
     def forward(self, tokenized_agent):
         num_graphs = tokenized_agent["num_graphs"]
 
-        ego_mask = tokenized_agent["ego_mask"]
-        non_ego = ~ego_mask
 
         if self.use_all_pos:
             non_ego=torch.ones_like(non_ego)
+
+        ego_mask = tokenized_agent["ego_mask"]
+        non_ego = ~ego_mask
 
         ego_position = tokenized_agent["initial_pos"][ego_mask]
         ego_heading = tokenized_agent["initial_heading"][ego_mask]
@@ -116,47 +117,46 @@ class InitDiffusion(nn.Module):
                 for key in map_feature.keys():
                     initial_map_feature[key] = map_feature[key][dist < 100]
 
+            batch_pl = initial_map_feature["batch"]
+            pos_pl = initial_map_feature["position"]
+            orient_pl = initial_map_feature["orientation"]
+            feat_map = initial_map_feature["pt_token"]
+
+            if batch_pl.max().item() == num_graphs - 1:
+                pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
+                                                       orient_pl,  # [:,None],
+                                                       ego_position[batch_pl],
+                                                       ego_heading[batch_pl],
+                                                       )
+
+            if self.G.net.use_padding or (self.use_gan and self.D.use_entry_former):
+                initial_map_feature = self.G.net.padding(pos_pl, orient_pl, feat_map, batch_pl, tokenized_agent["num_graphs"])
+            else:
+                initial_map_feature = {
+                    "pt_token": feat_map,
+                    "position": pos_pl,
+                    "orientation": orient_pl,
+                    "batch": batch_pl,
+                }
+
             tokenized_agent["initial_map_feature"] = initial_map_feature
         else:
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
-        batch_pl = initial_map_feature["batch"]
-        pos_pl = initial_map_feature["position"]
-        orient_pl = initial_map_feature["orientation"]
-        feat_map = initial_map_feature["pt_token"]
-
-        if batch_pl.max().item()==num_graphs-1:
-            pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
-                                                   orient_pl,  # [:,None],
-                                                   ego_position[batch_pl],
-                                                   ego_heading[batch_pl],
-                                                   )
-
-        if self.G.net.use_padding  or (self.use_gan and self.D.use_entry_former):
-            map_feature = self.G.net.padding(pos_pl, orient_pl, feat_map, batch_pl, tokenized_agent["num_graphs"])
-        else:
-            map_feature={
-                "pt_token": feat_map,
-                "position": pos_pl,
-                "orientation": orient_pl,
-                "batch": batch_pl,
-            }
-
         if self.training:
-
             diff_input,m_init,nonego_batch=self.G.net.get_input(tokenized_agent,non_ego,nonego_batch,nonego_type)
 
             ego_embedding = ego_embedding[nonego_batch]
 
-            tokenized_agent["nonego_batch"]=nonego_batch
+            tokenized_agent["nonego_batch"]= nonego_batch
             tokenized_agent["ego_embedding"] = ego_embedding
 
-            loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
+            loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
             if self.use_gan:
-                return  (m_init,match_loss.mean(),map_feature, tokenized_agent)
+                return  (m_init,match_loss.mean(),initial_map_feature, tokenized_agent)
 
             if self.use_gail:
                 expert_dis_loss, _ = self.D.get_reward(m_init, t, tokenized_agent, map_feature, "expert")
@@ -236,10 +236,9 @@ class InitDiffusion(nn.Module):
             ego_embedding = ego_embedding[nonego_batch]
             tokenized_agent["ego_embedding"] = ego_embedding
             tokenized_agent["nonego_batch"]=nonego_batch
-
             tokenized_agent['nonego_type']= nonego_type
 
-            pred_init, x_list,z_list, step_list,t_list = self.G.sample( tokenized_agent, map_feature,None)
+            pred_init, x_list,z_list,t_list = self.G.sample( tokenized_agent, map_feature,None)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent, non_ego

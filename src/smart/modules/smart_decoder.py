@@ -187,6 +187,9 @@ class SMARTDecoder(nn.Module):
                 if self.use_lcf:
                     self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
 
+            if token_processor.learn_init:
+                self.init_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
+
             self.agent_encoder.interative_decoder.gail=self.gail
 
     def forward( self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor]  ) -> Dict[str, Tensor]:

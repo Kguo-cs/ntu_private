@@ -11,6 +11,7 @@ import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
     get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
 from src.smart.loss.gp_penalty import compute_gp
+from src.smart.gan.discriminator import get_g_loss
 
 
 class IQ_SoftQ(LightningModule):
@@ -279,17 +280,26 @@ class IQ_SoftQ(LightningModule):
 
         feat_a = tokenized_agent_rollout["feat_a"]
 
-        value = self.encoder.value_network(feat_a)[..., 0]
+        value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
 
-        advantages, value_loss=compute_advantages(agent_rewards[max(0,1-self.gail_start_step):], value)
+        if self.token_processor.learn_init:
+            intial_value=torch.zeros_like(value[0])
+
+            intial_value[~tokenized_agent_rollout["ego_mask"]]=self.encoder.init_value_network(tokenized_agent_rollout["noise_feat"])[:,0]
+
+            value=torch.cat([intial_value[None],value],dim=0)
+
+        advantages, value_loss=compute_advantages(agent_rewards, value)#[max(0,1-self.gail_start_step):]
 
         #advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
+
+        advantages=advantages.reshape(-1)
 
         self.return_meanstd.update(advantages.detach())
 
         advantages = self.return_meanstd.normalize(advantages)
 
-        ppo_loss = -(agent_log_prob * advantages).mean()
+        ppo_loss = -(agent_log_prob * advantages[-len(agent_log_prob):]).mean()
 
         self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var, on_step=True, batch_size=1)
@@ -300,7 +310,25 @@ class IQ_SoftQ(LightningModule):
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
 
         if self.token_processor.learn_init:
-            self.agent_encoder.detach
+
+            match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent_rollout)
+
+            self.log('train/match_loss', match_loss.mean(), on_step=True, batch_size=1)
+            self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+            self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+            self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+            self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+            self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
+
+            advantages=advantages[:-len(agent_log_prob)]
+
+            z_list=tokenized_agent["z_list"]
+            t_list=tokenized_agent["t_list"]
+
+            g_loss = get_g_loss(tokenized_agent["initial_map_feature"], tokenized_agent, self.agen, z_list, t_list, advantages)
+            loss = g_loss + match_loss  # +g_loss1
+
+            policy_loss=policy_loss+g_loss+match_loss
 
         actor_optimizer.zero_grad()
 

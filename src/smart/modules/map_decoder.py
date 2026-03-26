@@ -228,7 +228,16 @@ class SMARTMapDecoder(nn.Module):
             orient_pt=orient_edge
             batch=batch_edge
 
+        if tokenized_agent is not None:
+            ego_mask = tokenized_agent["ego_mask"]
+            ego_position = tokenized_agent["initial_pos"][ego_mask]
+            ego_heading = tokenized_agent["initial_heading"][ego_mask]
 
+            pos_pt, orient_pt = transform_to_local(pos_pt,  # [:,None],
+                                                   orient_pt,  # [:,None],
+                                                   ego_position[batch],
+                                                   ego_heading[batch],
+                                                   )
 
         output={
             "pt_token": x_pt,
@@ -236,7 +245,6 @@ class SMARTMapDecoder(nn.Module):
             "orientation": orient_pt,
             "batch": batch,
         }
-
 
 
         return output

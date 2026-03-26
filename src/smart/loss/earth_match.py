@@ -52,9 +52,9 @@ def matching_loss(
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
         #real_vel=torch.cat([real_pos,real_vel],dim=-1)
 
-        cluster_valid_mask=~torch.isnan(real_vel)
+        #cluster_valid_mask=~torch.isnan(real_vel)
 
-        vel_loss = F.l1_loss(fake_vel[cluster_valid_mask], real_vel[cluster_valid_mask], reduction="none").mean(-1)
+        vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean(-1)
 
     else:
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]

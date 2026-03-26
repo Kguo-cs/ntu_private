@@ -484,7 +484,6 @@ class ScaleFlow(nn.Module):
         z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
 
         t_list=[]
-        step_list=[]
 
         z=self.net.denormalize(z)
 
@@ -621,9 +620,7 @@ class ScaleFlow(nn.Module):
                 x_list.append(x_cond)
                 z_list.append(z)
                 t_list.append(t_n)
-                # batch_list.append(tokenized_agent_scale["nonego_batch"])
-                # step_list.append(torch.zeros_like(tokenized_agent_scale["nonego_batch"])+i)
         t_list.append(torch.ones_like(t_n))
 
-        return z[:,0],x_list,z_list,step_list,t_list
+        return z[:,0],x_list,z_list,t_list
 
