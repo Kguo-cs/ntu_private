@@ -246,7 +246,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
-        agent_train_mask= get_train_mask(tokenized_agent_rollout,max(0,self.gail_start_step-1))
+        # agent_train_mask= get_train_mask(tokenized_agent_rollout,max(0,self.gail_start_step-1))
 
         if self.encoder.learn_dis:
             agent_dis_loss, agent_rewards, nei_rewards, agent_gp, _ = self.get_reward(
@@ -283,7 +283,7 @@ class IQ_SoftQ(LightningModule):
 
         advantages, value_loss=compute_advantages(agent_rewards[max(0,1-self.gail_start_step):], value)
 
-        advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
+        #advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
 
         self.return_meanstd.update(advantages.detach())
 
@@ -299,6 +299,9 @@ class IQ_SoftQ(LightningModule):
 
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
 
+        if self.token_processor.learn_init:
+            self.agent_encoder.detach
+
         actor_optimizer.zero_grad()
 
         policy_loss.backward()
@@ -306,6 +309,7 @@ class IQ_SoftQ(LightningModule):
         actor_optimizer.step()
 
         loss = critic_loss + policy_loss
+
 
         return loss
 

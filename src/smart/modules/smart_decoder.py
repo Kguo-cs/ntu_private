@@ -133,6 +133,7 @@ class SMARTDecoder(nn.Module):
                 dist_decay=dist_decay,
                 reward_weight=reward_weight,
                 reward_decay=reward_decay,
+                use_gail=self.gail
             )
             if token_processor.learn_init :
                 self.sep_map= self.agent_encoder.init_decoder.sep_map
@@ -192,7 +193,7 @@ class SMARTDecoder(nn.Module):
         if "map_feature" in tokenized_agent:
             map_feature = tokenized_agent["map_feature"]
         else:
-            if self.agent_encoder.learn_init and not self.agent_encoder.init_decoder.use_all_pos:
+            if self.agent_encoder.learn_init and not self.agent_encoder.init_decoder.use_all_pos and not self.gail:
                 map_feature = self.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
                 tokenized_agent["initial_map_feature"] = map_feature
             else:

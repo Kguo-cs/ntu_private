@@ -86,20 +86,16 @@ class SMART(LightningModule):
             for p in self.encoder.parameters():
                 p.requires_grad = False
 
-            if self.token_processor.learn_init:
-                for p in self.encoder.agent_encoder.init_decoder.parameters():
-                    p.requires_grad = True
-            else:
-                for p in self.encoder.agent_encoder.parameters():
+            for p in self.encoder.agent_encoder.parameters():
+                p.requires_grad = True
+
+            if self.encoder.learn_dis and self.encoder.gail:
+                for p in self.encoder.discriminator.parameters():
                     p.requires_grad = True
 
-                if self.encoder.learn_dis and self.encoder.gail:
-                    for p in self.encoder.discriminator.parameters():
-                        p.requires_grad = True
-
+            if not self.token_processor.learn_init:
                 for p in self.encoder.agent_encoder.init_decoder.parameters():
                     p.requires_grad = False
-
 
             if self.encoder.sep_map:
                 for p in self.encoder.map_encoder1.parameters():

@@ -194,7 +194,7 @@ class ScaleFlow(nn.Module):
 
         self.P_mean=2
 
-        self.steps=20
+        self.steps=10
 
         self.use_cluster=False
 
@@ -479,7 +479,7 @@ class ScaleFlow(nn.Module):
         num_graphs = tokenized_agent["num_graphs"]
         num_agents = len(agent_batch)
 
-        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
+        #tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
 
         z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
 

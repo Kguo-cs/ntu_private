@@ -77,7 +77,7 @@ class InitDiffusion(nn.Module):
         tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
         tokenized_agent["batch_ego_heading"] = ego_heading[nonego_batch]
 
-        nonego_type = tokenized_agent["initial_type"][non_ego].clone()
+        nonego_type = tokenized_agent["type"][non_ego]
 
         ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
 
@@ -237,7 +237,7 @@ class InitDiffusion(nn.Module):
             tokenized_agent["ego_embedding"] = ego_embedding
             tokenized_agent["nonego_batch"]=nonego_batch
 
-            tokenized_agent['nonego_type_sorted']= nonego_type
+            tokenized_agent['nonego_type']= nonego_type
 
             pred_init, x_list,z_list, step_list,t_list = self.G.sample( tokenized_agent, map_feature,None)
 
@@ -245,7 +245,7 @@ class InitDiffusion(nn.Module):
                 pred_init, tokenized_agent, non_ego
             )
 
-            return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel
+            return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel,z_list,t_list
         
     @staticmethod
     def add_model_specific_args(parent_parser):

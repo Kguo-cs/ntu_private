@@ -448,7 +448,7 @@ class InitDenoiser(nn.Module):
 
             local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
 
-            tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
+            #tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
             if self.use_prev_head:
                 prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],non_ego_head)
@@ -457,7 +457,7 @@ class InitDenoiser(nn.Module):
 
             m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
 
-        tokenized_agent['nonego_type_sorted'] = nonego_type
+        tokenized_agent['nonego_type'] = nonego_type
 
         if self.use_scale:
             diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
@@ -498,7 +498,7 @@ class InitDenoiser(nn.Module):
 
         device = m_delta.device
         batch = tokenized_agent["nonego_batch"]
-        type = tokenized_agent["nonego_type_sorted"]
+        type = tokenized_agent["nonego_type"]
         ego_embedding = tokenized_agent["ego_embedding"]
         num_graphs = tokenized_agent["num_graphs"]
 

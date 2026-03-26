@@ -71,10 +71,6 @@ class InitDiscriminator(nn.Module):
 
                 self.entry_former = RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
-
-                # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                #                                  hist_len=self.entry_his_len)  # drop 01 is important
-
         else:
 
             self.edge_encoder = EdgeEncoder(hidden_dim,
@@ -133,7 +129,7 @@ class InitDiscriminator(nn.Module):
         if self.use_GAIL:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
-        self.Gamma=1
+        self.Gamma=0
 
         self.use_sde=False
 
@@ -173,9 +169,7 @@ class InitDiscriminator(nn.Module):
 
             tokenized_agent["nonego_batch"] = batch
 
-            tokenized_agent["nonego_type_sorted"] = tokenized_agent["nonego_type_sorted"][None].repeat(n_step,
-                                                                                                       1).flatten(0,
-                                                                                                                  1)
+            tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0,1)
             prev_sample = agent_state[:, 1:].transpose(0, 1).flatten(0, 1)  # t,a
 
             z = agent_state[:, :-1].transpose(0, 1).flatten(0, 1)  # t,a
@@ -306,11 +300,16 @@ class InitDiscriminator(nn.Module):
     def get_d_loss(self,FakeSamples,target,map_feature, tokenized_agent):
         agent_n = len(FakeSamples)
 
-        FakeSamples = FakeSamples.detach().requires_grad_(True)
+        if self.Gamma>0:
+
+            FakeSamples = FakeSamples.detach().requires_grad_(True)
 
         FakeLogits, fake_weight, end_index = self.forward(FakeSamples, map_feature, tokenized_agent)
 
-        Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits).mean()
+        if self.Gamma>0:
+            Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits).mean()
+        else:
+            Penalty=torch.tensor(0.0,device=FakeSamples.device)
 
         if self.use_Rp:
             RelativisticLogits = RealLogits - FakeLogits
@@ -468,7 +467,7 @@ class InitDiscriminator(nn.Module):
 
 
         batch = tokenized_agent["nonego_batch"]
-        type = tokenized_agent["nonego_type_sorted"]
+        type = tokenized_agent["nonego_type"]
         num_graphs = tokenized_agent["num_graphs"]
         ego_embedding = tokenized_agent["ego_embedding"].detach()
 
