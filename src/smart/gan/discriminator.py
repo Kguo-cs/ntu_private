@@ -137,6 +137,8 @@ class InitDiscriminator(nn.Module):
 
         self.use_sde=True
 
+        self.noise_level=0.7
+
 
     def get_g_loss(self,map_feature, tokenized_agent,G,z_list, t_list,rewards):
 
@@ -195,7 +197,7 @@ class InitDiscriminator(nn.Module):
 
                 x_pred = G.net(z, t_n, tokenized_agent, map_feature,mode=1)[:,0]
 
-                v_pred = (x_pred - z) / (1.0 - t_n).clamp_min(0.05)
+                v_pred = (x_pred - z) / (1.0 - t_n).clamp_min(G.eps)
 
                 log_prob = sde_step_with_logprob(
                     1 - t_n,
@@ -203,7 +205,7 @@ class InitDiscriminator(nn.Module):
                     -v_pred,
                     z,
                     G.net.denormalize,
-                    noise_level=0.1,
+                    noise_level=self.noise_level,
                     prev_sample=prev_sample
                 )[0]
 
@@ -376,7 +378,7 @@ class InitDiscriminator(nn.Module):
         RealSamples, match_loss, map_feature, tokenized_agent= inputs
 
         with torch.no_grad():
-            rollout_samples, x_list, z_list, step_list, t_list = G.sample(tokenized_agent, map_feature,infer_steps=10, eval_mask=None,noise_level=0.1)
+            rollout_samples, x_list, z_list, step_list, t_list = G.sample(tokenized_agent, map_feature,infer_steps=10, eval_mask=None,noise_level=self.noise_level)
 
         opt_G, opt_D = optimizer
 
