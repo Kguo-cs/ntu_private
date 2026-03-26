@@ -355,7 +355,7 @@ class ScaleFlow(nn.Module):
 
                     v_pred = (x_pred - z) /denom
 
-                    match_loss=F.l1_loss(v_pred , v_target,reduction="mean")
+                    match_loss=F.l1_loss(v_pred, v_target, reduction="none").mean(-1)[:,0]
 
             else:
                 v_target =x - e

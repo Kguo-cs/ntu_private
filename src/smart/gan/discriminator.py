@@ -206,12 +206,12 @@ class InitDiscriminator(nn.Module):
 
             else:
                 x=x[None].repeat(n_step, 1,1).flatten(0, 1)
+                #
+                # v_target = (x - z) / denom
+                #
+                # new_loss = F.l1_loss(v_pred, v_target, reduction="none").mean(-1)
 
-                v_target = (x - z) / denom
-
-                new_loss = F.l1_loss(v_pred, v_target, reduction="none").mean(-1)
-
-                # new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
+                new_loss = G.get_loss(x, tokenized_agent, map_feature,None,use_match=False)[0][0]
 
                 loss_diff = new_loss.detach() - new_loss
 
