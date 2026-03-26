@@ -37,27 +37,11 @@ model:
       reward_decay: 2.5
 
 #ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
-ckpt_path: './waymo_data/dit256_noscale.ckpt'
+ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: AIRL20_ALL203_sample20_noise1e2_disapl10 #_grad_dis5e5
+task_name: AIRL24_ALL203_sample10_noise1e2 #_grad_dis5e5
 
-logger:
-  wandb:
-    _target_: lightning.pytorch.loggers.wandb.WandbLogger
-    name: ${task_name}
-    save_dir: "${paths.output_dir}"
-    offline: False
-    id: null # pass correct id to resume experiment!
-    anonymous: null # enable anonymous logging
-    project: sim
-    log_model: False # upload lightning ckpts
-    prefix: "" # a string to put at the beginning of metric keys
-    entity: u3006612
-    group: ""
-    tags: []
-    job_type: ""
-    resume: allow
 
 trainer:
   limit_train_batches: 1.0
@@ -69,7 +53,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 20 #6
+  train_batch_size: 24 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
