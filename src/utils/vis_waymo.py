@@ -310,27 +310,27 @@ class VisWaymo:
                     ag_role,
                 )
 
-            if len(new_agent):
-
-                new_agent_i=new_agent[:,i_rollout]
-
-                new_xy=new_agent_i[:,:,:2]
-                new_yaw=new_agent_i[:,:,2:3]
-                new_size=new_agent_i[:,0,3:]
-
-                new_role=np.zeros_like(new_size)
-                new_role[:,1]=True
-
-                new_valid=np.any(new_xy!=10000,axis=-1)
-
-                self._draw_agents(
-                    images[self.step_current // self.interval + 1:],
-                    new_valid[:, ::self.interval],
-                    new_xy[:, ::self.interval],
-                    new_yaw[:, ::self.interval],
-                    new_size,
-                    new_role,
-                )
+            # if len(new_agent):
+            #
+            #     new_agent_i=new_agent[:,i_rollout]
+            #
+            #     new_xy=new_agent_i[:,:,:2]
+            #     new_yaw=new_agent_i[:,:,2:3]
+            #     new_size=new_agent_i[:,0,3:]
+            #
+            #     new_role=np.zeros_like(new_size)
+            #     new_role[:,1]=True
+            #
+            #     new_valid=np.any(new_xy!=10000,axis=-1)
+            #
+            #     self._draw_agents(
+            #         images[self.step_current // self.interval + 1:],
+            #         new_valid[:, ::self.interval],
+            #         new_xy[:, ::self.interval],
+            #         new_yaw[:, ::self.interval],
+            #         new_size,
+            #         new_role,
+            #     )
 
             _video_path = (self.save_dir / f"rollout_{i_rollout:02d}.mp4").as_posix()
             self.video_paths.append(_video_path)

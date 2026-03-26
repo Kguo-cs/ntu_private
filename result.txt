@@ -758,7 +758,6 @@ test: 0.6350
 0.6419
 
 
-/home/ke/code/sim/src/waymo_data/dit256_sample10_l2_noise_epoch=63-step=121792.ckpt
 
 
 /home/ke/code/sim/src/waymo_data/bc48_t60_noego_l3_ep64_epoch=63-step=649344.ckpt
@@ -779,31 +778,19 @@ AIRL19_13_disdiff_all_start1_noise
 
 0.7805
 
-
-
-decomp gail for discriminator
-diffusion gail
+dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 
 
 
 
-dit256_cfg3_schedule_nohead
-
-dit256_cfg3_schedule1_70_nohead
 
 
 
-design t ,n scedule   previous clean
-
-finetuning the policy encoder
 
 
 
-dit128_airl_128pad64_lambda1_map100_t
 
-WO53LWBDQV
 
-121.00 usd
 
 
 take all position for generation

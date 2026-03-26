@@ -217,7 +217,7 @@ class InitDiscriminator(nn.Module):
 
                 loss_diff = new_loss.detach() - new_loss
 
-                fpo_ratio = torch.exp(loss_diff)
+                fpo_ratio =loss_diff #torch.exp(loss_diff)
 
             clipped_advantages = torch.clamp(advantages, -5, 5)
 

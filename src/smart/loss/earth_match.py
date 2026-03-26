@@ -43,18 +43,18 @@ def matching_loss(
     # pos_loss = dist.mean()
 
     if fake_state.shape[1]!=16:
-        pos_loss=F.l1_loss(fake_pos, real_pos)
+        pos_loss=F.l1_loss(fake_pos, real_pos, reduction="none").mean(-1)
         #pos_loss=torch.tensor(0.0).to(real_state.device)
 
-        heading_loss = F.l1_loss(fake_heading, real_heading)
-        shape_loss = F.l1_loss(fake_shape, real_shape)
+        heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean(-1)
+        shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean(-1)
 
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
         #real_vel=torch.cat([real_pos,real_vel],dim=-1)
 
         cluster_valid_mask=~torch.isnan(real_vel)
 
-        vel_loss = F.l1_loss(fake_vel[cluster_valid_mask], real_vel[cluster_valid_mask])
+        vel_loss = F.l1_loss(fake_vel[cluster_valid_mask], real_vel[cluster_valid_mask], reduction="none").mean(-1)
 
     else:
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]
@@ -335,7 +335,7 @@ def get_matching_loss(
     if use_col:
         col_loss=multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
     else:
-        col_loss = torch.zeros_like(match_loss)  #
+        col_loss = torch.zeros_like(match_loss.mean())  #
     # [03:08<13:55,  3.71it/s, v_num=4e1b]
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,(col_loss).expm1()*10

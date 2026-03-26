@@ -156,7 +156,7 @@ class InitDiffusion(nn.Module):
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
             if self.use_gan:
-                return  (m_init,match_loss,map_feature, tokenized_agent)
+                return  (m_init,match_loss.mean(),map_feature, tokenized_agent)
 
             if self.use_gail:
                 expert_dis_loss, _ = self.D.get_reward(m_init, t, tokenized_agent, map_feature, "expert")
@@ -229,7 +229,7 @@ class InitDiffusion(nn.Module):
 
                 match_loss = expert_dis_loss + agent_dis_loss + policy_loss
 
-            loss = (match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+            loss = (match_loss.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
             return loss
         else:

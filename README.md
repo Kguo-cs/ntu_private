@@ -17,7 +17,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_all_light ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_sample10_l2_noise/2026-03-20_21-16-10/bc/vzjrodu7/checkpoints/epoch=63-step=121792.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_sample20_mos1sample32256_sde0/2026-03-25_22-41-45/bc/4t3hhf9z/checkpoints/epoch=63-step=121792.ckpt ./
 
 rsync -avz -e "ssh -p 32884" /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  guoke@sprl-server9.dynip.ntu.edu.sg:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
@@ -252,3 +252,29 @@ crontab -e
 sudo visudo
 ke ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/systemctl
 
+
+
+
+decomp gail for discriminator
+diffusion gail
+
+
+
+
+dit256_cfg3_schedule_nohead
+
+dit256_cfg3_schedule1_70_nohead
+
+
+
+design t ,n scedule   previous clean
+
+finetuning the policy encoder
+
+
+
+dit128_airl_128pad64_lambda1_map100_t
+
+WO53LWBDQV
+
+121.00 usd
