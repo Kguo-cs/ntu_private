@@ -197,7 +197,7 @@ class InitDiscriminator(nn.Module):
 
                 x_pred = G.net(z, t_n, tokenized_agent, map_feature,mode=1)[:,0]
 
-                v_pred = (x_pred - z) / (1.0 - t_n).clamp_min(G.eps)
+                v_pred = (x_pred - z) / (1.0 - t_n).clamp_min(G.t_eps)
 
                 log_prob = sde_step_with_logprob(
                     1 - t_n,
