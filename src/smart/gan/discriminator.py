@@ -148,6 +148,7 @@ class InitDiscriminator(nn.Module):
             self.return_meanstd.update(rewards)
 
             advantages = self.return_meanstd.normalize(rewards)
+
             num_graphs = tokenized_agent["num_graphs"]
 
             agent_state = torch.cat(z_list, dim=1)
@@ -185,13 +186,14 @@ class InitDiscriminator(nn.Module):
 
             advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
 
-            x_pred = G.net(z, t_n, tokenized_agent, map_feature, mode=1)[:, 0]
-
-            denom=(1.0 - t_n).clamp_min(G.t_eps)
-
-            v_pred = (x_pred - z) / denom
-
             if self.use_sde:
+
+                x_pred = G.net(z, t_n, tokenized_agent, map_feature, mode=1)[:, 0]
+
+                denom=(1.0 - t_n).clamp_min(G.t_eps)
+
+                v_pred = (x_pred - z) / denom
+
                 log_prob = sde_step_with_logprob(
                     1 - t_n,
                     1 - t_next,
@@ -366,7 +368,7 @@ class InitDiscriminator(nn.Module):
         logger("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         opt_D.zero_grad()
-        loss.backward(retain_graph=True)
+        loss.backward()#retain_graph=True
         torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
@@ -468,7 +470,7 @@ class InitDiscriminator(nn.Module):
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type_sorted"]
         num_graphs = tokenized_agent["num_graphs"]
-        ego_embedding = tokenized_agent["ego_embedding"]
+       # ego_embedding = tokenized_agent["ego_embedding"]
 
         if self.use_entry_former:
             head_a = wrap_angle(head_a)
@@ -564,7 +566,7 @@ class InitDiscriminator(nn.Module):
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
-            feat_a = type_embedding + shape_embedding+ego_embedding
+            feat_a = type_embedding + shape_embedding#+ego_embedding
 
             if self.use_decompose:
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
