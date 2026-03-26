@@ -163,7 +163,7 @@ def get_g_loss( map_feature, tokenized_agent, G, z_list, t_list, advantages,n_st
 def update_policy( logger, opt_G, G, inputs, z_list, t_list, gen_rewards, expert_rewards):
     RealSamples, match_loss, map_feature, tokenized_agent = inputs
 
-    g_loss = get_g_loss(map_feature, tokenized_agent, G, z_list, t_list, gen_rewards)
+    g_loss = get_g_loss(map_feature, tokenized_agent, G, z_list, t_list, gen_rewards,n_step=2)
 
     # teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
 
