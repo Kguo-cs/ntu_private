@@ -700,6 +700,8 @@ class ScaleFlow(nn.Module):
                 loss_diff = new_loss.detach() - new_loss
 
                 fpo_ratio = torch.exp(loss_diff)
+                # clipped_advantages = torch.clamp(advantages, -5, 5)
+                # per_sample_policy_loss=new_loss*torch.exp(clipped_advantages)
 
             clipped_advantages = torch.clamp(advantages, -5, 5)
 

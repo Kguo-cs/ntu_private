@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
 
-task_name: AIRL20_dit20
+task_name: AIRL20_dit20_g #_awr
 
 trainer:
   limit_train_batches: 1.0

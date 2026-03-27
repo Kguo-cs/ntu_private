@@ -319,16 +319,16 @@ class IQ_SoftQ(LightningModule):
 
         if self.token_processor.learn_init:
 
-            # advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
-            #
-            # z_list=tokenized_agent["z_list"]
-            # t_list=tokenized_agent["t_list"]
-            #
-            # g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
+            advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
 
-            policy_loss=policy_loss+match_loss
+            z_list=tokenized_agent["z_list"]
+            t_list=tokenized_agent["t_list"]
 
-            # self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
+            g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
+
+            policy_loss=policy_loss+match_loss+g_loss
+
+            self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
 
         actor_optimizer.zero_grad()
 
