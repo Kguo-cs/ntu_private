@@ -76,7 +76,7 @@ class InterativeDecoder(nn.Module):
         self.use_airl=False
 
         self.gail_start_step=1 #first action not used
-        self.dis_start_step=1 # first state not used
+        self.dis_start_step=2 # first state not used
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,

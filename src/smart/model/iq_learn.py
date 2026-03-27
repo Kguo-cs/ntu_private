@@ -267,7 +267,12 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-        actor_optimizer,discriminator_optimizer, init_optimizer=self.optimizers()
+        if self.token_processor.learn_init:
+
+            actor_optimizer,discriminator_optimizer, init_optimizer=self.optimizers()
+        else:
+            actor_optimizer,discriminator_optimizer=self.optimizers()
+
 
         discriminator_optimizer.zero_grad()
 

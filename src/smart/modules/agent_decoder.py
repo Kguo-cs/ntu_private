@@ -171,6 +171,7 @@ class SMARTAgentDecoder(nn.Module):
         pred_traj_10hz = []
         pred_head_10hz = []
 
+
         if self.pred_init:
             pos_a,head_a, sampled_idx,shape,initial_vel,z_list,t_list = self.init_decoder(tokenized_agent)
 
