@@ -180,7 +180,7 @@ class IQ_SoftQ(LightningModule):
             target=1
         else:
             target=0
-            ego_rewards=ego_rewards.reshape(mask_t.shape)[self.gail_start_step-self.dis_start_step:] #t,a
+            ego_rewards=ego_rewards.reshape(mask_t.shape)#[self.gail_start_step-self.dis_start_step:] #t,a
             if len(nei_rewards):
                nei_rewards = nei_rewards.reshape(mask_t.shape)#t,a
 
@@ -246,6 +246,8 @@ class IQ_SoftQ(LightningModule):
             self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
             self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
             self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
+
+            tokenized_agent["token_mask"][:,:1]=False
 
         if self.encoder.learn_dis:
             expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")

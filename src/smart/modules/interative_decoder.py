@@ -75,8 +75,8 @@ class InterativeDecoder(nn.Module):
         self.use_full_feature=False
         self.use_airl=False
 
-        self.gail_start_step=0
-        self.dis_start_step=0
+        self.gail_start_step=2
+        self.dis_start_step=1
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
@@ -385,7 +385,7 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             dis_mask = tokenized_agent["dis_mask"] if "dis_mask" in tokenized_agent else None
-            mask_transpose = tokenized_agent["valid_mask"].transpose(0, 1)[self.gail_start_step:]
+            mask_transpose = tokenized_agent["valid_mask"].transpose(0, 1)[self.dis_start_step:]
 
             if train_mask is not None:
                 all_dis_mask = torch.zeros_like(mask_transpose)
