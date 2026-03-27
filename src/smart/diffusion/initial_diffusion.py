@@ -258,7 +258,7 @@ class InitDiffusion(nn.Module):
         parser.add_argument('--num_agent_layers', type=int, default=2)
         parser.add_argument('--num_heads', type=int, default=8)
         parser.add_argument('--head_dim', type=int, default=16)
-        parser.add_argument('--dropout', type=float, default=0.1)
+        parser.add_argument('--dropout', type=float, default=0)
         parser.add_argument('--pl2pl_radius', type=float, default=150)
         parser.add_argument('--lr', type=float, default=5e-4)
         parser.add_argument('--weight_decay', type=float, default=1e-4)
