@@ -194,8 +194,6 @@ class ScaleFlow(nn.Module):
 
         self.P_mean=2
 
-        self.steps=20
-
         self.use_cluster=False
 
         self.use_vp=False
@@ -473,7 +471,7 @@ class ScaleFlow(nn.Module):
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample(self,tokenized_agent,scene_enc,eval_mask,infer_steps=10,num_samples=1,     noise_level=0):
+    def sample(self,tokenized_agent,scene_enc,eval_mask,infer_steps=20,num_samples=1,     noise_level=0):
 
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
