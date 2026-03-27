@@ -192,9 +192,9 @@ class SMARTAgentDecoder(nn.Module):
 
             if "gt_z_raw" in tokenized_agent.keys():
                 max_step = 17
-                current_step = 1
-            else:
-                sampled_idx=torch.cat([torch.zeros_like(sampled_idx),sampled_idx],dim=1)
+                tokenized_agent["token_mask"][:, :1] = False
+
+            sampled_idx=torch.cat([torch.zeros_like(sampled_idx),sampled_idx],dim=1)
         else:
             head_a = gt_head[:, :current_step]
             pos_a = gt_pos[:, :current_step]
