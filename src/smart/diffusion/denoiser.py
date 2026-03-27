@@ -143,7 +143,7 @@ class InitDenoiser(nn.Module):
         #self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         #self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
 
-        self.return_meanstd = RunningMeanStdTorch(shape=(m_delta_dim))
+        self.return_meanstd = ModuleList([copy.deepcopy(RunningMeanStdTorch(shape=(m_delta_dim))) for i in range(3)])
 
         if self.use_all_pos:
             m_delta_dim=6+4*4
@@ -350,7 +350,7 @@ class InitDenoiser(nn.Module):
     def normalize(self,input):
         return (input - self.normal_mean) / self.normal_scale
 
-    def denormalize(self,input):
+    def denormalize(self,input,nonego_type):
 
         # D, K = self.init_probs.shape
         #
@@ -361,11 +361,15 @@ class InitDenoiser(nn.Module):
         #
         # x = self.init_min[None] + (idx.float() + u) * width[None]
 
-        x=self.return_meanstd.denormalize(input)
+        for type_idx in range(3):
+            mask=nonego_type == type_idx
+            input[mask]=self.return_meanstd[type_idx].denormalize(input[mask])
+
+        # x=self.return_meanstd.denormalize(input)
 
         #x=input* self.normal_scale[None]+self.normal_mean[None]
 
-        return x#[:,None]
+        return input#[:,None]
 
     def drop_labels(self, labels,ego_embedding,mode):
 
@@ -457,7 +461,9 @@ class InitDenoiser(nn.Module):
         else:
             diff_input = m_init
 
-        self.return_meanstd.update(m_init)
+        for type_idx in range(3):
+
+            self.return_meanstd[type_idx].update(m_init[nonego_type==type_idx])
 
         #if not self.normal_initialized:
 
