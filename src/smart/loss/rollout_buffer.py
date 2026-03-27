@@ -37,7 +37,6 @@ class RunningMeanStdTorch(nn.Module):
         self.register_buffer('var', torch.ones(shape, dtype=torch.float64))
         self.register_buffer('count', torch.tensor(epsilon, dtype=torch.float64))
         self.initialized = False
-        self.alpha = 0.99
 
     def _is_dist_available_and_initialized(self):
         return dist.is_available() and dist.is_initialized()
@@ -112,18 +111,9 @@ class RunningMeanStdTorch(nn.Module):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
         return res
 
-    # def update(self, x):
-    #     batch_mean = torch.mean(x, dim=0)
-    #     batch_var = torch.var(x, dim=0, unbiased=False)
-    #
-    #     if not self.initialized:
-    #         self.mean = batch_mean
-    #         self.var = batch_var
-    #         self.initialized = True
-    #     else:
-    #         self.mean = self.alpha * self.mean + (1 - self.alpha) * batch_mean
-    #         self.var = self.alpha * self.var + (1 - self.alpha) * batch_var
-
+    def denormalize(self, x):
+        res=x * torch.sqrt(self.var.float())  + self.mean.float()
+        return res
 
 def get_reward(s,kl_per_token, eps=1e-20, reward_type="airl"):
     s = s.detach()

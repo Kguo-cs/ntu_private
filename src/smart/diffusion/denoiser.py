@@ -40,6 +40,7 @@ from torch_scatter import scatter_sum
 from .diffusion_planner.decoder import  DiT
 from src.smart.modules.interative_decoder import InterativeDecoder
 from src.smart.utils.edge_utils import build_batch
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return
 
 def batch_histogram_categorical(m_init, bins=8, value_range=None):
     # m_init: (B, 8)
@@ -139,8 +140,10 @@ class InitDenoiser(nn.Module):
         self.output_dim=m_delta_dim
         self.label_drop_prob=0
 
-        self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
-        self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
+        #self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
+        #self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
+
+        self.return_meanstd = RunningMeanStdTorch(shape=(m_delta_dim))
 
         if self.use_all_pos:
             m_delta_dim=6+4*4
@@ -258,18 +261,6 @@ class InitDenoiser(nn.Module):
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=1000000)  # replace with gnn
             self.interact_pt2m = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
-            # self.interact_pt2m = nn.ModuleList([
-            #     nn.TransformerDecoderLayer(
-            #         d_model=hidden_dim,
-            #         nhead=num_heads,
-            #         dim_feedforward=4 * hidden_dim,
-            #         dropout=0.0,
-            #         batch_first=True,
-            #         activation="gelu",
-            #         norm_first=True
-            #     )
-            #     for _ in range(num_layers)
-            # ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
         self.use_noise=False
@@ -370,7 +361,9 @@ class InitDenoiser(nn.Module):
         #
         # x = self.init_min[None] + (idx.float() + u) * width[None]
 
-        x=input* self.normal_scale[None]+self.normal_mean[None]
+        x=self.return_meanstd.denormalize(input)
+
+        #x=input* self.normal_scale[None]+self.normal_mean[None]
 
         return x#[:,None]
 
@@ -464,20 +457,23 @@ class InitDenoiser(nn.Module):
         else:
             diff_input = m_init
 
-        if not self.normal_initialized:
+        self.return_meanstd.update(m_init)
 
-            valid = ~torch.isnan(m_init)
-            count = valid.sum(0, keepdim=True).clamp_min(1)
+        #if not self.normal_initialized:
 
-            mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
-            std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
-                1e-8)
-            self.normal_mean.copy_(mean)
-            self.normal_scale.copy_(std)
+            # valid = ~torch.isnan(m_init)
+            # count = valid.sum(0, keepdim=True).clamp_min(1)
+            #
+            # mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
+            # std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
+            #     1e-8)
+            # self.normal_mean.copy_(mean)
+            # self.normal_scale.copy_(std)
+
 
             # self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
             # self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
-            self.normal_initialized = True
+          #  self.normal_initialized = True
 
             # probs=batch_histogram_categorical(m_init,bins=100)
             # self.init_probs.copy_(probs)
