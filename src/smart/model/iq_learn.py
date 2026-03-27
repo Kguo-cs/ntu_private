@@ -75,7 +75,7 @@ class IQ_SoftQ(LightningModule):
             if key=='expert':
                 start_step=0
             else:
-                start_step=max(0,self.gail_start_step-1)
+                start_step=self.gail_start_step
 
             valid_mask = tokenized_agent["valid_mask"][:, start_step:]
             action = tokenized_agent["sampled_idx"][:, start_step + 1:]
@@ -257,7 +257,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
-        # agent_train_mask= get_train_mask(tokenized_agent_rollout,max(0,self.gail_start_step-1))
+        # agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step)
 
         if self.encoder.learn_dis:
             agent_dis_loss, agent_rewards, nei_rewards, agent_gp, _ = self.get_reward(
@@ -267,7 +267,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-        actor_optimizer, discriminator_optimizer=self.optimizers()
+        actor_optimizer,discriminator_optimizer, init_optimizer=self.optimizers()
 
         discriminator_optimizer.zero_grad()
 
@@ -319,6 +319,13 @@ class IQ_SoftQ(LightningModule):
 
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
 
+        actor_optimizer.zero_grad()
+
+        policy_loss.backward()
+
+        actor_optimizer.step()
+
+
         if self.token_processor.learn_init:
 
             advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
@@ -328,18 +335,18 @@ class IQ_SoftQ(LightningModule):
 
             g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
 
-            policy_loss=policy_loss+match_loss+g_loss
+            init_loss=match_loss+g_loss
 
             self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
 
-        actor_optimizer.zero_grad()
+            init_optimizer.zero_grad()
 
-        policy_loss.backward()
+            init_loss.backward()
 
-        actor_optimizer.step()
+            init_optimizer.step()
+
 
         loss = critic_loss + policy_loss
-
 
         return loss
 

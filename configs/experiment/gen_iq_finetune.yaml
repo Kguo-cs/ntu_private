@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
 
-task_name: AIRL16_dit20_g_16 #_awr
+task_name: AIRL20_dit20_g_16_init #_awr
 
 trainer:
   limit_train_batches: 1.0
@@ -50,7 +50,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 16 #6
+  train_batch_size: 20 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8

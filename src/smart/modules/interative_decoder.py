@@ -75,8 +75,8 @@ class InterativeDecoder(nn.Module):
         self.use_full_feature=False
         self.use_airl=False
 
-        self.gail_start_step=2
-        self.dis_start_step=1
+        self.gail_start_step=1 #first action not used
+        self.dis_start_step=1 # first state not used
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
@@ -236,7 +236,7 @@ class InterativeDecoder(nn.Module):
             else:
                 pred_repeat_mask=torch.ones([n_step, n_agent], dtype=torch.bool,device=feat_a.device)
 
-            pred_repeat_mask[:max(0,self.gail_start_step-1)]=False
+            pred_repeat_mask[:self.gail_start_step]=False
             pred_repeat_mask=pred_repeat_mask.flatten(0, 1)
             feat_a=feat_a[pred_repeat_mask]
 
