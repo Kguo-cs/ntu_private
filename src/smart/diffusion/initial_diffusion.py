@@ -61,40 +61,49 @@ class InitDiffusion(nn.Module):
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
     def forward(self, tokenized_agent):
-        num_graphs = tokenized_agent["num_graphs"]
 
-        ego_mask = tokenized_agent["ego_mask"]
-        non_ego = ~ego_mask
+        if "ego_embedding" not in tokenized_agent.keys():
+            num_graphs = tokenized_agent["num_graphs"]
 
-        if self.use_all_pos:
-            non_ego=torch.ones_like(non_ego)
+            ego_mask = tokenized_agent["ego_mask"]
+            non_ego = ~ego_mask
 
-        ego_position = tokenized_agent["initial_pos"][ego_mask]
-        ego_heading = tokenized_agent["initial_heading"][ego_mask]
-        nonego_batch = tokenized_agent["batch"][non_ego]
-        tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
-        tokenized_agent["batch_ego_heading"] = ego_heading[nonego_batch]
+            if self.use_all_pos:
+                non_ego=torch.ones_like(non_ego)
 
-        nonego_type = tokenized_agent["type"][non_ego]
+            tokenized_agent["non_ego"]=non_ego
 
-        ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+            ego_position = tokenized_agent["initial_pos"][ego_mask]
+            ego_heading = tokenized_agent["initial_heading"][ego_mask]
+            nonego_batch = tokenized_agent["batch"][non_ego]
+            tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
+            tokenized_agent["batch_ego_heading"] = ego_heading[nonego_batch]
 
-        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0].flatten(1,2)
+            nonego_type = tokenized_agent["type"][non_ego]
+            tokenized_agent['nonego_type'] = nonego_type
 
-        num_types = 3  # since types are 0,1,2
+            ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
 
-        idx = nonego_batch * num_types + nonego_type
+            ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0].flatten(1,2)
 
-        type_counts = torch.bincount(
-            idx,
-            minlength=num_graphs * num_types
-        ).view(-1, num_types)
+            num_types = 3  # since types are 0,1,2
 
-        tokenized_agent["type_counts"]=type_counts
+            idx = nonego_batch * num_types + nonego_type
 
-        ego_local_traj=torch.cat([ego_local_traj,type_counts],dim=-1)
+            type_counts = torch.bincount(
+                idx,
+                minlength=num_graphs * num_types
+            ).view(-1, num_types)
 
-        ego_embedding=self.G.ego_embedding(ego_local_traj)
+            tokenized_agent["type_counts"]=type_counts
+
+            ego_local_traj=torch.cat([ego_local_traj,type_counts],dim=-1)
+
+            ego_embedding=self.G.ego_embedding(ego_local_traj)
+            ego_embedding = ego_embedding[nonego_batch]
+
+            tokenized_agent["nonego_batch"] = nonego_batch
+            tokenized_agent["ego_embedding"] = ego_embedding
 
         if "initial_map_feature" not in tokenized_agent.keys():
             map_feature = tokenized_agent["map_feature"]
@@ -141,12 +150,7 @@ class InitDiffusion(nn.Module):
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
         if self.training:
-            diff_input,m_init,nonego_batch=self.G.net.get_input(tokenized_agent,non_ego,nonego_batch,nonego_type)
-
-            ego_embedding = ego_embedding[nonego_batch]
-
-            tokenized_agent["nonego_batch"]= nonego_batch
-            tokenized_agent["ego_embedding"] = ego_embedding
+            diff_input,m_init=self.G.net.get_input(tokenized_agent)
 
             loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
@@ -230,15 +234,10 @@ class InitDiffusion(nn.Module):
 
             return loss
         else:
-            ego_embedding = ego_embedding[nonego_batch]
-            tokenized_agent["ego_embedding"] = ego_embedding
-            tokenized_agent["nonego_batch"]=nonego_batch
-            tokenized_agent['nonego_type']= nonego_type
-
             pred_init, x_list,z_list,t_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
-                pred_init, tokenized_agent, non_ego
+                pred_init, tokenized_agent
             )
 
             return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel,z_list,t_list

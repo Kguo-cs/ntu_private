@@ -596,8 +596,6 @@ class TokenProcessor(torch.nn.Module):
                 if self.use_all_pos:
                     start_idx = 10
 
-                    #valid = valid_mask[:, start_idx]
-
                     tokenized_agent["initial_heading"] = heading[:, start_idx]#[valid]
                     tokenized_agent["initial_pos"] = pos[:, start_idx]#[valid]  # [valid]
                     tokenized_agent["initial_shape"] = shape#[valid]
@@ -686,18 +684,14 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
 
                 else:
-                    for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
+                    for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask","token_mask"]:
                         tokenized_agent[key] = agent[key]#[agent_mask]
 
                     tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()#[agent_mask]
                     tokenized_agent['type'] = tokenized_agent['type'].long()
 
-                    if 'token_mask' in agent.keys():
-                        tokenized_agent['token_mask'] = agent['token_mask']#[agent_mask]
-                    else:
-                        tokenized_agent["token_mask"]=torch.cat([agent["valid_mask"][:,:1], agent["valid_mask"][:,:-1]], dim=-1)
-
                     if self.pred_init:
+
                         start_idx=0
 
                         tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:,start_idx]
@@ -724,7 +718,7 @@ class TokenProcessor(torch.nn.Module):
                         )[0].reshape(-1,10,2)
 
                         tokenized_agent["ego_traj"] = ego_traj
-                        tokenized_agent["initial_vel"]=(tokenized_agent["sampled_pos"][:,1] - tokenized_agent["sampled_pos"][:,0]) / 0.5
+                        tokenized_agent["initial_vel"]=(tokenized_agent["sampled_pos"][:,start_idx+1] - tokenized_agent["sampled_pos"][:,start_idx]) / 0.5
 
                     if "gt_pos_raw" in agent.keys():
 

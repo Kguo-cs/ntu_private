@@ -168,10 +168,6 @@ class SMARTAgentDecoder(nn.Module):
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
-        if "gt_z_raw" not in tokenized_agent.keys():
-            max_step = 17
-            current_step=1
-
         head_a = gt_head[:, :current_step]
         mask = gt_valid[:, :current_step]
         pos_a = gt_pos[:, :current_step]
@@ -194,6 +190,9 @@ class SMARTAgentDecoder(nn.Module):
 
             if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
                 max_step = 18
+                current_step = 1
+            else:
+                max_step = 17
                 current_step = 1
 
             mask=torch.ones_like(mask[:, :current_step])
