@@ -140,10 +140,10 @@ class InitDenoiser(nn.Module):
         self.output_dim=m_delta_dim
         self.label_drop_prob=0
 
-        #self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
-        #self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
+        self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
+        self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
 
-        self.return_meanstd = ModuleList([copy.deepcopy(RunningMeanStdTorch(shape=(m_delta_dim))) for i in range(3)])
+       # self.return_meanstd = ModuleList([copy.deepcopy(RunningMeanStdTorch(shape=(m_delta_dim))) for i in range(3)])
 
         if self.use_all_pos:
             m_delta_dim=6+4*4
@@ -361,13 +361,13 @@ class InitDenoiser(nn.Module):
         #
         # x = self.init_min[None] + (idx.float() + u) * width[None]
 
-        for type_idx in range(3):
-            mask=nonego_type == type_idx
-            input[mask]=self.return_meanstd[type_idx].denormalize(input[mask])
+        # for type_idx in range(3):
+        #     mask=nonego_type == type_idx
+        #     input[mask]=self.return_meanstd[type_idx].denormalize(input[mask])
 
         # x=self.return_meanstd.denormalize(input)
 
-        #x=input* self.normal_scale[None]+self.normal_mean[None]
+        input=input* self.normal_scale[None]+self.normal_mean[None]
 
         return input#[:,None]
 
@@ -461,11 +461,11 @@ class InitDenoiser(nn.Module):
         else:
             diff_input = m_init
 
-        for type_idx in range(3):
+        # for type_idx in range(3):
+        #
+        #     self.return_meanstd[type_idx].update(m_init[nonego_type==type_idx])
 
-            self.return_meanstd[type_idx].update(m_init[nonego_type==type_idx])
-
-        #if not self.normal_initialized:
+        if not self.normal_initialized:
 
             # valid = ~torch.isnan(m_init)
             # count = valid.sum(0, keepdim=True).clamp_min(1)
@@ -477,9 +477,9 @@ class InitDenoiser(nn.Module):
             # self.normal_scale.copy_(std)
 
 
-            # self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
-            # self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
-          #  self.normal_initialized = True
+            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+            self.normal_initialized = True
 
             # probs=batch_histogram_categorical(m_init,bins=100)
             # self.init_probs.copy_(probs)

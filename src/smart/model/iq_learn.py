@@ -8,10 +8,8 @@ import time
 from collections import deque
 import random
 import copy
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
-    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
 from src.smart.loss.gp_penalty import compute_gp
-from src.smart.gan.discriminator import get_g_loss
 
 
 class IQ_SoftQ(LightningModule):
@@ -265,12 +263,12 @@ class IQ_SoftQ(LightningModule):
 
         discriminator_optimizer.step()
 
-        with torch.no_grad():
-            self.encoder.discriminator.eval()
-
-            agent_dis_loss, agent_rewards, nei_rewards,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
-
-            self.encoder.discriminator.train()
+        # with torch.no_grad():
+        #     self.encoder.discriminator.eval()
+        #
+        #     agent_dis_loss, agent_rewards, nei_rewards,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+        #
+        #     self.encoder.discriminator.train()
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
@@ -311,23 +309,25 @@ class IQ_SoftQ(LightningModule):
 
         if self.token_processor.learn_init:
 
-            match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent_rollout)
-
-            self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
-            self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
-            self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
-            self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
-            self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
-            self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
+            # match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent_rollout)
+            #
+            # self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
+            # self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+            # self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+            # self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+            # self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+            # self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
 
             advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
 
             z_list=tokenized_agent["z_list"]
             t_list=tokenized_agent["t_list"]
 
-            g_loss = get_g_loss(tokenized_agent["initial_map_feature"], tokenized_agent, self.encoder.agent_encoder.init_decoder.G, z_list, t_list, advantages)
+            g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
 
-            policy_loss=policy_loss+g_loss+match_loss
+            policy_loss=policy_loss+g_loss#+match_loss
+
+            self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
 
         actor_optimizer.zero_grad()
 
