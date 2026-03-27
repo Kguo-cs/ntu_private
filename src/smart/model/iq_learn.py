@@ -345,7 +345,6 @@ class IQ_SoftQ(LightningModule):
 
             init_optimizer.step()
 
-
         loss = critic_loss + policy_loss
 
         return loss
