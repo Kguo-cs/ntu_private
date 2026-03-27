@@ -173,9 +173,36 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = gt_pos[:, :current_step]
         sampled_idx=gt_sampled_idx[:, :current_step]
         token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
+        n_agent = sampled_idx.shape[0]
+        pred_traj_10hz = []
+        pred_head_10hz = []
 
         if self.pred_init:
-            pos_a, head_a, sampled_idx,shape,initial_vel,z_list,t_list = self.init_decoder(tokenized_agent)
+            initial_pos, initial_heading, sampled_idx,shape,initial_vel,z_list,t_list = self.init_decoder(tokenized_agent)
+
+            next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,0]]
+
+            token_traj_global = transform_to_global(
+                pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
+                head_local=None,
+                pos_now=initial_pos[:,0],  # [n_agent, 2]
+                head_now=initial_heading[:,0],  # [n_agent]
+            )[0].view(*next_token_traj_all.shape)
+
+            if "gt_z_raw" in tokenized_agent.keys():
+                pred_traj = token_traj_global.mean(2)
+                diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
+                pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
+
+                pred_traj = torch.cat([initial_pos,pred_traj], dim=1)
+                pred_head = torch.cat([initial_heading,pred_head], dim=1)
+
+                pred_head_10hz.append(pred_head)
+                pred_traj_10hz.append(pred_traj)
+
+            pos_a = token_traj_global[:, -1].mean(dim=1)[:,None]
+            diff_xy_next = token_traj_global[:, -1, 0] - token_traj_global[:, -1, 3]
+            head_a = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])[:,None]
 
             if self.token_processor.use_all_pos:
                 out_dict = {
@@ -188,12 +215,8 @@ class SMARTAgentDecoder(nn.Module):
 
                 return out_dict
 
-            if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-                max_step = 18
-                current_step = 1
-            else:
-                max_step = 17
-                current_step = 1
+            max_step = 17
+            current_step = 1
 
             mask=torch.ones_like(mask[:, :current_step])
             token_mask = torch.ones_like(token_mask[:, :current_step])
@@ -201,10 +224,7 @@ class SMARTAgentDecoder(nn.Module):
             z_list=t_list=[]
             shape=tokenized_agent["shape"]
 
-        n_agent = sampled_idx.shape[0]
         next_mask=mask[:, -1]
-        pred_traj_10hz = []
-        pred_head_10hz = []
         a_num = next_mask.sum()
 
         for t in range(current_step, max_step + current_step):
@@ -278,8 +298,6 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
 
             if self.pred_init:
-                out_dict["pred_traj_10hz"] = torch.cat([pos_a[:,:1],out_dict["pred_traj_10hz"]], dim=1)
-                out_dict["pred_head_10hz"] = torch.cat([head_a[:,:1],out_dict["pred_head_10hz"]], dim=1)
                 out_dict["initial_vel"]=initial_vel
 
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])

@@ -82,9 +82,11 @@ class InitDiffusion(nn.Module):
             nonego_type = tokenized_agent["type"][non_ego]
             tokenized_agent['nonego_type'] = nonego_type
 
-            ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+            # ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+            #
+            # ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0].flatten(1,2)
 
-            ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0].flatten(1,2)
+            local_ego_traj=tokenized_agent["local_ego_traj"]
 
             num_types = 3  # since types are 0,1,2
 
@@ -97,7 +99,7 @@ class InitDiffusion(nn.Module):
 
             tokenized_agent["type_counts"]=type_counts
 
-            ego_local_traj=torch.cat([ego_local_traj,type_counts],dim=-1)
+            ego_local_traj=torch.cat([local_ego_traj,type_counts],dim=-1)
 
             ego_embedding=self.G.ego_embedding(ego_local_traj)
             ego_embedding = ego_embedding[nonego_batch]

@@ -79,28 +79,58 @@ class TokenProcessor(torch.nn.Module):
 
             if self.pred_init:
                 if self.learn_autoencoder or self.use_all_pos:
-                    idx=10
+                    start_idx=10
                 else:
-                    idx=0
+                    start_idx=0
 
                 agent=data["agent"]
                 #valid = agent["valid_mask"][:, idx]  # [n_agent, n_step]
-                heading = agent["heading"][:, idx]  ## [n_agent, n_step]
-                pos = agent["position"][..., :2].contiguous()[:, idx]  # # [n_agent, n_step, 2]
-                vel = agent["velocity"][:, idx]  ## [n_agent, n_step, 2]
+                heading = agent["heading"][:, start_idx]  ## [n_agent, n_step]
+                pos = agent["position"][..., :2].contiguous()[:, start_idx]  # # [n_agent, n_step, 2]
+                #vel = agent["velocity"][:, start_idx]  ## [n_agent, n_step, 2]
                 shape = agent["shape"]
                 type = agent["type"]
 
 
                 tokenized_agent["initial_heading"] = heading  # [n_agent, n_step]
                 tokenized_agent["initial_pos"] = pos  # [n_agent, n_step, 2]
-                tokenized_agent["initial_vel"] = vel  # [n_agent, n_step, 2]
+               # tokenized_agent["initial_vel"] = vel  # [n_agent, n_step, 2]
                 tokenized_agent["initial_shape"] = shape
                 tokenized_agent["initial_type"] = type.long()
-                if self.use_all_pos:
-                    tokenized_agent["ego_traj"] = agent["position"][:, :10, :2][tokenized_agent["ego_mask"]]
-                else:
-                    tokenized_agent["ego_traj"] = agent["position"][:, idx+1:idx+11, :2][tokenized_agent["ego_mask"]]
+                # if self.use_all_pos:
+                #     tokenized_agent["ego_traj"] = agent["position"][:, :10, :2][tokenized_agent["ego_mask"]]
+                # else:
+                #     tokenized_agent["ego_traj"] = agent["position"][:, idx+1:idx+11, :2][tokenized_agent["ego_mask"]]
+                tokenized_agent["initial_vel"] = (tokenized_agent["sampled_pos"][:, 0] - pos) / 0.5
+
+                ego_mask=tokenized_agent["ego_mask"]
+                ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, 0:2]
+                # ego_head=tokenized_agent["sampled_heading"][ego_mask][:,start_idx:start_idx+2]
+                # ego_pos=tokenized_agent["sampled_pos"][ego_mask][:,start_idx:start_idx+2]
+
+                ego_token_traj_all = tokenized_agent["token_traj_all"][ego_mask].mean(-2)
+
+                local_ego_traj = ego_token_traj_all[torch.arange(len(ego_idx))[:, None].repeat(1, 2), ego_idx].reshape(
+                    -1, 20)  # ego later 10 steps
+
+                # ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, start_idx + 1:start_idx + 3]
+                # ego_head = tokenized_agent["sampled_heading"][ego_mask][:, start_idx:start_idx + 2]
+                # ego_pos = tokenized_agent["sampled_pos"][ego_mask][:, start_idx:start_idx + 2]
+                #
+                # ego_token_traj_all = tokenized_agent["token_traj_all"][ego_mask].mean(-2)
+                #
+                # ego_local_traj = ego_token_traj_all[torch.arange(len(ego_idx))[:, None].repeat(1, 2), ego_idx].reshape(-1,
+                #                                                                                                        5,
+                #                                                                                                        2)  # ego later 10 steps
+                #
+                # ego_traj = transform_to_global(
+                #     ego_local_traj,
+                #     None,
+                #     ego_pos.reshape(-1, 2),
+                #     ego_head.reshape(-1),
+                # )[0].reshape(-1, 10, 2)
+
+                tokenized_agent["local_ego_traj"] = local_ego_traj
 
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
         else:
@@ -272,19 +302,19 @@ class TokenProcessor(torch.nn.Module):
 
         shape=data["agent"]["shape"].clone()
 
-        if self.pred_init and not self.learn_init and self.training:
-            first_valid=valid[:,0]
-            pos[first_valid,:6]=pos[first_valid,:6]+torch.randn_like(pos[first_valid,:6]).clamp(min=-3,max=3)*0.05
-            heading[first_valid,:6]=heading[first_valid,:6]+torch.randn_like(heading[first_valid,:6]).clamp(min=-3,max=3)*0.05
-            first_nonvalid=~first_valid
-            pos[first_nonvalid,:11]=pos[first_nonvalid,:11]+torch.randn_like(pos[first_nonvalid,:11]).clamp(min=-3,max=3)*0.05
-            heading[first_nonvalid,:11]=heading[first_nonvalid,:11]+torch.randn_like(heading[first_nonvalid,:11]).clamp(min=-3,max=3)*0.05
-
-            shape=shape+torch.randn_like(shape)*0.05
-
-            pos=pos[:,5:]
-            heading=heading[:,5:]
-            valid=valid[:,5:]
+        # if self.pred_init and not self.learn_init and self.training:
+        #     first_valid=valid[:,0]
+        #     pos[first_valid,:6]=pos[first_valid,:6]+torch.randn_like(pos[first_valid,:6]).clamp(min=-3,max=3)*0.05
+        #     heading[first_valid,:6]=heading[first_valid,:6]+torch.randn_like(heading[first_valid,:6]).clamp(min=-3,max=3)*0.05
+        #     first_nonvalid=~first_valid
+        #     pos[first_nonvalid,:11]=pos[first_nonvalid,:11]+torch.randn_like(pos[first_nonvalid,:11]).clamp(min=-3,max=3)*0.05
+        #     heading[first_nonvalid,:11]=heading[first_nonvalid,:11]+torch.randn_like(heading[first_nonvalid,:11]).clamp(min=-3,max=3)*0.05
+        #
+        #     shape=shape+torch.randn_like(shape)*0.05
+        #
+        #     pos=pos[:,5:]
+        #     heading=heading[:,5:]
+        #     valid=valid[:,5:]
 
         role_mask = data["agent"]["role"]
 
@@ -692,7 +722,7 @@ class TokenProcessor(torch.nn.Module):
 
                     if self.pred_init:
 
-                        start_idx=0
+                        start_idx=0 #start from timestep 5
 
                         tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:,start_idx]
                         tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:,start_idx]
@@ -703,21 +733,21 @@ class TokenProcessor(torch.nn.Module):
                         ego_mask[:-1] = batch[:-1] != batch[1:]
 
                         ego_idx=tokenized_agent["sampled_idx"][ego_mask][:,start_idx+1:start_idx+3]
-                        ego_head=tokenized_agent["sampled_heading"][ego_mask][:,start_idx:start_idx+2]
-                        ego_pos=tokenized_agent["sampled_pos"][ego_mask][:,start_idx:start_idx+2]
+                        #ego_head=tokenized_agent["sampled_heading"][ego_mask][:,start_idx:start_idx+2]
+                        #ego_pos=tokenized_agent["sampled_pos"][ego_mask][:,start_idx:start_idx+2]
 
                         ego_token_traj_all=tokenized_agent["token_traj_all"][ego_mask].mean(-2)
 
-                        ego_local_traj=ego_token_traj_all[torch.arange(len(ego_idx))[:,None].repeat(1,2),ego_idx].reshape(-1,5,2) #ego later 10 steps
+                        local_ego_traj=ego_token_traj_all[torch.arange(len(ego_idx))[:,None].repeat(1,2),ego_idx].reshape(-1,20) #ego later 10 steps
 
-                        ego_traj=transform_to_global(
-                            ego_local_traj,
-                            None,
-                            ego_pos.reshape(-1,2),
-                            ego_head.reshape(-1),
-                        )[0].reshape(-1,10,2)
+                        # ego_traj=transform_to_global(
+                        #     ego_local_traj,
+                        #     None,
+                        #     ego_pos.reshape(-1,2),
+                        #     ego_head.reshape(-1),
+                        # )[0].reshape(-1,10,2)
 
-                        tokenized_agent["ego_traj"] = ego_traj
+                        tokenized_agent["local_ego_traj"] = local_ego_traj
                         tokenized_agent["initial_vel"]=(tokenized_agent["sampled_pos"][:,start_idx+1] - tokenized_agent["sampled_pos"][:,start_idx]) / 0.5
 
                     if "gt_pos_raw" in agent.keys():
