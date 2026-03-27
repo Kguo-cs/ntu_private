@@ -784,6 +784,7 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 
 /home/ke/code/sim/src/waymo_data/AIRL19_103_dis_noise_noauto_epoch=5-step=307584.ckpt
 
+0.7852
 
 /home/ke/code/sim/src/waymo_data/AIRL19_103_dis_noise_noauto_eval_epoch=5-step=307584.ckpt
 
