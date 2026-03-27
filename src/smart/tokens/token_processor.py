@@ -81,7 +81,7 @@ class TokenProcessor(torch.nn.Module):
                 if self.learn_autoencoder or self.use_all_pos:
                     start_idx=10
                 else:
-                    start_idx=5
+                    start_idx=0
 
                 agent=data["agent"]
                 #valid = agent["valid_mask"][:, idx]  # [n_agent, n_step]
@@ -89,22 +89,20 @@ class TokenProcessor(torch.nn.Module):
                 #pos = agent["position"][..., :2].contiguous()[:, start_idx]  # # [n_agent, n_step, 2]
                 #vel = agent["velocity"][:, start_idx]  ## [n_agent, n_step, 2]
                 shape = agent["shape"]
-                type = agent["type"]
 
-
-                tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"] [:, 0] # [n_agent, n_step]
-                tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"] [:, 0] # [n_agent, n_step, 2]
-               # tokenized_agent["initial_vel"] = vel  # [n_agent, n_step, 2]
+                tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:, start_idx]
+                tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:, start_idx]
+                # tokenized_agent["initial_vel"] = vel  # [n_agent, n_step, 2]
                 tokenized_agent["initial_shape"] = shape
-                tokenized_agent["initial_type"] = type.long()
                 # if self.use_all_pos:
                 #     tokenized_agent["ego_traj"] = agent["position"][:, :10, :2][tokenized_agent["ego_mask"]]
                 # else:
                 #     tokenized_agent["ego_traj"] = agent["position"][:, idx+1:idx+11, :2][tokenized_agent["ego_mask"]]
-                tokenized_agent["initial_vel"] = (tokenized_agent["sampled_pos"][:, 1] - tokenized_agent["sampled_pos"][:, 0]) / 0.5
+                tokenized_agent["initial_vel"] = (tokenized_agent["sampled_pos"][:, start_idx + 1] -
+                                                  tokenized_agent["sampled_pos"][:, start_idx]) / 0.5
 
                 ego_mask=tokenized_agent["ego_mask"]
-                ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, 1:3]
+                ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, start_idx + 1:start_idx + 3]
                 # ego_head=tokenized_agent["sampled_heading"][ego_mask][:,start_idx:start_idx+2]
                 # ego_pos=tokenized_agent["sampled_pos"][ego_mask][:,start_idx:start_idx+2]
 
