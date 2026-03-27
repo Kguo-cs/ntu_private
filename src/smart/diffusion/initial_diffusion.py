@@ -101,7 +101,7 @@ class InitDiffusion(nn.Module):
 
             ego_local_traj=torch.cat([local_ego_traj,type_counts],dim=-1)
 
-            ego_embedding=self.G.ego_embedding(ego_local_traj)
+            ego_embedding=self.G.ego_embedding1(ego_local_traj)
             ego_embedding = ego_embedding[nonego_batch]
 
             tokenized_agent["nonego_batch"] = nonego_batch
