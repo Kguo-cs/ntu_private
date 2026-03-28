@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL24_1010_dis_noauto_eval_start2 #diff_all_start1_t3_no_R_nonego #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL24_205_dis_noauto_eval_start2 #diff_all_start1_t3_no_R_nonego #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0
