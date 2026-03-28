@@ -178,9 +178,12 @@ class SMARTAgentDecoder(nn.Module):
             if "gt_z_raw" in tokenized_agent.keys():
                 token_traj_all = tokenized_agent["token_traj_all"]
 
-                pos_next_recon, head_next_recon=infer_prev_pose(pos_a,head_a,sampled_idx,token_traj_all)
+                pos_recon, head_recon=infer_prev_pose(pos_a,head_a,sampled_idx,token_traj_all)
 
-                self.get_next(sampled_idx,pos_next_recon[:,None], head_next_recon[:,None],pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                pred_traj_10hz.append(pos_recon)
+                pred_head_10hz.append(head_recon)
+
+                self.get_next(sampled_idx,pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
 
             if self.token_processor.use_all_pos:
                 out_dict = {

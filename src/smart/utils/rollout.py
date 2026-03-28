@@ -432,4 +432,4 @@ def infer_prev_pose(
         "nij,nj->ni", R_t, centroid_local
     )  # [n,2]
 
-    return pos_a, head_a
+    return pos_a[:,None], head_a[:,None]
