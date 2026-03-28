@@ -73,7 +73,7 @@ def sde_step_with_logprob(
         model_output: torch.FloatTensor,
         sample: torch.FloatTensor,
         denormalize,
-        noise_level: float = 0,
+        noise_level: float = 0.7,
         prev_sample = None,
         sde_type: Optional[str] = 'sde',
         return_sqrt_dt: Optional[bool] = False,
@@ -216,8 +216,11 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        if self.net.use_noise:
-            self.value_network = MLPLayer(args.hidden_dim, args.hidden_dim * 2, 1)
+        self.use_sde=True
+
+        self.use_GAIL=True
+
+        self.noise_level=0.1
 
         self.apply(weight_init)
 
@@ -400,7 +403,7 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        elif self.use_flux:
+        elif self.use_sde:
             z = sde_step_with_logprob(
                 1-t_n,
                 1-t_next,
@@ -409,8 +412,6 @@ class ScaleFlow(nn.Module):
                 self.net.denormalize,
                 noise_level
             )[0]
-
-
         else:
             z = z + (t_next - t_n) * v_pred
 
@@ -473,7 +474,7 @@ class ScaleFlow(nn.Module):
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample(self,tokenized_agent,scene_enc,eval_mask,infer_steps=20,num_samples=1,     noise_level=0):
+    def sample(self,tokenized_agent,scene_enc,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
 
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
@@ -590,6 +591,17 @@ class ScaleFlow(nn.Module):
 
                 timesteps=timesteps[:,agent_batch][:,:,None,None]
 
+            if self.use_sde:
+                t_rand = torch.randint(0, steps, (num_agents,), device=agent_batch.device)
+
+                noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
+
+                noise_level[torch.arange(num_agents), t_rand, 0] = self.noise_level
+
+                noise_mask=noise_level[:,:,0] > 0
+
+                noise_level=noise_level[:,:,None]
+
             for i in range(steps):# - 1
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
@@ -616,21 +628,25 @@ class ScaleFlow(nn.Module):
                     z[eval_mask],x_cond,t_n=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
                 else:
-                    z,x_cond,t_n =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask),noise_level)
+                    z,x_cond,t_n =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask),noise_level[:,i])
 
                 x_list.append(x_cond)
                 z_list.append(z)
                 t_list.append(t_n)
+
         t_list.append(torch.ones_like(t_n))
 
-        return z[:,0],x_list,z_list,t_list
+        if self.use_sde:
+            z_list=torch.stack(z_list,dim=1)
+            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask])
+            t_list=torch.stack(t_list,dim=1)
+            t_list=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
+
+        return z[:, 0], x_list, z_list, t_list
 
 
-    def get_g_loss( self, tokenized_agent,  z_list, t_list, advantages,n_step=1,use_GAIL=True,use_sde=False):
-        x = z_list[-1][:, 0]
-
-        if use_GAIL:
-
+    def get_g_loss( self, tokenized_agent,  z_list, t_list, advantages,n_step=1):
+        if self.use_GAIL:
             if n_step >1:
 
                 num_graphs = tokenized_agent["num_graphs"]
@@ -668,9 +684,11 @@ class ScaleFlow(nn.Module):
 
                 advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
 
-            if use_sde:
+            if self.use_sde:
+                z,prev_sample=z_list
+                t_n,t_next=t_list
 
-                x_pred = self.net(z, t_n, tokenized_agent, map_feature, mode=1)[:, 0]
+                x_pred = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)[:, 0]
 
                 denom = (1.0 - t_n).clamp_min(self.t_eps)
 
@@ -681,7 +699,7 @@ class ScaleFlow(nn.Module):
                     1 - t_next,
                     -v_pred,
                     z,
-                    G.net.denormalize,
+                    self.net.denormalize,
                     noise_level=self.noise_level,
                     prev_sample=prev_sample
                 )[0]
@@ -689,6 +707,8 @@ class ScaleFlow(nn.Module):
                 fpo_ratio = log_prob.mean(-1)
 
             else:
+                x = z_list[-1][:, 0]
+
                 x = x[None].repeat(n_step, 1, 1).flatten(0, 1)
                 #
                 # v_target = (x - z) / denom
@@ -710,6 +730,7 @@ class ScaleFlow(nn.Module):
             g_loss = per_sample_policy_loss.mean()
 
         else:
+            x = z_list[-1][:, 0]
 
             e = z_list[0][:, 0]
 

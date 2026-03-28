@@ -207,7 +207,7 @@ class InitDenoiser(nn.Module):
                                     hidden_dim=hidden_dim,
                                     num_heads=num_heads,
                                     head_dim=head_dim,
-                                    dropout=0.1,
+                                    dropout=0,
                                     bipartite=True,
                                     has_pos_emb=True,
                                 )
@@ -221,7 +221,7 @@ class InitDenoiser(nn.Module):
                                     hidden_dim=hidden_dim,
                                     num_heads=num_heads,
                                     head_dim=head_dim,
-                                    dropout=0.1,
+                                    dropout=0,
                                     bipartite=False,
                                     has_pos_emb=True,
                                 )
@@ -350,7 +350,7 @@ class InitDenoiser(nn.Module):
     def normalize(self,input):
         return (input - self.normal_mean) / self.normal_scale
 
-    def denormalize(self,input,nonego_type):
+    def denormalize(self,input,nonego_type=None):
 
         # D, K = self.init_probs.shape
         #
