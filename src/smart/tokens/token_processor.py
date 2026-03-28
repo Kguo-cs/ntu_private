@@ -722,9 +722,9 @@ class TokenProcessor(torch.nn.Module):
 
                         start_idx=0 #start from timestep 5
 
-                        tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:,start_idx]
-                        tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:,start_idx]
-                        tokenized_agent["initial_shape"]=tokenized_agent["shape"]
+                        tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:,start_idx].clone()
+                        tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:,start_idx].clone()
+                        tokenized_agent["initial_shape"]=tokenized_agent["shape"].clone()
 
                         batch=tokenized_agent["batch"]
                         ego_mask = torch.ones_like(batch).to(bool)
