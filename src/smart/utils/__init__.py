@@ -19,6 +19,7 @@ from src.smart.utils.rollout import (
     transform_to_global,
     transform_to_local,
     rotate_to_local,
-    rotate_to_global
+    rotate_to_global,
+    infer_prev_pose
 )
 from src.smart.utils.weight_init import weight_init

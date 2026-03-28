@@ -20,7 +20,8 @@ from src.smart.utils import (
     transform_to_global,
     transform_to_local,
     wrap_angle,
-    weight_init
+    weight_init,
+    infer_prev_pose
 )
 from torch.distributions import Categorical
 from src.smart.utils.edge_utils import build_batch
@@ -174,10 +175,12 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_init:
             pos_a,head_a, sampled_idx,shape,initial_vel,z_list,t_list = self.init_decoder(tokenized_agent)
 
-            pred_traj_10hz.append(pos_a)
-            pred_head_10hz.append(head_a)
+            if "gt_z_raw" in tokenized_agent.keys():
+                token_traj_all = tokenized_agent["token_traj_all"]
 
-            pos_a, head_a=self.get_next(sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                pos_next_recon, head_next_recon=infer_prev_pose(pos_a,head_a,sampled_idx,token_traj_all)
+
+                self.get_next(sampled_idx,pos_next_recon[:,None], head_next_recon[:,None],pred_traj_10hz,pred_head_10hz,tokenized_agent)
 
             if self.token_processor.use_all_pos:
                 out_dict = {
@@ -190,21 +193,18 @@ class SMARTAgentDecoder(nn.Module):
 
                 return out_dict
 
-            if "gt_z_raw" in tokenized_agent.keys():
-                max_step = 17
-                tokenized_agent["token_mask"][:, :1] = False
-
-            sampled_idx=torch.cat([torch.zeros_like(sampled_idx),sampled_idx],dim=1)
+            max_step = 17
+            current_step=1
+            mask = torch.ones_like(gt_valid[:, :current_step])
+            token_mask = torch.ones_like(tokenized_agent["token_mask"][:, :current_step])
         else:
             head_a = gt_head[:, :current_step]
             pos_a = gt_pos[:, :current_step]
             sampled_idx = gt_sampled_idx[:, :current_step]
             z_list=t_list=[]
             shape=tokenized_agent["shape"]
-
-        mask = gt_valid[:, :current_step]
-
-        token_mask = tokenized_agent["token_mask"][:, :current_step]
+            mask = gt_valid[:, :current_step]
+            token_mask = tokenized_agent["token_mask"][:, :current_step]
 
         next_mask=mask[:, -1]
         a_num = next_mask.sum()

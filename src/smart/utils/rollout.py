@@ -346,3 +346,90 @@ def sample_next_gmm_traj(
     next_token_traj_all[ego_mask] = torch.stack(ego_token_interp, dim=1)
 
     return next_token_idx, next_token_traj_all,ego_sample,prev_log_prob
+
+
+import torch
+
+
+def build_rotation_matrix(theta: torch.Tensor):
+    """
+    theta: [n] or [n,1]
+    return: [n,2,2]
+    """
+    theta = theta.view(-1)
+    cos_t = torch.cos(theta)
+    sin_t = torch.sin(theta)
+
+    R = torch.stack(
+        [
+            torch.stack([cos_t, -sin_t], dim=-1),
+            torch.stack([sin_t,  cos_t], dim=-1),
+        ],
+        dim=-2,
+    )  # [n,2,2]
+
+    return R
+
+
+def infer_prev_pose(
+    pos_a_next,          # [n,1,2]
+    head_a_next,         # [n,1]
+    sampled_idx,         # [n, k]
+    token_traj_all,      # [n, num_tokens, T, 4, 2]
+):
+    """
+    Recover pos_a (t) and head_a (t) from next state.
+
+    Returns:
+        pos_a:   [n,2]
+        head_a:  [n]
+    """
+
+    device = pos_a_next.device
+    n = pos_a_next.shape[0]
+
+    # -------------------------------------------------
+    # 1. Get selected token (last step)
+    # -------------------------------------------------
+    token_local = token_traj_all[
+        torch.arange(n, device=device),
+        sampled_idx[:, -1],
+        -1,                        # last timestep
+    ]  # [n, 4, 2]
+
+    # -------------------------------------------------
+    # 2. Compute local heading (token intrinsic direction)
+    # -------------------------------------------------
+    diff_local = token_local[:, 0] - token_local[:, 3]   # [n,2]
+    theta_local = torch.atan2(diff_local[:, 1], diff_local[:, 0])  # [n]
+
+    # -------------------------------------------------
+    # 3. Recover previous heading
+    # -------------------------------------------------
+    head_next = head_a_next.view(-1)  # [n]
+
+    head_a = head_next - theta_local  # [n]
+
+    # Normalize angle to [-pi, pi] (optional but recommended)
+    head_a = torch.atan2(torch.sin(head_a), torch.cos(head_a))
+
+    # -------------------------------------------------
+    # 4. Build rotation matrix at time t
+    # -------------------------------------------------
+    R_t = build_rotation_matrix(head_a)  # [n,2,2]
+
+    # -------------------------------------------------
+    # 5. Compute local centroid
+    # -------------------------------------------------
+    centroid_local = token_local.mean(dim=1)  # [n,2]
+
+    # -------------------------------------------------
+    # 6. Recover previous position
+    # -------------------------------------------------
+    pos_next = pos_a_next.squeeze(1)  # [n,2]
+
+    pos_a = pos_next - torch.einsum(
+        "nij,nj->ni", R_t, centroid_local
+    )  # [n,2]
+
+    return pos_a, head_a

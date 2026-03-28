@@ -236,10 +236,6 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent["pred_mask"] =None
         # else:
         #     tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
-        if self.token_processor.learn_init:
-
-
-            tokenized_agent["token_mask"][:,:1]=False
 
         if self.encoder.learn_dis:
             expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
