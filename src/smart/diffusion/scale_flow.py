@@ -592,7 +592,9 @@ class ScaleFlow(nn.Module):
                 timesteps=timesteps[:,agent_batch][:,:,None,None]
 
             if self.use_sde:
-                t_rand = torch.randint(0, steps, (num_agents,), device=agent_batch.device)
+                t_rand = torch.randint(0, steps, (num_graphs,), device=agent_batch.device)
+
+                t_rand=t_rand[agent_batch]
 
                 noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 
@@ -723,7 +725,7 @@ class ScaleFlow(nn.Module):
                 # clipped_advantages = torch.clamp(advantages, -5, 5)
                 # per_sample_policy_loss=new_loss*torch.exp(clipped_advantages)
 
-            #advantages = torch.clamp(advantages, -5, 5)
+            advantages = torch.clamp(advantages, -5, 5)
 
             per_sample_policy_loss = - fpo_ratio * advantages
 
