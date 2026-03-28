@@ -207,7 +207,7 @@ class InitDenoiser(nn.Module):
                                     hidden_dim=hidden_dim,
                                     num_heads=num_heads,
                                     head_dim=head_dim,
-                                    dropout=0.1,
+                                    dropout=0.2,
                                     bipartite=True,
                                     has_pos_emb=True,
                                 )
@@ -221,7 +221,7 @@ class InitDenoiser(nn.Module):
                                     hidden_dim=hidden_dim,
                                     num_heads=num_heads,
                                     head_dim=head_dim,
-                                    dropout=0.1,
+                                    dropout=0.2,
                                     bipartite=False,
                                     has_pos_emb=True,
                                 )
