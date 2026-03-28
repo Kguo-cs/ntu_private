@@ -387,7 +387,7 @@ class InterativeDecoder(nn.Module):
         else:
             train_repeat_mask_a2a=train_repeat_mask
 
-        if self.discriminator:
+        if self.discriminator and train_mask is not None:
             dis_mask = tokenized_agent["dis_mask"] if "dis_mask" in tokenized_agent else None
             mask_transpose = tokenized_agent["valid_mask"].transpose(0, 1)[self.dis_start_step:]
 
