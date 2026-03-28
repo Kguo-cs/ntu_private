@@ -188,7 +188,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.net.use_all_type
 
-        self.t_eps=0.1
+        self.t_eps=0.2
 
         self.P_std=1
 
@@ -221,6 +221,8 @@ class ScaleFlow(nn.Module):
         self.use_GAIL=True
 
         self.noise_level=0.1
+
+        self.rationorm=True
 
         self.apply(weight_init)
 
@@ -376,12 +378,9 @@ class ScaleFlow(nn.Module):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
 
         if self.use_cluster:
-            #t_next=torch.zeros_like(x)+t_next
             tokenized_agent, scene_enc, eval_mask = labels
-            #z_next=(1 - t_next) * torch.randn_like(x)+ t_next * x
             increasing=tokenized_agent["increasing"]
             non_increasing=~increasing
-
             z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
             z[increasing] = (1-t_next[increasing])*torch.randn_like(x[increasing])+ t_next[increasing] * x[increasing]
         elif self.use_vp:
