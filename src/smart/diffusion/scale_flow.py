@@ -188,7 +188,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.net.use_all_type
 
-        self.t_eps=0 #5e-2
+        self.t_eps=5e-2
 
         self.P_std=1
 
@@ -220,7 +220,7 @@ class ScaleFlow(nn.Module):
 
         self.use_GAIL=True
 
-        self.noise_level=0.1
+        self.noise_level=0.5
 
         self.apply(weight_init)
 
