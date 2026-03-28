@@ -166,7 +166,6 @@ class SMARTAgentDecoder(nn.Module):
         gt_head=tokenized_agent["sampled_heading"].clone()
         gt_valid=tokenized_agent["valid_mask"].clone()
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
-        token_traj_all = tokenized_agent["token_traj_all"]
 
         pred_traj_10hz = []
         pred_head_10hz = []
@@ -178,7 +177,7 @@ class SMARTAgentDecoder(nn.Module):
             pred_traj_10hz.append(pos_a)
             pred_head_10hz.append(head_a)
 
-            pos_a, head_a=self.get_next(token_traj_all,sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+            pos_a, head_a=self.get_next(sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent)
 
             if self.token_processor.use_all_pos:
                 out_dict = {
@@ -234,14 +233,13 @@ class SMARTAgentDecoder(nn.Module):
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
-            pos_a,head_a=self.get_next(token_traj_all,sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+            pos_a,head_a=self.get_next(sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent)
 
             next_token_mask = mask[:, -1] & next_mask
 
             mask = torch.cat([mask, next_mask[:, None]], dim=1)
 
             token_mask = torch.cat([token_mask, next_token_mask[:, None]], dim=1)
-
 
         out_dict = {
             "z_list": z_list,
@@ -266,7 +264,9 @@ class SMARTAgentDecoder(nn.Module):
 
         return out_dict
 
-    def get_next(self,token_traj_all,sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent):
+    def get_next(self,sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent):
+        token_traj_all = tokenized_agent["token_traj_all"]
+
         next_token_traj_all = token_traj_all[torch.arange(len(sampled_idx)), sampled_idx[:, -1]]
 
         token_traj_global = transform_to_global(
