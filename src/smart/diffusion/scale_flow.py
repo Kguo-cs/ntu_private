@@ -220,7 +220,7 @@ class ScaleFlow(nn.Module):
 
         self.use_GAIL=True
 
-        self.noise_level=0.7
+        self.noise_level=0.1
 
         self.apply(weight_init)
 
