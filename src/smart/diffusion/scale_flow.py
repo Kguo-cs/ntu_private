@@ -723,9 +723,9 @@ class ScaleFlow(nn.Module):
                 # clipped_advantages = torch.clamp(advantages, -5, 5)
                 # per_sample_policy_loss=new_loss*torch.exp(clipped_advantages)
 
-            clipped_advantages = torch.clamp(advantages, -5, 5)
+            #advantages = torch.clamp(advantages, -5, 5)
 
-            per_sample_policy_loss = - fpo_ratio * clipped_advantages
+            per_sample_policy_loss = - fpo_ratio * advantages
 
             g_loss = per_sample_policy_loss.mean()
 
