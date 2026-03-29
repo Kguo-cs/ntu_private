@@ -82,12 +82,12 @@ class InitDiffusion(nn.Module):
             nonego_type = tokenized_agent["type"][non_ego]
             tokenized_agent['nonego_type'] = nonego_type
 
-            if "ego_traj" in tokenized_agent.keys():
+            if "local_ego_traj" in tokenized_agent.keys():
+                local_ego_traj = tokenized_agent["local_ego_traj"]
+            else:
                ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
 
                local_ego_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0].flatten(1,2)
-            else:
-               local_ego_traj=tokenized_agent["local_ego_traj"]
 
             num_types = 3  # since types are 0,1,2
 
