@@ -94,6 +94,8 @@ class TokenProcessor(torch.nn.Module):
                 ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, start_idx:start_idx + 2]
                 ego_token_traj_all = tokenized_agent["token_traj_all"][ego_mask][:, :, -1]  # .mean(-2)
 
+                tokenized_agent["ego_traj"] = agent["position"][:, 6:16, :2][tokenized_agent["ego_mask"]]
+
                 local_ego_traj = ego_token_traj_all[torch.arange(len(ego_idx))[:, None].repeat(1, 2), ego_idx].reshape(
                     -1, 16)  # ego later 10 steps
 

@@ -147,7 +147,7 @@ class ScaleFlow(nn.Module):
 
         # self.pos_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
         # self.head_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
-        self.ego_embedding1 = MLPLayer(16+3, args.hidden_dim, args.hidden_dim)#+3
+        self.ego_embedding1 = MLPLayer(20+3, args.hidden_dim, args.hidden_dim)#+3
 
         self.mean_flow=False
 
