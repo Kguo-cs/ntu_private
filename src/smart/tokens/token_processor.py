@@ -81,6 +81,9 @@ class TokenProcessor(torch.nn.Module):
             if self.pred_init:
                 self.get_init(tokenized_agent)
 
+            tokenized_agent["ego_traj"] = data["agent"]["position"][tokenized_agent["ego_mask"]][:, 1:11, :2]
+            tokenized_agent["initial_vel"] = data["agent"]["velocity"][:, 0]
+
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
@@ -123,16 +126,16 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["local_ego_traj"] = local_ego_traj
 
-        first_idx = tokenized_agent["sampled_idx"][:, 0].clone()
-
-        invalid_mask = ~tokenized_agent["token_mask"][:, 0]
-
-        first_idx[invalid_mask] = tokenized_agent["sampled_idx"][:, 1][invalid_mask]
-
-        ego_token_traj_all = tokenized_agent["token_traj_all"][torch.arange(len(first_idx)), first_idx]
-
-        tokenized_agent["initial_vel"] = ego_token_traj_all[:, -1].mean(-2) / 0.5
-
+        # first_idx = tokenized_agent["sampled_idx"][:, 0].clone()
+        #
+        # invalid_mask = ~tokenized_agent["token_mask"][:, 0]
+        #
+        # first_idx[invalid_mask] = tokenized_agent["sampled_idx"][:, 1][invalid_mask]
+        #
+        # ego_token_traj_all = tokenized_agent["token_traj_all"][torch.arange(len(first_idx)), first_idx]
+        #
+        # tokenized_agent["initial_vel"] = ego_token_traj_all[:, -1].mean(-2) / 0.5
+        #
         # tokenized_agent["initial_heading"] = agent["heading"][:, start_idx]  ## [n_agent, n_step]
         # tokenized_agent["initial_pos"] = agent["position"][..., :2].contiguous()[:, start_idx]  # # [n_agent, n_step, 2]
         # tokenized_agent["initial_vel"] = agent["velocity"][:, start_idx]  # [n_agent, n_step, 2]
@@ -674,6 +677,17 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent["prev_heading"] = agent["prev_heading"]
 
                 tokenized_agent['type'] = agent['initial_type'].long()
+                tokenized_agent['shape'] = tokenized_agent['initial_shape']
+
+                if "sampled_pos" in agent.keys():
+                    for key in ["sampled_pos", "sampled_heading"]:
+                        tokenized_agent[key] = agent[key][:,None]
+                    tokenized_agent["sampled_idx"] =agent["sampled_idx"].long()
+                    agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(tokenized_agent['type'])
+
+                    tokenized_agent["token_traj_all"] = token_traj_all  # [n_token, 6, 4, 2]
+
+                    self.get_init(tokenized_agent)
             else:
                 agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(  agent['type'] )
 
