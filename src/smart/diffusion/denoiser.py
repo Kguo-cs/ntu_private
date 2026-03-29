@@ -445,9 +445,9 @@ class InitDenoiser(nn.Module):
                                     dim=-1)  # [0,2]
 
             if "local_vel" in tokenized_agent.keys():
-                local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
+                local_vel=tokenized_agent["local_vel"][non_ego]
             else:
-                local_vel=tokenized_agent["local_vel"]
+                local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
 
             #tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
@@ -980,19 +980,27 @@ class InitDenoiser(nn.Module):
                 batch_ego_heading,
             )
 
-            if self.use_speed:
-                global_pred_vel = torch.stack([global_heading.cos(), global_heading.sin()], dim=-1) * pred_vel
-            else:
-                global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
-
             gt_initial_pos[non_ego] = global_pos
             gt_initial_heading[non_ego] = global_heading
 
-            gt_initial_vel = tokenized_agent["initial_vel"].clone()
+            if "local_vel" in tokenized_agent.keys():
+                rel_vel = tokenized_agent["local_vel"].clone()
 
-            gt_initial_vel[non_ego] = global_pred_vel
+                rel_vel[non_ego] = pred_vel[:, :2]
 
-            rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
+                gt_initial_vel=rotate_to_global(rel_vel, gt_initial_heading)
+
+            else:
+                if self.use_speed:
+                    global_pred_vel = torch.stack([global_heading.cos(), global_heading.sin()], dim=-1) * pred_vel
+                else:
+                    global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
+
+                gt_initial_vel = tokenized_agent["initial_vel"].clone()
+
+                gt_initial_vel[non_ego] = global_pred_vel
+
+                rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
 
             use_corner = False
 
