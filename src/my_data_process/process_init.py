@@ -19,7 +19,7 @@ raw_data1= "../waymo_data/full/training_map2_a_light"
 # raw_data= "/home/ke/code/catk/src/waymo_data/map1_10/validation/"
 
 
-files = os.listdir(data_directory)
+files = os.listdir(data_directory)[344770:]
 
 data_dict = {}
 
