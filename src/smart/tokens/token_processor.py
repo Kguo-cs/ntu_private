@@ -710,7 +710,7 @@ class TokenProcessor(torch.nn.Module):
                         start_idx=0 #start from timestep 5
                         first_idx=tokenized_agent["sampled_idx"][:,0].clone()
 
-                        invalid_mask=~tokenized_agent["valid_mask"][:,0]
+                        invalid_mask=~tokenized_agent["token_mask"][:,0]
 
                         first_idx[invalid_mask]=tokenized_agent["sampled_idx"][:,1][invalid_mask]
 
