@@ -53,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL24_105_dis_noise_noauto_eval_epoch=5-step=243504.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL24_105_dis_noauto_eval_start2_epoch=5-step=243504.ckpt'
 
 trainer:
   limit_train_batches: 1.0
