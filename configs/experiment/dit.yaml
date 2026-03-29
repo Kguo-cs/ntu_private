@@ -45,7 +45,7 @@ ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
 #ckpt_path: "./waymo_data/AIRL24_105_dis_noise_noauto_eval_epoch=5-step=243504.ckpt"
 
 
-task_name: dit256_l2_drop0_pose5_egotraj #_vel #maskrunmean3_105drop01 #_gamma1_match_velsample20_idx_sampledpose5
+task_name: dit256_l2_drop0_pose5_egotraj_localv #_vel #maskrunmean3_105drop01 #_gamma1_match_velsample20_idx_sampledpose5
 
 trainer:
   limit_train_batches: 1.0
