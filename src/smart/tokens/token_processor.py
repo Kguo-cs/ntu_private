@@ -82,7 +82,7 @@ class TokenProcessor(torch.nn.Module):
                 self.get_init(tokenized_agent)
 
             tokenized_agent["ego_traj"] = data["agent"]["position"][tokenized_agent["ego_mask"]][:, 1:11, :2]
-            #tokenized_agent["initial_vel"] = data["agent"]["velocity"][:, 0]
+            tokenized_agent["initial_vel"] = data["agent"]["velocity"][:, 0]
 
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
         else:
@@ -134,7 +134,7 @@ class TokenProcessor(torch.nn.Module):
 
         ego_token_traj_all = tokenized_agent["token_traj_all"][torch.arange(len(first_idx)), first_idx]
 
-        tokenized_agent["initial_vel"] = ego_token_traj_all[:, -1].mean(-2) / 0.5
+        tokenized_agent["local_vel"] = ego_token_traj_all[:, -1].mean(-2) / 0.5
 
         # tokenized_agent["initial_heading"] = agent["heading"][:, start_idx]  ## [n_agent, n_step]
         # tokenized_agent["initial_pos"] = agent["position"][..., :2].contiguous()[:, start_idx]  # # [n_agent, n_step, 2]

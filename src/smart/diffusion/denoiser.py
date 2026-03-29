@@ -444,7 +444,10 @@ class InitDenoiser(nn.Module):
             head_cosine = torch.cat([local_heading.cos().unsqueeze(-1), local_heading.sin().unsqueeze(-1)],
                                     dim=-1)  # [0,2]
 
-            local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
+            if "local_vel" in tokenized_agent.keys():
+                local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
+            else:
+                local_vel=tokenized_agent["local_vel"]
 
             #tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
