@@ -796,6 +796,8 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 0.7816
 
 
+dit256_sample20_l2_norm
+
 
 take all position for generation
 simformer: For each

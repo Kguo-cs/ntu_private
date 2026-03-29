@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
 
-task_name: AIRL30_drop0_sde01_eps01_start0_nodis #_dismask #nog #_awr_sampledpose5_init_noclip
+task_name: AIRL28_drop0_sde01_eps01_start0 #_nodis #_dismask #nog #_awr_sampledpose5_init_noclip
 
 trainer:
   limit_train_batches: 1.0
