@@ -742,6 +742,9 @@ class TokenProcessor(torch.nn.Module):
                         tokenized_agent["initial_vel"] =ego_token_traj_all[:,-1].mean(-2)/0.5
                         # tokenized_agent["initial_vel"]=(tokenized_agent["sampled_pos"][:,start_idx+1] - tokenized_agent["sampled_pos"][:,start_idx]) / 0.5
 
+                        for key in ["initial_heading", "initial_pos","initial_vel", "initial_shape", "batch"]:
+                            tokenized_agent[key] = tokenized_agent[key][~invalid_mask]
+
                     if "gt_pos_raw" in agent.keys():
 
                         for key in ["gt_pos_raw", "gt_head_raw"]:
