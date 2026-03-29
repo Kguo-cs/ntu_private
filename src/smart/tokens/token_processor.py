@@ -86,11 +86,13 @@ class TokenProcessor(torch.nn.Module):
 
                 agent=data["agent"]
                 tokenized_agent["initial_shape"] = agent["shape"].clone()
-
-                tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:, start_idx]
-                tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:, start_idx]
-                tokenized_agent["ego_traj"] = agent["position"][:, 6:16, :2][tokenized_agent["ego_mask"]]
                 ego_mask= tokenized_agent["ego_mask"]
+
+                # tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:, start_idx]
+                # tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:, start_idx]
+                # tokenized_agent["ego_traj"] = agent["position"][:, 6:16, :2][ego_mask]
+
+
                 ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, start_idx:start_idx + 2]
                 ego_token_traj_all = tokenized_agent["token_traj_all"][ego_mask][:, :, -1]  # .mean(-2)
 
