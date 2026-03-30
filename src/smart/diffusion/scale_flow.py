@@ -67,77 +67,6 @@ def calculate_shift(
     return mu
 
 
-def sde_step_with_logprob(
-        sigma,
-        sigma_prev,
-        model_output: torch.FloatTensor,
-        sample: torch.FloatTensor,
-        denormalize,
-        noise_level: float = 0.7,
-        prev_sample = None,
-        sde_type: Optional[str] = 'sde',
-        return_sqrt_dt: Optional[bool] = False,
-
-):
-    """
-    Predict the sample from the previous timestep by reversing the SDE. This function propagates the flow
-    process from the learned model outputs (most often the predicted velocity).
-
-    Args:
-        model_output (`torch.FloatTensor`):
-            The direct output from learned flow model.
-        timestep (`float`):
-            The current discrete timestep in the diffusion chain.
-        sample (`torch.FloatTensor`):
-            A current instance of a sample created by the diffusion process.
-        generator (`torch.Generator`, *optional*):
-            A random number generator.
-    """
-    dt = sigma_prev - sigma
-
-    if sde_type == 'sde':
-        std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))) * noise_level
-
-        # our sde
-        prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
-                    1 + std_dev_t ** 2 * (1 - sigma) / (2 * sigma)) * dt
-
-
-        if prev_sample is None:
-            variance_noise = torch.randn_like( model_output )
-
-            variance_noise=denormalize(variance_noise)
-
-            prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1 * dt) * variance_noise
-
-        log_prob = (
-                -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1 * dt)) ** 2))
-                - torch.log(std_dev_t * torch.sqrt(-1 * dt))
-                - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
-        )
-
-    elif sde_type == 'cps':
-        std_dev_t = sigma_prev * math.sin(noise_level * math.pi / 2)  # sigma_t in paper
-        pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
-        noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
-        prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
-            sigma_prev ** 2 - std_dev_t ** 2)
-
-        if prev_sample is None:
-            variance_noise = torch.randn_like( model_output )
-
-            prev_sample = prev_sample_mean + std_dev_t * variance_noise
-
-        # remove all constants
-        log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)
-
-    # mean along all but batch dimension
-    log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
-
-    if return_sqrt_dt:
-        return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
-    return prev_sample, log_prob, prev_sample_mean, std_dev_t
-
 class ScaleFlow(nn.Module):
 
     def __init__(self, args,token_processor):
@@ -373,6 +302,82 @@ class ScaleFlow(nn.Module):
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
+    def sde_step_with_logprob(
+            self,
+            sigma,
+            sigma_prev,
+            model_output: torch.FloatTensor,
+            sample: torch.FloatTensor,
+            noise_level: float = 0.7,
+            prev_sample=None,
+            sde_type: Optional[str] = 'sde',
+            return_sqrt_dt: Optional[bool] = False,
+
+    ):
+        """
+        Predict the sample from the previous timestep by reversing the SDE. This function propagates the flow
+        process from the learned model outputs (most often the predicted velocity).
+
+        Args:
+            model_output (`torch.FloatTensor`):
+                The direct output from learned flow model.
+            timestep (`float`):
+                The current discrete timestep in the diffusion chain.
+            sample (`torch.FloatTensor`):
+                A current instance of a sample created by the diffusion process.
+            generator (`torch.Generator`, *optional*):
+                A random number generator.
+        """
+        model_output = self.net.normalize(model_output)
+        sample=self.net.normalize(sample)
+
+        if prev_sample is not None:
+            prev_sample=self.net.normalize(prev_sample)
+
+        dt = sigma_prev - sigma
+
+        if sde_type == 'sde':
+            std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))) * noise_level
+
+            # our sde
+            prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
+                    1 + std_dev_t ** 2 * (1 - sigma) / (2 * sigma)) * dt
+
+            if prev_sample is None:
+                variance_noise = torch.randn_like(model_output)
+
+                prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1 * dt) * variance_noise
+
+            log_prob = (
+                    -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1 * dt)) ** 2))
+                    - torch.log(std_dev_t * torch.sqrt(-1 * dt))
+                    - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
+            )
+
+        elif sde_type == 'cps':
+            std_dev_t = sigma_prev * math.sin(noise_level * math.pi / 2)  # sigma_t in paper
+            pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
+            noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
+            prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
+                sigma_prev ** 2 - std_dev_t ** 2)
+
+            if prev_sample is None:
+                variance_noise = torch.randn_like(model_output)
+
+                prev_sample = prev_sample_mean + std_dev_t * variance_noise
+
+            # remove all constants
+            log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)
+
+        # mean along all but batch dimension
+        log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
+
+        prev_sample=self.net.denormalize(prev_sample)
+
+        if return_sqrt_dt:
+            return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
+        return prev_sample, log_prob, prev_sample_mean, std_dev_t
+
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels,noise_level):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
@@ -403,12 +408,11 @@ class ScaleFlow(nn.Module):
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         elif self.use_sde:
-            z, log_prob, prev_sample_mean, std_dev_t = sde_step_with_logprob(
+            z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                 1-t_n,
                 1-t_next,
                 -v_pred,
                 z,
-                self.net.denormalize,
                 noise_level
             )
         else:
@@ -700,12 +704,11 @@ class ScaleFlow(nn.Module):
 
                 v_pred = (x_pred - z) / denom
 
-                prev_sample, log_prob, prev_sample_mean, std_dev_t = sde_step_with_logprob(
+                prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                     1 - t_n,
                     1 - t_next,
                     -v_pred,
                     z,
-                    self.net.denormalize,
                     noise_level=self.noise_level,
                     prev_sample=prev_sample
                 )

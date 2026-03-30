@@ -24,10 +24,6 @@ import copy
 from torch import Tensor
 from src.smart.loss.earth_match import get_matching_loss
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch
-from src.smart.diffusion.scale_flow import sde_step_with_logprob
-
-
-
 
 
 class InitDiscriminator(nn.Module):
