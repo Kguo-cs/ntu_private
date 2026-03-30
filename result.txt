@@ -802,7 +802,7 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 
 /home/ke/code/sim/src/waymo_data/AIRL24_1010_dis_noauto_eval_start2_epoch=5-step=243504.ckpt
 
-
+/home/ke/code/sim/src/waymo_data/AIRL24_205_dis_noauto_eval_start2_epoch=5-step=243504.ckpt
 
 
 take all position for generation

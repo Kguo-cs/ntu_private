@@ -216,7 +216,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.use_GAIL=True
 
@@ -590,12 +590,12 @@ class ScaleFlow(nn.Module):
 
                 timesteps=timesteps[:,agent_batch][:,:,None,None]
 
+            noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
+
             if self.use_sde:
                 t_rand = torch.randint(0, steps, (num_graphs,), device=agent_batch.device)
 
                 t_rand=t_rand[agent_batch]
-
-                noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 
                 noise_level[torch.arange(num_agents), t_rand, 0] = self.noise_level
 
