@@ -267,12 +267,74 @@ class ScaleFlow(nn.Module):
 
             if self.x_pred:
 
-                x_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
+                if "advantages" in tokenized_agent.keys():
+                    advantages=tokenized_agent["advantages"]
+
+                    z_list=tokenized_agent["z_list"]
+
+                    t_list=tokenized_agent["t_list"]
+
+                    z_sampled, prev_sample, log = z_list
+                    t_n_sampled, t_next_sampled = t_list
+
+                    t_n=torch.cat((t_n_sampled,t),dim=0)
+
+                    z=torch.cat((z_sampled,z),dim=0)
+
+                    n_step=2
+
+                    batch = tokenized_agent["nonego_batch"]
+
+                    tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
+
+                    batch = torch.stack(
+                        [
+                            batch + num_graphs * t
+                            for t in range(n_step)
+                        ],
+                        dim=1,
+                    ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
+
+                    tokenized_agent["nonego_batch"] = batch
+
+                    tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0,
+                                                                                                                    1)
+
+                    tokenized_agent["num_graphs"] = num_graphs * n_step
+
+                    tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1,
+                                                                                                     1).flatten(0, 1)
+
+                    x_pred_all = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
+
+                    denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
+
+                    v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
+
+                    prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                        1 - t_n_sampled,
+                        1 - t_next_sampled,
+                        -v_pred,
+                        z_sampled,
+                        noise_level=self.noise_level,
+                        prev_sample=prev_sample
+                    )
+
+                    advantages = torch.clamp(advantages, -5, 5)
+
+                    per_sample_policy_loss = - log_prob * advantages
+
+                    collision_loss = per_sample_policy_loss.mean()
+
+                    x_pred=x_pred_all[len(z_sampled):]
+                else:
+
+                    x_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
 
                 denom = (1 - t).clamp_min(self.t_eps)
 
                 if use_match:
-                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
                         tokenized_agent,
                         x_pred[:,0],
                         x[:,0],
