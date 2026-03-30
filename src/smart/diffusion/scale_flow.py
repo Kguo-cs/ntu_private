@@ -117,7 +117,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.net.use_all_type
 
-        self.t_eps=0
+        self.t_eps=0.1
 
         self.P_std=1
 
@@ -149,7 +149,7 @@ class ScaleFlow(nn.Module):
 
         self.use_GAIL=True
 
-        self.noise_level=0.7
+        self.noise_level=2
 
         self.rationorm=True
 
@@ -640,13 +640,13 @@ class ScaleFlow(nn.Module):
                 x_list.append(x_cond)
                 z_list.append(z)
                 t_list.append(t_n)
-                log_prob_list.append(log_prob)
+                #log_prob_list.append(log_prob)
 
         t_list.append(torch.ones_like(t_n))
 
         if self.use_sde:
-            log_prob_list=torch.stack(log_prob_list,dim=1)
-            log_prob_list=log_prob_list[noise_mask]
+            # log_prob_list=torch.stack(log_prob_list,dim=1)
+            # log_prob_list=log_prob_list[noise_mask]
 
             z_list=torch.stack(z_list,dim=1)
             z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)#
