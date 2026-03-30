@@ -345,7 +345,7 @@ class InitDenoiser(nn.Module):
         #                                          activation_type='Tanh')
 
     def normalize(self,input):
-        return (input - self.normal_mean) / self.normal_scale
+        return (input - self.normal_mean[None]) / self.normal_scale[None]
 
     def denormalize(self,input,nonego_type=None):
 
