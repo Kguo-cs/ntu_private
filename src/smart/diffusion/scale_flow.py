@@ -710,7 +710,7 @@ class ScaleFlow(nn.Module):
                     prev_sample=prev_sample
                 )
 
-                fpo_ratio = log_prob.mean(-1)
+                fpo_ratio = log_prob
 
             else:
                 x = z_list[-1][:, 0]
