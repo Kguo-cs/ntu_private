@@ -128,9 +128,9 @@ class TokenProcessor(torch.nn.Module):
 
         first_idx = tokenized_agent["sampled_idx"][:, 0].clone()
 
-        #invalid_mask = ~tokenized_agent["token_mask"][:, 0]
+        invalid_mask = ~tokenized_agent["token_mask"][:, 0]
 
-        #first_idx[invalid_mask] = tokenized_agent["sampled_idx"][:, 1][invalid_mask]
+        first_idx[invalid_mask] = tokenized_agent["sampled_idx"][:, 1][invalid_mask]
 
         ego_token_traj_all = tokenized_agent["token_traj_all"][torch.arange(len(first_idx)), first_idx]
 
