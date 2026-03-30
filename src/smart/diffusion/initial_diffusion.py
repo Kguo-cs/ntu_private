@@ -62,7 +62,7 @@ class InitDiffusion(nn.Module):
 
     def forward(self, tokenized_agent):
 
-        if "ego_embedding" not in tokenized_agent.keys():
+        if "ego_feat" not in tokenized_agent.keys():
             num_graphs = tokenized_agent["num_graphs"]
 
             ego_mask = tokenized_agent["ego_mask"]
@@ -76,6 +76,7 @@ class InitDiffusion(nn.Module):
             ego_position = tokenized_agent["initial_pos"][ego_mask]
             ego_heading = tokenized_agent["initial_heading"][ego_mask]
             nonego_batch = tokenized_agent["batch"][non_ego]
+            tokenized_agent["nonego_batch"] = nonego_batch
             tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
             tokenized_agent["batch_ego_heading"] = ego_heading[nonego_batch]
 
@@ -100,13 +101,17 @@ class InitDiffusion(nn.Module):
 
             tokenized_agent["type_counts"]=type_counts
 
-            ego_local_traj=torch.cat([local_ego_traj,type_counts],dim=-1)
+            ego_feat=torch.cat([local_ego_traj,type_counts],dim=-1)
 
-            ego_embedding=self.G.ego_embedding1(ego_local_traj)
-            ego_embedding = ego_embedding[nonego_batch]
+            tokenized_agent["ego_feat"]=ego_feat
+        else:
+            ego_feat = tokenized_agent["ego_feat"]
+            nonego_batch=tokenized_agent["nonego_batch"]
 
-            tokenized_agent["nonego_batch"] = nonego_batch
-            tokenized_agent["ego_embedding"] = ego_embedding
+        ego_embedding=self.G.ego_embedding1(ego_feat)
+        ego_embedding = ego_embedding[nonego_batch]
+
+        tokenized_agent["ego_embedding"] = ego_embedding
 
         if "initial_map_feature" not in tokenized_agent.keys():
             map_feature = tokenized_agent["map_feature"]

@@ -152,9 +152,6 @@ class InitDenoiser(nn.Module):
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
         # self.register_buffer("init_max", torch.ones(m_delta_dim))
 
-        self.normal_initialized = False
-
-
         if self.use_roformer:
             if self.use_dit:
                 self.map_embed= MLPLayer(128+2+2, hidden_dim, hidden_dim)
@@ -468,7 +465,7 @@ class InitDenoiser(nn.Module):
         #
         #     self.return_meanstd[type_idx].update(m_init[nonego_type==type_idx])
 
-        if not self.normal_initialized:
+        if torch.all(self.normal_mean==0):
 
             # valid = ~torch.isnan(m_init)
             # count = valid.sum(0, keepdim=True).clamp_min(1)
@@ -482,8 +479,6 @@ class InitDenoiser(nn.Module):
 
             self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
             self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
-            self.normal_initialized = True
-
             # probs=batch_histogram_categorical(m_init,bins=100)
             # self.init_probs.copy_(probs)
             # self.init_min.copy_(m_init.amin(0))

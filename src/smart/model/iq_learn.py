@@ -328,6 +328,8 @@ class IQ_SoftQ(LightningModule):
 
             g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
 
+            self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
+
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent)
 
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
@@ -338,8 +340,6 @@ class IQ_SoftQ(LightningModule):
             self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
 
             init_loss=match_loss+g_loss
-
-            self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
 
             init_optimizer.zero_grad()
 

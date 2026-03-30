@@ -192,7 +192,7 @@ class ScaleFlow(nn.Module):
         else:
             t_batch = torch.rand(num_graphs, device=device)[:, None,None]  # t ~ U[0,1]
 
-        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
+        #tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
 
         if self.mean_flow:
             # r ~ U[0, t]
@@ -710,6 +710,11 @@ class ScaleFlow(nn.Module):
             if self.use_sde:
                 z,prev_sample,old_logp=z_list
                 t_n,t_next=t_list
+
+                ego_embedding = self.ego_embedding1(tokenized_agent["ego_feat"])
+                ego_embedding = ego_embedding[tokenized_agent["nonego_batch"]]
+
+                tokenized_agent["ego_embedding"] = ego_embedding
 
                 x_pred = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
