@@ -149,7 +149,7 @@ class ScaleFlow(nn.Module):
 
         self.use_GAIL=True
 
-        self.noise_level=0.7
+        self.noise_level=0.1
 
         self.rationorm=True
 
@@ -652,16 +652,16 @@ class ScaleFlow(nn.Module):
                 x_list.append(x_cond)
                 z_list.append(z)
                 t_list.append(t_n)
-                log_prob_list.append(log_prob)
+                #log_prob_list.append(log_prob)
 
         t_list.append(torch.ones_like(t_n))
 
         if self.use_sde:
-            log_prob_list=torch.stack(log_prob_list,dim=1)
-            log_prob_list=log_prob_list[noise_mask]
+            #log_prob_list=torch.stack(log_prob_list,dim=1)
+           # log_prob_list=log_prob_list[noise_mask]
 
             z_list=torch.stack(z_list,dim=1)
-            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
+            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask])#,log_prob_list
             t_list=torch.stack(t_list,dim=1)
             t_list=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
 
@@ -708,7 +708,7 @@ class ScaleFlow(nn.Module):
                 advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
 
             if self.use_sde:
-                z,prev_sample,old_logp=z_list
+                z,prev_sample=z_list
                 t_n,t_next=t_list
 
                 ego_embedding = self.ego_embedding1(tokenized_agent["ego_feat"])
