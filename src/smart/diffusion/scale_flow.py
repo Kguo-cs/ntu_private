@@ -403,18 +403,18 @@ class ScaleFlow(nn.Module):
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         elif self.use_sde:
-            z = sde_step_with_logprob(
+            z, log_prob, prev_sample_mean, std_dev_t = sde_step_with_logprob(
                 1-t_n,
                 1-t_next,
                 -v_pred,
                 z,
                 self.net.denormalize,
                 noise_level
-            )[0]
+            )
         else:
             z = z + (t_next - t_n) * v_pred
 
-        return z,x,t_n
+        return z,x,t_n,log_prob
 
     @torch.no_grad()
     def _heun_step(self, z, t, t_next, labels):
@@ -490,6 +490,7 @@ class ScaleFlow(nn.Module):
 
         z_list=[z]
         x_list=[]
+        log_prob_list=[]
 
         if self.use_scale:
             agent_type = tokenized_agent["nonego_type_sorted"]
@@ -629,17 +630,21 @@ class ScaleFlow(nn.Module):
                     z[eval_mask],x_cond,t_n=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
                 else:
-                    z,x_cond,t_n =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask),noise_level[:,i])
+                    z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask),noise_level[:,i])
 
                 x_list.append(x_cond)
                 z_list.append(z)
                 t_list.append(t_n)
+                log_prob_list.append(log_prob)
 
         t_list.append(torch.ones_like(t_n))
 
         if self.use_sde:
+            log_prob_list=torch.stack(log_prob_list,dim=1)
+            log_prob_list=log_prob_list[noise_mask]
+
             z_list=torch.stack(z_list,dim=1)
-            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask])
+            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
             t_list=torch.stack(t_list,dim=1)
             t_list=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
 
@@ -686,16 +691,16 @@ class ScaleFlow(nn.Module):
                 advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
 
             if self.use_sde:
-                z,prev_sample=z_list
+                z,prev_sample,old_logp=z_list
                 t_n,t_next=t_list
 
-                x_pred = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)[:, 0]
+                x_pred = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
                 denom = (1.0 - t_n).clamp_min(self.t_eps)
 
                 v_pred = (x_pred - z) / denom
 
-                log_prob = sde_step_with_logprob(
+                prev_sample, log_prob, prev_sample_mean, std_dev_t = sde_step_with_logprob(
                     1 - t_n,
                     1 - t_next,
                     -v_pred,
@@ -703,7 +708,7 @@ class ScaleFlow(nn.Module):
                     self.net.denormalize,
                     noise_level=self.noise_level,
                     prev_sample=prev_sample
-                )[0]
+                )
 
                 fpo_ratio = log_prob.mean(-1)
 
