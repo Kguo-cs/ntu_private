@@ -415,6 +415,19 @@ class ScaleFlow(nn.Module):
                 z,
                 noise_level
             )
+            # self.net.eval()
+            # z2, log_prob1, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+            #     1-t_n,
+            #     1-t_next,
+            #     -v_pred,
+            #     z,
+            #     noise_level,
+            #     z1
+            # )
+            # print(torch.all(log_prob1==log_prob))
+            # self.net.train()
+            #z=z1
+
         else:
             z = z + (t_next - t_n) * v_pred
 
