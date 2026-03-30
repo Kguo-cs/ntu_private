@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt'
 
-task_name: AIRL28_p5_sde2_eps005_nodismask_together #_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
+task_name: AIRL28_p5_sde1_eps005_nodismask_together #_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
 
 trainer:
   limit_train_batches: 1.0

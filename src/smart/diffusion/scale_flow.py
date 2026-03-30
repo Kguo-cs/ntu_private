@@ -149,7 +149,7 @@ class ScaleFlow(nn.Module):
 
         self.use_GAIL=True
 
-        self.noise_level=2
+        self.noise_level=1
 
         self.rationorm=True
 
