@@ -805,6 +805,14 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 /home/ke/code/sim/src/waymo_data/AIRL24_205_dis_noauto_eval_start2_epoch=5-step=243504.ckpt
 
 
+/home/ke/code/sim/src/waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt
+
+
+
+
+
+
+
 take all position for generation
 simformer: For each
 agent, it sequentially predicts (a) an agent type token,

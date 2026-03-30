@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init0_idx zs@10.87.225.106:~/code/sim/src/waymo_data/full/
 
@@ -28,7 +28,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc48_t60_noego_l3_ep64/2026-03-21_10-12-23/bc/mplu97k9/checkpoints/epoch=63-step=649344.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL24_205_dis_noauto_eval_start2/2026-03-28_03-52-51/sim/ysehiqt0/checkpoints/epoch=5-step=243504.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit256_l2_drop0_pose5_localvtraj_allidx/2026-03-29_15-21-23/bc/zae3izua/checkpoints/epoch=63-step=121792.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
