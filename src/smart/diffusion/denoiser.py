@@ -894,11 +894,8 @@ class InitDenoiser(nn.Module):
 
             res=torch.cat([res,noise_std[:,None]],dim=-1)
 
-            if self.training:
-                tokenized_agent["noise_feat"]=feat_a
-
-        if torch.all(beta==0):
-            tokenized_agent["noise_feat"] = feat_a
+        if not self.training:
+            tokenized_agent["noise_feat"] = feat_a.detach()
 
         return res
 

@@ -119,7 +119,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.net.use_all_type
 
-        self.t_eps=0.05
+        self.t_eps=0.1
 
         self.P_std=1
 
@@ -379,7 +379,7 @@ class ScaleFlow(nn.Module):
             sample: torch.FloatTensor,
             noise_level: float = 0.7,
             prev_sample=None,
-            sde_type: Optional[str] = 'cps',
+            sde_type: Optional[str] = 'sde',
             return_sqrt_dt: Optional[bool] = False,
 
     ):
@@ -568,6 +568,7 @@ class ScaleFlow(nn.Module):
         z_list=[z]
         x_list=[]
         log_prob_list=[]
+        feat_list=[]
 
         if self.use_scale:
             agent_type = tokenized_agent["nonego_type_sorted"]
@@ -714,6 +715,8 @@ class ScaleFlow(nn.Module):
                 t_list.append(t_n)
                 #log_prob_list.append(log_prob)
 
+                feat_list.append(tokenized_agent["noise_feat"])
+
         t_list.append(torch.ones_like(t_n))
 
         if self.use_sde:
@@ -724,6 +727,8 @@ class ScaleFlow(nn.Module):
             z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)#
             t_list=torch.stack(t_list,dim=1)
             t_list=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
+
+            tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
 
         return z[:, 0], x_list, z_list, t_list
 
