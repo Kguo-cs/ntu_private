@@ -149,7 +149,7 @@ class ScaleFlow(nn.Module):
 
         self.use_GAIL=True
 
-        self.noise_level=0.5
+        self.noise_level=0.7
 
         self.rationorm=True
 
@@ -440,6 +440,92 @@ class ScaleFlow(nn.Module):
             return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
+    def sde_step_with_logprob1(
+            self,
+            sigma,
+            sigma_prev,
+            model_output: torch.FloatTensor,
+            sample: torch.FloatTensor,
+            noise_level: float = 0.7,
+            prev_sample=None,
+            sde_type: Optional[str] = 'sde',
+            return_sqrt_dt: Optional[bool] = False,
+
+    ):
+        """
+        Predict the sample from the previous timestep by reversing the SDE. This function propagates the flow
+        process from the learned model outputs (most often the predicted velocity).
+
+        Args:
+            model_output (`torch.FloatTensor`):
+                The direct output from learned flow model.
+            timestep (`float`):
+                The current discrete timestep in the diffusion chain.
+            sample (`torch.FloatTensor`):
+                A current instance of a sample created by the diffusion process.
+            generator (`torch.Generator`, *optional*):
+                A random number generator.
+        """
+        scale = self.net.normal_scale[None]
+
+        dt = sigma_prev - sigma
+
+        if sde_type == 'sde':
+            # normalized diffusion coeff (for formula)
+            std_dev_t_norm = torch.sqrt(
+                sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))
+            ) * noise_level
+
+            # real diffusion coeff (for sampling)
+            std_dev_t = std_dev_t_norm * scale
+
+            # scale model output to real space
+            model_output = model_output * scale
+
+            # ✅ use NORMALIZED std in drift
+            prev_sample_mean = (
+                    sample * (1 + std_dev_t_norm ** 2 / (2 * sigma) * dt)
+                    + model_output * (1 + std_dev_t_norm ** 2 * (1 - sigma) / (2 * sigma)) * dt
+            )
+
+            if prev_sample is None:
+                variance_noise = torch.randn_like(sample)
+
+                # ✅ use SCALED std here
+                prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-dt) * variance_noise
+
+            # ✅ log prob must use SCALED std
+            log_prob = (
+                    -((prev_sample.detach() - prev_sample_mean) ** 2)
+                    / (2 * ((std_dev_t * torch.sqrt(-dt)) ** 2))
+                    - torch.log(std_dev_t * torch.sqrt(-dt))
+                    - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
+            )
+
+        elif sde_type == 'cps':
+            std_dev_t = sigma_prev * math.sin(noise_level * math.pi / 2)  # sigma_t in paper
+            pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
+            noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
+            prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
+                sigma_prev ** 2 - std_dev_t ** 2)
+
+            if prev_sample is None:
+                variance_noise = torch.randn_like(model_output)
+
+                prev_sample = prev_sample_mean + std_dev_t * variance_noise
+
+            # remove all constants
+            log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)
+
+        # mean along all but batch dimension
+        log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
+
+       # prev_sample=self.net.denormalize(prev_sample)
+
+        if return_sqrt_dt:
+            return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
+        return prev_sample, log_prob, prev_sample_mean, std_dev_t
+
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels,noise_level):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
@@ -470,7 +556,7 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        elif self.use_sde:
+        elif self.use_sde and torch.any(noise_level>0):
             z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                 1-t_n,
                 1-t_next,
@@ -478,6 +564,19 @@ class ScaleFlow(nn.Module):
                 z,
                 noise_level
             )
+
+            # prev_sample2, log_prob2, prev_sample_mean2, std_dev_t2 = self.sde_step_with_logprob1(
+            #     1 - t_n,
+            #     1 - t_next,
+            #     -v_pred,
+            #     z,
+            #     noise_level=noise_level,
+            # )
+            #
+            # print(1)
+            #
+            # z=z1
+
         else:
             z = z + (t_next - t_n) * v_pred
 
@@ -709,7 +808,7 @@ class ScaleFlow(nn.Module):
         if self.use_sde:
             # log_prob_list=torch.stack(log_prob_list,dim=1)
             # log_prob_list=log_prob_list[noise_mask]
-
+            #
             z_list=torch.stack(z_list,dim=1)
             z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)#
             t_list=torch.stack(t_list,dim=1)
@@ -772,7 +871,7 @@ class ScaleFlow(nn.Module):
 
                 v_pred = (x_pred - z) / denom
 
-                prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                prev_sample1, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                     1 - t_n,
                     1 - t_next,
                     -v_pred,
@@ -780,6 +879,8 @@ class ScaleFlow(nn.Module):
                     noise_level=self.noise_level,
                     prev_sample=prev_sample
                 )
+
+
 
                 fpo_ratio = log_prob
 
