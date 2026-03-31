@@ -51,7 +51,7 @@ class InitDiffusion(nn.Module):
         args = parser.parse_args()
         self.G = ScaleFlow(args,token_processor)
 
-        self.use_gail=True and self.G.net.use_noise
+        self.use_gail=False
 
         if self.use_gail or self.use_gan:
             # self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
