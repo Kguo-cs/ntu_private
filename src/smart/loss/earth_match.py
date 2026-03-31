@@ -10,20 +10,17 @@ from src.smart.utils import (
     wrap_angle,
 )
 
-def gaussian_nll_2d(mu, sigma, target):
-    # mu: (..., 2)
-    # sigma: (..., 2)  (std, must be >0)
-    # target: (..., 2)
-
+def gaussian_nll(mu, sigma, target):
     dx = target - mu
     sigma = torch.clamp(sigma, min=1e-5)
-    var = sigma ** 2
 
-    loss = 0.5 * (dx**2 / var).sum(dim=-1)
+    n = target.shape[-1]
+
+    loss = 0.5 * ((dx / sigma) ** 2).sum(dim=-1)
     loss += torch.log(sigma).sum(dim=-1)
-    loss += math.log(2 * math.pi)
+    loss += 0.5 * n * math.log(2 * math.pi)
 
-    return loss#.mean()
+    return loss
 
 def matching_loss(
     fake_state,
