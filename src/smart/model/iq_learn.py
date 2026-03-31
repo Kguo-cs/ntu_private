@@ -148,10 +148,10 @@ class IQ_SoftQ(LightningModule):
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             mask_t=mask_t[:,tokenized_agent["train_mask"]]
 
-        # if dis_mask is None or self.pred_init:
-        #     dis_mask = mask_t.flatten(0, 1)
-        #
-        #     tokenized_agent["dis_mask"]=dis_mask
+        if dis_mask is None and not self.pred_init:
+            dis_mask = mask_t.flatten(0, 1)
+
+            tokenized_agent["dis_mask"]=dis_mask
             
         disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
