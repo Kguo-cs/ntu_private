@@ -313,19 +313,19 @@ class ScaleFlow(nn.Module):
 
                     v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
 
-                    # prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                    #     1 - t_n_sampled,
-                    #     1 - t_next_sampled,
-                    #     -v_pred,
-                    #     z_sampled,
-                    #     noise_level=self.noise_level,
-                    #     prev_sample=prev_sample
-                    # )
-                    scale = self.net.normal_scale[None] * self.noise_level
-
-                    z_mean = z_sampled + (t_next_sampled - t_n_sampled) * v_pred  # + noise_level * torch.randn_like(v_pred) * scale
-
-                    log_prob = -gaussian_nll(z_mean, scale, prev_sample)
+                    prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                        1 - t_n_sampled,
+                        1 - t_next_sampled,
+                        -v_pred,
+                        z_sampled,
+                        noise_level=torch.tensor(self.noise_level, device=device),
+                        prev_sample=prev_sample
+                    )
+                    # scale = self.net.normal_scale[None] * self.noise_level
+                    #
+                    # z_mean = z_sampled + (t_next_sampled - t_n_sampled) * v_pred  # + noise_level * torch.randn_like(v_pred) * scale
+                    #
+                    # log_prob = -gaussian_nll(z_mean, scale, prev_sample)
 
                     advantages = torch.clamp(advantages, -5, 5)
 
@@ -379,7 +379,7 @@ class ScaleFlow(nn.Module):
             sample: torch.FloatTensor,
             noise_level: float = 0.7,
             prev_sample=None,
-            sde_type: Optional[str] = 'sde',
+            sde_type: Optional[str] = 'cps',
             return_sqrt_dt: Optional[bool] = False,
 
     ):
@@ -424,7 +424,7 @@ class ScaleFlow(nn.Module):
             )
 
         elif sde_type == 'cps':
-            std_dev_t = sigma_prev * math.sin(noise_level * math.pi / 2)  # sigma_t in paper
+            std_dev_t = sigma_prev * torch.sin(noise_level * math.pi / 2)  # sigma_t in paper
             pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
             noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
             prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
@@ -478,16 +478,16 @@ class ScaleFlow(nn.Module):
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         elif self.use_sde and torch.any(noise_level>0):
-            # z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-            #     1-t_n,
-            #     1-t_next,
-            #     -v_pred,
-            #     z,
-            #     noise_level
-            # )
-            scale = self.net.normal_scale[None]
-
-            z=z+ (t_next - t_n) * v_pred+noise_level*torch.randn_like(v_pred)*scale
+            z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                1-t_n,
+                1-t_next,
+                -v_pred,
+                z,
+                noise_level
+            )
+            # scale = self.net.normal_scale[None]
+            #
+            # z=z+ (t_next - t_n) * v_pred+noise_level*torch.randn_like(v_pred)*scale
         else:
             z = z + (t_next - t_n) * v_pred
 
@@ -795,11 +795,11 @@ class ScaleFlow(nn.Module):
                 #     prev_sample=prev_sample
                 # )
 
-                log_prob=gaussian_nll(z_mean,prev_sample,scale)
-
-
-
-                fpo_ratio = log_prob
+                # log_prob=gaussian_nll(z_mean,prev_sample,scale)
+                #
+                #
+                #
+                # fpo_ratio = log_prob
 
             else:
                 x = z_list[-1][:, 0]
