@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "./waymo_data/dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt"
+ckpt_path: "./waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt"
 
 trainer:
   limit_train_batches: 1.0
