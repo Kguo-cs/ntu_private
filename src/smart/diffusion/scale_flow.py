@@ -198,6 +198,7 @@ class ScaleFlow(nn.Module):
             t_batch = torch.rand(num_graphs, device=device)[:, None,None]  # t ~ U[0,1]
 
         #tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
+        collision_loss=0
 
         if self.mean_flow:
             # r ~ U[0, t]
