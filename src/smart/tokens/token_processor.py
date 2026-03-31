@@ -126,6 +126,9 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["local_ego_traj"] = local_ego_traj
 
+        tokenized_agent["ego_pos2"]=tokenized_agent["sampled_pos"][ego_mask, :2]
+        tokenized_agent["ego_heading2"]=tokenized_agent["sampled_heading"][ego_mask, :2]
+
         first_idx = tokenized_agent["sampled_idx"][:, 0].clone()
 
         invalid_mask = ~tokenized_agent["token_mask"][:, 0]

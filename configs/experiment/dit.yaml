@@ -39,13 +39,12 @@ model:
 
 #ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 
-ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
+#ckpt_path: './waymo_data/dit256_sample20_l2_norm_epoch=59-step=114180.ckpt'
 
-#ckpt_path: "./waymo_data/AIRL19_103_disdiff_nonego_all_start1_noise_epoch=5-step=153792.ckpt"
-#ckpt_path: "./waymo_data/AIRL24_105_dis_noise_noauto_eval_epoch=5-step=243504.ckpt"
+ckpt_path: './waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt'
 
 
-task_name: dit256_l2_drop0_pose5_localvtraj_allidx_nosde #_egotraj_vel #maskrunmean3_105drop01 #_gamma1_match_velsample20_idx_sampledpose5
+task_name: dit256_l2_ego_relative #_egotraj_vel #maskrunmean3_105drop01 #_gamma1_match_velsample20_idx_sampledpose5
 
 trainer:
   limit_train_batches: 1.0

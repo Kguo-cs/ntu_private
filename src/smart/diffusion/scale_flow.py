@@ -78,7 +78,7 @@ class ScaleFlow(nn.Module):
 
         # self.pos_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
         # self.head_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
-        self.ego_embedding1 = MLPLayer(16+3, args.hidden_dim, args.hidden_dim)#+3
+        #self.ego_embedding1 = MLPLayer(16+3, args.hidden_dim, args.hidden_dim)#+3
 
         self.mean_flow=False
 
@@ -99,6 +99,9 @@ class ScaleFlow(nn.Module):
             m_dim=args.m_dim,
             mean_flow=self.mean_flow
         )
+
+        if not self.net.use_rel_ego:
+            self.ego_embedding1 = MLPLayer(16 + 3, args.hidden_dim, args.hidden_dim)
 
         # self.var_sched = VarianceSchedule(
         #     num_steps=args.num_diffusion_steps,

@@ -1,5 +1,7 @@
 import math
 import copy
+from xml.sax.handler import all_features
+
 import numpy as np
 
 from typing import Dict, Mapping, Optional
@@ -151,6 +153,11 @@ class InitDenoiser(nn.Module):
         # self.register_buffer("init_probs", torch.ones(m_delta_dim,100))
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
         # self.register_buffer("init_max", torch.ones(m_delta_dim))
+
+        self.use_rel_ego=True
+
+        if self.use_rel_ego:
+            self.ego_embed = MLPLayer(6 + 3, hidden_dim, hidden_dim)
 
         if self.use_roformer:
             if self.use_dit:
@@ -499,15 +506,17 @@ class InitDenoiser(nn.Module):
         device = m_delta.device
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type"]
-        ego_embedding = tokenized_agent["ego_embedding"]
         num_graphs = tokenized_agent["num_graphs"]
+
+        if not self.use_rel_ego:
+            ego_embedding = tokenized_agent["ego_embedding"]
 
         if eval_mask is not None:
             batch=batch[eval_mask]
             type=type[eval_mask]
             ego_embedding=ego_embedding[eval_mask]
 
-        type,ego_embedding = self.drop_labels(type,ego_embedding,mode) if self.training else (type,ego_embedding)
+        #type,ego_embedding = self.drop_labels(type,ego_embedding,mode) if self.training else (type,ego_embedding)
 
         if self.use_roformer:
             m_delta=m_delta.reshape(m_delta.shape[0],-1)
@@ -537,7 +546,7 @@ class InitDenoiser(nn.Module):
 
             else:
 
-                beta_emb_m = self.noise_embedding(beta.reshape(-1,1)) +self.type_a_emb(type)+ego_embedding
+                beta_emb_m = self.noise_embedding(beta.reshape(-1,1)) +self.type_a_emb(type)
 
                 if self.use_all_pos:
                     shape=m_delta[:,-2:]
@@ -613,7 +622,25 @@ class InitDenoiser(nn.Module):
                     else:
                         feat_a=self.proj_in_m_delta(m_delta)
 
-                    feat_a = feat_a + beta_emb_m
+                    if self.use_rel_ego:
+                        ego_pose= tokenized_agent["ego_feat"][:,:-3].reshape(-1,2,3)
+                        type_count=tokenized_agent["ego_feat"][:,-3:][batch]
+
+                        all_pos=ego_pose[:,:,:2][batch]
+                        all_head=ego_pose[:,:,2][batch]
+
+                        local_ego_pos,local_ego_head=transform_to_local(
+                            all_pos,
+                            all_head,
+                            pos_s,
+                            theta
+                        )
+
+                        all_features=torch.cat([local_ego_pos.flatten(1,2),local_ego_head,type_count],dim=-1)
+
+                        ego_embedding=self.ego_embed(all_features)
+
+                    feat_a = feat_a + beta_emb_m+ego_embedding
 
                     if self.use_graph:
 

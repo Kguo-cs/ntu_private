@@ -83,7 +83,15 @@ class InitDiffusion(nn.Module):
             tokenized_agent['nonego_type'] = nonego_type
 
             if "local_ego_traj" in tokenized_agent.keys():
-                local_ego_traj = tokenized_agent["local_ego_traj"]
+                if self.G.net.use_rel_ego:
+                    ego_pos2=tokenized_agent["ego_pos2"]
+                    ego_heading2=tokenized_agent["ego_heading2"]
+
+                    ego_local_pos2, ego_local_heading2=transform_to_local(ego_pos2, ego_heading2, ego_position, ego_heading)
+
+                    local_ego_traj=torch.cat([ego_local_pos2,ego_local_heading2[:,:,None]],dim=-1).flatten(1,2)
+                else:
+                    local_ego_traj = tokenized_agent["local_ego_traj"]
             else:
                ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
 
@@ -107,10 +115,11 @@ class InitDiffusion(nn.Module):
             ego_feat = tokenized_agent["ego_feat"]
             nonego_batch=tokenized_agent["nonego_batch"]
 
-        ego_embedding=self.G.ego_embedding1(ego_feat)
-        ego_embedding = ego_embedding[nonego_batch]
+        if not self.G.net.use_rel_ego:
+            ego_embedding=self.G.ego_embedding1(ego_feat)
+            ego_embedding = ego_embedding[nonego_batch]
 
-        tokenized_agent["ego_embedding"] = ego_embedding
+            tokenized_agent["ego_embedding"] = ego_embedding
 
         if "initial_map_feature" not in tokenized_agent.keys():
             map_feature = tokenized_agent["map_feature"]
