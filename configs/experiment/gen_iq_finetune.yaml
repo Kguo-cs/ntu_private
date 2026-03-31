@@ -32,13 +32,13 @@ model:
       dis_a2a_neighbor: 20
 
       dis_weight: 20
-      dist_decay: 3
+      dist_decay: 5
       reward_weight: 0
       reward_decay: 2.5
 
 ckpt_path: './waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt'
 
-task_name: AIRL20_203_sde1_eps005_together #_nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
+task_name: AIRL28_205_sde05_eps005_together2 #_nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
 
 trainer:
   limit_train_batches: 1.0
@@ -50,7 +50,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 20 #6
+  train_batch_size: 28 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
