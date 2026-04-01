@@ -31,7 +31,7 @@ model:
     decoder:
       #hist_drop_prob: 0.1 #0.1 #0.1
 
-      dis_a2a_radius: 0
+      dis_a2a_radius: 10
       dis_a2a_neighbor: 20
 
     token_processor:
@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/dit256_l2_ego_relative_epoch=63-step=121792.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/AIRL28_p5_sde07_eps01_nodismask_nog_epoch=1-step=91311.ckpt"
 
 trainer:
   limit_train_batches: 1.0
