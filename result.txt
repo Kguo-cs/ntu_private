@@ -814,6 +814,14 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 
 0.64028
 
+/home/ke/code/sim/src/waymo_data/AIRL28_p5_sde07_eps01_nodismask_nog_epoch=1-step=91311.ckpt
+
+
+0.6426
+
+
+/home/ke/code/sim/src/waymo_data/dit256_l2_ego_relative_epoch=63-step=121792.ckpt
+
 
 
 

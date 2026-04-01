@@ -35,17 +35,6 @@ class InitDiffusion(nn.Module):
         self.sep_map=False
         self.use_all_pos=token_processor.use_all_pos
 
-        self.learn_autoencoder = token_processor.learn_autoencoder
-        if self.learn_autoencoder:
-            self.use_gan = False
-            self.latent_diffusion = True
-
-        if self.latent_diffusion:
-            from .autoencoder import AutoEncoder
-
-            self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=hidden_dim,latent_dim=8,num_heads=8)
-
-
         parser = ArgumentParser()
         self.add_model_specific_args(parser)
         args = parser.parse_args()
@@ -250,13 +239,13 @@ class InitDiffusion(nn.Module):
 
             return loss
         else:
-            pred_init, x_list,z_list,t_list = self.G.sample( tokenized_agent, initial_map_feature,None)
+            pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent
             )
 
-            return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel,z_list,t_list
+            return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel
         
     @staticmethod
     def add_model_specific_args(parent_parser):

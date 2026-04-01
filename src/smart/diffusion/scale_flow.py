@@ -730,7 +730,10 @@ class ScaleFlow(nn.Module):
 
             #tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
 
-        return z[:, 0], x_list, z_list, t_list
+            tokenized_agent["z_list"]=z_list
+            tokenized_agent["t_list"]=t_list
+
+        return z[:, 0], x_list
 
 
     def get_g_loss( self, tokenized_agent,  z_list, t_list, advantages,n_step=1):

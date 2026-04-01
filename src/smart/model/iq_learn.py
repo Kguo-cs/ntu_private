@@ -120,22 +120,16 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.init_decoder.use_gan:
                 loss=self.encoder.agent_encoder.init_decoder.D.update( self.log,self.optimizers(), self.encoder.agent_encoder.init_decoder.G,pred["initial_logit"])
             else:
-                if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
-                    loss, agent_loss, kl_loss = pred["initial_logit"]
-                    self.log('train/loss_diff_init', loss, on_step=True, batch_size=1)
-                    self.log('train/agent_loss', agent_loss, on_step=True, batch_size=1)
-                    self.log('train/kl_loss', kl_loss, on_step=True, batch_size=1)
-                else:
-                    match_loss,  collision_loss, pos_loss, heading_loss, shape_loss, vel_loss = pred[
-                        "initial_logit"]
-                    self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
-                    self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
-                    self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
-                    self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
-                    self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
-                    self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
+                match_loss,  collision_loss, pos_loss, heading_loss, shape_loss, vel_loss = pred[
+                    "initial_logit"]
+                self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
+                self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+                self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+                self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+                self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+                self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
 
-                    loss = match_loss + collision_loss
+                loss = match_loss + collision_loss
 
             action_nll = action_nll + loss
 
@@ -299,7 +293,7 @@ class IQ_SoftQ(LightningModule):
 
         advantages=advantages.reshape(-1)
 
-        self.return_meanstd.update(advantages[-len(agent_log_prob):].detach())
+        self.return_meanstd.update(advantages.detach())
 
         advantages = self.return_meanstd.normalize(advantages)
 
@@ -322,8 +316,6 @@ class IQ_SoftQ(LightningModule):
         if self.token_processor.learn_init:
 
             advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
-
-            advantages=(advantages-advantages.mean())/advantages.std()
 
             tokenized_agent["advantages"]=advantages
 

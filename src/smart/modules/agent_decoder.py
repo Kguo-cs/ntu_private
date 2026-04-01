@@ -173,7 +173,14 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if self.pred_init:
-            pos_a,head_a, sampled_idx,shape,initial_vel,z_list,t_list = self.init_decoder(tokenized_agent)
+            pos_a=gt_pos[:,:1]
+            head_a=gt_head[:,:1]
+            sampled_idx=gt_sampled_idx[:,:1]
+            shape=tokenized_agent["shape"]
+            z_list=t_list=[]
+            initial_vel=pos_a[:,0]
+
+            # pos_a,head_a, sampled_idx,shape,initial_vel = self.init_decoder(tokenized_agent)
 
             if "gt_z_raw" in tokenized_agent.keys():
                 token_traj_all = tokenized_agent["token_traj_all"]
@@ -245,8 +252,6 @@ class SMARTAgentDecoder(nn.Module):
             token_mask = torch.cat([token_mask, next_token_mask[:, None]], dim=1)
 
         out_dict = {
-            "z_list": z_list,
-            "t_list": t_list,
             "type": tokenized_agent["type"],
             "shape": shape,
             "batch": tokenized_agent["batch"],

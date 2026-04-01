@@ -119,15 +119,17 @@ class TokenProcessor(torch.nn.Module):
         # tokenized_agent["ego_traj"] = agent["position"][:, 6:16, :2][ego_mask]
 
         ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, start_idx:start_idx + 2]
-        ego_token_traj_all = tokenized_agent["token_traj_all"][ego_mask][:, :, -1]  # .mean(-2)
+        ego_token_traj_all = tokenized_agent["token_traj_all"][ego_mask] # .mean(-2)
 
-        local_ego_traj = ego_token_traj_all[torch.arange(len(ego_idx))[:, None].repeat(1, 2), ego_idx].reshape(
+        local_ego_traj = ego_token_traj_all[torch.arange(len(ego_idx))[:, None].repeat(1, 2), ego_idx, -1].reshape(
             -1, 16)  # ego later 10 steps
 
         tokenized_agent["local_ego_traj"] = local_ego_traj
 
-        tokenized_agent["ego_pos2"]=tokenized_agent["sampled_pos"][ego_mask, :2]
-        tokenized_agent["ego_heading2"]=tokenized_agent["sampled_heading"][ego_mask, :2]
+        pos_recon, head_recon = infer_prev_pose(tokenized_agent["initial_pos"][ego_mask,None], tokenized_agent["initial_heading"][ego_mask,None], ego_idx[:,:1], ego_token_traj_all)
+
+        tokenized_agent["ego_pos2"]=torch.cat([pos_recon,tokenized_agent["sampled_pos"][ego_mask, :2]],dim=1)
+        tokenized_agent["ego_heading2"]=torch.cat([head_recon,tokenized_agent["sampled_heading"][ego_mask, :2]],dim=1)
 
         first_idx = tokenized_agent["sampled_idx"][:, 0].clone()
 

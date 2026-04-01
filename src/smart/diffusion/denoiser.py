@@ -128,10 +128,10 @@ class InitDenoiser(nn.Module):
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
         # self.register_buffer("init_max", torch.ones(m_delta_dim))
 
-        self.use_rel_ego=False
+        self.use_rel_ego=True
 
         if self.use_rel_ego:
-            self.ego_embed = MLPLayer(6 + 3, hidden_dim, hidden_dim)
+            self.ego_embed = MLPLayer(9 + 3, hidden_dim, hidden_dim)
 
         if self.use_roformer:
             if self.use_dit:
@@ -597,7 +597,7 @@ class InitDenoiser(nn.Module):
                         feat_a=self.proj_in_m_delta(m_delta)
 
                     if self.use_rel_ego:
-                        ego_pose= tokenized_agent["ego_feat"][:,:-3].reshape(-1,2,3)
+                        ego_pose= tokenized_agent["ego_feat"][:,:-3].reshape(-1,3,3)
                         type_count=tokenized_agent["ego_feat"][:,-3:][batch]
 
                         all_pos=ego_pose[:,:,:2][batch]
