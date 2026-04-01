@@ -122,7 +122,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.net.use_all_type
 
-        self.t_eps=0.1
+        self.t_eps=0.01
 
         self.P_std=1
 
@@ -383,7 +383,7 @@ class ScaleFlow(nn.Module):
             sample: torch.FloatTensor,
             noise_level: float = 0.7,
             prev_sample=None,
-            sde_type: Optional[str] = 'sde',
+            sde_type: Optional[str] = 'cps',
             return_sqrt_dt: Optional[bool] = False,
 
     ):
