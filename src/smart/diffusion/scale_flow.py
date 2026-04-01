@@ -440,7 +440,7 @@ class ScaleFlow(nn.Module):
                 prev_sample = prev_sample_mean + std_dev_t * variance_noise
 
             # remove all constants
-            log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)
+            log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)/( std_dev_t ** 2)
 
         # mean along all but batch dimension
         log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
