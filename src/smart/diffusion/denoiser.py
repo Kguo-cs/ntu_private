@@ -154,7 +154,7 @@ class InitDenoiser(nn.Module):
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
         # self.register_buffer("init_max", torch.ones(m_delta_dim))
 
-        self.use_rel_ego=True
+        self.use_rel_ego=False
 
         if self.use_rel_ego:
             self.ego_embed = MLPLayer(6 + 3, hidden_dim, hidden_dim)
@@ -921,9 +921,10 @@ class InitDenoiser(nn.Module):
 
             res=torch.cat([res,noise_std[:,None]],dim=-1)
 
-        if not self.training:
-            tokenized_agent["noise_feat"] = feat_a.detach()
-
+        # if not self.training:
+        #     tokenized_agent["noise_feat"] = feat_a.detach()
+        if torch.all(beta==0):
+            tokenized_agent["noise_feat"] = feat_a
         return res
 
     def get_output(self, pred_init, tokenized_agent):
