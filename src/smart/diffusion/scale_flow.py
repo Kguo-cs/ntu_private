@@ -383,7 +383,7 @@ class ScaleFlow(nn.Module):
             sample: torch.FloatTensor,
             noise_level: float = 0.7,
             prev_sample=None,
-            sde_type: Optional[str] = 'cps',
+            sde_type: Optional[str] = 'sde',
             return_sqrt_dt: Optional[bool] = False,
 
     ):
