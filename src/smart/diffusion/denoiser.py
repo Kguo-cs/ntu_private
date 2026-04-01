@@ -128,7 +128,7 @@ class InitDenoiser(nn.Module):
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
         # self.register_buffer("init_max", torch.ones(m_delta_dim))
 
-        self.use_rel_ego=False
+        self.use_rel_ego=True
 
         if self.use_rel_ego:
             self.ego_embed = MLPLayer(9 + 3, hidden_dim, hidden_dim)
@@ -631,21 +631,21 @@ class InitDenoiser(nn.Module):
                             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
                             batch_s=batch,  # [n_agent*n_step]
                             mask=None,  # [n_agent, n_step]
-                            max_radius=100,
-                            max_num_neighbors=99,
+                            max_radius=60,
+                            max_num_neighbors=20,
                             agent_train_mask=None,
                             layer_num=self.num_layers,
                             counter_feat_a=None,
                             dis_edge_mask=None
                         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
                         
-                        dist_t=100-beta.reshape(-1)*90
-                        
-                        dist_mask=dist<dist_t[edge_index_a2a[0]]
-                        
-                        edge_index_a2a=edge_index_a2a[:,dist_mask]
-                        
-                        r_a2a=r_a2a[dist_mask]
+                        # dist_t=100-beta.reshape(-1)*90
+                        #
+                        # dist_mask=dist<dist_t[edge_index_a2a[0]]
+                        #
+                        # edge_index_a2a=edge_index_a2a[:,dist_mask]
+                        #
+                        # r_a2a=r_a2a[dist_mask]
                         
                         if batch_pl.max().item() != num_graphs - 1:
                             if "non_ego_valid" not in tokenized_agent.keys():
