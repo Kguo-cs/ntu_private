@@ -31,14 +31,14 @@ model:
       dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
-      dis_weight: 10
+      dis_weight: 20
       dist_decay: 3
       reward_weight: 0
       reward_decay: 2.5
 
 ckpt_path: './waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt'
 
-task_name: AIRL28_sde07_eps01_value1e2_noise #01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
+task_name: AIRL28_203_sde07_eps01_value1e2_noise #01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
 
 trainer:
   limit_train_batches: 1.0
