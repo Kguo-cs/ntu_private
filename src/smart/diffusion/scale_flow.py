@@ -333,7 +333,7 @@ class ScaleFlow(nn.Module):
 
                     advantages = torch.clamp(advantages, -5, 5)
 
-                    per_sample_policy_loss = - log_prob * advantages
+                    per_sample_policy_loss = - log_prob * advantages*std_dev_t[:,0,0]*1.73
 
                     collision_loss = per_sample_policy_loss.mean()
 
@@ -497,16 +497,6 @@ class ScaleFlow(nn.Module):
 
         return z,x,t_n,log_prob
 
-    @torch.no_grad()
-    def _heun_step(self, z, t, t_next, labels):
-        v_pred_t = self._forward_sample(z, t, labels)
-
-        z_next_euler = z + (t_next - t) * v_pred_t
-        v_pred_t_next = self._forward_sample(z_next_euler, t_next, labels)
-
-        v_pred = 0.5 * (v_pred_t + v_pred_t_next)
-        z_next = z + (t_next - t) * v_pred
-        return z_next
 
     @torch.no_grad()
     def _forward_sample(self, z, t_n, labels):
