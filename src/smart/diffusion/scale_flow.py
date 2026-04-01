@@ -333,7 +333,7 @@ class ScaleFlow(nn.Module):
 
                     advantages = torch.clamp(advantages, -5, 5)
 
-                    per_sample_policy_loss = - log_prob * advantages*std_dev_t[:,0,0]*1.73
+                    per_sample_policy_loss = - log_prob * advantages#*std_dev_t[:,0,0]*1.73
 
                     collision_loss = per_sample_policy_loss.mean()
 
