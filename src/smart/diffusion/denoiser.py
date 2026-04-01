@@ -128,7 +128,7 @@ class InitDenoiser(nn.Module):
         # self.register_buffer("init_min", torch.ones(m_delta_dim))
         # self.register_buffer("init_max", torch.ones(m_delta_dim))
 
-        self.use_rel_ego=True
+        self.use_rel_ego=False
 
         if self.use_rel_ego:
             self.ego_embed = MLPLayer(9 + 3, hidden_dim, hidden_dim)
