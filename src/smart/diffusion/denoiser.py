@@ -639,7 +639,7 @@ class InitDenoiser(nn.Module):
                             dis_edge_mask=None
                         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
                         
-                        dist_t=beta.reshape(-1)*90+10
+                        dist_t=100-beta.reshape(-1)*90
                         
                         dist_mask=dist<dist_t[edge_index_a2a[0]]
                         
