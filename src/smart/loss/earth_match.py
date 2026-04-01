@@ -301,11 +301,14 @@ def get_matching_loss(
     ):
     initial_type, batch=tokenized_agent['nonego_type'][-len(fake_state):],tokenized_agent["nonego_batch"][-len(fake_state):]
 
-    fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
+    #fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
+
+    # fake_state=fake_state[fake_idx]
+    # real_state=real_state[real_idx]
 
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        fake_state[fake_idx]/denom, real_state[real_idx]/denom
+        fake_state/denom, real_state/denom
     )
 
    # if latent or use_all_type:
