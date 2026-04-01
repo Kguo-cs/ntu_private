@@ -299,7 +299,7 @@ class IQ_SoftQ(LightningModule):
 
         advantages=advantages.reshape(-1)
 
-        self.return_meanstd.update(advantages.detach())
+        self.return_meanstd.update(advantages[-len(agent_log_prob):].detach())
 
         advantages = self.return_meanstd.normalize(advantages)
 
@@ -322,6 +322,8 @@ class IQ_SoftQ(LightningModule):
         if self.token_processor.learn_init:
 
             advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
+
+            advantages=(advantages-advantages.mean())/advantages.std()
 
             tokenized_agent["advantages"]=advantages
 
