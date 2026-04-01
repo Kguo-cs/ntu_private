@@ -173,14 +173,13 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if self.pred_init:
-            pos_a=gt_pos[:,:1]
-            head_a=gt_head[:,:1]
-            sampled_idx=gt_sampled_idx[:,:1]
-            shape=tokenized_agent["shape"]
-            z_list=t_list=[]
-            initial_vel=pos_a[:,0]
+            # pos_a=gt_pos[:,:1]
+            # head_a=gt_head[:,:1]
+            # sampled_idx=gt_sampled_idx[:,:1]
+            # shape=tokenized_agent["shape"]
+            # initial_vel=pos_a[:,0]
 
-            # pos_a,head_a, sampled_idx,shape,initial_vel = self.init_decoder(tokenized_agent)
+            pos_a,head_a, sampled_idx,shape,initial_vel = self.init_decoder(tokenized_agent)
 
             if "gt_z_raw" in tokenized_agent.keys():
                 token_traj_all = tokenized_agent["token_traj_all"]
@@ -211,7 +210,6 @@ class SMARTAgentDecoder(nn.Module):
             head_a = gt_head[:, :current_step]
             pos_a = gt_pos[:, :current_step]
             sampled_idx = gt_sampled_idx[:, :current_step]
-            z_list=t_list=[]
             shape=tokenized_agent["shape"]
             mask = gt_valid[:, :current_step]
             token_mask = tokenized_agent["token_mask"][:, :current_step]
