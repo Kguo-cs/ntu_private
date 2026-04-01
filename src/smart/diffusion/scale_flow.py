@@ -156,7 +156,7 @@ class ScaleFlow(nn.Module):
 
         self.noise_level=0.7
 
-        self.rationorm=True
+        self.rationorm=False
 
         self.apply(weight_init)
 
@@ -313,7 +313,7 @@ class ScaleFlow(nn.Module):
 
                     x_pred_all = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
-                    denom = (1.0 - t_n_sampled)
+                    denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
                     v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
 
