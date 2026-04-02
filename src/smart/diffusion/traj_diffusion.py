@@ -230,13 +230,19 @@ class TrajFlow(nn.Module):
 
         noisy_poses[torch.isnan(noisy_poses)] = -10
 
-        valid_mask=tokenized_agent["valid_mask"]
 
         noisy_sampled_pos=noisy_sampled_pos.reshape(-1,18,2)
         noisy_sampled_heading=noisy_sampled_heading.reshape(-1,18)
 
+        valid_mask=~torch.isnan(noisy_sampled_heading)
+
+        noisy_sampled_pos[~valid_mask]=0
+        noisy_sampled_heading[~valid_mask]=0
+
+        token_mask=torch.cat([valid_mask[:,:1] , valid_mask[:,1:] & valid_mask[:,:-1]],dim=-1)
+
         noise_pred=self.agent_encoder.predict_agent(noisy_poses.reshape(-1,18,12),
-                                        tokenized_agent["token_mask"],
+                                        token_mask,
                                         valid_mask,
                                         noisy_sampled_pos,
                                         noisy_sampled_heading ,
@@ -262,6 +268,8 @@ class TrajFlow(nn.Module):
 
         heading_loss=wrap_angle(pred_global_heading-gt_head)[nan_mask].abs().mean()
 
+       # print(pos_loss,heading_loss)
+
         loss={
             "next_token_logits":None,
             "initial_logit":None,
@@ -270,3 +278,13 @@ class TrajFlow(nn.Module):
         }
 
         return loss
+
+    def sample(self,pred_dict,tokenized_agent,map_feature):
+
+
+        # for i in range(10):
+
+
+
+
+        return 1

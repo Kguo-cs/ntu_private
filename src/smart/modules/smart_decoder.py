@@ -259,4 +259,10 @@ class SMARTDecoder(nn.Module):
         pred_dict = self.agent_encoder.inference(
             tokenized_agent, map_feature, post_sampling,n_step_future_10hz=n_step_future_10hz
         )
+        #
+        # if self.traj_diffusion:
+        #
+        #     pred_dict=self.traj_diffuser.sample(pred_dict,tokenized_agent,map_feature)
+
+
         return pred_dict
