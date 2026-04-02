@@ -175,7 +175,7 @@ class TrajFlow(nn.Module):
 
         m_init=torch.cat([local_pos-local_sampled_pos,wrap_angle(local_heading-local_sampled_heading)[:,:,None]],dim=-1).reshape(-1,18*5,3)
 
-        m_init[m_init>4]=torch.nan
+        m_init[(m_init.abs()>4).any(-1)]=torch.nan
 
         if torch.all(self.normal_mean==0):
 
@@ -226,16 +226,16 @@ class TrajFlow(nn.Module):
             noisy_sampled_heading
         )
 
-        new_local_traj=torch.cat([noisy_local_pos,wrap_angle(noisy_local_heading)[:,:,None]],dim=-1)
+        noisy_poses=torch.cat([noisy_local_pos,wrap_angle(noisy_local_heading)[:,:,None]],dim=-1).clone()
 
-        new_local_traj[torch.isnan(new_local_traj)] = -10
+        noisy_poses[torch.isnan(noisy_poses)] = -10
 
         valid_mask=tokenized_agent["valid_mask"]
 
         noisy_sampled_pos=noisy_sampled_pos.reshape(-1,18,2)
         noisy_sampled_heading=noisy_sampled_heading.reshape(-1,18)
 
-        noise_pred=self.agent_encoder.predict_agent(new_local_traj.reshape(-1,18,12),
+        noise_pred=self.agent_encoder.predict_agent(noisy_poses.reshape(-1,18,12),
                                         tokenized_agent["token_mask"],
                                         valid_mask,
                                         noisy_sampled_pos,
@@ -256,7 +256,7 @@ class TrajFlow(nn.Module):
         gt_traj=gt_traj_10hz[:, 1:].reshape(-1,18,5,2)[valid_mask]
         gt_head=gt_head_10hz[:, 1:].reshape(-1,18,5)[valid_mask]
 
-        nan_mask=~torch.isnan(gt_head)
+        nan_mask=~(torch.isnan(gt_head) | torch.isnan(pred_global_heading))
 
         pos_loss=(pred_global_pos-gt_traj)[nan_mask].abs().mean()
 
