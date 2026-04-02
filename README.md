@@ -4,11 +4,11 @@ nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
 rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.98:~/code/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
+rsync -avz dit256_l3_egotraj3_nosde_eps01_epoch=55-step=106568.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_a_light zs@10.87.225.106:~/code/sim/src/waymo_data/full/
+rsync -avz dit256_l3_egotraj3_nosde_eps01_epoch=55-step=106568.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
@@ -25,7 +25,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 
 rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  zs@10.87.225.106:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/dit256_l2_ego_relative/2026-03-31_23-12-54/bc/7yszj792/checkpoints/epoch=63-step=121792.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/dit256_l3_egotraj3_nosde_eps01/2026-04-02_13-09-30/bc/6jni75ca/checkpoints/epoch=55-step=106568.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL28_p5_sde01_eps07_nodismask_nog/2026-03-30_12-57-13/bc/df5sijt0/checkpoints/epoch=1-step=91311.ckpt ./

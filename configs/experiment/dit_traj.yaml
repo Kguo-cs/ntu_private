@@ -36,7 +36,7 @@ model:
       reward_weight: 0
       reward_decay: 2.5
 
-ckpt_path: './waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt'
+ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps01_epoch=55-step=106568.ckpt'
 
 task_name: traj20_ #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
 
@@ -50,7 +50,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 12 #6
+  train_batch_size: 56 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
