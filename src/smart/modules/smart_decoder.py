@@ -192,6 +192,37 @@ class SMARTDecoder(nn.Module):
 
             self.agent_encoder.interative_decoder.gail=self.gail
 
+        self.traj_diffusion=token_processor.traj_diffusion
+
+        if self.traj_diffusion:
+            from src.smart.diffusion.traj_diffusion import TrajFlow
+            self.traj_diffuser = TrajFlow(
+                hidden_dim=hidden_dim,
+                num_historical_steps=num_historical_steps,
+                num_future_steps=num_future_steps,
+                time_span=time_span,
+                pl2a_radius=pl2a_radius,
+                a2a_radius=a2a_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_agent_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                hist_drop_prob=hist_drop_prob,
+                n_token_agent=n_token_agent,
+                pt2a_neighbor=pt2a_neighbor,
+                a2a_neighbor=a2a_neighbor,
+                token_processor=token_processor,
+                alpha=self.alpha,
+                dis_weight=dis_weight,
+                dist_decay=dist_decay,
+                reward_weight=reward_weight,
+                reward_decay=reward_decay,
+                use_gail=self.gail
+            )
+
+
+
     def forward( self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor]  ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_agent:
             map_feature = tokenized_agent["map_feature"]
@@ -203,7 +234,10 @@ class SMARTDecoder(nn.Module):
                 map_feature = self.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
 
-        pred_dict = self.agent_encoder(tokenized_agent, map_feature)
+        if self.traj_diffusion:
+            pred_dict=self.traj_diffuser(tokenized_agent,map_feature)
+        else:
+            pred_dict = self.agent_encoder(tokenized_agent, map_feature)
 
         return pred_dict
 

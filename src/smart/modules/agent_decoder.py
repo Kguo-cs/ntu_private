@@ -56,7 +56,8 @@ class SMARTAgentDecoder(nn.Module):
             reward_weight,
             reward_decay,
             use_gail=False,
-            discriminator=False
+            discriminator=False,
+            traj_diffusion=False,
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.num_historical_steps = num_historical_steps
@@ -67,7 +68,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.shift = token_processor.shift
 
-        self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor,discriminator)
+        self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor,discriminator,traj_diffusion)
 
         self.interative_decoder = InterativeDecoder(hidden_dim,time_span,
                                                     pl2a_radius,a2a_radius,num_freq_bands,
@@ -141,7 +142,7 @@ class SMARTAgentDecoder(nn.Module):
     ) :
         next_token_logits = initial_logit=None
 
-        if not self.use_gail:
+        if not self.use_gail and self.learn_init:
             initial_logit = self.init_decoder(tokenized_agent)
         else:
             next_token_logits,a2a_feature,rewards,agent_token_emb,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],

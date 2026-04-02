@@ -13,7 +13,8 @@ class AgentTokenEncoder(nn.Module):
             hidden_dim: int,
             num_freq_bands:int,
             token_processor,
-            discriminator=False
+            discriminator,
+            traj_diffusion
     ) -> None:
         super(AgentTokenEncoder, self).__init__()
 
@@ -55,7 +56,12 @@ class AgentTokenEncoder(nn.Module):
 
         self.discriminator=discriminator
         self.use_state_action=False
-        self.use_counterfactual=False
+
+        self.traj_diffusion=traj_diffusion
+
+        if self.traj_diffusion:
+            input_dim_token=4*3
+
 
         if self.discriminator:
             if self.use_state_action:
@@ -104,12 +110,17 @@ class AgentTokenEncoder(nn.Module):
                     ped_mask=ped_mask[:,None] & token_mask
                     cyc_mask=cyc_mask[:,None] & token_mask
 
-                agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
-                agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
-                agent_token_emb_cyc = self.token_emb_cyc(self.token_processor.trajectory_token_cyc)
-                agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
-                agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
-                agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
+                if self.traj_diffusion:
+                    agent_token_emb[veh_mask] = self.token_emb_veh(agent_token_index[veh_mask])
+                    agent_token_emb[ped_mask] =  self.token_emb_ped(agent_token_index[ped_mask])
+                    agent_token_emb[cyc_mask] = self.token_emb_cyc(agent_token_index[cyc_mask])
+                else:
+                    agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
+                    agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
+                    agent_token_emb_cyc = self.token_emb_cyc(self.token_processor.trajectory_token_cyc)
+                    agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
+                    agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
+                    agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
             else:
                 agent_token_emb[token_mask] = self.embedding(agent_token_index[token_mask])
 

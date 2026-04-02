@@ -57,7 +57,7 @@ class IQ_SoftQ(LightningModule):
 
         self.pred_init=self.token_processor.pred_init
 
-        if self.gail or self.encoder.agent_encoder.init_decoder.use_gan:
+        if self.gail or (self.pred_init and self.encoder.agent_encoder.init_decoder.use_gan):
 
             self.automatic_optimization=False
 
@@ -132,6 +132,15 @@ class IQ_SoftQ(LightningModule):
                 loss = match_loss + collision_loss
 
             action_nll = action_nll + loss
+
+        if "pos_loss" in pred.keys():
+            pos_loss=pred["pos_loss"]
+            heading_loss=pred["heading_loss"]
+
+            self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+            self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+
+            action_nll=pos_loss+heading_loss
 
         return action_nll,log_prob
 
@@ -367,15 +376,5 @@ class IQ_SoftQ(LightningModule):
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
-
-        # if not self.automatic_optimization:
-        #
-        #     self.optimizer.zero_grad()
-        #
-        #     loss.backward()
-        #     nn.utils.clip_grad_norm_(self.encoder.agent_encoder.init_decoder.parameters(), 5)
-        #     self.optimizer.step()
-        #
-        #     self.model_ema.update(self.encoder.agent_encoder.init_decoder)
 
         return loss

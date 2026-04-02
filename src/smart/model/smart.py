@@ -101,6 +101,11 @@ class SMART(LightningModule):
                 for p in self.encoder.map_encoder1.parameters():
                     p.requires_grad = True
 
+            if self.token_processor.traj_diffusion:
+                for p in self.encoder.traj_diffuser.parameters():
+                    p.requires_grad = True
+
+
         self.n_rollout_closed_val = model_config.n_rollout_closed_val
         self.n_vis_batch = model_config.n_vis_batch
         self.n_vis_scenario = model_config.n_vis_scenario
@@ -114,7 +119,7 @@ class SMART(LightningModule):
                 self.para_num=32
             else:
                 self.para_num=1
-            self.n_rollout_closed_val=2
+            self.n_rollout_closed_val=4
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
             self.para_num=32
