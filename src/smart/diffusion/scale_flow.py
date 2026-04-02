@@ -122,7 +122,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.net.use_all_type
 
-        self.t_eps=0.05
+        self.t_eps=0.1
 
         self.P_std=1
 
