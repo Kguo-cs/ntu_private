@@ -286,7 +286,7 @@ class TrajFlow(nn.Module):
 
         heading_loss=wrap_angle(pred_global_heading-gt_head)[nan_mask].abs().mean()
 
-        print(pos_loss,heading_loss)
+       # print(pos_loss,heading_loss)
 
         loss={
             "next_token_logits":None,
