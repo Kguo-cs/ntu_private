@@ -148,6 +148,8 @@ class TrajFlow(nn.Module):
 
         token_mask=torch.cat([valid_mask[:,:1] , valid_mask[:,1:] & valid_mask[:,:-1]],dim=-1)
 
+        valid_mask=token_mask & token_mask
+
         noise_pred=self.agent_encoder.predict_agent(noisy_poses,
                                         token_mask,
                                         valid_mask,
