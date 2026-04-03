@@ -156,12 +156,7 @@ class AgentTokenEncoder(nn.Module):
             mask_a,
             agent_type,  # [n_agent]
             agent_shape,  # [n_agent, 3]
-            batch_idx,
-            goal_pos,
-            goal_mask,
-            ego_mask,
             token_mask=None,
-            inference=False,
     ):
         n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
         _device = pos_a.device

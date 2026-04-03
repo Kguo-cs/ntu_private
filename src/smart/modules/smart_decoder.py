@@ -261,5 +261,4 @@ class SMARTDecoder(nn.Module):
         )
 
 
-
         return pred_dict

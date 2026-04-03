@@ -112,10 +112,6 @@ class SMARTAgentDecoder(nn.Module):
             agent_type=tokenized_agent["type"],  # [n_agent]
             agent_shape=shape,  # [n_agent, 3]
             token_mask=token_mask,
-            batch_idx=tokenized_agent['batch'],
-            goal_pos=tokenized_agent["goal_pos"],
-            goal_mask=tokenized_agent["goal_mask"],
-            ego_mask=tokenized_agent["ego_mask"],
         )
 
         pos_a = pos_a[:, -n_step:]
@@ -251,6 +247,7 @@ class SMARTAgentDecoder(nn.Module):
             token_mask = torch.cat([token_mask, next_token_mask[:, None]], dim=1)
 
         out_dict = {
+            "num_graphs":tokenized_agent["num_graphs"],
             "type": tokenized_agent["type"],
             "shape": shape,
             "batch": tokenized_agent["batch"],
