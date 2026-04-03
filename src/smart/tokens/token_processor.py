@@ -63,7 +63,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal=False
         self.use_all_pos=False
 
-        self.traj_diffusion=True
+        self.traj_diffusion=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -80,10 +80,6 @@ class TokenProcessor(torch.nn.Module):
 
             if self.pred_init:
                 self.get_init(tokenized_agent)
-
-           # tokenized_agent["ego_traj"] = data["agent"]["position"][tokenized_agent["ego_mask"]][:, 1:11, :2]
-          #  tokenized_agent["initial_vel"] = data["agent"]["velocity"][:, 0]
-
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
@@ -141,19 +137,6 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["local_vel"] = ego_token_traj_all[:, -1].mean(-2) / 0.5
 
-        # tokenized_agent["initial_heading"] = agent["heading"][:, start_idx]  ## [n_agent, n_step]
-        # tokenized_agent["initial_pos"] = agent["position"][..., :2].contiguous()[:, start_idx]  # # [n_agent, n_step, 2]
-        # tokenized_agent["initial_vel"] = agent["velocity"][:, start_idx]  # [n_agent, n_step, 2]
-        # tokenized_agent["ego_traj"] = agent["position"][:, 1:11, :2][tokenized_agent["ego_mask"]]
-        # pos_recon, head_recon = infer_prev_pose(tokenized_agent["initial_pos"], tokenized_agent["initial_heading"], first_idx[:,None], token_traj_all)
-        #
-        # tokenized_agent["initial_pos"]=pos_recon[:,0]
-        # tokenized_agent["initial_heading"] =head_recon[:,0]
-        # tokenized_agent["initial_vel"]=(tokenized_agent["sampled_pos"][:,start_idx+1] - tokenized_agent["sampled_pos"][:,start_idx]) / 0.5
-
-        # for key in ["initial_heading", "initial_pos","initial_vel", "initial_shape", "batch","type"]:
-        #     tokenized_agent[key] = tokenized_agent[key][~invalid_mask]
-
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]
         indices = torch.linspace(
@@ -200,14 +183,6 @@ class TokenProcessor(torch.nn.Module):
         type = data["pt_token"]["type"]  # [n_pl]
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
 
-        # if self.training:
-        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
-        #
-        # traj_theta = torch.atan2(
-        #     traj_pos[:,1, 1] - traj_pos[:,0, 1],
-        #     traj_pos[:,1, 0] - traj_pos[:,0, 0]
-        # )
-
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
             head_global=None,  # [n_pl, 1]
@@ -222,11 +197,6 @@ class TokenProcessor(torch.nn.Module):
 
         gt_idx = torch.argmin(dist, dim=-1)
 
-        # if  self.training and self.noise:
-        #     topk_indices = torch.argsort(dist, dim=1)[:, :8]
-        #     sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
-        #     token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
-        # else:
         token_idx = gt_idx
 
         position=traj_pos[:, 0].contiguous()
@@ -245,40 +215,8 @@ class TokenProcessor(torch.nn.Module):
         if "batch" in data["pt_token"].keys():
             tokenized_map["batch"] = data["pt_token"]["batch"]
 
-
         if "light_type" in data["pt_token"].keys():
             tokenized_map["light_type"] = data["pt_token"]["light_type"]
-
-        #if self.training and self.pred_map_token:
-            # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
-        #if self.training:
-        if 'pl_idx_list' in data.keys():
-            pl_idx = data['map_save']['pl_idx_list']  # shape [T]
-
-            T = pl_idx.numel()
-            idx = torch.arange(T, device=pl_idx.device)
-
-            # --- per-lane local index (0,1,2,...) without loops ---
-            # lane boundary flag
-            lane_change = torch.ones_like(pl_idx, dtype=torch.bool)
-            lane_change[1:] = pl_idx[1:] != pl_idx[:-1]
-
-            # start index of current lane for each position (forward-filled)
-            starts = torch.where(lane_change, idx, torch.zeros((), dtype=idx.dtype, device=idx.device))
-            lane_start_idx = torch.cummax(starts, dim=0).values
-
-            # local index within its lane
-            local_idx = idx - lane_start_idx  # 0,1,2,... within each lane
-
-            # --- keep every 2nd point per lane (even local index) ---
-            keep_mask =(local_idx % 2 == 0)  # True => keep, False => drop
-
-            # keep_mask= torch.rand_like(traj_theta)<0.5
-            #
-            # keep_mask[-1]=False
-
-            for key in tokenized_map.keys():
-                tokenized_map[key] = tokenized_map[key][keep_mask]
 
         return tokenized_map
 
@@ -304,19 +242,10 @@ class TokenProcessor(torch.nn.Module):
 
         shape=data["agent"]["shape"].clone()
 
-        # if self.pred_init and not self.learn_init and self.training:
-        #     first_valid=valid[:,0]
-        #     pos[first_valid,:6]=pos[first_valid,:6]+torch.randn_like(pos[first_valid,:6]).clamp(min=-3,max=3)*0.05
-        #     heading[first_valid,:6]=heading[first_valid,:6]+torch.randn_like(heading[first_valid,:6]).clamp(min=-3,max=3)*0.05
-        #     first_nonvalid=~first_valid
-        #     pos[first_nonvalid,:11]=pos[first_nonvalid,:11]+torch.randn_like(pos[first_nonvalid,:11]).clamp(min=-3,max=3)*0.05
-        #     heading[first_nonvalid,:11]=heading[first_nonvalid,:11]+torch.randn_like(heading[first_nonvalid,:11]).clamp(min=-3,max=3)*0.05
-        #
-        #     shape=shape+torch.randn_like(shape)*0.05
-        #
-        #     pos=pos[:,5:]
-        #     heading=heading[:,5:]
-        #     valid=valid[:,5:]
+        if self.pred_init and not self.learn_init and self.training:
+            pos[:,5]=+torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*0.05
+            heading[:,5]=+torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*0.05
+            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.05
 
         role_mask = data["agent"]["role"]
 

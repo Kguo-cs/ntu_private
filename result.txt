@@ -825,22 +825,6 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 0.6418
 
 
-gt_init+/home/ke/code/sim/src/waymo_data/AIRL28_p5_sde07_eps01_nodismask_nog_epoch=1-step=91311.ckpt
-
-
-| Metric                                | Value      |
-| ------------------------------------- | ---------- |
-| Realism meta-metric                   | 0.6728417  |
-| Linear Speed Likelihood               | 0.37500113 |
-| Linear Acceleration Likelihood        | 0.50068974 |
-| Angular Speed Likelihood              | 0.6014246  |
-| Angular Acceleration Likelihood       | 0.67807895 |
-| Distance To Nearest Object Likelihood | 0.30706835 |
-| Collision Likelihood                  | 0.9033224  |
-| Time To Collision Likelihood          | 0.85964376 |
-| Distance To Road Edge Likelihood      | 0.35369882 |
-| Offroad Likelihood                    | 0.6269107  |
-
 
 
 ./waymo_data/dit256_l3_egotraj3_nosde_eps01_epoch=55-step=106568.ckpt
@@ -873,7 +857,7 @@ agents.
 | Offroad Likelihood                    | 0.6178145  |
 
 
-gt_init+my sim
+gt_init+/home/ke/code/sim/src/waymo_data/AIRL28_p5_sde07_eps01_nodismask_nog_epoch=1-step=91311.ckpt
 
 
 | Metric                                | Value      |
