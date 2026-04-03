@@ -115,6 +115,8 @@ class TrajFlow(nn.Module):
 
         self.t_eps=0.05
 
+        self.use_diff=False
+
         self.apply(weight_init)
 
     def pred_noise(self,global_noisy_pos,global_noisy_head,tokenized_agent,map_feature,t):
@@ -207,63 +209,70 @@ class TrajFlow(nn.Module):
             torch.cat([gt_head_10hz[:,:1],sampled_heading[:,:-1]],dim=1).reshape(-1),
         )
 
-        sampled_pos=sampled_pos.reshape(-1,2)
-        sampled_heading=sampled_heading.reshape(-1)
+        if self.use_diff:
 
-        local_sampled_pos,local_sampled_heading=transform_to_local(
-            global_sampled_pos,
-            global_global_head,
-            sampled_pos,
-            sampled_heading
-        )
+            sampled_pos=sampled_pos.reshape(-1,2)
+            sampled_heading=sampled_heading.reshape(-1)
 
-        sampled_init=torch.cat([local_sampled_pos,local_sampled_heading[:,:,None]],dim=-1).reshape(-1,18*5,3)
+            local_sampled_pos,local_sampled_heading=transform_to_local(
+                global_sampled_pos,
+                global_global_head,
+                sampled_pos,
+                sampled_heading
+            )
 
-        local_pos,local_heading=transform_to_local(
-            gt_traj_10hz[:,1:].reshape(-1,5,2),
-            gt_head_10hz[:,1:].reshape(-1,5),
-            sampled_pos,
-            sampled_heading,
-        )
+            sampled_init=torch.cat([local_sampled_pos,local_sampled_heading[:,:,None]],dim=-1).reshape(-1,18*5,3)
+
+            local_pos,local_heading=transform_to_local(
+                gt_traj_10hz[:,1:].reshape(-1,5,2),
+                gt_head_10hz[:,1:].reshape(-1,5),
+                sampled_pos,
+                sampled_heading,
+            )
 
 
-        m_init=torch.cat([local_pos-local_sampled_pos,wrap_angle(local_heading-local_sampled_heading)[:,:,None]],dim=-1).reshape(-1,18*5,3)
+            m_init=torch.cat([local_pos-local_sampled_pos,wrap_angle(local_heading-local_sampled_heading)[:,:,None]],dim=-1).reshape(-1,18*5,3)
 
-        m_init[(m_init.abs()>4).any(-1)]=torch.nan
+            m_init[(m_init.abs()>4).any(-1)]=torch.nan
 
-        if torch.all(self.normal_mean==0):
+            if torch.all(self.normal_mean==0):
 
-            valid = ~torch.isnan(m_init)
-            count = valid.sum(0, keepdim=True).clamp_min(1)
+                valid = ~torch.isnan(m_init)
+                count = valid.sum(0, keepdim=True).clamp_min(1)
 
-            mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
-            std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
-                1e-8)
-            self.normal_mean.copy_(mean)
-            self.normal_scale.copy_(std)
+                mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
+                std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
+                    1e-8)
+                self.normal_mean.copy_(mean)
+                self.normal_scale.copy_(std)
 
-        e=torch.randn_like(m_init)
+            e=torch.randn_like(m_init)
 
-        e=e* self.normal_scale+self.normal_mean
+            e=e* self.normal_scale+self.normal_mean
 
-        device = m_init.device
-        num_graphs = tokenized_agent["num_graphs"]
-        agent_batch=tokenized_agent["batch"]
+            device = m_init.device
+            num_graphs = tokenized_agent["num_graphs"]
+            agent_batch=tokenized_agent["batch"]
 
-        t_batch = torch.rand(num_graphs, device=device)[:, None, None]  # t ~ U[0,1]
+            t_batch = torch.rand(num_graphs, device=device)[:, None, None]  # t ~ U[0,1]
 
-        t = t_batch[agent_batch]
+            t = t_batch[agent_batch]
 
-        diff = (1 - t) * e + t * m_init  # large t, low noise        target velocity e-x = (z-x)/(1-t)
+            diff = (1 - t) * e + t * m_init  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-        noisy_local_traj=sampled_init+diff
+            noisy_local_traj=sampled_init+diff
 
-        global_noisy_pos,global_noisy_head=transform_to_global(
-            noisy_local_traj[:,:,:2].reshape(-1,5,2),
-            noisy_local_traj[:,:,2].reshape(-1,5),
-            sampled_pos,
-            sampled_heading
-        )
+            global_noisy_pos,global_noisy_head=transform_to_global(
+                noisy_local_traj[:,:,:2].reshape(-1,5,2),
+                noisy_local_traj[:,:,2].reshape(-1,5),
+                sampled_pos,
+                sampled_heading
+            )
+        else:
+            global_noisy_pos, global_noisy_head=global_sampled_pos,global_global_head
+
+            t = torch.zeros_like(global_noisy_pos.reshape(-1, 90, 2)[:, :1, :1])
+
 
         pred_global_pos, pred_global_heading,valid_mask=self.pred_noise(global_noisy_pos,global_noisy_head,tokenized_agent,map_feature,t)
 
@@ -289,42 +298,48 @@ class TrajFlow(nn.Module):
     def sample(self,tokenized_agent,map_feature,steps=20):
 
         agent_batch = tokenized_agent["batch"]
-        num_agents = len(agent_batch)
 
-        z = torch.randn(num_agents, 90, 3, device=agent_batch.device)
+        global_sampled_pos=tokenized_agent["pred_traj_10hz"][:,1:].reshape(-1,5,2)
+        global_global_head=tokenized_agent["pred_head_10hz"][:,1:].reshape(-1,5)
 
-        z=z* self.normal_scale+self.normal_mean
+        if self.use_diff:
+            num_agents = len(agent_batch)
+            sampled_pos=tokenized_agent["sampled_pos"].reshape(-1, 2)
+            sampled_heading=tokenized_agent["sampled_heading"].reshape(-1)
+
+            local_sampled_pos, local_sampled_heading = transform_to_local(
+                global_sampled_pos,
+                global_global_head,
+                sampled_pos,
+                sampled_heading
+            )
+
+            sampled_init = torch.cat([local_sampled_pos, local_sampled_heading[:, :, None]], dim=-1).reshape(-1, 18 * 5,
+                                                                                                             3)
+            z = torch.randn(num_agents, 90, 3, device=agent_batch.device)
+
+            z=z* self.normal_scale+self.normal_mean
+
+            new_local_traj = sampled_init + z
+
+            global_noisy_pos, global_noisy_head = transform_to_global(
+                new_local_traj[:, :, :2].reshape(-1, 5, 2),
+                new_local_traj[:, :, 2].reshape(-1, 5),
+                sampled_pos,
+                sampled_heading
+            )
+        else:
+            global_noisy_pos, global_noisy_head=global_sampled_pos,global_global_head
+
+            steps=1
 
         timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)
-
-        global_sampled_pos=tokenized_agent["pred_traj_10hz"]
-        global_global_head=tokenized_agent["pred_head_10hz"]
-        sampled_pos=tokenized_agent["sampled_pos"].reshape(-1, 2)
-        sampled_heading=tokenized_agent["sampled_heading"].reshape(-1)
-
-        local_sampled_pos, local_sampled_heading = transform_to_local(
-            global_sampled_pos[:,1:].reshape(-1,5,2),
-            global_global_head[:,1:].reshape(-1,5),
-            sampled_pos,
-            sampled_heading
-        )
-
-        sampled_init = torch.cat([local_sampled_pos, local_sampled_heading[:, :, None]], dim=-1).reshape(-1, 18 * 5, 3)
-
-        new_local_traj = sampled_init + z
-
-        global_noisy_pos, global_noisy_head = transform_to_global(
-            new_local_traj[:, :, :2].reshape(-1, 5, 2),
-            new_local_traj[:, :, 2].reshape(-1, 5),
-            sampled_pos,
-            sampled_heading
-        )
 
         for i in range(steps):  # - 1
             t = timesteps[i]
             t_next = timesteps[i + 1]
 
-            t_n = torch.zeros_like(sampled_init[:, :1, :1]) + t
+            t_n = torch.zeros_like(global_noisy_pos.reshape(-1, 90, 2)[:, :1, :1]) + t
 
             pred_global_pos, pred_global_heading,valid_mask = self.pred_noise(global_noisy_pos, global_noisy_head, tokenized_agent,
                                                                    map_feature, t_n)
