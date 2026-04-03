@@ -76,10 +76,6 @@ class ScaleFlow(nn.Module):
         self.diff_type = args.diff_type
         self.guid_sampling = args.guid_sampling
 
-        # self.pos_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
-        # self.head_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
-        #self.ego_embedding1 = MLPLayer(16+3, args.hidden_dim, args.hidden_dim)#+3
-
         self.mean_flow=False
 
         self.net = InitDenoiser(
