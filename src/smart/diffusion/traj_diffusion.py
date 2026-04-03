@@ -115,7 +115,7 @@ class TrajFlow(nn.Module):
 
         self.t_eps=0.05
 
-        self.use_diff=False
+        self.use_diff=True
 
         self.apply(weight_init)
 
@@ -297,7 +297,7 @@ class TrajFlow(nn.Module):
 
         return loss
 
-    def sample(self,tokenized_agent,map_feature,steps=20):
+    def sample(self,tokenized_agent,map_feature,steps=10):
 
         agent_batch = tokenized_agent["batch"]
 
