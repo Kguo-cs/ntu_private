@@ -63,7 +63,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal=False
         self.use_all_pos=False
 
-        self.traj_diffusion=False
+        self.traj_diffusion=True
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
