@@ -355,7 +355,7 @@ class TrajFlow(nn.Module):
             global_noisy_head = global_noisy_head + (t_next - t) * v_pred
 
         global_noisy_pos=global_noisy_pos.reshape(-1, 18 * 5, 2)
-        global_noisy_head=global_noisy_pos.reshape(-1, 18 * 5)
+        global_noisy_head=global_noisy_head.reshape(-1, 18 * 5)
 
         first_pos=global_noisy_pos[:,0]-(global_noisy_pos[:,1]-global_noisy_pos[:,0])
         first_head=global_noisy_head[:,0]-(global_noisy_head[:,1]-global_noisy_head[:,0])
