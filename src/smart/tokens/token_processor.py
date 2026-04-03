@@ -63,7 +63,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal=False
         self.use_all_pos=False
 
-        self.traj_diffusion=True
+        self.traj_diffusion=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -243,9 +243,9 @@ class TokenProcessor(torch.nn.Module):
         shape=data["agent"]["shape"].clone()
 
         if self.pred_init and not self.learn_init and self.training and not self.traj_diffusion:
-            pos[:,5]=+torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*0.02
-            heading[:,5]=+torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*0.02
-            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.02
+            pos[:,5]=+torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*0.1
+            heading[:,5]=+torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*0.1
+            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.1
 
         role_mask = data["agent"]["role"]
 
