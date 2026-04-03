@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "./waymo_data/dit256_l3_egotraj3_nosde_eps01_epoch=55-step=106568.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt"
 
 trainer:
   limit_train_batches: 1.0
