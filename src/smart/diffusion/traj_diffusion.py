@@ -117,6 +117,8 @@ class TrajFlow(nn.Module):
 
         self.use_diff=True
 
+        self.use_local=False
+
         self.apply(weight_init)
 
     def pred_noise(self,global_noisy_pos,global_noisy_head,tokenized_agent,map_feature,t):
@@ -207,27 +209,31 @@ class TrajFlow(nn.Module):
 
         if self.use_diff:
 
-            sampled_pos=sampled_pos.reshape(-1,2)
-            sampled_heading=sampled_heading.reshape(-1)
+            if self.use_local:
 
-            local_sampled_pos,local_sampled_heading=transform_to_local(
-                global_sampled_pos,
-                global_global_head,
-                sampled_pos,
-                sampled_heading
-            )
+                sampled_pos=sampled_pos.reshape(-1,2)
+                sampled_heading=sampled_heading.reshape(-1)
 
-            sampled_init=torch.cat([local_sampled_pos,local_sampled_heading[:,:,None]],dim=-1).reshape(-1,18*5,3)
-
-            local_pos,local_heading=transform_to_local(
-                gt_traj_10hz[:,1:].reshape(-1,5,2),
-                gt_head_10hz[:,1:].reshape(-1,5),
-                sampled_pos,
-                sampled_heading,
-            )
+                local_sampled_pos,local_sampled_heading=transform_to_local(
+                    global_sampled_pos,
+                    global_global_head,
+                    sampled_pos,
+                    sampled_heading
+                )
 
 
-            m_init=torch.cat([local_pos-local_sampled_pos,wrap_angle(local_heading-local_sampled_heading)[:,:,None]],dim=-1).reshape(-1,18*5,3)
+                local_pos,local_heading=transform_to_local(
+                    gt_traj_10hz[:,1:].reshape(-1,5,2),
+                    gt_head_10hz[:,1:].reshape(-1,5),
+                    sampled_pos,
+                    sampled_heading,
+                )
+
+                m_init=torch.cat([local_pos-local_sampled_pos,wrap_angle(local_heading-local_sampled_heading)[:,:,None]],dim=-1).reshape(-1,18*5,3)
+            else:
+                global_sampled_pos=global_sampled_pos.reshape(-1,18*5,2)
+                global_global_head=global_global_head.reshape(-1,18*5)
+                m_init=torch.cat([gt_traj_10hz[:,1:]-global_sampled_pos,wrap_angle(gt_head_10hz[:,1:]-global_global_head)[:,:,None]],dim=-1)
 
             m_init[(m_init.abs()>4).any(-1)]=torch.nan
 
@@ -254,16 +260,24 @@ class TrajFlow(nn.Module):
 
             t = t_batch[agent_batch]
 
+            #t=t/t
+
             diff = (1 - t) * e + t * m_init  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-            noisy_local_traj=sampled_init+diff
+            if self.use_local:
+                sampled_init=torch.cat([local_sampled_pos,local_sampled_heading[:,:,None]],dim=-1).reshape(-1,18*5,3)
 
-            global_noisy_pos,global_noisy_head=transform_to_global(
-                noisy_local_traj[:,:,:2].reshape(-1,5,2),
-                noisy_local_traj[:,:,2].reshape(-1,5),
-                sampled_pos,
-                sampled_heading
-            )
+                noisy_local_traj=sampled_init+diff
+
+                global_noisy_pos,global_noisy_head=transform_to_global(
+                    noisy_local_traj[:,:,:2].reshape(-1,5,2),
+                    noisy_local_traj[:,:,2].reshape(-1,5),
+                    sampled_pos,
+                    sampled_heading
+                )
+            else:
+                global_noisy_pos=(global_sampled_pos+diff[:,:,:2]).reshape(-1,5,2)
+                global_noisy_head=(global_global_head+diff[:,:,2]).reshape(-1,5)
         else:
             global_noisy_pos, global_noisy_head=global_sampled_pos,global_global_head
 
@@ -302,36 +316,42 @@ class TrajFlow(nn.Module):
         agent_batch = tokenized_agent["batch"]
 
         global_sampled_pos=tokenized_agent["pred_traj_10hz"][:,1:].reshape(-1,5,2)
-        global_global_head=tokenized_agent["pred_head_10hz"][:,1:].reshape(-1,5)
+        global_sampled_head=tokenized_agent["pred_head_10hz"][:,1:].reshape(-1,5)
 
         if self.use_diff:
             num_agents = len(agent_batch)
-            sampled_pos=tokenized_agent["sampled_pos"].reshape(-1, 2)
-            sampled_heading=tokenized_agent["sampled_heading"].reshape(-1)
 
-            local_sampled_pos, local_sampled_heading = transform_to_local(
-                global_sampled_pos,
-                global_global_head,
-                sampled_pos,
-                sampled_heading
-            )
-
-            sampled_init = torch.cat([local_sampled_pos, local_sampled_heading[:, :, None]], dim=-1).reshape(-1, 18 * 5,
-                                                                                                             3)
             z = torch.randn(num_agents, 90, 3, device=agent_batch.device)
 
             z=z* self.normal_scale+self.normal_mean
 
-            new_local_traj = sampled_init + z
+            if self.use_local:
+                sampled_pos=tokenized_agent["sampled_pos"].reshape(-1, 2)
+                sampled_heading=tokenized_agent["sampled_heading"].reshape(-1)
 
-            global_noisy_pos, global_noisy_head = transform_to_global(
-                new_local_traj[:, :, :2].reshape(-1, 5, 2),
-                new_local_traj[:, :, 2].reshape(-1, 5),
-                sampled_pos,
-                sampled_heading
-            )
+                local_sampled_pos, local_sampled_heading = transform_to_local(
+                    global_sampled_pos,
+                    global_sampled_head,
+                    sampled_pos,
+                    sampled_heading
+                )
+
+                sampled_init = torch.cat([local_sampled_pos, local_sampled_heading[:, :, None]], dim=-1).reshape(-1, 18 * 5,
+                                                                                                             3)
+
+                new_local_traj = sampled_init + z
+
+                global_noisy_pos, global_noisy_head = transform_to_global(
+                    new_local_traj[:, :, :2].reshape(-1, 5, 2),
+                    new_local_traj[:, :, 2].reshape(-1, 5),
+                    sampled_pos,
+                    sampled_heading
+                )
+            else:
+                global_noisy_pos=global_sampled_pos+z[:,:,:2].reshape(-1,5,2)
+                global_noisy_head=global_sampled_head+z[:,:,2].reshape(-1,5)
         else:
-            global_noisy_pos, global_noisy_head=global_sampled_pos,global_global_head
+            global_noisy_pos, global_noisy_head=global_sampled_pos,global_sampled_head
 
             steps=1
 
