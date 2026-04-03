@@ -115,7 +115,7 @@ class TrajFlow(nn.Module):
 
         self.t_eps=0.05
 
-        self.use_diff=True
+        self.use_diff=False
 
         self.use_local=False
 
