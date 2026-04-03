@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt'
 
-task_name: traj90_eps005 #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
+task_name: traj92_eps005 #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
 
 trainer:
   limit_train_batches: 1.0
@@ -50,7 +50,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 90 #6
+  train_batch_size: 92 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8

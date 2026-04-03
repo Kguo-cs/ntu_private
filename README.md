@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/dit256_l2_drop0_pose5_localvtraj_allidx_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz dit256_l3_egotraj3_nosde_eps01_epoch=55-step=106568.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
