@@ -119,7 +119,7 @@ class SMART(LightningModule):
                 self.para_num=32
             else:
                 self.para_num=1
-            self.n_rollout_closed_val=4
+            self.n_rollout_closed_val=2
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
             self.para_num=32
@@ -206,8 +206,8 @@ class SMART(LightningModule):
                     tokenized_agent, map_feature,self.validation_rollout_sampling
                 )
 
-                # if self.token_processor.traj_diffusion:
-                #     pred = self.encoder.traj_diffuser.sample(pred, map_feature)
+                if self.token_processor.traj_diffusion:
+                    self.encoder.traj_diffuser.sample(pred, map_feature)
 
                 pred_traj.append(pred["pred_traj_10hz"])
 

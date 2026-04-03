@@ -60,7 +60,7 @@ class AgentTokenEncoder(nn.Module):
         self.traj_diffusion=traj_diffusion
 
         if self.traj_diffusion:
-            input_dim_token=4*3
+            input_dim_token=4*3+1
 
 
         if self.discriminator:
