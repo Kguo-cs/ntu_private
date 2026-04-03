@@ -230,7 +230,6 @@ class TrajFlow(nn.Module):
 
         noisy_poses[torch.isnan(noisy_poses)] = -10
 
-
         noisy_sampled_pos=noisy_sampled_pos.reshape(-1,18,2)
         noisy_sampled_heading=noisy_sampled_heading.reshape(-1,18)
 
@@ -267,8 +266,6 @@ class TrajFlow(nn.Module):
         pos_loss=(pred_global_pos-gt_traj)[nan_mask].abs().mean()
 
         heading_loss=wrap_angle(pred_global_heading-gt_head)[nan_mask].abs().mean()
-
-       # print(pos_loss,heading_loss)
 
         loss={
             "next_token_logits":None,

@@ -122,7 +122,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.net.use_all_type
 
-        self.t_eps=0.05
+        self.t_eps=0.01
 
         self.P_std=1
 
@@ -161,21 +161,13 @@ class ScaleFlow(nn.Module):
         self.apply(weight_init)
 
     def get_loss(self,
-                 diff_input,
+                 x,
                  tokenized_agent: HeteroData,
                  scene_enc: Mapping[str, torch.Tensor],
                  eval_mask,
-                 use_match=True,
-                 num_samples=1) :
-        if self.flow_matching:
-            return self.flow_matching_loss(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples,use_match )
-        else:
-            return self.get_loss_vd(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples)
+                 num_samples=1,
+                 use_match=True) :
 
-    def flow_matching_loss(self,x, tokenized_agent, scene_enc,eval_mask,num_samples,use_match):
-        """
-        x1: target samples, shape [B, 2]
-        """
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]

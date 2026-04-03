@@ -205,6 +205,10 @@ class SMART(LightningModule):
                 pred = self.encoder.agent_encoder.inference(
                     tokenized_agent, map_feature,self.validation_rollout_sampling
                 )
+
+                if self.token_processor.traj_diffusion:
+                    pred = self.encoder.traj_diffuser.sample(pred, tokenized_agent, map_feature)
+
                 pred_traj.append(pred["pred_traj_10hz"])
 
                 if not self.token_processor.use_bird:
