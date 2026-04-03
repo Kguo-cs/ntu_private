@@ -105,16 +105,16 @@ class AgentTokenEncoder(nn.Module):
                 veh_mask =agent_type == 0
                 ped_mask = agent_type == 1
                 cyc_mask = agent_type == 2
+                if token_mask is not None:
+                    veh_mask = veh_mask[:, None] & token_mask
+                    ped_mask = ped_mask[:, None] & token_mask
+                    cyc_mask = cyc_mask[:, None] & token_mask
 
                 if self.traj_diffusion:
                     agent_token_emb[veh_mask] = self.token_emb_veh(agent_token_index[veh_mask])
                     agent_token_emb[ped_mask] =  self.token_emb_ped(agent_token_index[ped_mask])
                     agent_token_emb[cyc_mask] = self.token_emb_cyc(agent_token_index[cyc_mask])
                 else:
-                    if token_mask is not None:
-                        veh_mask=veh_mask[:,None] & token_mask
-                        ped_mask=ped_mask[:,None] & token_mask
-                        cyc_mask=cyc_mask[:,None] & token_mask
 
                     agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
                     agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
