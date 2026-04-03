@@ -352,5 +352,11 @@ class TrajFlow(nn.Module):
 
             global_noisy_head = global_noisy_head + (t_next - t) * v_pred
 
-        tokenized_agent["pred_traj_10hz"][:,1:]=global_noisy_pos.reshape(-1, 18 * 5, 2)
-        tokenized_agent["pred_head_10hz"][:,1:]=global_noisy_head.reshape(-1, 18 * 5)
+        global_noisy_pos=global_noisy_pos.reshape(-1, 18 * 5, 2)
+        global_noisy_head=global_noisy_pos.reshape(-1, 18 * 5, 2)
+
+        first_pos=global_noisy_pos[:,0]-(global_noisy_pos[:,1]-global_noisy_pos[:,0])
+        first_head=global_noisy_head[:,0]-(global_noisy_head[:,1]-global_noisy_head[:,0])
+
+        tokenized_agent["pred_traj_10hz"]=torch.cat([first_pos[:,None],global_noisy_pos],dim=1)
+        tokenized_agent["pred_head_10hz"]=torch.cat([first_head[:,None],global_noisy_head],dim=1)
