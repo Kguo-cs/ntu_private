@@ -330,7 +330,7 @@ def collect_data(cfg, output_path, files_path, files, chunk):
         
         for i in range(len(scenario_list)):
             output_file = f'{files[c]}_{i}.pkl'
-        
+
             data = {}
             road_info = get_road_info(scenario_list, i)
             if road_info is None:

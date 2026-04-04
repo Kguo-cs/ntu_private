@@ -8,9 +8,9 @@ import math
 import hydra
 import random
 from tqdm import tqdm
-from datasets.waymo.dataset_autoencoder_waymo import WaymoDatasetAutoEncoder
-from datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
-from cfgs.config import CONFIG_PATH, NUM_WAYMO_TRAIN_SCENARIOS
+from sd.datasets.waymo.dataset_autoencoder_waymo import WaymoDatasetAutoEncoder
+from sd.datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
+from sd.cfgs.config import CONFIG_PATH, NUM_WAYMO_TRAIN_SCENARIOS
 import multiprocessing as mp
 from omegaconf import OmegaConf
 

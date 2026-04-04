@@ -24,6 +24,7 @@ class Metrics():
             gt_sample_ids = [os.path.splitext(file)[0] for file in gt_sample_filenames]
         
         num_samples = len(sample_paths)
+        gt_sample_filenames=gt_sample_filenames[:num_samples]
         num_gt_samples = len(gt_sample_filenames)
         assert num_samples == num_gt_samples, "Number of samples and ground truth samples do not match."
 

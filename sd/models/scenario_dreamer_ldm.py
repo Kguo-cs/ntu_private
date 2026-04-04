@@ -33,7 +33,7 @@ class ScenarioDreamerLDM(pl.LightningModule):
         self.cfg_model = cfg.model
         self.cfg_dataset = self.cfg.dataset
         self.diff_model = LDM(self.cfg)
-        self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path, cfg=cfg_ae, map_location='cpu')
+        self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path, cfg=cfg_ae, map_location='cpu',    weights_only=False)   # 🔥 key fix)
         
         self.init_prob_matrix = torch.load(self.cfg.eval.init_prob_matrix_path)
         self.ema = ExponentialMovingAverage(self.diff_model.parameters(), decay=self.cfg.train.ema_decay)

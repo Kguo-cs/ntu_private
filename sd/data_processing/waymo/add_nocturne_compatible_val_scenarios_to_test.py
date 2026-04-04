@@ -3,7 +3,7 @@ import pickle
 import shutil
 import hydra
 from tqdm import tqdm
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 
 # Move half of the nocturne-compatible validation scenarios to the test set to ensure we have 
 # a held-out set of nocturne-compatible scenarios for evaluation.

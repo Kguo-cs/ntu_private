@@ -15,6 +15,8 @@ from utils.train_helpers import set_latent_stats
 import utils.sim_env_helpers as _sim_env_helpers
 
 
+
+
 def generate_simulation_environments(cfg, cfg_ae, save_dir=None):
     """ Generate simulation environments using the Scenario Dreamer Latent Diffusion Model.
     
@@ -42,7 +44,7 @@ def generate_simulation_environments(cfg, cfg_ae, save_dir=None):
 def eval_ldm(cfg, cfg_ae, save_dir=None):
     """ Evaluate the Scenario Dreamer Latent Diffusion Model."""
     if cfg.eval.mode == 'metrics':
-        metric_evaluator = Metrics(cfg, cfg_ae)
+        metric_evaluator = Metrics(cfg)
         metric_evaluator.compute_metrics()
         return
     
@@ -60,7 +62,7 @@ def eval_ldm(cfg, cfg_ae, save_dir=None):
     assert ckpt_path is not None, "No checkpoint found in the save directory."
     
     # generate samples
-    model = ScenarioDreamerLDM.load_from_checkpoint(ckpt_path, cfg=cfg, cfg_ae=cfg_ae).to('cuda')
+    model = ScenarioDreamerLDM(cfg=cfg, cfg_ae=cfg_ae)# .load_from_checkpoint(ckpt_path, cfg=cfg, cfg_ae=cfg_ae,weights_only=False).to('cuda')#(cfg=cfg, cfg_ae=cfg_ae)#
     model.generate(
         mode = cfg.eval.mode, # Scenario Dreamer supports multiple generation modes: initial_scene, lane_conditioned, and inpainting
         num_samples = cfg.eval.num_samples,

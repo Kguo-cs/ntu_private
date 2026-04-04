@@ -28,3 +28,6 @@ nuplan_data/
 TrafficManager/outputs/
 TrafficManager/results/
 **/labels_occluded.json
+sd/checkpoints
+sd/slurm_logs
+

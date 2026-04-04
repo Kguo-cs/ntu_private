@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" ~/Downloads/scenario_dreamer_ae_preprocess_waymo.tar guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/checkpoints/
 
 rsync -avz dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
@@ -28,7 +28,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/dit256_l3_egotraj3_nosde_eps001/2026-04-03_09-50-53/bc/9g8azbcz/checkpoints/epoch=63-step=121792.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit256_l3_egotraj3_nosde/2026-04-02_04-53-58/bc/up6i5z2x/checkpoints/epoch=63-step=121792.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:/home/ke/code/sim/sd/checkpoints/ ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
@@ -57,10 +57,13 @@ qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 export CUDA_HOME=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda-12.2
 export PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/bin:$PATH
 export LD_LIBRARY_PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/lib64:$LD_LIBRARY_PATH
+export PROJECT_ROOT="$HOME/sim/sd"
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/sim/src
 conda activate sim
 git pull
 python run.py
+
+echo 'export PROJECT_ROOT="$HOME/code/sim/sd"' >> ~/.bashrc
 
 
 conda create -y -n catk python=3.11.9
