@@ -251,10 +251,10 @@ class TokenProcessor(torch.nn.Module):
 
             pos[:,5]=pos[:,5]+pd
             heading[:,5]=heading[:,5]+hd
-            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*std
+            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.1
 
-            pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*std
-            heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*std
+            pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*std/2
+            heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*std/2
 
             error_dist=10
         else:
