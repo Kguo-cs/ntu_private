@@ -243,15 +243,15 @@ class TokenProcessor(torch.nn.Module):
         shape=data["agent"]["shape"].clone()
 
         if self.pred_init and not self.learn_init and self.training and not self.traj_diffusion:
-            pd=torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*0.05
-            hd=torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*0.05
+            pd=torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*0.02
+            hd=torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*0.02
 
             pos[:,5]=pos[:,5]+pd
             heading[:,5]=heading[:,5]+hd
-            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.05
+            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.02
 
-            pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*0.05
-            heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*0.05
+            pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*0.02
+            heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*0.02
 
             error_dist=0.3
         else:
