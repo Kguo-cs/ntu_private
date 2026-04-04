@@ -244,7 +244,7 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_init and not self.learn_init and self.training and not self.traj_diffusion:
 
-            std=0.05
+            std=0.02
 
             pd=torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*std
             hd=torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*std

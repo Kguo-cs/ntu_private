@@ -73,8 +73,6 @@ pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.4.0+
 sudo apt-get install sumo sumo-tools sumo-doc
 pip install -r TrafficManager/requirements.txt
 
-nohup python run.py >  bc32_bothnoise_14679_random.log 2>&1 &
-
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
 pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
