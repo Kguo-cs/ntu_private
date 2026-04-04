@@ -250,6 +250,10 @@ class TokenProcessor(torch.nn.Module):
             # pos[:,0]=+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*0.1
             # heading[:,0]=+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*0.1
 
+            error_dist=0.2*3
+        else:
+            error_dist=1
+
         role_mask = data["agent"]["role"]
 
         pred_mask = role_mask[:, 0] | role_mask[:, 2]
@@ -297,7 +301,8 @@ class TokenProcessor(torch.nn.Module):
             ego_mask=ego_mask,
             shape=data["agent"]["shape"],
             type=data["agent"]["type"].long(),
-            data=data
+            data=data,
+            error_dist=error_dist
         )
         if "route_map_index" in data["agent"].keys():
             tokenized_agent['route_map_index']=data["agent"]["route_map_index"]
