@@ -131,7 +131,7 @@ git pull
 
 nohup python run.py >  1.log 2>&1 &
 
-nohup python -m  >  1.log 2>&1 &
+nohup python -m sd.train >  1.log 2>&1 &
 
 #to do : continous action, joint distribution by copula , continuous map point,  semi-gradient, IV-learn, interval 0.1 ,, 2048 unknown token
 

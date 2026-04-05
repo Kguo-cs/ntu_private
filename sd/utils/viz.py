@@ -6,7 +6,6 @@ import os
 from sd.utils.geometry import *
 import math
 from sd.cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN
-from moviepy.editor import ImageSequenceClip
 import wandb
 
 def plot_scene(
@@ -516,6 +515,8 @@ def render_state(
 
 
 def generate_video(name, output_dir, delete_images=False):
+    from moviepy.editor import ImageSequenceClip
+
     """ Generates a video from a sequence of images saved in a directory."""
     image_folder = f'{output_dir}/{name}'
     
