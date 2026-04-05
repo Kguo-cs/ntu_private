@@ -896,3 +896,9 @@ my
 | Distance To Road Edge Likelihood      | 0.27507257 |
 | Offroad Likelihood                    | 0.5845219  |
 
+
+
+gt
+
+Lane metrics:  ['route_length_mean: 38.85', 'route_length_std: 13.91', 'endpoint_dist_mean: 0.21', 'endpoint_dist_std: 0.81', 'frechet_connectivity: 0.12', 'frechet_density: 0.21', 'frechet_reach: 0.37', 'frechet_convenience: 2.19']
+Agent metrics:  ['nearest_dist_jsd: 0.05', 'lat_dev_jsd: 0.03', 'ang_dev_jsd: 0.09', 'length_jsd: 0.43', 'width_jsd: 0.30', 'speed_jsd: 0.39', 'collision_rate: 4.08']
