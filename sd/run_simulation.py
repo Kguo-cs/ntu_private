@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import random 
 from tqdm import tqdm
-from utils.viz import generate_video
+from sd.utils.viz import generate_video
 
 class PolicyEvaluator:
     """ Evaluate a given policy in a simulation environment over multiple scenarios."""

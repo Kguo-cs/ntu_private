@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 
 import numpy as np
-from utils.dit_layers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP
-from utils.pyg_helpers import get_indices_within_scene
+from sd.utils.dit_layers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP
+from sd.utils.pyg_helpers import get_indices_within_scene
 
 
 class DiT(nn.Module):

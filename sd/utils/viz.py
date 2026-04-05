@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.transforms as transforms
 import os
-from utils.geometry import *
+from sd.utils.geometry import *
 import math
 from cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN
 from moviepy.editor import ImageSequenceClip

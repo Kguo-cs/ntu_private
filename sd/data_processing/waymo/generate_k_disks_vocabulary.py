@@ -8,8 +8,8 @@ from tqdm import tqdm
 
 from cfgs.config import CONFIG_PATH
 from datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
-from utils.k_disks_helpers import compute_k_disks_vocabulary
-from utils.viz import plot_k_disks_vocabulary
+from sd.utils.k_disks_helpers import compute_k_disks_vocabulary
+from sd.utils.viz import plot_k_disks_vocabulary
 
 SEED = 42
 NUM_SCENARIOS = 10000

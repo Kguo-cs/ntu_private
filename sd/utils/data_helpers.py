@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 np.set_printoptions(suppress=True)
-from utils.data_container import get_batches, get_features
+from sd.utils.data_container import get_batches, get_features
 from typing import Tuple, Any, Dict, List
 from cfgs.config import PARTITIONED
 import os

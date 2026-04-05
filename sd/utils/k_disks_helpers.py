@@ -1,5 +1,5 @@
 import numpy as np
-from utils.geometry import normalize_angle
+from sd.utils.geometry import normalize_angle
 from tqdm import tqdm
 
 def compute_k_disks_vocabulary(state_transitions, vocab_size, l, w, eps):

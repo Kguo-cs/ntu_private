@@ -1,6 +1,6 @@
 import os 
 import pickle 
-from utils.train_helpers import create_lambda_lr_cosine, create_lambda_lr_linear
+from sd.utils.train_helpers import create_lambda_lr_cosine, create_lambda_lr_linear
 from datasets.waymo.dataset_autoencoder_waymo import WaymoDatasetAutoEncoder
 from datasets.nuplan.dataset_autoencoder_nuplan import NuplanDatasetAutoEncoder
 from nn_modules.autoencoder import AutoEncoder
@@ -14,9 +14,9 @@ from pytorch_lightning.utilities import grad_norm
 from torch_geometric.data import Batch 
 torch.set_printoptions(sci_mode=False)
 
-from utils.pyg_helpers import get_edge_index_bipartite, get_edge_index_complete_graph
-from utils.data_helpers import unnormalize_scene
-from utils.viz import visualize_batch
+from sd.utils.pyg_helpers import get_edge_index_bipartite, get_edge_index_complete_graph
+from sd.utils.data_helpers import unnormalize_scene
+from sd.utils.viz import visualize_batch
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):

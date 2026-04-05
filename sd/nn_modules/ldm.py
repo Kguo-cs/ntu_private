@@ -1,11 +1,11 @@
 import numpy as np
 import torch
 from torch import nn
-from utils.diffusion_helpers import (
+from sd.utils.diffusion_helpers import (
     cosine_beta_schedule,
     extract
 )
-from utils.losses import GeometricLosses
+from sd.utils.losses import GeometricLosses
 from nn_modules.dit import DiT
 from cfgs.config import BEFORE_PARTITION
 

@@ -15,7 +15,7 @@ from pytorch_lightning.loggers import WandbLogger
 from cfgs.config import CONFIG_PATH
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
-from utils.train_helpers import cache_latent_stats, set_latent_stats
+from sd.utils.train_helpers import cache_latent_stats, set_latent_stats
 
 
 def train_ctrl_sim(cfg, save_dir=None):

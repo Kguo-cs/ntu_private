@@ -7,7 +7,7 @@ from tqdm import tqdm
 import pickle
 from datasets.waymo.dataset_ldm_waymo import WaymoDatasetLDM
 from datasets.nuplan.dataset_ldm_nuplan import NuplanDatasetLDM
-from utils.data_helpers import sample_latents
+from sd.utils.data_helpers import sample_latents
 from torch.nn import Transformer
 
 def create_lambda_lr_cosine(cfg):

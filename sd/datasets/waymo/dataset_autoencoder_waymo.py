@@ -15,10 +15,10 @@ import numpy as np
 np.set_printoptions(suppress=True, threshold=sys.maxsize)
 from cfgs.config import CONFIG_PATH, PARTITIONED
 
-from utils.data_container import ScenarioDreamerData
-from utils.lane_graph_helpers import resample_polyline, get_compact_lane_graph
-from utils.pyg_helpers import get_edge_index_bipartite, get_edge_index_complete_graph
-from utils.data_helpers import (
+from sd.utils.data_container import ScenarioDreamerData
+from sd.utils.lane_graph_helpers import resample_polyline, get_compact_lane_graph
+from sd.utils.pyg_helpers import get_edge_index_bipartite, get_edge_index_complete_graph
+from sd.utils.data_helpers import (
     get_object_type_onehot_waymo, 
     get_lane_connection_type_onehot_waymo, 
     modify_agent_states, 
@@ -26,8 +26,8 @@ from utils.data_helpers import (
     randomize_indices,
     extract_raw_waymo_data
 )
-from utils.torch_helpers import from_numpy
-from utils.geometry import apply_se2_transform, rotate_and_normalize_angles
+from sd.utils.torch_helpers import from_numpy
+from sd.utils.geometry import apply_se2_transform, rotate_and_normalize_angles
 
 class WaymoDatasetAutoEncoder(Dataset):
     """A Torch-Geometric ``Dataset`` wrapping Waymo scenes for auto-encoding.

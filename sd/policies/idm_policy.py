@@ -8,8 +8,8 @@ import random
 from shapely import affinity
 from shapely.geometry import box, LineString
 from shapely.geometry.base import CAP_STYLE
-from utils.collision_helpers import compute_collision_states_one_scene
-from utils.data_helpers import modify_agent_states
+from sd.utils.collision_helpers import compute_collision_states_one_scene
+from sd.utils.data_helpers import modify_agent_states
 from scipy.spatial import distance
 
 PI = torch.pi

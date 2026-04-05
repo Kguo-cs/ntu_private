@@ -21,7 +21,7 @@ from typing import List, Tuple, Union
 import heapq
 
 from itertools import product
-from utils.geometry import normalize_agents, normalize_lanes
+from sd.utils.geometry import normalize_agents, normalize_lanes
 
 # Constants from gpudrive/src/init.hpp
 MAX_OBJECTS = 515
@@ -474,7 +474,7 @@ def get_map_obs(
     lanes_selected = lanes_filtered[valid_indices]
     
     # Transform to ego-centric coordinates
-    # Synced with gpudrive/src/utils.hpp ReferenceFrame::relativePosition
+    # Synced with gpudrive/src/sd.utils.hpp ReferenceFrame::relativePosition
     # The transformation: translate to ego position, then rotate by negative ego heading
     # This puts the ego at origin (0,0) facing forward (positive y-axis in ego frame)
     # Normalize lanes to ego-centric coordinate frame
@@ -578,7 +578,7 @@ def get_route_obs(
     route_segment = route_points[closest_idx:closest_idx + num_extracted]
     
     # Transform to ego-centric coordinates
-    # Synced with gpudrive/src/utils.hpp ReferenceFrame::relativePosition
+    # Synced with gpudrive/src/sd.utils.hpp ReferenceFrame::relativePosition
     # The transformation: translate to ego position, then rotate by negative ego heading
     # This puts the ego at origin (0,0) facing forward (positive y-axis in ego frame)
     

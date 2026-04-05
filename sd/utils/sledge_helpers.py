@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from utils.geometry import normalize_angle
+from sd.utils.geometry import normalize_angle
 
 def calculate_progress(path):
     """

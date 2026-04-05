@@ -3,12 +3,12 @@ import numpy as np
 import copy
 import networkx as nx
 import random
-from utils.lane_graph_helpers import resample_polyline
-from utils.geometry import normalize_lanes_and_agents
-from utils.pyg_helpers import get_edge_index_complete_graph, get_edge_index_bipartite
-from utils.torch_helpers import from_numpy
-from utils.data_helpers import normalize_scene
-from utils.metrics_helpers import get_lane_length
+from sd.utils.lane_graph_helpers import resample_polyline
+from sd.utils.geometry import normalize_lanes_and_agents
+from sd.utils.pyg_helpers import get_edge_index_complete_graph, get_edge_index_bipartite
+from sd.utils.torch_helpers import from_numpy
+from sd.utils.data_helpers import normalize_scene
+from sd.utils.metrics_helpers import get_lane_length
 from cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN, PARTITIONED
 
 

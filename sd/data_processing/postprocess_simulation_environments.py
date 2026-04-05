@@ -4,7 +4,7 @@ from tqdm import tqdm
 import numpy as np
 import hydra
 
-from utils.sim_env_helpers import postprocess_sim_env
+from sd.utils.sim_env_helpers import postprocess_sim_env
 from cfgs.config import CONFIG_PATH
 
 

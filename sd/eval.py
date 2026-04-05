@@ -18,8 +18,8 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelSummary
 from pytorch_lightning.strategies import DDPStrategy
 from cfgs.config import CONFIG_PATH
-from utils.train_helpers import set_latent_stats
-import utils.sim_env_helpers as _sim_env_helpers
+from sd.utils.train_helpers import set_latent_stats
+import sd.utils.sim_env_helpers as _sim_env_helpers
 
 
 

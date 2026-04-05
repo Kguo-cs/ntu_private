@@ -5,11 +5,11 @@ import numpy as np
 from typing import Tuple, Union
 
 import torch.nn.functional as F
-from utils.layers import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock
-from utils.train_helpers import weight_init
-from utils.losses import GeometricLosses
-from utils.data_container import get_batches, get_features, get_edge_indices, get_encoder_edge_indices
-from utils.data_helpers import reparameterize
+from sd.utils.layers import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock
+from sd.utils.train_helpers import weight_init
+from sd.utils.losses import GeometricLosses
+from sd.utils.data_container import get_batches, get_features, get_edge_indices, get_encoder_edge_indices
+from sd.utils.data_helpers import reparameterize
 from cfgs.config import NON_PARTITIONED
 
 class ScenarioDreamerEncoder(nn.Module):

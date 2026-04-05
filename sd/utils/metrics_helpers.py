@@ -1,12 +1,12 @@
 import numpy as np
 import torch
 import networkx as nx
-from utils.pyg_helpers import get_edge_index_complete_graph
+from sd.utils.pyg_helpers import get_edge_index_complete_graph
 from cfgs.config import NUPLAN_VEHICLE, UNIFIED_FORMAT_INDICES, NON_PARTITIONED
 import torchaudio.functional as F
 from scipy.spatial import distance
-from utils.lane_graph_helpers import find_lane_groups, find_lane_group_id, resample_polyline, resample_lanes
-from utils.sledge_helpers import calculate_progress, interpolate_path, coords_in_frame, find_consecutive_true_indices
+from sd.utils.lane_graph_helpers import find_lane_groups, find_lane_group_id, resample_polyline, resample_lanes
+from sd.utils.sledge_helpers import calculate_progress, interpolate_path, coords_in_frame, find_consecutive_true_indices
 from tqdm import tqdm
 
 def compute_frechet_distance(X1, X2, apply_sqrt=True):

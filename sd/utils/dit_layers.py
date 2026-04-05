@@ -4,7 +4,7 @@ from itertools import repeat
 import collections.abc
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.utils import softmax
-from utils.train_helpers import weight_init
+from sd.utils.train_helpers import weight_init
 import math
 import numpy as np
 

@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from utils.train_helpers import weight_init, get_causal_mask
-from utils.layers import ResidualMLP
+from sd.utils.train_helpers import weight_init, get_causal_mask
+from sd.utils.layers import ResidualMLP
 
 
 class CtRLSimMapEncoder(nn.Module):

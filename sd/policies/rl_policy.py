@@ -1,4 +1,4 @@
-from utils.gpudrive_helpers import load_policy
+from sd.utils.gpudrive_helpers import load_policy
 
 class RLPolicy:
     def __init__(self, cfg):
