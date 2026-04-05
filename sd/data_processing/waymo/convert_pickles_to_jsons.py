@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 import hydra
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 
 ROAD_EDGE_OFFSET = 4.83  # meters laterally offset from the route
 

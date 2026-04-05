@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities import grad_norm
 torch.set_printoptions(sci_mode=False)
 
-from nn_modules.ctrl_sim import CtRLSimEncoder, CtRLSimDecoder
+from sd.nn_modules.ctrl_sim import CtRLSimEncoder, CtRLSimDecoder
 from sd.utils.train_helpers import create_lambda_lr_linear
 
 class CtRLSim(pl.LightningModule):

@@ -1,5 +1,5 @@
 import pytorch_lightning as pl 
-from datasets.nuplan.dataset_ldm_nuplan import NuplanDatasetLDM
+from sd.datasets.nuplan.dataset_ldm_nuplan import NuplanDatasetLDM
 from torch_geometric.loader import DataLoader
 import os
 

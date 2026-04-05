@@ -2,7 +2,7 @@ from pathlib import Path
 import pickle
 import hydra
 import os
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 import yaml
 import shutil
 from tqdm import tqdm

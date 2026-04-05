@@ -1,6 +1,6 @@
 import pytorch_lightning as pl 
 
-from datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
+from sd.datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
 from torch_geometric.loader import DataLoader
 import os
 

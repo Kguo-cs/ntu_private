@@ -1,7 +1,7 @@
 import random 
 import pickle
 import hydra 
-from cfgs.config import CONFIG_PATH 
+from sd.cfgs.config import CONFIG_PATH 
 import glob
 import os
 

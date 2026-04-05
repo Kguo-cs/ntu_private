@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import numpy as np
 import networkx as nx
 
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 from sd.utils.lane_graph_helpers import resample_polyline, get_compact_lane_graph
 from sd.utils.sim_helpers import get_ego_route
 from sd.utils.data_helpers import add_batch_dim, extract_raw_waymo_data

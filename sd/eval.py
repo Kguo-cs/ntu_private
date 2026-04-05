@@ -17,7 +17,7 @@ torch.set_float32_matmul_precision('medium')
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelSummary
 from pytorch_lightning.strategies import DDPStrategy
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 from sd.utils.train_helpers import set_latent_stats
 import sd.utils.sim_env_helpers as _sim_env_helpers
 

@@ -1,8 +1,8 @@
 import hydra
 import random
 from tqdm import tqdm
-from datasets.nuplan.dataset_autoencoder_nuplan import NuplanDatasetAutoEncoder
-from cfgs.config import CONFIG_PATH
+from sd.datasets.nuplan.dataset_autoencoder_nuplan import NuplanDatasetAutoEncoder
+from sd.cfgs.config import CONFIG_PATH
 import multiprocessing as mp
 from pathlib import Path
 from omegaconf import OmegaConf

@@ -2,7 +2,7 @@ import hydra
 from simulator import Simulator
 from policies.idm_policy import IDMPolicy
 from policies.rl_policy import RLPolicy
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 
 import numpy as np
 import torch

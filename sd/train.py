@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
 from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.loggers import WandbLogger
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from sd.utils.train_helpers import cache_latent_stats, set_latent_stats

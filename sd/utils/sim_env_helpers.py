@@ -6,7 +6,7 @@ import networkx as nx
 import random
 import torch
 
-from cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN
+from sd.cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN
 from sd.utils.metrics_helpers import (
     get_networkx_lane_graph, 
     get_networkx_lane_graph_without_traffic_lights, 

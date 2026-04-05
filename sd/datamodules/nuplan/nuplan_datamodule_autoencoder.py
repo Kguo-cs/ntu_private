@@ -1,6 +1,6 @@
 import pytorch_lightning as pl 
 
-from datasets.nuplan.dataset_autoencoder_nuplan import NuplanDatasetAutoEncoder
+from sd.datasets.nuplan.dataset_autoencoder_nuplan import NuplanDatasetAutoEncoder
 from torch_geometric.loader import DataLoader
 import os
 

@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
+from sd.datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
 from sd.utils.gpudrive_helpers import (
     get_action_value_tensor,
     get_ego_state,

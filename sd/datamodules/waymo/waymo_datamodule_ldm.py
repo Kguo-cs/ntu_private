@@ -1,5 +1,5 @@
 import pytorch_lightning as pl 
-from datasets.waymo.dataset_ldm_waymo import WaymoDatasetLDM
+from sd.datasets.waymo.dataset_ldm_waymo import WaymoDatasetLDM
 from torch_geometric.loader import DataLoader
 import os
 

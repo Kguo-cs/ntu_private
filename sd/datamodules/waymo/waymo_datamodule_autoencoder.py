@@ -1,6 +1,6 @@
 import pytorch_lightning as pl 
 
-from datasets.waymo.dataset_autoencoder_waymo import WaymoDatasetAutoEncoder
+from sd.datasets.waymo.dataset_autoencoder_waymo import WaymoDatasetAutoEncoder
 from torch_geometric.loader import DataLoader
 import os
 

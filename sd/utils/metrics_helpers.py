@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import networkx as nx
 from sd.utils.pyg_helpers import get_edge_index_complete_graph
-from cfgs.config import NUPLAN_VEHICLE, UNIFIED_FORMAT_INDICES, NON_PARTITIONED
+from sd.cfgs.config import NUPLAN_VEHICLE, UNIFIED_FORMAT_INDICES, NON_PARTITIONED
 import torchaudio.functional as F
 from scipy.spatial import distance
 from sd.utils.lane_graph_helpers import find_lane_groups, find_lane_group_id, resample_polyline, resample_lanes

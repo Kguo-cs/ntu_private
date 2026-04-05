@@ -3,7 +3,7 @@ import torch
 np.set_printoptions(suppress=True)
 from sd.utils.data_container import get_batches, get_features
 from typing import Tuple, Any, Dict, List
-from cfgs.config import PARTITIONED
+from sd.cfgs.config import PARTITIONED
 import os
 import pickle
 

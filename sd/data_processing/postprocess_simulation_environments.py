@@ -5,7 +5,7 @@ import numpy as np
 import hydra
 
 from sd.utils.sim_env_helpers import postprocess_sim_env
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 
 
 @hydra.main(version_base=None, config_path=CONFIG_PATH, config_name="config")

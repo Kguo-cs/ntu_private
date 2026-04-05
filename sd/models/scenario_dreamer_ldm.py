@@ -3,12 +3,12 @@ import pickle
 import glob
 from tqdm import tqdm
 from sd.utils.train_helpers import create_lambda_lr_cosine, create_lambda_lr_linear, create_lambda_lr_constant
-from nn_modules.ldm import LDM
+from sd.nn_modules.ldm import LDM
 from models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
 from sd.utils.data_container import ScenarioDreamerData
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
-from cfgs.config import PROPORTION_NOCTURNE_COMPATIBLE, NON_PARTITIONED, NOCTURNE_COMPATIBLE
+from sd.cfgs.config import PROPORTION_NOCTURNE_COMPATIBLE, NON_PARTITIONED, NOCTURNE_COMPATIBLE
 from sd.utils.pyg_helpers import get_edge_index_complete_graph, get_edge_index_bipartite
 from sd.utils.data_helpers import unnormalize_scene, normalize_latents, unnormalize_latents, convert_batch_to_scenarios, reorder_indices
 from sd.utils.inpainting_helpers import normalize_and_crop_scene, sample_num_lanes_agents_inpainting

@@ -5,8 +5,8 @@ import os
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 import pickle
-from datasets.waymo.dataset_ldm_waymo import WaymoDatasetLDM
-from datasets.nuplan.dataset_ldm_nuplan import NuplanDatasetLDM
+from sd.datasets.waymo.dataset_ldm_waymo import WaymoDatasetLDM
+from sd.datasets.nuplan.dataset_ldm_nuplan import NuplanDatasetLDM
 from sd.utils.data_helpers import sample_latents
 from torch.nn import Transformer
 

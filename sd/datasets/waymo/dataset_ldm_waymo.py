@@ -7,7 +7,7 @@ import pickle
 import random
 import sys
 from tqdm import tqdm
-from cfgs.config import CONFIG_PATH
+from sd.cfgs.config import CONFIG_PATH
 from typing import Any
 
 from torch_geometric.data import Dataset

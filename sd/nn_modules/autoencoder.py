@@ -10,7 +10,7 @@ from sd.utils.train_helpers import weight_init
 from sd.utils.losses import GeometricLosses
 from sd.utils.data_container import get_batches, get_features, get_edge_indices, get_encoder_edge_indices
 from sd.utils.data_helpers import reparameterize
-from cfgs.config import NON_PARTITIONED
+from sd.cfgs.config import NON_PARTITIONED
 
 class ScenarioDreamerEncoder(nn.Module):
     """Encoder of the Scenario Dreamer AutoEncoder."""

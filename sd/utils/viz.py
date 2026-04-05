@@ -5,7 +5,7 @@ import matplotlib.transforms as transforms
 import os
 from sd.utils.geometry import *
 import math
-from cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN
+from sd.cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN
 from moviepy.editor import ImageSequenceClip
 import wandb
 

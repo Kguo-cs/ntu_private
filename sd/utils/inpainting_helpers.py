@@ -9,7 +9,7 @@ from sd.utils.pyg_helpers import get_edge_index_complete_graph, get_edge_index_b
 from sd.utils.torch_helpers import from_numpy
 from sd.utils.data_helpers import normalize_scene
 from sd.utils.metrics_helpers import get_lane_length
-from cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN, PARTITIONED
+from sd.cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN, PARTITIONED
 
 
 def normalize_and_crop_scene(cond_d, new_d, normalize_dict, cfg, dataset_name, num_upsample_points=1000, min_lane_length=0.1):

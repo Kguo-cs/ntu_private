@@ -8,8 +8,8 @@ import math
 import hydra
 import random
 from tqdm import tqdm
-from datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
-from cfgs.config import CONFIG_PATH
+from sd.datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
+from sd.cfgs.config import CONFIG_PATH
 import multiprocessing as mp
 from omegaconf import OmegaConf
 

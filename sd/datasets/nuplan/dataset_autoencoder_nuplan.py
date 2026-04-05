@@ -15,7 +15,7 @@ from torch_geometric.data import Dataset
 torch.set_printoptions(threshold=100000)
 import numpy as np
 np.set_printoptions(suppress=True, threshold=sys.maxsize)
-from cfgs.config import CONFIG_PATH, NUPLAN_VEHICLE, NUPLAN_PEDESTRIAN, NUPLAN_STATIC_OBJECT, PARTITIONED
+from sd.cfgs.config import CONFIG_PATH, NUPLAN_VEHICLE, NUPLAN_PEDESTRIAN, NUPLAN_STATIC_OBJECT, PARTITIONED
 
 from sd.utils.data_container import ScenarioDreamerData
 from sd.utils.lane_graph_helpers import resample_polyline, adjacency_matrix_to_adjacency_list

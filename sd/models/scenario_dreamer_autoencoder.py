@@ -1,9 +1,9 @@
 import os 
 import pickle 
 from sd.utils.train_helpers import create_lambda_lr_cosine, create_lambda_lr_linear
-from datasets.waymo.dataset_autoencoder_waymo import WaymoDatasetAutoEncoder
-from datasets.nuplan.dataset_autoencoder_nuplan import NuplanDatasetAutoEncoder
-from nn_modules.autoencoder import AutoEncoder
+from sd.datasets.waymo.dataset_autoencoder_waymo import WaymoDatasetAutoEncoder
+from sd.datasets.nuplan.dataset_autoencoder_nuplan import NuplanDatasetAutoEncoder
+from sd.nn_modules.autoencoder import AutoEncoder
 from torch_geometric.loader import DataLoader
 
 import torch 

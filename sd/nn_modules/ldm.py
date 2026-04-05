@@ -6,8 +6,8 @@ from sd.utils.diffusion_helpers import (
     extract
 )
 from sd.utils.losses import GeometricLosses
-from nn_modules.dit import DiT
-from cfgs.config import BEFORE_PARTITION
+from sd.nn_modules.dit import DiT
+from sd.cfgs.config import BEFORE_PARTITION
 
 class LDM(nn.Module):
     def __init__(self, cfg):

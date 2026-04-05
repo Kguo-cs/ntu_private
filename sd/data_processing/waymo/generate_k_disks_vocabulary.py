@@ -6,8 +6,8 @@ import torch
 import pickle
 from tqdm import tqdm
 
-from cfgs.config import CONFIG_PATH
-from datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
+from sd.cfgs.config import CONFIG_PATH
+from sd.datasets.waymo.dataset_ctrl_sim import CtRLSimDataset
 from sd.utils.k_disks_helpers import compute_k_disks_vocabulary
 from sd.utils.viz import plot_k_disks_vocabulary
 
