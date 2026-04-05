@@ -4,10 +4,10 @@ defaults:
 run_name: scenario_dreamer_ldm_base_waymo # default run name for evaluation
 
 mode: initial_scene # or lane_conditioned or inpainting or metrics or simulation_environments
-num_samples: 1 # number of samples to generate during evaluation
+num_samples: 100 # number of samples to generate during evaluation
 init_prob_matrix_path: ${project_root}/metadata/initial_prob_matrix_waymo.pt # path to initial scene num lanes and agents probability matrix
 inpainting_prob_matrix_path: ${project_root}/metadata/inpainting_prob_matrix_waymo.pt # path to inpainting num lanes and agents probability matrix
-batch_size: 1 # batch size for evaluation
+batch_size: 32 # batch size for evaluation
 visualize: False # visualize samples during evaluation?
 viz_dir: ${project_root}/viz_gen_samples_${ldm.eval.run_name} # directory to save visualizations of generated samples
 cache_samples: True # cache samples to disk?

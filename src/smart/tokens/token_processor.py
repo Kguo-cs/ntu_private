@@ -260,18 +260,18 @@ class TokenProcessor(torch.nn.Module):
         else:
             error_dist=0.3
 
-        role_mask = data["agent"]["role"]
+        # role_mask = data["agent"]["role"]
 
-        pred_mask = role_mask[:, 0] | role_mask[:, 2]
+        # pred_mask = role_mask[:, 0] | role_mask[:, 2]
 
-        ego_mask=data["agent"]["role"][:, 0]
+        # ego_mask=data["agent"]["role"][:, 0]
 
         # ! prepare output dict
         tokenized_agent = {
             "num_graphs": data.num_graphs,
             "type": data["agent"]["type"].long(),
             "shape": shape,
-            "ego_mask": ego_mask,  # [n_agent]
+            #"ego_mask": ego_mask,  # [n_agent]
             "token_agent_shape":  agent_shape,  # [n_agent, 2]
             "batch": data["agent"]["batch"],
             "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
@@ -283,7 +283,7 @@ class TokenProcessor(torch.nn.Module):
             "gt_traj_10hz": pos,
             "gt_head_10hz": heading,
             "gt_valid_10hz": valid,
-            "pred_mask":pred_mask,
+            #"pred_mask":pred_mask,
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
@@ -304,7 +304,7 @@ class TokenProcessor(torch.nn.Module):
             token_traj=token_traj,
             batch=batch,#[:,None],
             num_graphs=data.num_graphs,
-            ego_mask=ego_mask,
+           # ego_mask=ego_mask,
             shape=data["agent"]["shape"],
             type=data["agent"]["type"].long(),
             data=data,

@@ -83,8 +83,8 @@ def get_agent_features(
     out_dict = {
         "num_nodes": num_agents,
         "valid_mask": torch.zeros([num_agents, num_steps], dtype=torch.bool),
-        #"role": torch.zeros([num_agents, 3], dtype=torch.bool),
-        #"id": torch.zeros(num_agents, dtype=torch.int64) - 1,
+        "role": torch.zeros([num_agents, 3], dtype=torch.bool),
+        "id": torch.zeros(num_agents, dtype=torch.int64) - 1,
         "type": torch.zeros(num_agents, dtype=torch.uint8),
         "position": torch.zeros([num_agents, num_steps, 3], dtype=torch.float32),
         "heading": torch.zeros([num_agents, num_steps], dtype=torch.float32),
@@ -94,8 +94,8 @@ def get_agent_features(
 
     for i, idx in enumerate(idx_agents_to_add):
 
-        #out_dict["role"][i] = torch.from_numpy(track_infos["role"][idx])
-        #out_dict["id"][i] = track_infos["object_id"][idx]
+        out_dict["role"][i] = torch.from_numpy(track_infos["role"][idx])
+        out_dict["id"][i] = track_infos["object_id"][idx]
         out_dict["type"][i] = track_infos["object_type"][idx]
 
         valid = track_infos["valid"][idx]  # [n_step]
@@ -499,7 +499,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[6:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[6:]
     # func = partial(
     #     wm2argo,
     #     split=split,

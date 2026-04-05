@@ -825,8 +825,6 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 0.6418
 
 
-
-
 ./waymo_data/dit256_l3_egotraj3_nosde_eps01_epoch=55-step=106568.ckpt
 
 0.6410
@@ -835,9 +833,9 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 
 0.6415
 
-
 /home/ke/code/sim/src/waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt
 
+0.6417
 
 
 

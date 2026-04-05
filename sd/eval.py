@@ -4,6 +4,13 @@ from omegaconf import OmegaConf
 from models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
 from models.scenario_dreamer_ldm import ScenarioDreamerLDM
 from metrics import Metrics
+import os
+import sys
+
+os.environ["PROJECT_ROOT"] = os.getcwd()
+
+sys.path.append(os.getcwd())
+
 
 import torch
 torch.set_float32_matmul_precision('medium')
@@ -62,7 +69,7 @@ def eval_ldm(cfg, cfg_ae, save_dir=None):
     assert ckpt_path is not None, "No checkpoint found in the save directory."
     
     # generate samples
-    model = ScenarioDreamerLDM(cfg=cfg, cfg_ae=cfg_ae)# .load_from_checkpoint(ckpt_path, cfg=cfg, cfg_ae=cfg_ae,weights_only=False).to('cuda')#(cfg=cfg, cfg_ae=cfg_ae)#
+    model = ScenarioDreamerLDM.load_from_checkpoint(ckpt_path, cfg=cfg, cfg_ae=cfg_ae,weights_only=False).to('cuda')#(cfg=cfg, cfg_ae=cfg_ae)#
     model.generate(
         mode = cfg.eval.mode, # Scenario Dreamer supports multiple generation modes: initial_scene, lane_conditioned, and inpainting
         num_samples = cfg.eval.num_samples,

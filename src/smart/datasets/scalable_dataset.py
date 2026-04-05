@@ -210,11 +210,6 @@ class MultiDataset(Dataset):
         else:
             data =torch.load(self.raw_paths[idx],weights_only=True)
 
-        # if 'keguo' in working_dir:
-        #     self.cache_data[idx] = data
-
-        # print(self.raw_paths[idx])
-
         if self._tfrecord_dir is not None and not self.bird:
             data["tfrecord_path"] = (
                 self._tfrecord_dir / (data["scenario_id"] + ".tfrecords")
