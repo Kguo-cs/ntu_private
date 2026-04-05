@@ -50,7 +50,7 @@ def matching_loss(
         heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean()
 
         if fake_state.shape[1]==44:
-            vel_loss = F.l1_loss(fake_state[:, 4:], fake_state[:, 4:], reduction="none").mean()
+            vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
             shape_loss =torch.zeros_like(vel_loss)
 
         else:

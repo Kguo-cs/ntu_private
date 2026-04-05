@@ -68,14 +68,7 @@ class Direct_diffusion(pl.LightningModule):
         agent_batch, lane_batch, lane_conn_batch = get_batches(data)
         x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
 
-
-        #x_agent : agent state + type  x,y, speed,cosθ,sinθ ,length, width,type
-        #x_lane:  2* 20*2
-
-        x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]]
-
-        # agent_pos=x_agent_states[:2]
-        # heading=torch.atan2(x_agent_states[3], x_agent_states[2])
+        x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
         lane_pos=x_lane_states.mean(1)
         lane_heading = torch.atan2(
@@ -93,13 +86,11 @@ class Direct_diffusion(pl.LightningModule):
         x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],x_lane],dim=-1)
 
         if torch.all(self.agent_mean==0):
-
             self.agent_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
             self.agent_scale.copy_(torch.std(x_agent, dim=0, keepdim=True))
 
             self.lane_mean.copy_(torch.mean(x_lane, dim=0, keepdim=True))
             self.lane_scale.copy_(torch.std(x_lane, dim=0, keepdim=True))
-
 
         agent_noise = torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
@@ -128,6 +119,7 @@ class Direct_diffusion(pl.LightningModule):
             use_col=False,
             use_all_type=True
         )
+
         denom = (1 - lane_t).clamp_min(self.t_eps)
 
         match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
@@ -189,7 +181,7 @@ class Direct_diffusion(pl.LightningModule):
             z_lane[:, 4:].reshape(-1,20,2),
             None,
             z_lane[:, :2],
-            pred_head,
+            pred_head
         )[0]
 
         # #x_agent : agent state + type   x,y, cosθ,sinθ ,length, width,speed,type-> x,y, speed,cosθ,sinθ ,length, width,type

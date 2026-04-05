@@ -51,18 +51,14 @@ class MapDecoder(nn.Module):
     def __init__(
             self,
             hidden_dim: int,
-            pl2pl_radius: float,
             num_freq_bands: int,
             num_layers: int,
             num_heads: int,
             head_dim: int,
             dropout: float,
-            pt2pt_neighbor: int,
     ) -> None:
         super(MapDecoder, self).__init__()
-        self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
-        self.pt2pt_neighbor = pt2pt_neighbor
 
         self.lane_emb = MLPLayer(44,hidden_dim, hidden_dim)
 
@@ -103,8 +99,8 @@ class MapDecoder(nn.Module):
             head_vector,  # [n_agent, n_step, 2]
             batch,  # [n_agent*n_step]
             batch,  # [n_pl*n_step]
-            self.pl2pl_radius,
-            self.pt2pt_neighbor,
+            100,
+            100,
         )
 
         for i in range(self.num_layers):
@@ -263,19 +259,17 @@ class Agent_Diffuser(nn.Module):
 
         self.map_encoder=MapDecoder(
             hidden_dim,
-            pl2pl_radius=100,
             num_freq_bands=num_freq_bands,
             num_layers=1,
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=0,
-            pt2pt_neighbor=100,
             )
 
         self.agent_encoder=AgentDecoder(
             hidden_dim,
             num_freq_bands=num_freq_bands,
-            num_layers=1,
+            num_layers=3,
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=0,
