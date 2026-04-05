@@ -193,7 +193,7 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
 
         self.val_dataset, conditioning_filenames = self._initialize_pyg_dset(
             mode="initial_scene",
-            num_samples=1024,
+            num_samples=50000,
             batch_size=1024,
             conditioning_path=None,
             nocturne_compatible_only=False
