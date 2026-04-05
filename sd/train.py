@@ -1,8 +1,8 @@
 import os 
 import hydra
-from models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
-from models.scenario_dreamer_ldm import ScenarioDreamerLDM
-from models.ctrl_sim import CtRLSim
+from sd.models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
+from sd.models.scenario_dreamer_ldm import ScenarioDreamerLDM
+from sd.models.ctrl_sim import CtRLSim
 
 import torch
 import shutil

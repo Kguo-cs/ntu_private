@@ -4,7 +4,7 @@ import glob
 from tqdm import tqdm
 from sd.utils.train_helpers import create_lambda_lr_cosine, create_lambda_lr_linear, create_lambda_lr_constant
 from sd.nn_modules.ldm import LDM
-from models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
+from sd.models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
 from sd.utils.data_container import ScenarioDreamerData
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch

@@ -32,7 +32,7 @@ from sd.utils.torch_helpers import from_numpy
 from sd.utils.data_container import CtRLSimData
 from sd.utils.data_helpers import add_batch_dim, modify_agent_states
 from sd.utils.viz import render_state
-from models.ctrl_sim import CtRLSim
+from sd.models.ctrl_sim import CtRLSim
 
 MAX_RTG_VAL = 349
 
