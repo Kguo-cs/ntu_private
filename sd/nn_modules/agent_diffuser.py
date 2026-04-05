@@ -33,7 +33,7 @@ import torch.nn as nn
 
 from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
-from .edge_encoder import EdgeEncoder
+from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -46,7 +46,7 @@ from src.smart.utils import (
 from src.smart.layers import MLPLayer
 
 
-class SMARTMapDecoder(nn.Module):
+class MapDecoder(nn.Module):
 
     def __init__(
             self,
@@ -59,12 +59,12 @@ class SMARTMapDecoder(nn.Module):
             dropout: float,
             pt2pt_neighbor: int,
     ) -> None:
-        super(SMARTMapDecoder, self).__init__()
+        super(MapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
         self.pt2pt_neighbor = pt2pt_neighbor
 
-        self.token_emb = MLPLayer(44,hidden_dim, hidden_dim)
+        self.lane_emb = MLPLayer(44,hidden_dim, hidden_dim)
 
 
         self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands, use_pl2a=True)
@@ -83,13 +83,15 @@ class SMARTMapDecoder(nn.Module):
             ]
         )
 
+        self.output_layer=MLPLayer(hidden_dim,hidden_dim, 44)
+
         self.apply(weight_init)
 
     def forward(self, z_lane,t_batch,batch):
         pos_pt=z_lane[:,:2]
         orient_pt=torch.atan2(z_lane[:,3],z_lane[:,2])
 
-        x_pt=self.token_emb(z_lane)+t_batch[batch]
+        x_pt=self.lane_emb(z_lane)+t_batch[batch]
 
         head_vector = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
 
@@ -108,6 +110,8 @@ class SMARTMapDecoder(nn.Module):
         for i in range(self.num_layers):
             x_pt= self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
 
+        lane_pred=self.output_layer(x_pt)
+
         output={
             "pt_token": x_pt,
             "position": pos_pt,
@@ -115,7 +119,134 @@ class SMARTMapDecoder(nn.Module):
             "batch": batch,
         }
 
-        return output
+        return output,lane_pred
+
+class AgentDecoder(nn.Module):
+
+    def __init__(
+            self,
+            hidden_dim: int,
+            num_freq_bands: int,
+            num_layers: int,
+            num_heads: int,
+            head_dim: int,
+            dropout: float,
+    ) -> None:
+        super(AgentDecoder, self).__init__()
+        self.edge_encoder = EdgeEncoder(hidden_dim,
+                                        num_freq_bands,
+                                        use_a2a=True,
+                                        use_pl2a=True
+                                        )
+
+        self.pt2a_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=True,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+
+        self.a2a_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=False,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+
+        self.agent_emb = MLPLayer(10,hidden_dim, hidden_dim)
+
+        self.output_layer=MLPLayer(hidden_dim,hidden_dim, 10)
+
+        self.num_layers=num_layers
+
+        self.apply(weight_init)
+
+    def forward(self, map_feature,z_agent,t_batch,batch):
+
+        theta = torch.atan2(z_agent[:, 3], z_agent[:, 2])
+
+        pos_s = z_agent[:, :2]
+
+        feat_a = self.agent_emb(z_agent)
+
+        feat_a = feat_a + t_batch[batch]
+
+
+        batch_pl = map_feature["batch"]
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
+        feat_map = map_feature["pt_token"]
+
+        head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
+
+        edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
+            pos_s=pos_s,  # [n_agent, n_step, 2]
+            head_s=theta,  # [n_agent, n_step]
+            head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
+            batch_s=batch,  # [n_agent*n_step]
+            mask=None,  # [n_agent, n_step]
+            max_radius=60,
+            max_num_neighbors=20,
+            agent_train_mask=None,
+            layer_num=self.num_layers,
+            counter_feat_a=None,
+            dis_edge_mask=None
+        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+        mask = None
+
+        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+            pos_pl=pos_pl,  # [n_pl, 2]
+            orient_pl=orient_pl,  # [n_pl]
+            pos_a=pos_s,  # [n_agent, n_step, 2]
+            head_a=theta,  # [n_agent, n_step]
+            head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
+            mask=mask,  # [n_agent, n_step]
+            batch_s=batch,  # [n_agent,n_step]
+            batch_pl=batch_pl,  # [n_pl*n_step]
+            pl2a_radius=100,
+            max_num_neighbors=100,
+            agent_train_mask=None,
+            layer_num=self.num_layers
+        )
+
+        for layer_i in range(self.num_layers):
+            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+            feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a,
+                                                    edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+
+        res = self.output_layer(feat_a)
+
+        res_theta = torch.atan2(res[:, 3], res[:, 2])
+
+        local_pos, local_theta = transform_to_global(
+            res[:, :2],
+            res_theta,
+            pos_s,
+            theta,
+        )
+
+        a_pred = torch.cat(
+            [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
+
+        return a_pred
+
+
 
 class Agent_Diffuser(nn.Module):
     """Scenario Dreamer AutoEncoder."""
@@ -130,63 +261,38 @@ class Agent_Diffuser(nn.Module):
 
         head_dim=16
 
-        self.map_encoder=SMARTMapDecoder(
+        self.map_encoder=MapDecoder(
             hidden_dim,
-            pl2pl_radius=20,
+            pl2pl_radius=100,
             num_freq_bands=num_freq_bands,
             num_layers=1,
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=0,
-            pt2pt_neighbor=20,
+            pt2pt_neighbor=100,
             )
 
+        self.agent_encoder=AgentDecoder(
+            hidden_dim,
+            num_freq_bands=num_freq_bands,
+            num_layers=1,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=0,
+            )
 
-        self.cfg = cfg
-
-        self.edge_encoder = EdgeEncoder(hidden_dim,
-                                        num_freq_bands,
-                                        use_a2a=True,
-                                        use_pl2a=True
-                                        )
-        self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
-
-        self.pt2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=0,
-                    bipartite=True,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
-
-        self.a2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=0,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
+        self.t_embed=MLPLayer(1,hidden_dim,hidden_dim)
 
         self.apply(weight_init)
 
 
     def forward(self, z_agent,z_lane,t_batch,agent_batch,lane_batch):
 
-        lane_pred=self.map_encoder(z_lane,t_batch,lane_batch)
+        t_batch=self.t_embed(t_batch)
 
-        agent_pred=self.agent_encoder(lane_pred,z_agent,t_batch,agent_batch)
+        map_feature,lane_pred=self.map_encoder(z_lane,t_batch,lane_batch)
+
+        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch,agent_batch)
 
 
         return lane_pred,agent_pred

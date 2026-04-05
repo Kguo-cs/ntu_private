@@ -28,8 +28,8 @@ def matching_loss(
     w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
 ):
 
-    fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:8]
-    real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:8]
+    fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
+    real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:]
 
 
 
@@ -40,18 +40,23 @@ def matching_loss(
     # pos_loss = dist.mean()
 
     if fake_state.shape[1]!=16:
-        pos_loss=F.l1_loss(fake_pos, real_pos, reduction="none").mean(-1)
+        pos_loss=F.l1_loss(fake_pos, real_pos, reduction="none").mean()
         #pos_loss=torch.tensor(0.0).to(real_state.device)
-
-        heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean(-1)
-        shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean(-1)
-
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
         #real_vel=torch.cat([real_pos,real_vel],dim=-1)
 
         #cluster_valid_mask=~torch.isnan(real_vel)
 
-        vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean(-1)
+        heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean()
+
+        if fake_state.shape[1]==44:
+            vel_loss = F.l1_loss(fake_state[:, 4:], fake_state[:, 4:], reduction="none").mean()
+            shape_loss =torch.zeros_like(vel_loss)
+
+        else:
+            shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean()
+
+            vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean()
 
     else:
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]
@@ -245,7 +250,7 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 
-def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False,use_all_type=False):
+def get_closest_sum_idx(fake_state,real_state,tokenized_agent,all_state=False,use_all_type=False):
 
     fake_pos = fake_state[:, :2]
     real_pos = real_state[:, :2]
@@ -253,6 +258,7 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
 
     if use_all_type:
         rows, cols = [], []
+        batch = tokenized_agent
 
         for b in batch.unique():
             f_idx = ((batch == b) ).nonzero(as_tuple=True)[0]
@@ -269,6 +275,9 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
             rows.append(f_idx[row])
             cols.append(f_idx[col])
     else:
+        initial_type, batch = tokenized_agent['nonego_type'][-len(fake_state):], tokenized_agent["nonego_batch"][
+            -len(fake_state):]
+
         rows, cols = [], []
 
         for b in batch.unique():
@@ -299,9 +308,8 @@ def get_matching_loss(
     tokenized_agent, fake_state,real_state,
     denom ,all_state=False,use_col=False,use_all_type=False
     ):
-    initial_type, batch=tokenized_agent['nonego_type'][-len(fake_state):],tokenized_agent["nonego_batch"][-len(fake_state):]
 
-    fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
+    fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, tokenized_agent,all_state=all_state,use_all_type=use_all_type)
 
     fake_state=fake_state[fake_idx]
     real_state=real_state[real_idx]

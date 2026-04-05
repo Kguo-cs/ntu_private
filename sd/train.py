@@ -17,6 +17,7 @@ from sd.cfgs.config import CONFIG_PATH
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from sd.utils.train_helpers import cache_latent_stats, set_latent_stats
+from pytorch_lightning.callbacks import TQDMProgressBar
 
 os.environ["PROJECT_ROOT"] = os.getcwd()
 
@@ -155,7 +156,7 @@ def train_autoencoder(cfg, save_dir=None):
         save_dir=save_dir
     )
     if cfg.train.track:
-        logger = wandb_logger 
+        logger = wandb_logger
     else:
         logger = None
     
@@ -176,7 +177,7 @@ def train_autoencoder(cfg, save_dir=None):
                         accelerator='gpu',
                          devices=-1,
                          strategy='auto',
-                         callbacks=[model_summary, model_checkpoint, lr_monitor],
+                         callbacks=[model_summary, model_checkpoint, lr_monitor,TQDMProgressBar(refresh_rate=20)],
                          max_steps=cfg.train.max_steps,
                          check_val_every_n_epoch=cfg.train.check_val_every_n_epoch,
                          precision=cfg.train.precision,
@@ -185,9 +186,9 @@ def train_autoencoder(cfg, save_dir=None):
                          gradient_clip_val=cfg.train.gradient_clip_val,
                          logger=logger,
                         num_nodes=1,
-                        num_sanity_val_steps=0,
+                       # num_sanity_val_steps=0,
                         max_epochs=32,
-                        log_every_n_steps=50
+                        log_every_n_steps=100
                         )
 
     trainer.fit(model, datamodule, ckpt_path=ckpt_path)

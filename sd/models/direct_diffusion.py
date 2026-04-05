@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities import grad_norm
 from torch_geometric.data import Batch
 
-from smart.utils import transform_to_local
+from smart.utils import transform_to_local,transform_to_global
 
 torch.set_printoptions(sci_mode=False)
 
@@ -23,6 +23,13 @@ from sd.utils.viz import visualize_batch
 from sd.nn_modules.agent_diffuser import Agent_Diffuser
 
 from sd.utils.data_container import get_batches, get_features, get_edge_indices, get_encoder_edge_indices
+from src.smart.loss.earth_match import get_matching_loss
+from sd.utils.data_helpers import unnormalize_scene, normalize_latents, unnormalize_latents, convert_batch_to_scenarios, reorder_indices
+from sd.utils.metrics_helpers import convert_data_to_unified_format, compute_lane_metrics, compute_agent_metrics
+from tqdm import tqdm
+import gzip
+
+
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -59,36 +66,12 @@ class Direct_diffusion(pl.LightningModule):
         self.register_buffer("lane_scale", torch.ones(1, lane_dim))
         self.t_eps=0.01
 
+        self.eval_set =os.environ["PROJECT_ROOT"]+"/metadata/waymo_eval_set.pkl"
 
-    def _log_losses(self, loss_dict, split='train', batch_size=None):
-        """ Log the losses to WandB."""
-        if split == 'train':
-            on_step = True
-            on_epoch = False
-            key_lambda = lambda s: s  # no change
-        elif split == 'val':
-            on_step = False
-            on_epoch = True
-            key_lambda = lambda s: f'val_{s}'  # add val_ prefix
-        elif split == 'test':
-            on_step = False
-            on_epoch = True
-            key_lambda = lambda s: f'test_{s}'  # add test_ prefix
-
-        for k, v in loss_dict.items():
-            if k == 'loss':
-                v = v.item()
-
-            self.log(key_lambda(k), v, prog_bar=True, on_step=on_step, on_epoch=on_epoch, sync_dist=True,
-                     batch_size=batch_size)
-
-        if split == 'train':
-            cur_lr = self.trainer.optimizers[0].param_groups[0]['lr']
-            self.log('lr', cur_lr, prog_bar=True, on_step=True, on_epoch=False, sync_dist=True)
+        self.scenarios={}
 
     def training_step(self, data, batch_idx):
         """ Training step for the model. Computes the loss and logs it to WandB."""
-        num_graphs=data["num_graphs"]
 
         agent_batch, lane_batch, lane_conn_batch = get_batches(data)
         x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
@@ -96,6 +79,8 @@ class Direct_diffusion(pl.LightningModule):
 
         #x_agent : agent state + type  x,y, speed,cosθ,sinθ ,length, width,type
         #x_lane:  2* 20*2
+
+        x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]]
 
         # agent_pos=x_agent_states[:2]
         # heading=torch.atan2(x_agent_states[3], x_agent_states[2])
@@ -128,7 +113,7 @@ class Direct_diffusion(pl.LightningModule):
 
         lane_noise = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
 
-        t_batch = torch.rand(num_graphs, device=agent_noise.device)[:,  None]  # t ~ U[0,1]
+        t_batch = torch.rand((data.num_graphs,1), device=agent_noise.device)  # t ~ U[0,1]
 
         agent_t=t_batch[agent_batch]
 
@@ -136,87 +121,198 @@ class Direct_diffusion(pl.LightningModule):
 
         z_agent = (1 - agent_t) * agent_noise + agent_t * x_agent  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-        z_lane = (1 - lane_t) * lane_noise + agent_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
+        z_lane = (1 - lane_t) * lane_noise + lane_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-        clean_agent,clean_lane=self.model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
+        lane_pred, agent_pred=self.model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
+
+        denom = (1 - agent_t).clamp_min(self.t_eps)
+
+        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
+            agent_batch,
+            agent_pred,
+            x_agent,
+            denom,
+            all_state=False,
+            use_col=False,
+            use_all_type=True
+        )
+        denom = (1 - lane_t).clamp_min(self.t_eps)
+
+        match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+            lane_batch,
+            lane_pred,
+            x_lane,
+            denom,
+            all_state=False,
+            use_col=False,
+            use_all_type=True
+        )
+        self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
+        self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+        self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+        self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+        self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+
+        self.log('train/match_loss1', match_loss1, on_step=True, batch_size=1)
+        self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
+        self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
+        self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
+
+        loss=match_loss1+match_loss
+
+        self.log('train/loss', loss, on_step=True, batch_size=1)
+
+        return loss
+
+    def generate(self,data,batch_idx):
+
+        agent_batch, lane_batch, lane_conn_batch = get_batches(data)
+        x_agent= data['agent'].x
+        x_lane= data['lane'].x
+
+        z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
+
+        z_lane = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
+
+        steps=20
+
+        timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)
+
+        for i in range(steps):
+            t = timesteps[i]
+            t_next = timesteps[i + 1]
+
+            lane_pred, agent_pred=self.model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch)
+
+            v_agent=(agent_pred-z_agent)/ (1.0 - t).clamp_min(self.t_eps)
+            v_lane=(lane_pred-z_lane)/ (1.0 - t).clamp_min(self.t_eps)
+
+            z_agent=z_agent+(t_next-t)*v_agent
+            z_lane=z_lane+(t_next-t)*v_lane
 
 
+        pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
+
+        lane_samples = transform_to_global(
+            z_lane[:, 4:].reshape(-1,20,2),
+            None,
+            z_lane[:, :2],
+            pred_head,
+        )[0]
+
+        # #x_agent : agent state + type   x,y, cosθ,sinθ ,length, width,speed,type-> x,y, speed,cosθ,sinθ ,length, width,type
+
+        agent_samples= z_agent[:,[0,1,6,2,3,4,5]]
+        agent_types = torch.argmax(z_agent[:,-3:], dim=1)
+
+        data['agent'].x = agent_samples
+        data['lane'].x = lane_samples
+        data['agent'].type = torch.nn.functional.one_hot(agent_types, num_classes=self.cfg_dataset.num_agent_types)
+        data['lane', 'to', 'lane'].type =   F.one_hot(torch.zeros_like(data['lane', 'to', 'lane'].edge_index[0]), num_classes=6)
+
+        batch_of_scenarios = convert_batch_to_scenarios(
+            data,
+            batch_size=data.num_graphs,
+            batch_idx=batch_idx,
+            cache_dir=None,
+            conditioning_filenames=None,
+            cache_samples=False,
+            cache_lane_types=self.cfg.dataset_name == 'nuplan',
+            mode='initial_scene',
+        )
+        self.scenarios.update(batch_of_scenarios)
 
 
-        #loss_dict = self.model.loss(data)
-        self._log_losses(loss_dict, split='train')
-
-        return loss_dict['loss']
 
     def validation_step(self, data, batch_idx):
         """ Validation step for the model. Computes the loss and logs it to WandB."""
-        loss_dict = self.model.loss(data)
-        self._log_losses(loss_dict, split='val', batch_size=data.batch_size)
+        self.generate(data,batch_idx)
 
-        if self.cfg.train.num_samples_to_visualize > 0 and batch_idx == 0 and self.trainer.is_global_zero:
-            num_samples = self.cfg.train.num_samples_to_visualize
-            assert num_samples <= data.batch_size, f"num_samples ({num_samples}) must be less than or equal to batch size ({data.batch_size})"
+    def on_validation_epoch_end(self):
+        self.compute_metrics()
 
-            # retrieve first num_samples samples from the batch
-            indices = torch.arange(num_samples)
-            subset_data_list = data.index_select(indices)
-            subset_data = Batch.from_data_list(subset_data_list)
+        self.scenarios={}
 
-            # forward the model to get reconstructed samples
-            agent_samples, lane_samples, agent_types, lane_types, lane_conn_samples, _ = self.forward(subset_data)
-            save_dir = self.cfg.train.viz_dir
+    def compute_metrics(self):
+        """Compute metrics given the generated samples and the ground truth samples."""
+        #sample_paths = [os.path.join(self.samples_path, file) for file in os.listdir(self.samples_path)]
 
-            print(f"Visualizing batch {batch_idx}...")
-            images_to_log = visualize_batch(num_samples,
-                                            agent_samples,
-                                            lane_samples,
-                                            agent_types,
-                                            lane_types,
-                                            lane_conn_samples,
-                                            subset_data,
-                                            save_dir,
-                                            self.current_epoch,
-                                            batch_idx,
-                                            self.cfg.train.track)
-            if self.cfg.train.track:
-                self.logger.experiment.log(images_to_log)
+        with open(self.eval_set, 'rb') as f:
+            gt_sample_filenames = pickle.load(f)['files']
 
-            print('finished visualizing')
+        if self.cfg.dataset_name == 'nuplan':
+            gt_sample_ids = [os.path.splitext(file)[0] for file in gt_sample_filenames]
 
-    def test_step(self, data, batch_idx):
-        """ Test step for the model. Either computes test loss or caches latents based on configuration."""
-        if self.cfg.eval.cache_latents.enable_caching:
-            self._cache_latents(data)
-        else:
-            loss_dict = self.model.loss(data)
-            self._log_losses(loss_dict, split='test', batch_size=data.batch_size)
-            if self.cfg.eval.num_samples_to_visualize > 0 and batch_idx == 0:
-                num_samples = self.cfg.eval.num_samples_to_visualize
-                assert num_samples <= data.batch_size, f"num_samples ({num_samples}) must be less than or equal to batch size ({data.batch_size})"
+        num_samples = len(self.scenarios)
+        gt_sample_filenames = gt_sample_filenames[:num_samples]
+        num_gt_samples = len(gt_sample_filenames)
+        assert num_samples == num_gt_samples, "Number of samples and ground truth samples do not match."
 
-                # retrieve first num_samples samples from the batch
-                indices = torch.arange(num_samples)
-                subset_data_list = data.index_select(indices)
-                subset_data = Batch.from_data_list(subset_data_list)
+        print("Number of evaluated samples (real/generated): ", num_samples)
+        samples = []
+        gt_samples = []
+        print("Converting samples to unified format for metrics computation...")
+        for i,data in enumerate(self.scenarios.values()):
+            #data=self.scenarios[i]
+            # with open(sample_paths[i], 'rb') as f:
+            #     data = pickle.load(f)
+            sample = convert_data_to_unified_format(data, dataset_name=f"{self.cfg.dataset_name}")
 
-                # forward the model to get reconstructed samples
-                agent_samples, lane_samples, agent_types, lane_types, lane_conn_samples, _ = self.forward(subset_data)
-                save_dir = self.cfg.eval.viz_dir
+            if self.cfg.dataset_name == 'waymo':
+                # agent and lane gt data are loaded from the preprocessed scenario dreamer waymo data
+                with open(os.path.join(os.environ["PROJECT_ROOT"]+'/checkpoints/scenario_dreamer_ae_preprocess_waymo/test', gt_sample_filenames[i]), 'rb') as f:
+                    gt_data = pickle.load(f)
+            else:
+                # the gt agent data comes from the preprocessed scenario dreamer nuplan data
+                sample_id = gt_sample_ids[i]
+                with open(os.path.join(self.cfg.eval.metrics.gt_agent_test_dir, f'{sample_id}_0.pkl'), 'rb') as f:
+                    gt_agent_data = pickle.load(f)
 
-                print(f"Visualizing batch {batch_idx}...")
-                visualize_batch(
-                    num_samples,
-                    agent_samples,
-                    lane_samples,
-                    agent_types,
-                    lane_types,
-                    lane_conn_samples,
-                    subset_data,
-                    save_dir,
-                    self.current_epoch,
-                    batch_idx,
-                    False,
-                    visualize_lane_graph=self.cfg.eval.visualize_lane_graph)
+                # As the lane graph is preprocessed slightly differently between SLEDGE and scenario dreamer,
+                # for fairest comparison with SLEDGE we process the gt lane graphs following the SLEDGE preprocessing scheme (this requires
+                # loading from the SLEDGE preprocessed nuplan data)
+                # We could preprocess the gt lane graphs using the scenario dreamer preprocessing scheme,
+                # but then we wouldn't know if performance improvement compared to SLEDGE is attributed to the GT lane graph preprocessing
+                # being more aligned with scenario dreamer.
+                # In practice, we find both preprocessing schemes yield very similar performance.
+                with gzip.open(os.path.join(self.cfg.eval.metrics.gt_lane_test_dir, gt_sample_filenames[i]), 'rb') as f:
+                    gt_lane_data = pickle.load(f)
+
+                gt_data = gt_lane_data
+                # add agent data to the gt lane data
+                gt_data['agent_states'] = gt_agent_data['agent_states']
+                gt_data['agent_types'] = gt_agent_data['agent_types']
+                gt_data['lg_type'] = gt_agent_data['lg_type']
+
+            gt_sample = convert_data_to_unified_format(gt_data, dataset_name=f'{self.cfg.dataset_name}_gt')
+
+            if len(sample['G']) > 0:
+                samples.append(sample)
+            gt_samples.append(gt_sample)
+
+        lane_metrics = compute_lane_metrics(samples=samples, gt_samples=gt_samples)
+        agent_metrics = compute_agent_metrics(samples=samples, gt_samples=gt_samples)
+
+        print("--------------------------------------------------------------------------")
+        print("Lane metrics: ", ["{}: {:.2f}".format(k, v) for (k, v) in lane_metrics.items()])
+        print("Agent metrics: ", ["{}: {:.2f}".format(k, v) for (k, v) in agent_metrics.items()])
+        print("--------------------------------------------------------------------------")
+
+        # metrics = {
+        #     'lane_metrics': lane_metrics,
+        #     'agent_metrics': agent_metrics
+        # }
+        for key,value in lane_metrics.items():
+            self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
+        for key,value in agent_metrics.items():
+            self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
+
+        # # save metrics to file
+        # metrics_path = os.path.join(self.cfg.eval.metrics.metrics_save_path, 'metrics.pkl')
+        # with open(metrics_path, 'wb') as f:
+        #     pickle.dump(metrics, f)
+        # print(f"Metrics saved to {metrics_path}")
+
 
     def on_before_optimizer_step(self, optimizer):
         """ Called before the optimizer step. Logs the gradient norms for each layer."""

@@ -8,7 +8,10 @@ rsync -avz ~/code/sim/src/waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-st
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/sd/metadata/ guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/metadata/
 
-rsync -avz ~/code/sim/src/waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
+rsync -avz /home/ke/code/sim/sd/metadata/ zs@10.87.225.106:~/code/sim/sd/metadata/
+
+
+rsync -avz /home/ke/code/sim/sd/metadata/ ke@10.87.114.128:~/keguo/sim/sd/metadata/
 
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
@@ -101,7 +104,7 @@ CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_per_node=2 --master_port=
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=2 setsid nohup python run2.py > 2.log 2>&1 &
+CUDA_VISIBLE_DEVICES=0 setsid nohup python run.py > 0.log 2>&1 &
 
 
 #0,2,3 1,2,3  -> 0,1, 2
