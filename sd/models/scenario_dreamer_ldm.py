@@ -21,7 +21,6 @@ import torch
 from torch import nn
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import grad_norm
-from torch_ema import ExponentialMovingAverage
 torch.set_printoptions(sci_mode=False)
 
 class ScenarioDreamerLDM(pl.LightningModule):
@@ -36,6 +35,8 @@ class ScenarioDreamerLDM(pl.LightningModule):
         self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path, cfg=cfg_ae, map_location='cpu',    weights_only=False)   # 🔥 key fix)
         
         self.init_prob_matrix = torch.load(self.cfg.eval.init_prob_matrix_path)
+        from torch_ema import ExponentialMovingAverage
+
         self.ema = ExponentialMovingAverage(self.diff_model.parameters(), decay=self.cfg.train.ema_decay)
 
     
