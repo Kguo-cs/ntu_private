@@ -7,9 +7,9 @@ from sd.metrics import Metrics
 import os
 import sys
 
-os.environ["PROJECT_ROOT"] = os.getcwd()
+os.environ["PROJECT_ROOT"] = os.getcwd()+'/sd'
 
-sys.path.append(os.getcwd())
+# sys.path.append(os.getcwd())
 
 
 import torch
