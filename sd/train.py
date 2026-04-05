@@ -3,6 +3,7 @@ import hydra
 from sd.models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
 from sd.models.scenario_dreamer_ldm import ScenarioDreamerLDM
 from sd.models.ctrl_sim import CtRLSim
+from sd.models.direct_diffusion import Direct_diffusion
 
 import torch
 import shutil
@@ -139,7 +140,8 @@ def train_autoencoder(cfg, save_dir=None):
     """ Train the Scenario Dreamer AutoEncoder model."""
     datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg.dataset)
 
-    model = ScenarioDreamerAutoEncoder(cfg)
+    model=Direct_diffusion(cfg)
+    #model = ScenarioDreamerAutoEncoder(cfg)
     # we always track the last epoch checkpoint for evaluation or resume training.   
     model_checkpoint = ModelCheckpoint(filename='model', save_last=True, save_top_k=0, dirpath=save_dir)
     
@@ -230,7 +232,7 @@ def main(cfg):
     if model_name == 'autoencoder':
         train_autoencoder(cfg, save_dir)
     elif model_name == 'ldm':
-        train_ldm(cfg, cfg_ae, save_dir) 
+        train_ldm(cfg, cfg_ae, save_dir)
     elif model_name == 'ctrl_sim':
         train_ctrl_sim(cfg, save_dir)
 

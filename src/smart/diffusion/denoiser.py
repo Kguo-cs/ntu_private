@@ -88,7 +88,6 @@ class InitDenoiser(nn.Module):
             self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)#
             m_delta_dim = 5+3
 
-
         self.use_graph=True
         self.ego_rel = True
         self.use_scale=False
@@ -119,14 +118,8 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
 
-       # self.return_meanstd = ModuleList([copy.deepcopy(RunningMeanStdTorch(shape=(m_delta_dim))) for i in range(3)])
-
         if self.use_all_pos:
             m_delta_dim=6+4*4
-
-        # self.register_buffer("init_probs", torch.ones(m_delta_dim,100))
-        # self.register_buffer("init_min", torch.ones(m_delta_dim))
-        # self.register_buffer("init_max", torch.ones(m_delta_dim))
 
         self.use_rel_ego=True
 

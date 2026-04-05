@@ -110,8 +110,6 @@ class ScaleFlow(nn.Module):
         probs = torch.tensor([0.5])
         self.B_dist = Bernoulli(probs=probs)
 
-        self.flow_matching=True
-
         self.x_pred=True
 
         self.use_scale=self.net.use_scale
