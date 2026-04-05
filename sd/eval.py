@@ -3,7 +3,7 @@ import hydra
 from omegaconf import OmegaConf
 from sd.models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
 from sd.models.scenario_dreamer_ldm import ScenarioDreamerLDM
-from metrics import Metrics
+from sd.metrics import Metrics
 import os
 import sys
 
