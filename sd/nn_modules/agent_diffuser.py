@@ -260,7 +260,7 @@ class Agent_Diffuser(nn.Module):
         self.map_encoder=MapDecoder(
             hidden_dim,
             num_freq_bands=num_freq_bands,
-            num_layers=1,
+            num_layers=3,
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=0,

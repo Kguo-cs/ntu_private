@@ -22,7 +22,7 @@ from tqdm import tqdm
 import gzip
 
 from torch.optim.lr_scheduler import LambdaLR
-
+import math
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -308,6 +308,8 @@ class Direct_diffusion(pl.LightningModule):
     ### Taken largely from QCNet repository: https://github.com/ZikangZhou/QCNet
     def configure_optimizers(self):
         """ Configure the optimizer and learning rate scheduler for the model."""
+        #self.lr_warmup_steps=0
+
         def lr_lambda(current_step):
             current_step = self.current_epoch + 1
             if current_step < self.lr_warmup_steps:
@@ -326,11 +328,11 @@ class Direct_diffusion(pl.LightningModule):
                 )
             )
             )
-        optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=5e-4)
 
-        lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+       # lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
 
-        return [optimizer], [lr_scheduler]
+        return [optimizer]#, [lr_scheduler]
 
         # decay = set()
         # no_decay = set()
