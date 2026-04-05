@@ -37,8 +37,9 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
                           shuffle=True,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
-                          drop_last=True,
-                          worker_init_fn=worker_init_fn)
+                          drop_last=True,#worker_init_fn=worker_init_fn
+                          persistent_workers=True
+                          )
 
 
     def val_dataloader(self):
@@ -47,4 +48,6 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
                           shuffle=False,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
-                          drop_last=False)
+                          drop_last=False,
+                          persistent_workers=True
+                          )

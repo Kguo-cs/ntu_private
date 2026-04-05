@@ -57,7 +57,7 @@ def train_ctrl_sim(cfg, save_dir=None):
     
     trainer = pl.Trainer(accelerator=cfg.train.accelerator,
                          devices=cfg.train.devices,
-                         strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
+                         strategy='auto',#DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
                          callbacks=[model_summary, model_checkpoint, lr_monitor],
                          max_steps=cfg.train.max_steps,
                          check_val_every_n_epoch=cfg.train.check_val_every_n_epoch,
@@ -116,7 +116,7 @@ def train_ldm(cfg, cfg_ae, save_dir=None):
     
     trainer = pl.Trainer(accelerator=cfg.train.accelerator,
                          devices=cfg.train.devices,
-                         strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
+                         strategy='auto',
                          callbacks=[model_summary, model_checkpoint, lr_monitor],
                          max_steps=cfg.train.max_steps,
                          check_val_every_n_epoch=cfg.train.check_val_every_n_epoch,
@@ -169,10 +169,11 @@ def train_autoencoder(cfg, save_dir=None):
     #         shutil.copyfile(ckpt_path, backup_ckpt_path)
     #         print("Resuming from checkpoint: ", ckpt_path)
     #         del dummy
-    
-    trainer = pl.Trainer(accelerator=cfg.train.accelerator,
-                         devices=cfg.train.devices,
-                         strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
+
+    trainer = pl.Trainer(
+                        accelerator='gpu',
+                         devices=-1,
+                         strategy='auto',
                          callbacks=[model_summary, model_checkpoint, lr_monitor],
                          max_steps=cfg.train.max_steps,
                          check_val_every_n_epoch=cfg.train.check_val_every_n_epoch,
@@ -181,8 +182,12 @@ def train_autoencoder(cfg, save_dir=None):
                          limit_val_batches=cfg.train.limit_val_batches,
                          gradient_clip_val=cfg.train.gradient_clip_val,
                          logger=logger,
+                        num_nodes=1,
+                        num_sanity_val_steps=0,
+                        max_epochs=32,
+                        log_every_n_steps=50
                         )
-    
+
     trainer.fit(model, datamodule, ckpt_path=ckpt_path)
 
 
