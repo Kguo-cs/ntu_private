@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" ~/Downloads/scenario_dreamer_ae_preprocess_waymo.tar guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/checkpoints/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/sd/metadata/ guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/metadata/
 
 rsync -avz dit256_l3_egotraj3_nosde_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
