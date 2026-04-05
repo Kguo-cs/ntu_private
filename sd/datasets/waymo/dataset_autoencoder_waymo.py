@@ -91,6 +91,8 @@ class WaymoDatasetAutoEncoder(Dataset):
             
         self.dset_len = len(self.files)
 
+        print(self.dset_len,self.split_name)
+
 
     def partition_compact_lane_graph(self, compact_lane_graph: Dict[str, Any]) -> Dict[str, Any]:
         """Split lanes that cross the scene's x-axis (``y = 0``).

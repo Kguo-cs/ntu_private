@@ -224,6 +224,8 @@ class ScenarioDreamerAutoEncoder(pl.LightningModule):
                             self.cfg.train.track)
             if self.cfg.train.track:
                 self.logger.experiment.log(images_to_log)
+
+            print('finished visualizing')
                             
  
     def test_step(self, data, batch_idx):

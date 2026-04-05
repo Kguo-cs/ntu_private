@@ -2,7 +2,7 @@ defaults:
 - base
 
 run_name: ctrl_sim_waymo # from base.yaml
-devices: 4 # from base.yaml
+devices: 1 # from base.yaml
 warmup_steps: 500 # from base.yaml
 max_steps: 1000000 # from base.yaml
 weight_decay: 1e-4 # from base.yaml

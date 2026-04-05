@@ -9,7 +9,7 @@ init_prob_matrix_path: ${project_root}/metadata/initial_prob_matrix_waymo.pt # p
 inpainting_prob_matrix_path: ${project_root}/metadata/inpainting_prob_matrix_waymo.pt # path to inpainting num lanes and agents probability matrix
 batch_size: 256 # batch size for evaluation
 visualize: False # visualize samples during evaluation?
-viz_dir: ${project_root}/viz_gen_samples_${ldm.eval.run_name} # directory to save visualizations of generated samples
+viz_dir: ${dataset_root}/viz_gen_samples_${ldm.eval.run_name} # directory to save visualizations of generated samples
 cache_samples: True # cache samples to disk?
 conditioning_path: null # optional path to conditioning data for lane-conditioned or inpainting evaluation
 
@@ -20,7 +20,7 @@ sim_envs:
   nocturne_compatible_only: True # only generate simulation environments from the distribution of Nocturne/GPUDrive-compatible scenes?
 
 metrics:
-  samples_path: ${dataset_root}/checkpoints/${ldm.eval.run_name}/initial_scene_samples # path to load generated samples
-  metrics_save_path: ${dataset_root}/checkpoints/${ldm.eval.run_name} # path to save metrics
+  samples_path: ${dataset_root}/${ldm.eval.run_name}/initial_scene_samples # path to load generated samples
+  metrics_save_path: ${dataset_root}/${ldm.eval.run_name} # path to save metrics
   eval_set: ${project_root}/metadata/waymo_eval_set.pkl # pickle containing paths to ground-truth samples for metrics computation
-  gt_test_dir: ${dataset_root}/checkpoints/scenario_dreamer_ae_preprocess_waymo/test # directory containing ground-truth agent/lane data for metrics computation
+  gt_test_dir: ${dataset_root}/scenario_dreamer_ae_preprocess_waymo/test # directory containing ground-truth agent/lane data for metrics computation

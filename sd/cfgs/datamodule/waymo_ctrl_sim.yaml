@@ -1,7 +1,7 @@
 defaults: 
 - base
 
-_target_: datamodules.waymo.waymo_datamodule_ctrl_sim.WaymoDataModuleCtRLSim
+_target_: sd.datamodules.waymo.waymo_datamodule_ctrl_sim.WaymoDataModuleCtRLSim
 
 train_batch_size: 16
 val_batch_size: 16

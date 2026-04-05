@@ -42,6 +42,8 @@ class WaymoDatasetLDM(Dataset):
         self.files = sorted(glob.glob(self.dataset_dir + "/*.pkl"))
         self.dset_len = len(self.files)
 
+        print(self.split_name,self.dset_len)
+
     
     def get_data(self, data, idx):
         """Return a sample for ldm training"""

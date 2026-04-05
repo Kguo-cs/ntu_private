@@ -1,16 +1,16 @@
 import os 
+
+
+os.environ["PROJECT_ROOT"] = os.getcwd()
+
+if 'sd' not in os.environ["PROJECT_ROOT"]:
+    os.environ["PROJECT_ROOT"] = os.getcwd()+'/sd'
+
 import hydra
 from omegaconf import OmegaConf
 from sd.models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
 from sd.models.scenario_dreamer_ldm import ScenarioDreamerLDM
 from sd.metrics import Metrics
-import os
-import sys
-
-os.environ["PROJECT_ROOT"] = os.getcwd()+'/sd'
-
-# sys.path.append(os.getcwd())
-
 
 import torch
 torch.set_float32_matmul_precision('medium')
@@ -88,7 +88,7 @@ def eval_ldm(cfg, cfg_ae, save_dir=None):
 def eval_autoencoder(cfg, save_dir=None):
     """ Evaluate the Scenario Dreamer AutoEncoder model."""
     model = ScenarioDreamerAutoEncoder(cfg)
-    model_summary = ModelSummary(max_depth=-1)
+    model_summary = ModelSummary(max_depth=1)
     
     # load checkpoint
     files_in_save_dir = os.listdir(save_dir)
@@ -107,7 +107,7 @@ def eval_autoencoder(cfg, save_dir=None):
                          precision='32-true'
                         )
     
-    tester.test(model, ckpt_path=ckpt_path)
+    tester.test(model, ckpt_path=ckpt_path, weights_only=False)
 
 
 @hydra.main(version_base=None, config_path=CONFIG_PATH, config_name="config")
@@ -153,3 +153,5 @@ def main(cfg):
 
 if __name__ == '__main__':
     main()
+
+#train 973984

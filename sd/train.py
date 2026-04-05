@@ -17,6 +17,10 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from sd.utils.train_helpers import cache_latent_stats, set_latent_stats
 
+os.environ["PROJECT_ROOT"] = os.getcwd()
+
+if 'sd' not in os.environ["PROJECT_ROOT"]:
+    os.environ["PROJECT_ROOT"] = os.getcwd()+'/sd'
 
 def train_ctrl_sim(cfg, save_dir=None):
     datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg.dataset)
@@ -25,7 +29,7 @@ def train_ctrl_sim(cfg, save_dir=None):
     model_checkpoint = ModelCheckpoint(monitor='val_loss', save_last=True, every_n_epochs=1, save_top_k=15, dirpath=save_dir)
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
-    model_summary = ModelSummary(max_depth=-1)
+    model_summary = ModelSummary(max_depth=1)
     wandb_logger = WandbLogger(
         project=cfg.train.wandb_project,
         name=cfg.train.run_name,
@@ -84,7 +88,7 @@ def train_ldm(cfg, cfg_ae, save_dir=None):
         model_checkpoint = ModelCheckpoint(filename='model', save_last=True, save_top_k=cfg.train.save_top_k, dirpath=save_dir)
     
     lr_monitor = LearningRateMonitor(logging_interval='step')
-    model_summary = ModelSummary(max_depth=-1)
+    model_summary = ModelSummary(max_depth=1)
     wandb_logger = WandbLogger(
         project=cfg.train.wandb_project,
         name=cfg.train.run_name,
@@ -100,15 +104,15 @@ def train_ldm(cfg, cfg_ae, save_dir=None):
     # resume training
     files_in_save_dir = os.listdir(save_dir)
     ckpt_path = None
-    for file in files_in_save_dir:
-        if file.endswith('.ckpt') and 'last' in file:
-            ckpt_path = os.path.join(save_dir, file)
-            backup_ckpt_path = os.path.join(save_dir, 'backup.ckpt')
-            dummy = torch.load(ckpt_path, map_location='cpu')
-            print("Successfully loaded last.ckpt")
-            shutil.copyfile(ckpt_path, backup_ckpt_path)
-            print("Resuming from checkpoint: ", ckpt_path)
-            del dummy
+    # for file in files_in_save_dir:
+    #     if file.endswith('.ckpt') and 'last' in file:
+    #         ckpt_path = os.path.join(save_dir, file)
+    #         backup_ckpt_path = os.path.join(save_dir, 'backup.ckpt')
+    #         dummy = torch.load(ckpt_path, map_location='cpu')
+    #         print("Successfully loaded last.ckpt")
+    #         shutil.copyfile(ckpt_path, backup_ckpt_path)
+    #         print("Resuming from checkpoint: ", ckpt_path)
+    #         del dummy
     
     trainer = pl.Trainer(accelerator=cfg.train.accelerator,
                          devices=cfg.train.devices,
@@ -140,7 +144,7 @@ def train_autoencoder(cfg, save_dir=None):
     model_checkpoint = ModelCheckpoint(filename='model', save_last=True, save_top_k=0, dirpath=save_dir)
     
     lr_monitor = LearningRateMonitor(logging_interval='step')
-    model_summary = ModelSummary(max_depth=-1)
+    model_summary = ModelSummary(max_depth=1)
     wandb_logger = WandbLogger(
         project=cfg.train.wandb_project,
         name=cfg.train.run_name,
@@ -156,15 +160,15 @@ def train_autoencoder(cfg, save_dir=None):
     # resume training
     files_in_save_dir = os.listdir(save_dir)
     ckpt_path = None
-    for file in files_in_save_dir:
-        if file.endswith('.ckpt') and 'last' in file:
-            ckpt_path = os.path.join(save_dir, file)
-            backup_ckpt_path = os.path.join(save_dir, 'backup.ckpt')
-            dummy = torch.load(ckpt_path) # this is to check if the checkpoint is valid
-            print("Successfully loaded last.ckpt")
-            shutil.copyfile(ckpt_path, backup_ckpt_path)
-            print("Resuming from checkpoint: ", ckpt_path)
-            del dummy
+    # for file in files_in_save_dir:
+    #     if file.endswith('.ckpt') and 'last' in file:
+    #         ckpt_path = os.path.join(save_dir, file)
+    #         backup_ckpt_path = os.path.join(save_dir, 'backup.ckpt')
+    #         dummy = torch.load(ckpt_path) # this is to check if the checkpoint is valid
+    #         print("Successfully loaded last.ckpt")
+    #         shutil.copyfile(ckpt_path, backup_ckpt_path)
+    #         print("Resuming from checkpoint: ", ckpt_path)
+    #         del dummy
     
     trainer = pl.Trainer(accelerator=cfg.train.accelerator,
                          devices=cfg.train.devices,
@@ -176,7 +180,7 @@ def train_autoencoder(cfg, save_dir=None):
                          limit_train_batches=cfg.train.limit_train_batches,
                          limit_val_batches=cfg.train.limit_val_batches,
                          gradient_clip_val=cfg.train.gradient_clip_val,
-                         logger=logger
+                         logger=logger,
                         )
     
     trainer.fit(model, datamodule, ckpt_path=ckpt_path)
@@ -227,3 +231,6 @@ def main(cfg):
 
 if __name__ == '__main__':
     main()
+
+
+#973984 train 76020 val

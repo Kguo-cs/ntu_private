@@ -31,3 +31,15 @@ TrafficManager/results/
 sd/checkpoints
 sd/slurm_logs
 
+*.out
+__pycache__/
+sd/lightning_logs/
+sd/viz_*/
+sd/movies*/
+sd/metadata/simulation_environment_datasets/scenario_dreamer_waymo_55m_pickles/
+sd/metadata/simulation_environment_datasets/scenario_dreamer_waymo_100m_pickles/
+sd/metadata/simulation_environment_datasets/scenario_dreamer_waymo_55m_jsons/
+sd/metadata/simulation_environment_datasets/scenario_dreamer_waymo_100m_jsons/
+sd/metadata/simulation_environment_datasets/waymo_sim_test_pickles/
+sd/metadata/simulation_environment_datasets/waymo_sim_test_jsons/
+
