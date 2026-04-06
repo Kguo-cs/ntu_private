@@ -35,21 +35,22 @@ def worker_init_fn(worker_id):
 class Direct_diffusion(pl.LightningModule):
     """PyTorch Lightning module for ScenarioDreamer AutoEncoder model."""
 
-    def __init__(self, cfg,cfg_ae):
+    def __init__(self, cfg,cfg_ldm):
         super(Direct_diffusion, self).__init__()
 
         self.save_hyperparameters()
         self.cfg = cfg
         self.cfg_dataset = self.cfg.dataset
-        self.cfg_model = cfg.model
 
         self.use_latent=False
 
         if self.use_latent:
+            self.cfg_model = cfg_ldm.model
+
             self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
                                                                                cfg=cfg_ae, map_location='cpu',
                                                                                weights_only=False)  # 🔥 key fix)
-            self.diff_model = LDM(self.cfg)
+            self.diff_model = LDM(cfg_ldm)
 
         else:
 

@@ -137,11 +137,11 @@ def train_ldm(cfg, cfg_ae, save_dir=None):
     trainer.fit(model, datamodule, ckpt_path=ckpt_path)
 
 
-def train_autoencoder(cfg, cfg_ae,save_dir=None):
+def train_autoencoder(cfg,cfg_ldm, save_dir=None):
     """ Train the Scenario Dreamer AutoEncoder model."""
     datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg.dataset)
 
-    model=Direct_diffusion(cfg,cfg_ae)
+    model=Direct_diffusion(cfg,cfg_ldm)
     #model = ScenarioDreamerAutoEncoder(cfg)
     # we always track the last epoch checkpoint for evaluation or resume training.   
     model_checkpoint = ModelCheckpoint(filename='model', save_last=True, save_top_k=0, dirpath=save_dir)
@@ -201,7 +201,8 @@ def main(cfg):
     dataset_name = cfg.dataset_name.name
     if cfg.model_name == 'autoencoder':
         model_name = cfg.model_name
-        cfg = cfg.ae
+        cfg_ae = cfg.ae
+        cfg_ldm = cfg.ldm
         # not the cleanest solution, but need to track dataset name
         OmegaConf.set_struct(cfg, False)   # unlock to allow setting dataset name
         cfg.dataset_name = dataset_name
@@ -231,7 +232,7 @@ def main(cfg):
         os.makedirs(save_dir, exist_ok=True)
     
     if model_name == 'autoencoder':
-        train_autoencoder(cfg,cfg_ae, save_dir)
+        train_autoencoder(cfg,cfg_ldm, save_dir)
     elif model_name == 'ldm':
         train_ldm(cfg, cfg_ae, save_dir)
     elif model_name == 'ctrl_sim':
