@@ -210,7 +210,7 @@ class AgentDecoder(nn.Module):
 
         pos_s = z_agent[:, :2]
 
-        feat_a = self.agent_emb(z_agent[:,:4])
+        feat_a = self.agent_emb(z_agent)#[:,:4]
 
         feat_a = feat_a + t_batch[batch]
 

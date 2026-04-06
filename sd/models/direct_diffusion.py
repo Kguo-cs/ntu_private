@@ -20,6 +20,8 @@ from sd.utils.data_helpers import unnormalize_scene, normalize_latents, unnormal
 from sd.utils.metrics_helpers import convert_data_to_unified_format, compute_lane_metrics, compute_agent_metrics
 from tqdm import tqdm
 import gzip
+from sd.models.scenario_dreamer_autoencoder import ScenarioDreamerAutoEncoder
+from sd.nn_modules.ldm import LDM
 
 from torch.optim.lr_scheduler import LambdaLR
 import math
@@ -33,13 +35,25 @@ def worker_init_fn(worker_id):
 class Direct_diffusion(pl.LightningModule):
     """PyTorch Lightning module for ScenarioDreamer AutoEncoder model."""
 
-    def __init__(self, cfg):
+    def __init__(self, cfg,cfg_ae):
         super(Direct_diffusion, self).__init__()
 
         self.save_hyperparameters()
         self.cfg = cfg
         self.cfg_dataset = self.cfg.dataset
-        self.model = Agent_Diffuser(cfg.model)
+        self.cfg_model = cfg.model
+
+        self.use_latent=False
+
+        if self.use_latent:
+            self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
+                                                                               cfg=cfg_ae, map_location='cpu',
+                                                                               weights_only=False)  # 🔥 key fix)
+            self.diff_model = LDM(self.cfg)
+
+        else:
+
+            self.diff_model = Agent_Diffuser(cfg.model)
 
         # nocturne-compatible metadata (stored in latent cache)
         if self.cfg.eval.cache_latents.enable_caching and self.cfg.dataset_name == 'waymo':
@@ -72,102 +86,109 @@ class Direct_diffusion(pl.LightningModule):
     def training_step(self, data, batch_idx):
         """ Training step for the model. Computes the loss and logs it to WandB."""
 
-        agent_batch, lane_batch, lane_conn_batch = get_batches(data)
-        x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
-        a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
+        if self.use_latent:
 
-        x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
+            loss_dict = self.diff_model.loss(data)
+            self._log_losses(loss_dict, split='train')
+            loss=loss_dict['loss']
+        else:
 
-        lane_pos=x_lane_states.mean(1)
-        dx = x_lane_states[:, 1:, 0] - x_lane_states[:, :-1, 0]
-        dy = x_lane_states[:, 1:, 1] - x_lane_states[:, :-1, 1]
+            agent_batch, lane_batch, lane_conn_batch = get_batches(data)
+            x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
+            a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
 
-        sin = torch.sin(torch.atan2(dy, dx))
-        cos = torch.cos(torch.atan2(dy, dx))
+            x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
-        lane_heading = torch.atan2(sin.mean(1), cos.mean(1))
+            lane_pos=x_lane_states.mean(1)
+            dx = x_lane_states[:, 1:, 0] - x_lane_states[:, :-1, 0]
+            dy = x_lane_states[:, 1:, 1] - x_lane_states[:, :-1, 1]
 
-        x_lane=transform_to_local(
-            x_lane_states,
-            None,
-            lane_pos,
-            lane_heading
-        )[0].reshape(-1,40)
+            sin = torch.sin(torch.atan2(dy, dx))
+            cos = torch.cos(torch.atan2(dy, dx))
 
-        x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],x_lane],dim=-1)
+            lane_heading = torch.atan2(sin.mean(1), cos.mean(1))
 
-        if torch.all(self.agent_mean==0):
-            self.agent_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
-            self.agent_scale.copy_(torch.std(x_agent, dim=0, keepdim=True))
+            x_lane=transform_to_local(
+                x_lane_states,
+                None,
+                lane_pos,
+                lane_heading
+            )[0].reshape(-1,40)
 
-            self.lane_mean.copy_(torch.mean(x_lane, dim=0, keepdim=True))
-            self.lane_scale.copy_(torch.std(x_lane, dim=0, keepdim=True))
+            x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],x_lane],dim=-1)
 
-            #self.lane_con_mean.copy_(torch.mean(x_lane_conn, dim=0, keepdim=True))
-           # self.lane_con_scale.copy_(torch.std(x_lane_conn, dim=0, keepdim=True))
+            if torch.all(self.agent_mean==0):
+                self.agent_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
+                self.agent_scale.copy_(torch.std(x_agent, dim=0, keepdim=True))
+
+                self.lane_mean.copy_(torch.mean(x_lane, dim=0, keepdim=True))
+                self.lane_scale.copy_(torch.std(x_lane, dim=0, keepdim=True))
+
+                #self.lane_con_mean.copy_(torch.mean(x_lane_conn, dim=0, keepdim=True))
+               # self.lane_con_scale.copy_(torch.std(x_lane_conn, dim=0, keepdim=True))
 
 
-        agent_noise = torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
+            agent_noise = torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
-        lane_noise = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
+            lane_noise = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
 
-        # lane_con_noise=torch.randn_like(x_lane_conn)*self.lane_con_scale+self.lane_con_mean
+            # lane_con_noise=torch.randn_like(x_lane_conn)*self.lane_con_scale+self.lane_con_mean
 
-        t_batch = torch.rand((data.num_graphs,1), device=agent_noise.device)  # t ~ U[0,1]
+            t_batch = torch.rand((data.num_graphs,1), device=agent_noise.device)  # t ~ U[0,1]
 
-        agent_t=t_batch[agent_batch]
+            agent_t=t_batch[agent_batch]
 
-        lane_t=t_batch[lane_batch]
+            lane_t=t_batch[lane_batch]
 
-        z_agent = (1 - agent_t) * agent_noise + agent_t * x_agent  # large t, low noise        target velocity e-x = (z-x)/(1-t)
+            z_agent = (1 - agent_t) * agent_noise + agent_t * x_agent  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-        z_lane = (1 - lane_t) * lane_noise + lane_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
+            z_lane = (1 - lane_t) * lane_noise + lane_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-        lane_pred, agent_pred=self.model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
+            lane_pred, agent_pred=self.model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
 
-        lane_conn_logits=self.model.predict_con(x_lane,l2l_edge_index,lane_batch)
+            lane_conn_logits=self.model.predict_con(x_lane,l2l_edge_index,lane_batch)
 
-        lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
+            lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
 
-        self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
+            self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
-        denom = (1 - agent_t).clamp_min(self.t_eps)
+            denom = (1 - agent_t).clamp_min(self.t_eps)
 
-        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
-            agent_batch,
-            agent_pred,
-            x_agent,
-            denom,
-            scale=self.agent_scale,
-            all_state=True,
-            use_all_type=True,
-           # w_shape=1,
-        )
+            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
+                agent_batch,
+                agent_pred,
+                x_agent,
+                denom,
+                scale=self.agent_scale,
+                all_state=True,
+                use_all_type=True,
+               # w_shape=1,
+            )
 
-        denom = (1 - lane_t).clamp_min(self.t_eps)
+            denom = (1 - lane_t).clamp_min(self.t_eps)
 
-        match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
-            lane_batch,
-            lane_pred,
-            x_lane,
-            denom,
-            all_state=True,
-            use_all_type=True
-        )
-        self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
-        self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
-        self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
-        self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
-        self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+            match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+                lane_batch,
+                lane_pred,
+                x_lane,
+                denom,
+                all_state=True,
+                use_all_type=True
+            )
+            self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
+            self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+            self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+            self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+            self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
 
-        self.log('train/match_loss1', match_loss1, on_step=True, batch_size=1)
-        self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
-        self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
-        self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
+            self.log('train/match_loss1', match_loss1, on_step=True, batch_size=1)
+            self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
+            self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
+            self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
 
-        loss=match_loss1+match_loss+lane_conn_loss
+            loss=match_loss1+match_loss+lane_conn_loss
 
-        self.log('train/loss', loss, on_step=True, batch_size=1)
+            self.log('train/loss', loss, on_step=True, batch_size=1)
 
         return loss
 
@@ -357,7 +378,7 @@ class Direct_diffusion(pl.LightningModule):
                 )
             )
             )
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=5e-4)
+        optimizer = torch.optim.AdamW(self.diff_model.parameters(), lr=5e-4)
 
        # lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
 
