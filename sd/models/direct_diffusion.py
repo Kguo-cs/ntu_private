@@ -145,9 +145,9 @@ class Direct_diffusion(pl.LightningModule):
 
             z_lane = (1 - lane_t) * lane_noise + lane_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-            lane_pred, agent_pred=self.model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
+            lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
 
-            lane_conn_logits=self.model.predict_con(x_lane,l2l_edge_index,lane_batch)
+            lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
 
             lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
 
@@ -214,7 +214,7 @@ class Direct_diffusion(pl.LightningModule):
             t = timesteps[i]
             t_next = timesteps[i + 1]
 
-            lane_pred, agent_pred=self.model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch)
+            lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch)
 
             denom = (1.0 - t).clamp_min(self.t_eps)
             v_agent = (agent_pred - z_agent) / denom
@@ -223,7 +223,7 @@ class Direct_diffusion(pl.LightningModule):
             z_agent=z_agent+(t_next-t)*v_agent
             z_lane=z_lane+(t_next-t)*v_lane
 
-        lane_conn_logits=self.model.predict_con(z_lane,l2l_edge_index,lane_batch)
+        lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
         lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
         lane_conn_pred =  F.one_hot(lane_conn_pred, num_classes=6)
 
@@ -353,7 +353,7 @@ class Direct_diffusion(pl.LightningModule):
     # def on_before_optimizer_step(self, optimizer):
     #     """ Called before the optimizer step. Logs the gradient norms for each layer."""
     #     # Compute the 2-norm for each layer
-    #     norms_encoder = grad_norm(self.model, norm_type=2)
+    #     norms_encoder = grad_norm(self.diff_model, norm_type=2)
     #     self.log_dict(norms_encoder)
 
     ### Taken largely from QCNet repository: https://github.com/ZikangZhou/QCNet
