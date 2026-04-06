@@ -264,9 +264,9 @@ def get_closest_sum_idx(fake_state,real_state,tokenized_agent,all_state=False,us
             f_idx = ((batch == b) ).nonzero(as_tuple=True)[0]
 
             if all_state:
-                dist = torch.norm(fake_state[f_idx][:, None] - real_state[f_idx][None], p=1, dim=-1)  # .square()
+                dist = torch.norm(real_state[f_idx][:, None] - fake_state[f_idx][None], p=1, dim=-1)  # .square()
             else:
-                dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+                dist = torch.cdist(real_pos[f_idx], fake_pos[f_idx])
 
             cost = dist.cpu().detach().numpy()
 
@@ -285,7 +285,7 @@ def get_closest_sum_idx(fake_state,real_state,tokenized_agent,all_state=False,us
                 f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
 
                 if all_state:
-                    dist = torch.cdist(fake_state[f_idx],real_state[f_idx]).square()
+                    dist = torch.cdist(real_state[f_idx],fake_state[f_idx]).square()
                 else:
                     dist = torch.cdist( real_pos[f_idx],fake_pos[f_idx])
 
