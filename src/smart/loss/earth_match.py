@@ -250,59 +250,43 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 
-def get_closest_sum_idx(fake_state,real_state,tokenized_agent,all_state=False,use_all_type=False):
-
-    fake_pos = fake_state[:, :2]
-    real_pos = real_state[:, :2]
-
+def get_closest_sum_idx(
+    fake_state,
+    real_state,
+    tokenized_agent,
+    all_state=False,
+    use_all_type=False,
+):
+    fake_feat = fake_state if all_state else fake_state[:, :2]
+    real_feat = real_state if all_state else real_state[:, :2]
 
     if use_all_type:
-        rows, cols = [], []
         batch = tokenized_agent
-
-        for b in batch.unique():
-            f_idx = ((batch == b) ).nonzero(as_tuple=True)[0]
-
-            if all_state:
-                dist = torch.norm(real_state[f_idx][:, None] - fake_state[f_idx][None], p=1, dim=-1)  # .square()
-            else:
-                dist = torch.cdist(real_pos[f_idx], fake_pos[f_idx])
-
-            cost = dist.cpu().detach().numpy()
-
-            row, col = linear_sum_assignment(cost)
-
-            rows.append(f_idx[row])
-            cols.append(f_idx[col])
+        groups = [(batch == b) for b in batch.unique()]
     else:
-        initial_type, batch = tokenized_agent['nonego_type'][-len(fake_state):], tokenized_agent["nonego_batch"][
-            -len(fake_state):]
+        batch = tokenized_agent["nonego_batch"][-len(fake_state):]
+        agent_type = tokenized_agent["nonego_type"][-len(fake_state):]
+        groups = [
+            (batch == b) & (agent_type == t)
+            for b in batch.unique()
+            for t in agent_type[batch == b].unique()
+        ]
 
-        rows, cols = [], []
+    fake_idx_all, real_idx_all = [], []
 
-        for b in batch.unique():
-            for type in initial_type[batch == b].unique():
-                f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
+    for mask in groups:
+        idx = mask.nonzero(as_tuple=True)[0]
+        if len(idx) == 0:
+            continue
 
-                if all_state:
-                    dist = torch.cdist(real_state[f_idx],fake_state[f_idx]).square()
-                else:
-                    dist = torch.cdist( real_pos[f_idx],fake_pos[f_idx])
+        dist = torch.cdist(real_feat[idx], fake_feat[idx])
 
-                cost = dist.cpu().detach().numpy()
+        row, col = linear_sum_assignment(dist.detach().cpu().numpy())
 
-                row, col = linear_sum_assignment(cost)
+        real_idx_all.append(idx[row])
+        fake_idx_all.append(idx[col])
 
-                rows.append(f_idx[row])
-                cols.append(f_idx[col])
-
-    real_idx = torch.cat(rows)
-    fake_idx = torch.cat(cols)
-
-    # print(torch.all(torch.all(real_idx==torch.arange(len(real_idx)).cuda())))
-
-    return fake_idx, real_idx
-
+    return torch.cat(fake_idx_all), torch.cat(real_idx_all)
 
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,
