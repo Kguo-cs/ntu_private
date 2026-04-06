@@ -194,11 +194,11 @@ class AgentDecoder(nn.Module):
             ]
         )
 
-        self.agent_emb = MLPLayer(4,hidden_dim, hidden_dim)
+        self.agent_emb = MLPLayer(10,hidden_dim, hidden_dim)
 
         self.output_layer=MLPLayer(hidden_dim,hidden_dim, 10)
 
-        self.attr_emb = MLPLayer(6,hidden_dim, hidden_dim)
+        #self.attr_emb = MLPLayer(6,hidden_dim, hidden_dim)
 
         self.num_layers=num_layers
 
@@ -214,7 +214,7 @@ class AgentDecoder(nn.Module):
 
         feat_a = feat_a + t_batch[batch]
 
-        feat_attr=self.attr_emb(z_agent[:,4:])
+        # feat_attr=self.attr_emb(z_agent[:,4:])
 
         batch_pl = map_feature["batch"]
         pos_pl = map_feature["position"]
@@ -255,7 +255,7 @@ class AgentDecoder(nn.Module):
         )
 
         for layer_i in range(self.num_layers):
-            feat_a=feat_a+feat_attr
+            #feat_a=feat_a+feat_attr
 
             feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
