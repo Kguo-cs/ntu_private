@@ -140,7 +140,7 @@ class Direct_diffusion(pl.LightningModule):
             denom,
             all_state=True,
             use_all_type=True,
-            w_shape=1,
+           # w_shape=1,
         )
 
         denom = (1 - lane_t).clamp_min(self.t_eps)
