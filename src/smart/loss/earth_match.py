@@ -290,11 +290,11 @@ def get_closest_sum_idx(
 
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,
-    denom ,all_state=False,use_col=False,use_all_type=False,
+    denom,scale=1 ,all_state=False,use_col=False,use_all_type=False,
     w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
     ):
 
-    fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, tokenized_agent,all_state=all_state,use_all_type=use_all_type)
+    fake_idx, real_idx=get_closest_sum_idx(fake_state/scale, real_state/scale, tokenized_agent,all_state=all_state,use_all_type=use_all_type)
 
     fake_state=fake_state[fake_idx]
     real_state=real_state[real_idx]

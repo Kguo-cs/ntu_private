@@ -8,7 +8,7 @@ rsync -avz ~/code/sim/src/waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-st
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/sd/checkpoints/scenario_dreamer_ctrl_sim_preprocess.tar.gz guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/checkpoints/
 
-rsync -avz /home/ke/code/sim/sd/metadata/ zs@10.87.225.106:~/code/sim/sd/metadata/
+rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_ae_preprocess_waymo/train/training.tfrecord-00551-of-01200_300_0_2.pkl zs@10.87.225.106:~/code/sim/sd/checkpoints/scenario_dreamer_ae_preprocess_waymo/train/
 
 
 rsync -avz /home/ke/code/sim/sd/metadata/ ke@10.87.114.128:~/keguo/sim/sd/metadata/

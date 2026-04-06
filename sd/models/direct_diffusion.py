@@ -138,6 +138,7 @@ class Direct_diffusion(pl.LightningModule):
             agent_pred,
             x_agent,
             denom,
+            scale=self.agent_scale,
             all_state=True,
             use_all_type=True,
            # w_shape=1,
