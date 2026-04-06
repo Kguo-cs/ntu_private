@@ -196,7 +196,7 @@ class AgentDecoder(nn.Module):
             batch_s=batch,  # [n_agent*n_step]
             mask=None,  # [n_agent, n_step]
             max_radius=100,
-            max_num_neighbors=100,
+            max_num_neighbors=30,
             agent_train_mask=None,
             layer_num=self.num_layers,
             counter_feat_a=None,
