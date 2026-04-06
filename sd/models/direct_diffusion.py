@@ -136,8 +136,8 @@ class Direct_diffusion(pl.LightningModule):
             x_agent,
             denom,
             all_state=True,
-            use_col=False,
-            use_all_type=True
+            use_all_type=True,
+            w_shape=1,
         )
 
         denom = (1 - lane_t).clamp_min(self.t_eps)
@@ -148,7 +148,6 @@ class Direct_diffusion(pl.LightningModule):
             x_lane,
             denom,
             all_state=True,
-            use_col=False,
             use_all_type=True
         )
         self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
