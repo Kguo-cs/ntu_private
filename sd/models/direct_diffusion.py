@@ -324,7 +324,7 @@ class Direct_diffusion(pl.LightningModule):
 
             z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
-            z_lane = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
+            z_lane = torch.randn_like(x_lane)*self.lane_scale*0.75+self.lane_mean
 
             steps=20
 
