@@ -28,6 +28,7 @@ import math
 from sd.utils.losses import GeometricLosses
 from sd.utils.data_helpers import sample_latents, reorder_indices
 from sd.utils.pyg_helpers import get_edge_index_bipartite, get_edge_index_complete_graph
+from sd.models.scenario_dreamer_ldm import ScenarioDreamerLDM
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -50,12 +51,17 @@ class Direct_diffusion(pl.LightningModule):
             self.cfg_model = cfg_ldm.model
             self.cfg_ldm = cfg_ldm
             print(self.cfg_model.autoencoder_path)
-            self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
-                                                                               cfg=cfg, map_location='cpu',
-                                                                               weights_only=False)  # 🔥 key fix)
-            self.diff_model = LDM(cfg_ldm).load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt",
-                                                                               cfg=cfg, map_location='cpu',
-                                                                               weights_only=False)  # 🔥 key fix)
+            # self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
+            #                                                                    cfg=cfg, map_location='cpu',
+            #                                                                    weights_only=False)  # 🔥 key fix)
+            # self.diff_model = LDM(cfg_ldm).load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt",
+            #                                                                    cfg=cfg, map_location='cpu',
+            #                                                                    weights_only=False)  # 🔥 key fix)
+
+            self.model=ScenarioDreamerLDM.load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt", cfg=cfg_ldm, cfg_ae=cfg,weights_only=False)
+
+            self.autoencoder=self.model.autoencoder
+            self.diff_model=self.model.diff_model
         else:
             self.diff_model = Agent_Diffuser(cfg.model)
 
