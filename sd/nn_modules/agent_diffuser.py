@@ -82,8 +82,6 @@ class MapDecoder(nn.Module):
             ]
         )
 
-
-
         if pred_con:
             self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 6)
         else:
@@ -127,7 +125,19 @@ class MapDecoder(nn.Module):
             return lane_conn_logits
 
         else:
-            lane_pred=self.output_layer(x_pt)
+            res = self.output_layer(x_pt)
+
+            res_theta = torch.atan2(res[:, 3], res[:, 2])
+
+            local_pos, local_theta = transform_to_global(
+                res[:, :2],
+                res_theta,
+                pos_pt,
+                orient_pt,
+            )
+
+            lane_pred = torch.cat(
+                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
             output={
                 "pt_token": x_pt,

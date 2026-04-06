@@ -79,10 +79,13 @@ class Direct_diffusion(pl.LightningModule):
         x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
         lane_pos=x_lane_states.mean(1)
-        lane_heading = torch.atan2(
-            x_lane_states[:,1:, 1] - x_lane_states[:,:-1, 1],
-            x_lane_states[:,1:, 0] - x_lane_states[:,:-1, 0],
-        ).mean(1)
+        dx = x_lane_states[:, 1:, 0] - x_lane_states[:, :-1, 0]
+        dy = x_lane_states[:, 1:, 1] - x_lane_states[:, :-1, 1]
+
+        sin = torch.sin(torch.atan2(dy, dx))
+        cos = torch.cos(torch.atan2(dy, dx))
+
+        lane_heading = torch.atan2(sin.mean(1), cos.mean(1))
 
         x_lane=transform_to_local(
             x_lane_states,
@@ -167,6 +170,7 @@ class Direct_diffusion(pl.LightningModule):
 
         return loss
 
+    @torch.no_grad()
     def generate(self,data,batch_idx):
 
         agent_batch, lane_batch, lane_conn_batch = get_batches(data)
@@ -189,8 +193,9 @@ class Direct_diffusion(pl.LightningModule):
 
             lane_pred, agent_pred=self.model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch)
 
-            v_agent=(agent_pred-z_agent)/ (1.0 - t).clamp_min(self.t_eps)
-            v_lane=(lane_pred-z_lane)/ (1.0 - t).clamp_min(self.t_eps)
+            denom = (1.0 - t).clamp_min(self.t_eps)
+            v_agent = (agent_pred - z_agent) / denom
+            v_lane = (lane_pred - z_lane) / denom
 
             z_agent=z_agent+(t_next-t)*v_agent
             z_lane=z_lane+(t_next-t)*v_lane
@@ -210,7 +215,7 @@ class Direct_diffusion(pl.LightningModule):
 
         # #x_agent : agent state + type   x,y, cosθ,sinθ ,length, width,speed,type-> x,y, speed,cosθ,sinθ ,length, width,type
 
-        agent_samples= z_agent[:,[0,1,6,2,3,4,5]]
+        agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
         agent_types = torch.argmax(z_agent[:,-3:], dim=1)
 
         data['agent'].x = agent_samples
