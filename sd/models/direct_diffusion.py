@@ -189,7 +189,15 @@ class Direct_diffusion(pl.LightningModule):
 
             rel_lane=x_lane[:,1:]-x_lane[:,:-1]
 
-            x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],rel_lane.reshape(-1,38)],dim=-1)
+            dist=torch.norm(rel_lane,dim=-1)+1e-5
+
+            lane_cosine=rel_lane/dist[:,:,None]
+
+            lane_cosine=lane_cosine.reshape(-1,38)
+
+            lane_cosine[:,0]=dist[:,0]
+
+            x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],lane_cosine],dim=-1)
 
             if torch.all(self.agent_mean==0):
                 self.agent_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
@@ -340,10 +348,20 @@ class Direct_diffusion(pl.LightningModule):
 
             pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
 
-            rel_lane=torch.cumsum(z_lane[:, 4:].reshape(-1,19,2), dim=1)
+            dist=z_lane[:, 4]
+
+            lane_cosine=z_lane[:, 6:].reshape(-1,18,2)
+
+            lane_rel=lane_cosine/torch.norm(lane_cosine,dim=-1,keepdim=True)*dist[:,None,None]
+
+            lane_rel=torch.cat([torch.zeros_like(lane_rel[:,:1]),lane_rel],dim=1)
+
+            lane_rel[:,0,0]=dist
+
+            lane_local=torch.cumsum(lane_rel, dim=1)#z_lane[:, 4:].reshape(-1,19,2),
 
             lane_samples = transform_to_global(
-                rel_lane,
+                lane_local,
                 None,
                 z_lane[:, :2],
                 pred_head
