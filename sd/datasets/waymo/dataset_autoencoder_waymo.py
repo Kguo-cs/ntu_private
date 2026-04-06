@@ -91,6 +91,12 @@ class WaymoDatasetAutoEncoder(Dataset):
             
         self.dset_len = len(self.files)
 
+        with open(os.environ["PROJECT_ROOT"]+"/metadata/nocturne_train_filenames.pkl", 'rb') as f:
+            nocturne_train_filenames = pickle.load(f)
+        with open(os.environ["PROJECT_ROOT"]+"/metadata/nocturne_val_filenames.pkl", 'rb') as f:
+            nocturne_val_filenames = pickle.load(f)
+        self.nocturne_compatible_filenames = nocturne_train_filenames + nocturne_val_filenames
+
         print(self.dset_len,self.split_name)
 
 
@@ -876,20 +882,20 @@ class WaymoDatasetAutoEncoder(Dataset):
         # ───────────────────────────────────────────────────────────────
         
         # Feature normalisation (into [‑1,1]) ----------------------
-        # agent_states, road_points = normalize_scene(
-        #     agent_states,
-        #     road_points,
-        #     fov=self.cfg.fov,
-        #     min_speed=self.cfg.min_speed,
-        #     max_speed=self.cfg.max_speed,
-        #     min_length=self.cfg.min_length,
-        #     max_length=self.cfg.max_length,
-        #     min_width=self.cfg.min_width,
-        #     max_width=self.cfg.max_width,
-        #     min_lane_x=self.cfg.min_lane_x,
-        #     min_lane_y=self.cfg.min_lane_y,
-        #     max_lane_x=self.cfg.max_lane_x,
-        #     max_lane_y=self.cfg.max_lane_y)
+        agent_states, road_points = normalize_scene(
+            agent_states,
+            road_points,
+            fov=self.cfg.fov,
+            min_speed=self.cfg.min_speed,
+            max_speed=self.cfg.max_speed,
+            min_length=self.cfg.min_length,
+            max_length=self.cfg.max_length,
+            min_width=self.cfg.min_width,
+            max_width=self.cfg.max_width,
+            min_lane_x=self.cfg.min_lane_x,
+            min_lane_y=self.cfg.min_lane_y,
+            max_lane_x=self.cfg.max_lane_x,
+            max_lane_y=self.cfg.max_lane_y)
 
         # Training‑only randomisation of non‑ego indices ----------
         if self.mode == 'train':
@@ -992,6 +998,17 @@ class WaymoDatasetAutoEncoder(Dataset):
         d['lane', 'to', 'lane'].encoder_mask = l2l_mask
         d['lane', 'to', 'agent'].encoder_mask = l2a_mask
         d['agent', 'to', 'agent'].encoder_mask = a2a_mask
+
+        file_path = self.files[idx]
+
+       # if self.cfg.dataset_name == 'waymo':
+        filename = file_path.split('/')[-1]
+        train_filename_parts = filename.split('.')[1].split('_')[:2]
+        train_filename = f'{train_filename_parts[0]}_{train_filename_parts[1]}'
+        noct_compatible = 1 if train_filename in self.nocturne_compatible_filenames else 0
+        d['nocturne_compatible'] = noct_compatible
+        # else:
+        #     d['map_id'] = map_id_i
 
         return d
     

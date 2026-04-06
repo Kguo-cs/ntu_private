@@ -26,6 +26,8 @@ from sd.nn_modules.ldm import LDM
 from torch.optim.lr_scheduler import LambdaLR
 import math
 from sd.utils.losses import GeometricLosses
+from sd.utils.data_helpers import sample_latents, reorder_indices
+from sd.utils.pyg_helpers import get_edge_index_bipartite, get_edge_index_complete_graph
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -42,18 +44,17 @@ class Direct_diffusion(pl.LightningModule):
         self.cfg = cfg
         self.cfg_dataset = self.cfg.dataset
 
-        self.use_latent=False
+        self.use_latent=True
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
+            self.cfg_ldm = cfg_ldm
 
             self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
                                                                                cfg=cfg, map_location='cpu',
                                                                                weights_only=False)  # 🔥 key fix)
             self.diff_model = LDM(cfg_ldm)
-
         else:
-
             self.diff_model = Agent_Diffuser(cfg.model)
 
         # nocturne-compatible metadata (stored in latent cache)
@@ -86,15 +87,72 @@ class Direct_diffusion(pl.LightningModule):
 
     def training_step(self, data, batch_idx):
         """ Training step for the model. Computes the loss and logs it to WandB."""
+        agent_batch, lane_batch, lane_conn_batch = get_batches(data)
 
         if self.use_latent:
+
+            with torch.no_grad():
+                agent_mu, lane_mu, agent_log_var, lane_log_var = self.autoencoder.model.forward(data, return_latents=True)
+
+                scene_type = data['lg_type']
+                road_points = data['lane'].x
+                agent_states = data['agent'].x
+
+                agent_mu2=[]
+                agent_log_var2=[]
+                lane_mu2=[]
+                lane_log_var2=[]
+                agent_partition_mask2=[]
+                lane_partition_mask2=[]
+
+
+                for i in range(data.num_graphs):
+                    n_lanes=len(road_points[lane_batch==i])
+
+                    edge_index_lane_to_lane = get_edge_index_complete_graph(n_lanes)
+
+                    agent_mu1, agent_log_var1, lane_mu1, lane_log_var1, edge_index_lane_to_lane1, agent_partition_mask1, lane_partition_mask1 = reorder_indices(
+                        agent_mu[agent_batch==i].cpu().numpy(),
+                        agent_log_var[agent_batch==i].cpu().numpy(),
+                        lane_mu[lane_batch==i].cpu().numpy(),
+                        lane_log_var[lane_batch==i].cpu().numpy(),
+                        edge_index_lane_to_lane,
+                        agent_states[agent_batch==i].cpu().numpy(),
+                        road_points[lane_batch==i].cpu().numpy(),
+                        scene_type[i],
+                        dataset='waymo')
+
+                    agent_mu2.append(torch.tensor(agent_mu1))
+                    agent_log_var2.append(torch.tensor(agent_log_var1))
+                    lane_mu2.append(torch.tensor(lane_mu1))
+                    lane_log_var2.append(torch.tensor(lane_log_var1))
+                    agent_partition_mask2.append(torch.tensor(agent_partition_mask1))
+                    lane_partition_mask2.append(torch.tensor(lane_partition_mask1))
+
+                device=agent_mu.device
+
+                data['agent'].x=torch.cat(agent_mu2).to(device)
+                data['agent'].log_var=torch.cat(agent_log_var2).to(device)
+                data['lane'].x=torch.cat(lane_mu2).to(device)
+                data['lane'].log_var=torch.cat(lane_log_var2).to(device)
+                data['agent'].partition_mask=torch.cat(agent_partition_mask2).to(device)
+                data['lane'].partition_mask=torch.cat(lane_partition_mask2).to(device)
+
+                data['agent'].latents, data['lane'].latents = sample_latents(
+                    data,
+                    self.cfg_ldm.dataset.agent_latents_mean,
+                    self.cfg_ldm.dataset.agent_latents_std,
+                    self.cfg_ldm.dataset.lane_latents_mean,
+                    self.cfg_ldm.dataset.lane_latents_std,
+                    normalize=True)  # sample normalized latents for training
+
+            data["map_id"] = data['nocturne_compatible']
 
             loss_dict = self.diff_model.loss(data)
             self._log_losses(loss_dict, split='train')
             loss=loss_dict['loss']
         else:
 
-            agent_batch, lane_batch, lane_conn_batch = get_batches(data)
             x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
             a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
 
@@ -196,55 +254,92 @@ class Direct_diffusion(pl.LightningModule):
     @torch.no_grad()
     def generate(self,data,batch_idx):
 
-        agent_batch, lane_batch, lane_conn_batch = get_batches(data)
-        a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
+        if self.use_latent:
 
-        x_agent= data['agent'].x
-        x_lane= data['lane'].x
+            data['lane'].x=torch.empty((data['lane'].x.shape[0], self.cfg_model.lane_latent_dim))
+            data['agent'].x=torch.empty((data['agent'].x.shape[0], self.cfg_model.agent_latent_dim))
 
-        z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
+            data = data.to(self.device)
+            agent_latents, lane_latents = self.diff_model.forward(data, mode='initial_scene')
+            agent_latents, lane_latents = unnormalize_latents(
+                agent_latents,
+                lane_latents,
+                self.cfg_ldm.dataset.agent_latents_mean,
+                self.cfg_ldm.dataset.agent_latents_std,
+                self.cfg_ldm.dataset.lane_latents_mean,
+                self.cfg_ldm.dataset.lane_latents_std
+            )
 
-        z_lane = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
+            agent_samples, lane_samples, agent_types, lane_types, lane_conn_samples = self.autoencoder.model.forward_decoder(
+                agent_latents,
+                lane_latents,
+                data)
 
-        steps=20
+            agent_samples, lane_samples = unnormalize_scene(
+                agent_samples,
+                lane_samples,
+                fov=self.cfg_dataset.fov,
+                min_speed=self.cfg_dataset.min_speed,
+                max_speed=self.cfg_dataset.max_speed,
+                min_length=self.cfg_dataset.min_length,
+                max_length=self.cfg_dataset.max_length,
+                min_width=self.cfg_dataset.min_width,
+                max_width=self.cfg_dataset.max_width,
+                min_lane_x=self.cfg_dataset.min_lane_x,
+                min_lane_y=self.cfg_dataset.min_lane_y,
+                max_lane_x=self.cfg_dataset.max_lane_x,
+                max_lane_y=self.cfg_dataset.max_lane_y)
 
-        timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)
+        else:
+            agent_batch, lane_batch, lane_conn_batch = get_batches(data)
+            a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
 
-        for i in range(steps):
-            t = timesteps[i]
-            t_next = timesteps[i + 1]
+            x_agent= data['agent'].x
+            x_lane= data['lane'].x
 
-            lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch)
+            z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
-            denom = (1.0 - t).clamp_min(self.t_eps)
-            v_agent = (agent_pred - z_agent) / denom
-            v_lane = (lane_pred - z_lane) / denom
+            z_lane = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
 
-            z_agent=z_agent+(t_next-t)*v_agent
-            z_lane=z_lane+(t_next-t)*v_lane
+            steps=20
 
-        lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
-        lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
-        lane_conn_pred =  F.one_hot(lane_conn_pred, num_classes=6)
+            timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)
 
-        pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
+            for i in range(steps):
+                t = timesteps[i]
+                t_next = timesteps[i + 1]
 
-        lane_samples = transform_to_global(
-            z_lane[:, 4:].reshape(-1,20,2),
-            None,
-            z_lane[:, :2],
-            pred_head
-        )[0]
+                lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch)
 
-        # #x_agent : agent state + type   x,y, cosθ,sinθ ,length, width,speed,type-> x,y, speed,cosθ,sinθ ,length, width,type
+                denom = (1.0 - t).clamp_min(self.t_eps)
+                v_agent = (agent_pred - z_agent) / denom
+                v_lane = (lane_pred - z_lane) / denom
 
-        agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-        agent_types = torch.argmax(z_agent[:,-3:], dim=1)
+                z_agent=z_agent+(t_next-t)*v_agent
+                z_lane=z_lane+(t_next-t)*v_lane
+
+            lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
+            lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
+            lane_conn_samples =  F.one_hot(lane_conn_pred, num_classes=6)
+
+            pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
+
+            lane_samples = transform_to_global(
+                z_lane[:, 4:].reshape(-1,20,2),
+                None,
+                z_lane[:, :2],
+                pred_head
+            )[0]
+
+            # #x_agent : agent state + type   x,y, cosθ,sinθ ,length, width,speed,type-> x,y, speed,cosθ,sinθ ,length, width,type
+
+            agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+            agent_types = torch.argmax(z_agent[:,-3:], dim=1)
 
         data['agent'].x = agent_samples
         data['lane'].x = lane_samples
         data['agent'].type = torch.nn.functional.one_hot(agent_types, num_classes=self.cfg_dataset.num_agent_types)
-        data['lane', 'to', 'lane'].type =   lane_conn_pred
+        data['lane', 'to', 'lane'].type =   lane_conn_samples
 
         batch_of_scenarios = convert_batch_to_scenarios(
             data,
@@ -427,3 +522,30 @@ class Direct_diffusion(pl.LightningModule):
         # return [optimizer], {"scheduler": scheduler,
         #                      "interval": "step",
         #                      "frequency": 1}
+
+    def _log_losses(self, loss_dict, split='train', batch_size=None):
+        """ Log the losses to WandB."""
+        if split == 'train':
+            on_step = True
+            on_epoch = False
+            key_lambda = lambda s: s  # no change
+        elif split == 'val':
+            on_step = False
+            on_epoch = True
+            key_lambda = lambda s: f'val_{s}'  # add val_ prefix
+        elif split == 'test':
+            on_step = False
+            on_epoch = True
+            key_lambda = lambda s: f'test_{s}'  # add test_ prefix
+
+        for k, v in loss_dict.items():
+            if k == 'loss':
+                v = v.item()
+
+            self.log(key_lambda(k), v, prog_bar=True, on_step=on_step, on_epoch=on_epoch, sync_dist=True,
+                     batch_size=batch_size)
+
+        if split == 'train':
+            cur_lr = self.trainer.optimizers[0].param_groups[0]['lr']
+            self.log('lr', cur_lr, prog_bar=True, on_step=True, on_epoch=False, sync_dist=True)
+

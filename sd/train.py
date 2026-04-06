@@ -140,6 +140,7 @@ def train_ldm(cfg, cfg_ae, save_dir=None):
 def train_autoencoder(cfg,cfg_ldm, save_dir=None):
     """ Train the Scenario Dreamer AutoEncoder model."""
     datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg.dataset)
+    cfg_ldm = set_latent_stats(cfg_ldm)
 
     model=Direct_diffusion(cfg,cfg_ldm)
     #model = ScenarioDreamerAutoEncoder(cfg)
