@@ -906,3 +906,7 @@ Agent metrics:  ['nearest_dist_jsd: 0.05', 'lat_dev_jsd: 0.03', 'ang_dev_jsd: 0.
 #1024
 Lane metrics:  ['route_length_mean: 38.95', 'route_length_std: 13.13', 'endpoint_dist_mean: 0.28', 'endpoint_dist_std: 0.70', 'frechet_connectivity: 0.36', 'frechet_density: 0.60', 'frechet_reach: 0.24', 'frechet_convenience: 4.48']
 Agent metrics:  ['nearest_dist_jsd: 0.08', 'lat_dev_jsd: 0.08', 'ang_dev_jsd: 0.37', 'length_jsd: 0.80', 'width_jsd: 0.36', 'speed_jsd: 0.55', 'collision_rate: 4.59']
+
+avarage 1024
+Lane metrics:  ['route_length_mean: 38.96', 'route_length_std: 13.21', 'endpoint_dist_mean: 0.28', 'endpoint_dist_std: 0.69', 'frechet_connectivity: 0.36', 'frechet_density: 0.59', 'frechet_reach: 0.27', 'frechet_convenience: 4.39']
+Agent metrics:  ['nearest_dist_jsd: 0.08', 'lat_dev_jsd: 0.08', 'ang_dev_jsd: 0.37', 'length_jsd: 0.76', 'width_jsd: 0.36', 'speed_jsd: 0.55', 'collision_rate: 4.76']
