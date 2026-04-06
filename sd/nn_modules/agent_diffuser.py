@@ -63,7 +63,7 @@ class MapDecoder(nn.Module):
         super(MapDecoder, self).__init__()
         self.num_layers = num_layers
 
-        self.lane_emb = MLPLayer(44,hidden_dim, hidden_dim)
+        self.lane_emb = MLPLayer(42,hidden_dim, hidden_dim)
 
 
         self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands, use_pl2a=True)
@@ -85,7 +85,7 @@ class MapDecoder(nn.Module):
         if pred_con:
             self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 6)
         else:
-            self.output_layer=MLPLayer(hidden_dim,hidden_dim, 44)
+            self.output_layer=MLPLayer(hidden_dim,hidden_dim, 42)
 
         self.apply(weight_init)
 

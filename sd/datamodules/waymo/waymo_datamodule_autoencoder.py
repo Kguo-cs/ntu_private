@@ -87,7 +87,7 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
                 d['lg_type'] = int(lg_type)
                 d['num_lanes'] = int(num_lanes)
                 d['num_agents'] = int(num_agents)
-                d['lane'].x = torch.empty((num_lanes, 44))
+                d['lane'].x = torch.empty((num_lanes, 42))
                 d['agent'].x = torch.empty((num_agents, 10))
                 d['lane', 'to', 'lane'].edge_index = get_edge_index_complete_graph(num_lanes)
                 d['agent', 'to', 'agent'].edge_index = get_edge_index_complete_graph(num_agents)

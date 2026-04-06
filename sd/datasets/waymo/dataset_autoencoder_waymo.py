@@ -882,20 +882,20 @@ class WaymoDatasetAutoEncoder(Dataset):
         # ───────────────────────────────────────────────────────────────
         
         # Feature normalisation (into [‑1,1]) ----------------------
-        agent_states, road_points = normalize_scene(
-            agent_states,
-            road_points,
-            fov=self.cfg.fov,
-            min_speed=self.cfg.min_speed,
-            max_speed=self.cfg.max_speed,
-            min_length=self.cfg.min_length,
-            max_length=self.cfg.max_length,
-            min_width=self.cfg.min_width,
-            max_width=self.cfg.max_width,
-            min_lane_x=self.cfg.min_lane_x,
-            min_lane_y=self.cfg.min_lane_y,
-            max_lane_x=self.cfg.max_lane_x,
-            max_lane_y=self.cfg.max_lane_y)
+        # agent_states, road_points = normalize_scene(
+        #     agent_states,
+        #     road_points,
+        #     fov=self.cfg.fov,
+        #     min_speed=self.cfg.min_speed,
+        #     max_speed=self.cfg.max_speed,
+        #     min_length=self.cfg.min_length,
+        #     max_length=self.cfg.max_length,
+        #     min_width=self.cfg.min_width,
+        #     max_width=self.cfg.max_width,
+        #     min_lane_x=self.cfg.min_lane_x,
+        #     min_lane_y=self.cfg.min_lane_y,
+        #     max_lane_x=self.cfg.max_lane_x,
+        #     max_lane_y=self.cfg.max_lane_y)
 
         # Training‑only randomisation of non‑ego indices ----------
         if self.mode == 'train':

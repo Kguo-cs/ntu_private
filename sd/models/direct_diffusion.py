@@ -45,7 +45,7 @@ class Direct_diffusion(pl.LightningModule):
         self.cfg = cfg
         self.cfg_dataset = self.cfg.dataset
 
-        self.use_latent=True
+        self.use_latent=False
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -80,7 +80,7 @@ class Direct_diffusion(pl.LightningModule):
         # self.register_buffer("lane_con_mean", torch.zeros(1, 6))
         # self.register_buffer("lane_con_scale", torch.ones(1, 6))
 
-        lane_dim=44
+        lane_dim=42
 
         self.register_buffer("lane_mean", torch.zeros(1, lane_dim))
         self.register_buffer("lane_scale", torch.ones(1, lane_dim))
@@ -165,23 +165,31 @@ class Direct_diffusion(pl.LightningModule):
 
             x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
-            lane_pos=x_lane_states.mean(1)
-            dx = x_lane_states[:, 1:, 0] - x_lane_states[:, :-1, 0]
-            dy = x_lane_states[:, 1:, 1] - x_lane_states[:, :-1, 1]
+            # lane_pos=x_lane_states.mean(1)
+            # dx = x_lane_states[:, 1:, 0] - x_lane_states[:, :-1, 0]
+            # dy = x_lane_states[:, 1:, 1] - x_lane_states[:, :-1, 1]
+            #
+            # sin = torch.sin(torch.atan2(dy, dx))
+            # cos = torch.cos(torch.atan2(dy, dx))
+            #
+            # lane_heading = torch.atan2(sin.mean(1), cos.mean(1))
 
-            sin = torch.sin(torch.atan2(dy, dx))
-            cos = torch.cos(torch.atan2(dy, dx))
+            lane_pos=x_lane_states[:,0]
+            dx = x_lane_states[:, -1, 0] - x_lane_states[:, 0, 0]
+            dy = x_lane_states[:, -1, 1] - x_lane_states[:, 0, 1]
 
-            lane_heading = torch.atan2(sin.mean(1), cos.mean(1))
+            lane_heading = torch.atan2(dy, dx)
 
             x_lane=transform_to_local(
                 x_lane_states,
                 None,
                 lane_pos,
                 lane_heading
-            )[0].reshape(-1,40)
+            )[0]#
 
-            x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],x_lane],dim=-1)
+            rel_lane=x_lane[:,1:]-x_lane[:,:-1]
+
+            x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],rel_lane.reshape(-1,38)],dim=-1)
 
             if torch.all(self.agent_mean==0):
                 self.agent_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
@@ -332,12 +340,16 @@ class Direct_diffusion(pl.LightningModule):
 
             pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
 
+            rel_lane=torch.cumsum(z_lane[:, 4:].reshape(-1,19,2), dim=1)
+
             lane_samples = transform_to_global(
-                z_lane[:, 4:].reshape(-1,20,2),
+                rel_lane,
                 None,
                 z_lane[:, :2],
                 pred_head
             )[0]
+
+            lane_samples=torch.cat([z_lane[:, None,:2],lane_samples],dim=1)
 
             # #x_agent : agent state + type   x,y, cosθ,sinθ ,length, width,speed,type-> x,y, speed,cosθ,sinθ ,length, width,type
 
