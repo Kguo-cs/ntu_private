@@ -195,8 +195,8 @@ class AgentDecoder(nn.Module):
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
             batch_s=batch,  # [n_agent*n_step]
             mask=None,  # [n_agent, n_step]
-            max_radius=60,
-            max_num_neighbors=20,
+            max_radius=100,
+            max_num_neighbors=100,
             agent_train_mask=None,
             layer_num=self.num_layers,
             counter_feat_a=None,
@@ -249,13 +249,13 @@ class Agent_Diffuser(nn.Module):
 
     def __init__(self, cfg):
         super(Agent_Diffuser, self).__init__()
-        hidden_dim=128
+        hidden_dim=256
 
-        num_freq_bands=64
+        num_freq_bands=128
 
         num_heads=8
 
-        head_dim=16
+        head_dim=hidden_dim//num_heads
 
         self.map_encoder=MapDecoder(
             hidden_dim,
