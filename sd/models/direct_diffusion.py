@@ -48,7 +48,7 @@ class Direct_diffusion(pl.LightningModule):
             self.cfg_model = cfg_ldm.model
 
             self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
-                                                                               cfg=cfg_ae, map_location='cpu',
+                                                                               cfg=cfg, map_location='cpu',
                                                                                weights_only=False)  # 🔥 key fix)
             self.diff_model = LDM(cfg_ldm)
 

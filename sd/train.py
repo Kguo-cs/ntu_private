@@ -201,7 +201,7 @@ def main(cfg):
     dataset_name = cfg.dataset_name.name
     if cfg.model_name == 'autoencoder':
         model_name = cfg.model_name
-        cfg_ae = cfg.ae
+        cfg = cfg.ae
         cfg_ldm = cfg.ldm
         # not the cleanest solution, but need to track dataset name
         OmegaConf.set_struct(cfg, False)   # unlock to allow setting dataset name
