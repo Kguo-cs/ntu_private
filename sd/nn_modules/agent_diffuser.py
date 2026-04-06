@@ -5,6 +5,8 @@ import numpy as np
 from typing import Tuple, Union
 
 import torch.nn.functional as F
+from tensorflow.python.layers.core import dropout
+
 from sd.utils.layers import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock
 from sd.utils.train_helpers import weight_init
 from sd.utils.losses import GeometricLosses
@@ -276,6 +278,8 @@ class Agent_Diffuser(nn.Module):
 
         head_dim=hidden_dim//num_heads
 
+        dropout=0.1
+
         self.map_encoder=MapDecoder(
             hidden_dim,
             num_freq_bands=num_freq_bands,
@@ -291,7 +295,7 @@ class Agent_Diffuser(nn.Module):
             num_layers=3,
             num_heads=num_heads,
             head_dim=head_dim,
-            dropout=0,
+            dropout=dropout,
             pred_con=True
             )
 
@@ -301,7 +305,7 @@ class Agent_Diffuser(nn.Module):
             num_layers=3,
             num_heads=num_heads,
             head_dim=head_dim,
-            dropout=0,
+            dropout=dropout,
             )
 
         self.t_embed=MLPLayer(1,hidden_dim,hidden_dim)
