@@ -33,6 +33,9 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
         self.dataset_name = self.cfg_dataset.dataset_path
         self.init_prob_matrix = torch.load(os.environ["PROJECT_ROOT"]+'/metadata/initial_prob_matrix_waymo.pt')
 
+        if 'zs' in self.dataset_name:
+            self.num_workers=1
+
     def _initialize_pyg_dset(self, mode, num_samples, batch_size, conditioning_path=None,
                              nocturne_compatible_only=False):
         """ Initialize a PyTorch Geometric dataset with the appropriate metadata for the given generation mode."""
