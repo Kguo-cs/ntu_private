@@ -51,9 +51,11 @@ class Direct_diffusion(pl.LightningModule):
             self.cfg_ldm = cfg_ldm
             print(self.cfg_model.autoencoder_path)
             self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
-                                                                               cfg=cfg, map_location='cpu',
+                                                                               cfg=cfg, map_location='gpu',
                                                                                weights_only=False)  # 🔥 key fix)
-            self.diff_model = LDM(cfg_ldm)
+            self.diff_model = LDM(cfg_ldm).load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt",
+                                                                               cfg=cfg, map_location='gpu',
+                                                                               weights_only=False)  # 🔥 key fix)
         else:
             self.diff_model = Agent_Diffuser(cfg.model)
 
