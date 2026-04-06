@@ -23,6 +23,7 @@ import gzip
 
 from torch.optim.lr_scheduler import LambdaLR
 import math
+from sd.utils.losses import GeometricLosses
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -53,6 +54,9 @@ class Direct_diffusion(pl.LightningModule):
         self.register_buffer("agent_mean", torch.zeros(1, agent_dim))
         self.register_buffer("agent_scale", torch.ones(1, agent_dim))
 
+        # self.register_buffer("lane_con_mean", torch.zeros(1, 6))
+        # self.register_buffer("lane_con_scale", torch.ones(1, 6))
+
         lane_dim=44
 
         self.register_buffer("lane_mean", torch.zeros(1, lane_dim))
@@ -61,6 +65,8 @@ class Direct_diffusion(pl.LightningModule):
 
         self.eval_set =os.environ["PROJECT_ROOT"]+"/metadata/waymo_eval_set.pkl"
 
+        self.lane_conn_loss_fn = GeometricLosses['cross_entropy'](apply_mean=False)
+
         self.scenarios={}
 
     def training_step(self, data, batch_idx):
@@ -68,6 +74,7 @@ class Direct_diffusion(pl.LightningModule):
 
         agent_batch, lane_batch, lane_conn_batch = get_batches(data)
         x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
+        a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
 
         x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
@@ -93,9 +100,15 @@ class Direct_diffusion(pl.LightningModule):
             self.lane_mean.copy_(torch.mean(x_lane, dim=0, keepdim=True))
             self.lane_scale.copy_(torch.std(x_lane, dim=0, keepdim=True))
 
+            #self.lane_con_mean.copy_(torch.mean(x_lane_conn, dim=0, keepdim=True))
+           # self.lane_con_scale.copy_(torch.std(x_lane_conn, dim=0, keepdim=True))
+
+
         agent_noise = torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
         lane_noise = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
+
+        # lane_con_noise=torch.randn_like(x_lane_conn)*self.lane_con_scale+self.lane_con_mean
 
         t_batch = torch.rand((data.num_graphs,1), device=agent_noise.device)  # t ~ U[0,1]
 
@@ -108,6 +121,12 @@ class Direct_diffusion(pl.LightningModule):
         z_lane = (1 - lane_t) * lane_noise + lane_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
         lane_pred, agent_pred=self.model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
+
+        lane_conn_logits=self.model.predict_con(x_lane,l2l_edge_index,lane_batch)
+
+        lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
+
+        self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
         denom = (1 - agent_t).clamp_min(self.t_eps)
 
@@ -143,7 +162,7 @@ class Direct_diffusion(pl.LightningModule):
         self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
         self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
 
-        loss=match_loss1+match_loss
+        loss=match_loss1+match_loss+lane_conn_loss
 
         self.log('train/loss', loss, on_step=True, batch_size=1)
 
@@ -152,6 +171,8 @@ class Direct_diffusion(pl.LightningModule):
     def generate(self,data,batch_idx):
 
         agent_batch, lane_batch, lane_conn_batch = get_batches(data)
+        a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
+
         x_agent= data['agent'].x
         x_lane= data['lane'].x
 
@@ -175,6 +196,9 @@ class Direct_diffusion(pl.LightningModule):
             z_agent=z_agent+(t_next-t)*v_agent
             z_lane=z_lane+(t_next-t)*v_lane
 
+        lane_conn_logits=self.model.predict_con(z_lane,l2l_edge_index,lane_batch)
+        lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
+        lane_conn_pred =  F.one_hot(lane_conn_pred, num_classes=6)
 
         pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
 
@@ -193,7 +217,7 @@ class Direct_diffusion(pl.LightningModule):
         data['agent'].x = agent_samples
         data['lane'].x = lane_samples
         data['agent'].type = torch.nn.functional.one_hot(agent_types, num_classes=self.cfg_dataset.num_agent_types)
-        data['lane', 'to', 'lane'].type =   F.one_hot(torch.zeros_like(data['lane', 'to', 'lane'].edge_index[0]), num_classes=6)
+        data['lane', 'to', 'lane'].type =   lane_conn_pred
 
         batch_of_scenarios = convert_batch_to_scenarios(
             data,

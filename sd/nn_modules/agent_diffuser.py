@@ -56,6 +56,7 @@ class MapDecoder(nn.Module):
             num_heads: int,
             head_dim: int,
             dropout: float,
+            pred_con=False
     ) -> None:
         super(MapDecoder, self).__init__()
         self.num_layers = num_layers
@@ -79,15 +80,23 @@ class MapDecoder(nn.Module):
             ]
         )
 
-        self.output_layer=MLPLayer(hidden_dim,hidden_dim, 44)
+
+
+        if pred_con:
+            self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 6)
+        else:
+            self.output_layer=MLPLayer(hidden_dim,hidden_dim, 44)
 
         self.apply(weight_init)
 
-    def forward(self, z_lane,t_batch,batch):
+    def forward(self, z_lane,batch,t_batch=None,l2l_edge_index=None):
         pos_pt=z_lane[:,:2]
         orient_pt=torch.atan2(z_lane[:,3],z_lane[:,2])
 
-        x_pt=self.lane_emb(z_lane)+t_batch[batch]
+        x_pt=self.lane_emb(z_lane)
+
+        if t_batch is not None:
+            x_pt=x_pt+t_batch[batch]
 
         head_vector = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
 
@@ -106,16 +115,26 @@ class MapDecoder(nn.Module):
         for i in range(self.num_layers):
             x_pt= self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
 
-        lane_pred=self.output_layer(x_pt)
+        if l2l_edge_index is not None:
 
-        output={
-            "pt_token": x_pt,
-            "position": pos_pt,
-            "orientation": orient_pt,
-            "batch": batch,
-        }
+            src_lane_conn_embedding = x_pt[l2l_edge_index[0]]
+            dst_lane_conn_embedding = x_pt[l2l_edge_index[1]]
 
-        return output,lane_pred
+            lane_conn_logits = self.pred_lane_conn( torch.cat([src_lane_conn_embedding, dst_lane_conn_embedding], dim=-1))
+
+            return lane_conn_logits
+
+        else:
+            lane_pred=self.output_layer(x_pt)
+
+            output={
+                "pt_token": x_pt,
+                "position": pos_pt,
+                "orientation": orient_pt,
+                "batch": batch,
+            }
+
+            return output,lane_pred
 
 class AgentDecoder(nn.Module):
 
@@ -196,7 +215,7 @@ class AgentDecoder(nn.Module):
             batch_s=batch,  # [n_agent*n_step]
             mask=None,  # [n_agent, n_step]
             max_radius=100,
-            max_num_neighbors=30,
+            max_num_neighbors=60,
             agent_train_mask=None,
             layer_num=self.num_layers,
             counter_feat_a=None,
@@ -249,9 +268,9 @@ class Agent_Diffuser(nn.Module):
 
     def __init__(self, cfg):
         super(Agent_Diffuser, self).__init__()
-        hidden_dim=256
+        hidden_dim=128
 
-        num_freq_bands=128
+        num_freq_bands=hidden_dim//2
 
         num_heads=8
 
@@ -266,10 +285,20 @@ class Agent_Diffuser(nn.Module):
             dropout=0,
             )
 
-        self.agent_encoder=AgentDecoder(
+        self.connect_encoder=MapDecoder(
             hidden_dim,
             num_freq_bands=num_freq_bands,
             num_layers=3,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=0,
+            pred_con=True
+            )
+
+        self.agent_encoder=AgentDecoder(
+            hidden_dim,
+            num_freq_bands=num_freq_bands,
+            num_layers=1,
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=0,
@@ -279,12 +308,19 @@ class Agent_Diffuser(nn.Module):
 
         self.apply(weight_init)
 
+    def predict_con(self,x_lane,l2l_edge_index,lane_batch):
+
+        lane_conn_logits=self.connect_encoder(x_lane,lane_batch,l2l_edge_index=l2l_edge_index)
+
+
+        return lane_conn_logits
+
 
     def forward(self, z_agent,z_lane,t_batch,agent_batch,lane_batch):
 
         t_batch=self.t_embed(t_batch)
 
-        map_feature,lane_pred=self.map_encoder(z_lane,t_batch,lane_batch)
+        map_feature,lane_pred=self.map_encoder(z_lane,lane_batch,t_batch)
 
         agent_pred=self.agent_encoder(map_feature,z_agent,t_batch,agent_batch)
 
