@@ -135,7 +135,7 @@ class Direct_diffusion(pl.LightningModule):
             agent_pred,
             x_agent,
             denom,
-            all_state=False,
+            all_state=True,
             use_col=False,
             use_all_type=True
         )
@@ -147,7 +147,7 @@ class Direct_diffusion(pl.LightningModule):
             lane_pred,
             x_lane,
             denom,
-            all_state=False,
+            all_state=True,
             use_col=False,
             use_all_type=True
         )
