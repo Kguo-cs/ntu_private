@@ -1006,7 +1006,7 @@ class WaymoDatasetAutoEncoder(Dataset):
         train_filename_parts = filename.split('.')[1].split('_')[:2]
         train_filename = f'{train_filename_parts[0]}_{train_filename_parts[1]}'
         noct_compatible = 1 if train_filename in self.nocturne_compatible_filenames else 0
-        d['nocturne_compatible'] = noct_compatible
+        d['map_id'] = noct_compatible
         # else:
         #     d['map_id'] = map_id_i
 

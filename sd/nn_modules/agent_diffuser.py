@@ -329,7 +329,7 @@ class Agent_Diffuser(nn.Module):
        # self.t_embedder = TimestepEmbedder(self.cfg_model.hidden_dim)
         self.num_agents_embedder = LabelEmbedder(30 + 1, hidden_dim, 0)
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
-        # self.scene_type_embedder = LabelEmbedder(self.cfg_dataset.num_map_ids * 2, self.cfg_model.hidden_dim, self.cfg_model.label_dropout)
+        self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
         self.apply(weight_init)
 
@@ -341,7 +341,7 @@ class Agent_Diffuser(nn.Module):
         return lane_conn_logits
 
 
-    def forward(self, z_agent,z_lane,t_batch,agent_batch,lane_batch):
+    def forward(self, z_agent,z_lane,t_batch,agent_batch,lane_batch,scene_idx=None):
 
         t_batch=self.t_embed(t_batch)
        # t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
@@ -351,6 +351,10 @@ class Agent_Diffuser(nn.Module):
         num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)
         num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)
 
+        scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training)#, force_drop_ids=torch.ones_like(scene_idx))
+
+
+        t_batch=t_batch+scene_type
 
         map_feature,lane_pred=self.map_encoder(z_lane,lane_batch,t_batch+num_lanes_emb)
 

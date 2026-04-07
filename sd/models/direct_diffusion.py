@@ -153,8 +153,6 @@ class Direct_diffusion(pl.LightningModule):
                     self.cfg_ldm.dataset.lane_latents_std,
                     normalize=True)  # sample normalized latents for training
 
-            data["map_id"] = data['nocturne_compatible']
-
             loss_dict = self.diff_model.loss(data)
             self._log_losses(loss_dict, split='train')
             loss=loss_dict['loss']
@@ -162,6 +160,7 @@ class Direct_diffusion(pl.LightningModule):
 
             x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
             a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
+            scene_idx = 2 * data['lg_type'].long() + data['map_id'].long()
 
             x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
@@ -226,7 +225,7 @@ class Direct_diffusion(pl.LightningModule):
 
             z_lane = (1 - lane_t) * lane_noise + lane_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-            lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t_batch,agent_batch,lane_batch)
+            lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t_batch,agent_batch,lane_batch,scene_idx)
 
             lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
 
@@ -330,11 +329,13 @@ class Direct_diffusion(pl.LightningModule):
 
             timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)
 
+            scene_idx = 2 * data['lg_type'].long() + data['map_id'].long()
+
             for i in range(steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
 
-                lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch)
+                lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch,scene_idx)
 
                 denom = (1.0 - t).clamp_min(self.t_eps)
                 v_agent = (agent_pred - z_agent) / denom
