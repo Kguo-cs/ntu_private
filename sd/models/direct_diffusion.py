@@ -290,19 +290,20 @@ class Direct_diffusion(pl.LightningModule):
                 x_lane, t_batch, lane_batch,
                 self.lane_mean, self.lane_scale,
             )
-
-            z_lane_conn, lane_conn_t, lane_conn_denom = self.process_features(
-                x_lane_conn, t_batch, lane_conn_batch,
-                self.lane_con_mean, self.lane_con_scale,
-            )
-
-            agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx)
-
-            # lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
             #
-            # lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
-            #
-            # self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
+            # z_lane_conn, lane_conn_t, lane_conn_denom = self.process_features(
+            #     x_lane_conn, t_batch, lane_conn_batch,
+            #     self.lane_con_mean, self.lane_con_scale,
+            # )
+
+            agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,None,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx)
+
+            lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
+
+            lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
+            # lane_conn_loss=F.l1_loss(con_pred,x_lane_conn)
+
+            self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
             match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
                 agent_batch,
@@ -328,7 +329,6 @@ class Direct_diffusion(pl.LightningModule):
 
             match_loss1=F.l1_loss(lane_pred,x_lane_states)
 
-            lane_conn_loss=F.l1_loss(con_pred,x_lane_conn)
 
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
             self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
@@ -340,7 +340,6 @@ class Direct_diffusion(pl.LightningModule):
             # self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
             # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
             # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
-            self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
             loss=match_loss+match_loss1+10*lane_conn_loss
 
@@ -429,7 +428,7 @@ class Direct_diffusion(pl.LightningModule):
 
             l2l_edge_index=l2l_edge_index[:,non_self_mask]
 
-            z_lane_conn = torch.randn((l2l_edge_index.shape[1],5),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
+            z_lane_conn = None#torch.randn((l2l_edge_index.shape[1],5),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
 
             steps=20
 
@@ -445,13 +444,14 @@ class Direct_diffusion(pl.LightningModule):
                 denom = (1.0 - t).clamp_min(self.t_eps)
                 v_agent = (agent_pred - z_agent) / denom
                 v_lane = (lane_pred - z_lane) / denom
-                v_lane_con = (con_pred - z_lane_conn) / denom
+                #v_lane_con = (con_pred - z_lane_conn) / denom
 
                 z_agent=z_agent+(t_next-t)*v_agent
                 z_lane=z_lane+(t_next-t)*v_lane
-                z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
+               # z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
 
-            # lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
+            z_lane_conn=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
+
             lane_conn_pred = torch.argmax(z_lane_conn, dim=1)
 
             lane_conn_pred_all=torch.full((non_self_mask.shape[0],), 5, device=z_lane_conn.device)
