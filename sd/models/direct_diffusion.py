@@ -244,8 +244,8 @@ class Direct_diffusion(pl.LightningModule):
             x_lane_states=resample_polyline_torch_batch(x_lane_states)
 
             lane_pos=x_lane_states[:,0]
-            dx = x_lane_states[:, -1, 0] - x_lane_states[:, 0, 0]
-            dy = x_lane_states[:, -1, 1] - x_lane_states[:, 0, 1]
+            dx = x_lane_states[:, 1, 0] - x_lane_states[:, 0, 0]
+            dy = x_lane_states[:, 1, 1] - x_lane_states[:, 0, 1]
 
             lane_heading = torch.atan2(dy, dx)
 
@@ -294,6 +294,9 @@ class Direct_diffusion(pl.LightningModule):
 
             lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
             # lane_conn_loss=F.l1_loss(con_pred,x_lane_conn)
+
+            # if torch.isnan(lane_conn_loss):
+            #     print(lane_conn_loss.item())
 
             self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
