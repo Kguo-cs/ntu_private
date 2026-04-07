@@ -330,15 +330,15 @@ class Agent_Diffuser(nn.Module):
             pred_lane_conn=True
             )
 
-        # self.map_encoder1=MapDecoder(
-        #     hidden_dim,
-        #     num_freq_bands=num_freq_bands,
-        #     num_layers=num_layers,
-        #     num_heads=num_heads,
-        #     head_dim=head_dim,
-        #     dropout=dropout
-        #     )
-        #
+        self.map_encoder1=MapDecoder(
+            hidden_dim,
+            num_freq_bands=num_freq_bands,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=dropout
+            )
+
         self.agent_encoder=AgentDecoder(
             hidden_dim,
             num_freq_bands=num_freq_bands,
@@ -386,7 +386,7 @@ class Agent_Diffuser(nn.Module):
             con_pred=None
 
         if pred_agent:
-            map_feature=self.map_encoder(x_lane,lane_batch,None,t_batch=t_batch+num_lanes_emb,l2l_edge_index=l2l_edge_index,get_out=False)
+            map_feature=self.map_encoder1(x_lane,lane_batch,None,t_batch=t_batch+num_lanes_emb,l2l_edge_index=l2l_edge_index,get_out=False)
 
             agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb,agent_batch)
         else:

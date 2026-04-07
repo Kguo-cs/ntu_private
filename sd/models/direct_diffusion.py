@@ -333,7 +333,7 @@ class Direct_diffusion(pl.LightningModule):
                 lane_denom,
                 all_state=False,
                 use_all_type=True,
-                use_match=True
+               # use_match=True
             )
             #lane_pred=self.get_original_lane(lane_pred)
 
@@ -460,7 +460,7 @@ class Direct_diffusion(pl.LightningModule):
 
             z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
-            z_lane = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
+            z_lane = torch.randn_like(x_lane)*self.lane_scale*0.75+self.lane_mean
 
             non_self_mask=l2l_edge_index[0]!=l2l_edge_index[1]
 
