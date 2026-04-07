@@ -278,7 +278,8 @@ class AgentDecoder(nn.Module):
 
         return a_pred
 
-
+from sd.utils.dit_layers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP
+from sd.utils.pyg_helpers import get_indices_within_scene
 
 class Agent_Diffuser(nn.Module):
     """Scenario Dreamer AutoEncoder."""
@@ -325,6 +326,11 @@ class Agent_Diffuser(nn.Module):
 
         self.t_embed=MLPLayer(1,hidden_dim,hidden_dim)
 
+       # self.t_embedder = TimestepEmbedder(self.cfg_model.hidden_dim)
+        self.num_agents_embedder = LabelEmbedder(30 + 1, hidden_dim, 0)
+        self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
+        # self.scene_type_embedder = LabelEmbedder(self.cfg_dataset.num_map_ids * 2, self.cfg_model.hidden_dim, self.cfg_model.label_dropout)
+
         self.apply(weight_init)
 
     def predict_con(self,x_lane,l2l_edge_index,lane_batch):
@@ -338,10 +344,17 @@ class Agent_Diffuser(nn.Module):
     def forward(self, z_agent,z_lane,t_batch,agent_batch,lane_batch):
 
         t_batch=self.t_embed(t_batch)
+       # t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
+        num_agents = torch.bincount(agent_batch)
+        num_lanes = torch.bincount(lane_batch)
 
-        map_feature,lane_pred=self.map_encoder(z_lane,lane_batch,t_batch)
+        num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)
+        num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)
 
-        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch,agent_batch)
+
+        map_feature,lane_pred=self.map_encoder(z_lane,lane_batch,t_batch+num_lanes_emb)
+
+        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb,agent_batch)
 
 
         return lane_pred,agent_pred
