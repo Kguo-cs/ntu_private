@@ -240,20 +240,12 @@ class Direct_diffusion(pl.LightningModule):
 
             x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
-            # lane_pos=x_lane_states.mean(1)
-            # dx = x_lane_states[:, 1:, 0] - x_lane_states[:, :-1, 0]
-            # dy = x_lane_states[:, 1:, 1] - x_lane_states[:, :-1, 1]
-            #
-            # sin = torch.sin(torch.atan2(dy, dx))
-            # cos = torch.cos(torch.atan2(dy, dx))
-            #
-            # lane_heading = torch.atan2(sin.mean(1), cos.mean(1))
 
             x_lane_states=resample_polyline_torch_batch(x_lane_states)
 
             lane_pos=x_lane_states[:,0]
-            dx = x_lane_states[:, 1, 0] - x_lane_states[:, 0, 0]
-            dy = x_lane_states[:, 1, 1] - x_lane_states[:, 0, 1]
+            dx = x_lane_states[:, -1, 0] - x_lane_states[:, 0, 0]
+            dy = x_lane_states[:, -1, 1] - x_lane_states[:, 0, 1]
 
             lane_heading = torch.atan2(dy, dx)
 

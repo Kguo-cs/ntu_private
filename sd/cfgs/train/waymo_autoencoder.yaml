@@ -1,7 +1,7 @@
 defaults:
 - base
 
-run_name: lane10map3_conl1self_1024_2stage #_nscene_s075_magent_nodiff #_attrlocallanehead__drop01_shape1scenario_dreamer_autoencoder_waymo # from base.yaml
+run_name: lane10map3_headlast_conl1self_1024_2stage #_nscene_s075_magent_nodiff #_attrlocallanehead__drop01_shape1scenario_dreamer_autoencoder_waymo # from base.yaml
 max_steps: 350000 # from base.yaml
 warmup_steps: 1000 # from base.yaml
 lr_schedule: linear # from base.yaml
