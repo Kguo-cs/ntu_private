@@ -317,17 +317,17 @@ class Direct_diffusion(pl.LightningModule):
                # w_shape=1,
             )
 
-            # match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
-            #     lane_batch,
-            #     lane_pred,
-            #     x_lane,
-            #     lane_denom,
-            #     all_state=True,
-            #     use_all_type=True
-            # )
+            match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+                lane_batch,
+                lane_pred,
+                x_lane,
+                lane_denom,
+                all_state=True,
+                use_all_type=True
+            )
             lane_pred=self.get_original_lane(lane_pred)
 
-            match_loss1=F.l1_loss(lane_pred,x_lane_states)
+            #match_loss1=F.l1_loss(lane_pred,x_lane_states)
 
 
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
@@ -341,7 +341,7 @@ class Direct_diffusion(pl.LightningModule):
             # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
             # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
 
-            loss=match_loss+match_loss1+10*lane_conn_loss
+            loss=match_loss+10*match_loss1+10*lane_conn_loss
 
             self.log('train/loss', loss, on_step=True, batch_size=1)
 
