@@ -96,7 +96,7 @@ class MapDecoder(nn.Module):
 
         self.apply(weight_init)
 
-    def forward(self, z_lane,batch,z_lane_conn,t_batch=None,l2l_edge_index=None):
+    def forward(self, z_lane,batch,z_lane_conn,t_batch=None,l2l_edge_index=None,get_out=True):
         pos_pt=z_lane[:,:2]
         orient_pt=torch.atan2(z_lane[:,3],z_lane[:,2])
 
@@ -132,12 +132,12 @@ class MapDecoder(nn.Module):
             "orientation": orient_pt,
             "batch": batch,
         }
-        if self.pred_lane_conn:
+        if self.pred_lane_conn and get_out:
             lane_conn_logits = self.pred_lane_conn( torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
 
             return lane_conn_logits
 
-        elif self.pred_lane:
+        elif self.pred_lane and get_out:
             res = self.output_layer(x_pt)
 
             res_theta = torch.atan2(res[:, 3], res[:, 2])
@@ -328,14 +328,14 @@ class Agent_Diffuser(nn.Module):
             pred_lane_conn=True
             )
 
-        self.map_encoder1=MapDecoder(
-            hidden_dim,
-            num_freq_bands=num_freq_bands,
-            num_layers=3,
-            num_heads=num_heads,
-            head_dim=head_dim,
-            dropout=dropout
-            )
+        # self.map_encoder1=MapDecoder(
+        #     hidden_dim,
+        #     num_freq_bands=num_freq_bands,
+        #     num_layers=3,
+        #     num_heads=num_heads,
+        #     head_dim=head_dim,
+        #     dropout=dropout
+        #     )
 
         self.agent_encoder=AgentDecoder(
             hidden_dim,
@@ -384,7 +384,7 @@ class Agent_Diffuser(nn.Module):
             con_pred=None
 
         if pred_agent:
-            map_feature=self.map_encoder1(x_lane,lane_batch,None,t_batch=t_batch+num_lanes_emb,l2l_edge_index=l2l_edge_index)
+            map_feature=self.map_encoder(x_lane,lane_batch,None,t_batch=t_batch+num_lanes_emb,l2l_edge_index=l2l_edge_index,get_out=False)
 
             agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb,agent_batch)
         else:
