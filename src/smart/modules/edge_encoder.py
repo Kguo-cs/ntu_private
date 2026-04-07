@@ -238,21 +238,27 @@ class EdgeEncoder(nn.Module):
                            batch_pl,  # [n_pl*n_step]
                            pl2a_radius,
                            max_num_neighbors,
+                           l2l_edge_index=None,
+                           l2l_feature=None
                            ):
 
-        edge_index_pl2a = radiusGraphNearest2(x=pos_s,
-                                              y=pos_pl,
-                                              r=pl2a_radius,
-                                              batch_x=batch_s,
-                                              batch_y=batch_pl,
-                                              max_num_neighbors=max_num_neighbors)
+        if l2l_edge_index is None:
+            edge_index_pl2pl = radiusGraphNearest2(x=pos_s,
+                                                  y=pos_pl,
+                                                  r=pl2a_radius,
+                                                  batch_x=batch_s,
+                                                  batch_y=batch_pl,
+                                                  max_num_neighbors=max_num_neighbors)
+        else:
+            edge_index_pl2pl=l2l_edge_index
+
         # #edge_index[0] → indices in y (query points)            edge_index[1] → indices in x (neighbor points)
-        rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]   #src, dst
+        rel_pos_pl2a = pos_pl[edge_index_pl2pl[0]] - pos_s[edge_index_pl2pl[1]]   #src, dst
         rel_orient_pl2a = wrap_angle(
-            orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
+            orient_pl[edge_index_pl2pl[0]] - head_s[edge_index_pl2pl[1]]
         )
 
-        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2a[1]],self.differentiable_edge)
+        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2pl[1]],self.differentiable_edge)
 
 
         r_pl2a = torch.cat(
@@ -263,9 +269,9 @@ class EdgeEncoder(nn.Module):
             dim=-1,
         )
 
-        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=l2l_feature)
 
-        return edge_index_pl2a, r_pl2a
+        return edge_index_pl2pl, r_pl2a
 
 
     def build_map2agent_edge(

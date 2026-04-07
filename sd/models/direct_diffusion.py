@@ -46,6 +46,11 @@ class Direct_diffusion(pl.LightningModule):
         self.cfg_dataset = self.cfg.dataset
 
         self.use_latent=False
+        self.eval_set =os.environ["PROJECT_ROOT"]+"/metadata/waymo_eval_set.pkl"
+
+        self.lane_conn_loss_fn = GeometricLosses['cross_entropy'](apply_mean=False)
+
+        self.scenarios={}
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -77,20 +82,29 @@ class Direct_diffusion(pl.LightningModule):
         self.register_buffer("agent_mean", torch.zeros(1, agent_dim))
         self.register_buffer("agent_scale", torch.ones(1, agent_dim))
 
-        # self.register_buffer("lane_con_mean", torch.zeros(1, 6))
-        # self.register_buffer("lane_con_scale", torch.ones(1, 6))
-
         lane_dim=42
 
         self.register_buffer("lane_mean", torch.zeros(1, lane_dim))
         self.register_buffer("lane_scale", torch.ones(1, lane_dim))
+
+        self.register_buffer("lane_con_mean", torch.zeros(1, 6))
+        self.register_buffer("lane_con_scale", torch.ones(1, 6))
+
         self.t_eps=0.01
 
-        self.eval_set =os.environ["PROJECT_ROOT"]+"/metadata/waymo_eval_set.pkl"
+    def process_features(self, x, t_batch, batch, mean, scale):
+        if torch.all(mean==0):
+            mean.copy_(x.mean(0, keepdim=True))
+            scale.copy_(x.std(0, keepdim=True))
 
-        self.lane_conn_loss_fn = GeometricLosses['cross_entropy'](apply_mean=False)
 
-        self.scenarios={}
+        noise = torch.randn_like(x) * scale + mean
+        t = t_batch[batch]
+
+        z = (1 - t) * noise + t * x
+        denom = (1 - t).clamp_min(self.t_eps)
+
+        return z, t, denom
 
     def training_step(self, data, batch_idx):
         """ Training step for the model. Computes the loss and logs it to WandB."""
@@ -198,48 +212,37 @@ class Direct_diffusion(pl.LightningModule):
 
             x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],lane_cosine],dim=-1)
 
-            if torch.all(self.agent_mean==0):
-                self.agent_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
-                self.agent_scale.copy_(torch.std(x_agent, dim=0, keepdim=True))
+            t_batch = torch.rand((data.num_graphs, 1), device=agent_batch.device)  # t ~ U[0,1]
 
-                self.lane_mean.copy_(torch.mean(x_lane, dim=0, keepdim=True))
-                self.lane_scale.copy_(torch.std(x_lane, dim=0, keepdim=True))
+            z_agent, agent_t, agent_denom = self.process_features(
+                x_agent, t_batch, agent_batch,
+                self.agent_mean, self.agent_scale,
+            )
 
-                #self.lane_con_mean.copy_(torch.mean(x_lane_conn, dim=0, keepdim=True))
-               # self.lane_con_scale.copy_(torch.std(x_lane_conn, dim=0, keepdim=True))
+            # lane
+            z_lane, lane_t, lane_denom = self.process_features(
+                x_lane, t_batch, lane_batch,
+                self.lane_mean, self.lane_scale,
+            )
 
+            z_lane_conn, lane_conn_t, lane_conn_denom = self.process_features(
+                x_lane_conn, t_batch, lane_conn_batch,
+                self.lane_con_mean, self.lane_con_scale,
+            )
 
-            agent_noise = torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
+            agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx)
 
-            lane_noise = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
-
-            # lane_con_noise=torch.randn_like(x_lane_conn)*self.lane_con_scale+self.lane_con_mean
-
-            t_batch = torch.rand((data.num_graphs,1), device=agent_noise.device)  # t ~ U[0,1]
-
-            agent_t=t_batch[agent_batch]
-
-            lane_t=t_batch[lane_batch]
-
-            z_agent = (1 - agent_t) * agent_noise + agent_t * x_agent  # large t, low noise        target velocity e-x = (z-x)/(1-t)
-
-            z_lane = (1 - lane_t) * lane_noise + lane_t * x_lane  # large t, low noise        target velocity e-x = (z-x)/(1-t)
-
-            lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t_batch,agent_batch,lane_batch,scene_idx)
-
-            lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
-
-            lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
-
-            self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
-
-            denom = (1 - agent_t).clamp_min(self.t_eps)
+            # lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
+            #
+            # lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
+            #
+            # self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
             match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
                 agent_batch,
                 agent_pred,
                 x_agent,
-                denom,
+                agent_denom,
                 scale=self.agent_scale,
                 all_state=True,
                 use_all_type=True,
@@ -247,16 +250,17 @@ class Direct_diffusion(pl.LightningModule):
                # w_shape=1,
             )
 
-            denom = (1 - lane_t).clamp_min(self.t_eps)
-
             match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
                 lane_batch,
                 lane_pred,
                 x_lane,
-                denom,
+                lane_denom,
                 all_state=True,
                 use_all_type=True
             )
+
+            lane_conn_loss=F.mse_loss(con_pred,x_lane_conn)
+
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
             self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
             self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
@@ -267,8 +271,9 @@ class Direct_diffusion(pl.LightningModule):
             self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
             self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
             self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
+            self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
-            loss=10*match_loss1+match_loss+10*lane_conn_loss
+            loss=match_loss+10*match_loss1+10*lane_conn_loss
 
             self.log('train/loss', loss, on_step=True, batch_size=1)
 
@@ -323,7 +328,9 @@ class Direct_diffusion(pl.LightningModule):
 
             z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
-            z_lane = torch.randn_like(x_lane)*self.lane_scale*0.75+self.lane_mean
+            z_lane = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
+
+            z_lane_conn = torch.randn((l2l_edge_index.shape[1],6),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
 
             steps=20
 
@@ -334,18 +341,19 @@ class Direct_diffusion(pl.LightningModule):
             for i in range(steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
-
-                lane_pred, agent_pred=self.diff_model(z_agent,z_lane,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch,scene_idx)
+                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch,scene_idx)
 
                 denom = (1.0 - t).clamp_min(self.t_eps)
                 v_agent = (agent_pred - z_agent) / denom
                 v_lane = (lane_pred - z_lane) / denom
+                v_lane_con = (con_pred - z_lane_conn) / denom
 
                 z_agent=z_agent+(t_next-t)*v_agent
                 z_lane=z_lane+(t_next-t)*v_lane
+                z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
 
-            lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
-            lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
+            # lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
+            lane_conn_pred = torch.argmax(z_lane_conn, dim=1)
             lane_conn_samples =  F.one_hot(lane_conn_pred, num_classes=6)
 
             pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
