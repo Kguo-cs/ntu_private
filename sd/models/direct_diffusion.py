@@ -204,7 +204,7 @@ class Direct_diffusion(pl.LightningModule):
                 None,
                 lane_pos,
                 lane_heading
-            )[0]#
+            )[0]#{"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
 
             rel_lane=x_lane[:,1:]-x_lane[:,:-1]
 
@@ -351,7 +351,7 @@ class Direct_diffusion(pl.LightningModule):
             for i in range(steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
-                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t[None,None].repeat(data.num_graphs, 1),agent_batch,lane_batch,scene_idx)
+                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx)
 
                 denom = (1.0 - t).clamp_min(self.t_eps)
                 v_agent = (agent_pred - z_agent) / denom
@@ -365,7 +365,7 @@ class Direct_diffusion(pl.LightningModule):
             # lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
             lane_conn_pred = torch.argmax(z_lane_conn, dim=1)
 
-            lane_conn_pred_all=torch.zeros([len(non_self_mask)],dtype=torch.long,device=lane_conn_pred.device)+5
+            lane_conn_pred_all=torch.full((non_self_mask.shape[0],), 5, device=z_lane_conn.device)
 
             lane_conn_pred_all[non_self_mask]=lane_conn_pred
 
@@ -373,15 +373,15 @@ class Direct_diffusion(pl.LightningModule):
 
             pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
 
-            dist=z_lane[:, 4]
+            dist=z_lane[:, 4].clone()
 
-            lane_cosine=z_lane[:, 6:].reshape(-1,18,2)
+            lane_cosine=z_lane[:, 4:].reshape(-1,19,2)
+
+            lane_cosine[:,0,0]=1
+
+            lane_cosine[:,0,1]=0
 
             lane_rel=lane_cosine/torch.norm(lane_cosine,dim=-1,keepdim=True)*dist[:,None,None]
-
-            lane_rel=torch.cat([torch.zeros_like(lane_rel[:,:1]),lane_rel],dim=1)
-
-            lane_rel[:,0,0]=dist
 
             lane_local=torch.cumsum(lane_rel, dim=1)#z_lane[:, 4:].reshape(-1,19,2),
 
