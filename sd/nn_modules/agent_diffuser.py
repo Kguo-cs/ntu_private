@@ -308,7 +308,7 @@ class Agent_Diffuser(nn.Module):
 
         dropout=0.1
 
-        num_layers=3
+        num_layers=2
 
         self.map_encoder=MapDecoder(
             hidden_dim,
