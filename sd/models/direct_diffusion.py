@@ -331,8 +331,9 @@ class Direct_diffusion(pl.LightningModule):
                 lane_pred,
                 x_lane,
                 lane_denom,
-                all_state=True,
-                use_all_type=True
+                all_state=False,
+                use_all_type=True,
+                use_match=True
             )
             #lane_pred=self.get_original_lane(lane_pred)
 
