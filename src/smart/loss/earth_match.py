@@ -49,14 +49,14 @@ def matching_loss(
 
         heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean()
 
-        if fake_state.shape[1]==44:
-            vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
-            shape_loss =torch.zeros_like(vel_loss)
+        # if fake_state.shape[1]==44:
+        #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
+        #     shape_loss =torch.zeros_like(vel_loss)
+        #
+        # else:
+        shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean()
 
-        else:
-            shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean()
-
-            vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean()
+        vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean()
 
     else:
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]
