@@ -36,7 +36,7 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
         if 'zs' in self.dataset_name:
             self.num_workers=1
         else:
-            self.num_workers=12
+            self.num_workers=10
 
     def _initialize_pyg_dset(self, mode, num_samples, batch_size, conditioning_path=None,
                              nocturne_compatible_only=False):
