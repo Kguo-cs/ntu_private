@@ -7,9 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import grad_norm
-
-from smart.utils import wrap_angle
-from src.smart.utils import transform_to_local,transform_to_global
+from src.smart.utils import transform_to_local,transform_to_global,wrap_angle
 
 torch.set_printoptions(sci_mode=False)
 
