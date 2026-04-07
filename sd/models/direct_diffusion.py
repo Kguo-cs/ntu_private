@@ -34,6 +34,62 @@ from sd.models.scenario_dreamer_ldm import ScenarioDreamerLDM
 def worker_init_fn(worker_id):
     os.sched_setaffinity(0, range(os.cpu_count()))
 
+import torch
+
+import torch
+
+def resample_polyline_torch_batch(points, num_points=20):
+    """
+    points: (B, N, 2)
+    returns: (B, num_points, 2)
+    """
+    B, N, _ = points.shape
+
+    # Segment differences
+    diffs = points[:, 1:] - points[:, :-1]                  # (B, N-1, 2)
+    distances = torch.norm(diffs, dim=-1)                   # (B, N-1)
+
+    # Cumulative arc-length
+    cumulative = torch.cat([
+        torch.zeros(B, 1, device=points.device),
+        torch.cumsum(distances, dim=1)
+    ], dim=1)                                               # (B, N)
+
+    total_length = cumulative[:, -1]                        # (B,)
+
+    # Handle degenerate polylines (all points same)
+    mask = total_length < 1e-6
+
+    # Target distances
+    target = torch.linspace(
+        0, 1, num_points, device=points.device
+    )[None, :] * total_length[:, None]                      # (B, num_points)
+
+    # Searchsorted per batch
+    idx = torch.searchsorted(cumulative, target, right=True) - 1
+    idx = idx.clamp(0, N - 2)                               # (B, num_points)
+
+    # Gather cumulative distances
+    left = torch.gather(cumulative, 1, idx)                 # (B, num_points)
+    right = torch.gather(cumulative, 1, idx + 1)
+
+    denom = (right - left).clamp_min(1e-6)
+    t = (target - left) / denom                             # (B, num_points)
+
+    # Gather points
+    idx_expanded = idx.unsqueeze(-1).expand(-1, -1, 2)      # (B, num_points, 2)
+
+    p0 = torch.gather(points, 1, idx_expanded)              # (B, num_points, 2)
+    p1 = torch.gather(points, 1, idx_expanded + 1)
+
+    new_points = p0 + t.unsqueeze(-1) * (p1 - p0)
+
+    # Handle degenerate case: repeat first point
+    if mask.any():
+        new_points[mask] = points[mask, 0:1].repeat(1, num_points, 1)
+
+    return new_points
+
 
 class Direct_diffusion(pl.LightningModule):
     """PyTorch Lightning module for ScenarioDreamer AutoEncoder model."""
@@ -193,6 +249,8 @@ class Direct_diffusion(pl.LightningModule):
             #
             # lane_heading = torch.atan2(sin.mean(1), cos.mean(1))
 
+            x_lane_states=resample_polyline_torch_batch(x_lane_states)
+
             lane_pos=x_lane_states[:,0]
             dx = x_lane_states[:, 1, 0] - x_lane_states[:, 0, 0]
             dy = x_lane_states[:, 1, 1] - x_lane_states[:, 0, 1]
@@ -214,9 +272,11 @@ class Direct_diffusion(pl.LightningModule):
 
             lane_cosine=lane_cosine.reshape(-1,38)
 
-            lane_cosine[:,0]=dist[:,0]
+            lane_cosine[:,0]=dist.mean(1)
 
             x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],lane_cosine],dim=-1)
+
+            #original=self.get_original_lane(x_lane)
 
             t_batch = torch.rand((data.num_graphs, 1), device=agent_batch.device)  # t ~ U[0,1]
 
@@ -256,14 +316,17 @@ class Direct_diffusion(pl.LightningModule):
                # w_shape=1,
             )
 
-            match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
-                lane_batch,
-                lane_pred,
-                x_lane,
-                lane_denom,
-                all_state=True,
-                use_all_type=True
-            )
+            # match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+            #     lane_batch,
+            #     lane_pred,
+            #     x_lane,
+            #     lane_denom,
+            #     all_state=True,
+            #     use_all_type=True
+            # )
+            lane_pred=self.get_original_lane(lane_pred)
+
+            match_loss1=F.l1_loss(lane_pred,x_lane_states)
 
             lane_conn_loss=F.l1_loss(con_pred,x_lane_conn)
 
@@ -274,9 +337,9 @@ class Direct_diffusion(pl.LightningModule):
             self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
 
             self.log('train/match_loss1', match_loss1, on_step=True, batch_size=1)
-            self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
-            self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
-            self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
+            # self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
+            # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
+            # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
             self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
             loss=match_loss+10*match_loss1+10*lane_conn_loss
@@ -284,6 +347,32 @@ class Direct_diffusion(pl.LightningModule):
             self.log('train/loss', loss, on_step=True, batch_size=1)
 
         return loss
+
+    def get_original_lane(self,z_lane):
+        pred_head = torch.atan2(z_lane[:, 3], z_lane[:, 2])
+
+        dist = z_lane[:, 4]
+
+        lane_cosine = z_lane[:, 6:].reshape(-1, 18, 2)
+
+        lane_cosine=torch.cat([torch.zeros_like(lane_cosine[:,:1]), lane_cosine], dim=1)
+
+        lane_cosine[:, 0, 0] = 1
+
+        lane_rel = lane_cosine / torch.norm(lane_cosine, dim=-1, keepdim=True).clamp_min(1e-6) * dist[:, None, None]
+
+        lane_local = torch.cumsum(lane_rel, dim=1)  # z_lane[:, 4:].reshape(-1,19,2),
+
+        lane_samples = transform_to_global(
+            lane_local,
+            None,
+            z_lane[:, :2],
+            pred_head
+        )[0]
+
+        lane_samples = torch.cat([z_lane[:, None, :2], lane_samples], dim=1)
+
+        return lane_samples
 
     @torch.no_grad()
     def generate(self,data,batch_idx):
@@ -371,30 +460,7 @@ class Direct_diffusion(pl.LightningModule):
 
             lane_conn_samples =  F.one_hot(lane_conn_pred_all, num_classes=6)
 
-            pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
-
-            dist=z_lane[:, 4].clone()
-
-            lane_cosine=z_lane[:, 4:].reshape(-1,19,2)
-
-            lane_cosine[:,0,0]=1
-
-            lane_cosine[:,0,1]=0
-
-            lane_rel=lane_cosine/torch.norm(lane_cosine,dim=-1,keepdim=True)*dist[:,None,None]
-
-            lane_local=torch.cumsum(lane_rel, dim=1)#z_lane[:, 4:].reshape(-1,19,2),
-
-            lane_samples = transform_to_global(
-                lane_local,
-                None,
-                z_lane[:, :2],
-                pred_head
-            )[0]
-
-            lane_samples=torch.cat([z_lane[:, None,:2],lane_samples],dim=1)
-
-            # #x_agent : agent state + type   x,y, cosθ,sinθ ,length, width,speed,type-> x,y, speed,cosθ,sinθ ,length, width,type
+            lane_samples=self.get_original_lane(z_lane)
 
             agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
             agent_types = torch.argmax(z_agent[:,-3:], dim=1)
