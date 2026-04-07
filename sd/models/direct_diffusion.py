@@ -147,6 +147,8 @@ class Direct_diffusion(pl.LightningModule):
 
         self.t_eps=0.01
 
+        self.steps=20
+
     def process_features(self, x, t_batch, batch, mean, scale):
         if torch.all(mean==0):
             mean.copy_(x.mean(0, keepdim=True))
@@ -159,7 +161,56 @@ class Direct_diffusion(pl.LightningModule):
         z = (1 - t) * noise + t * x
         denom = (1 - t).clamp_min(self.t_eps)
 
-        return z, t, denom
+        return z,  denom
+
+    def process_lane(self,x_lane_states):
+
+        x_lane_states = resample_polyline_torch_batch(x_lane_states)
+
+        lane_pos = x_lane_states[:, 0]
+        dx = x_lane_states[:, 1, 0] - x_lane_states[:, 0, 0]
+        dy = x_lane_states[:, 1, 1] - x_lane_states[:, 0, 1]
+
+        lane_heading = torch.atan2(dy, dx)
+
+        x_lane = transform_to_local(
+            x_lane_states,
+            None,
+            lane_pos,
+            lane_heading
+        )[0]  # {"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
+
+        rel_lane = x_lane[:, 1:] - x_lane[:, :-1]
+
+        dist = torch.norm(rel_lane, dim=-1)  # (N, 19)
+
+        # shared distance (your assumption)
+        d = dist.mean(dim=1, keepdim=True)  # (N, 1)
+
+        # segment headings
+        theta = torch.atan2(rel_lane[..., 1], rel_lane[..., 0])  # (N, 19)
+
+        # heading differences
+        dtheta = wrap_angle(theta[:, 1:] - theta[:, :-1])  # (N, 18)
+
+        lane_cosine = torch.stack([dtheta.cos(), dtheta.sin()], dim=-1).reshape(-1, 36)
+
+        zero = torch.zeros_like(d)  # (N,1)
+
+        # dist=torch.norm(rel_lane,dim=-1)+1e-5
+        #
+        # lane_cosine=rel_lane/dist[:,:,None]
+        #
+        # lane_cosine=lane_cosine.reshape(-1,38)
+        #
+        # lane_cosine[:,0]=dist.mean(1)
+
+        x_lane = torch.cat([lane_pos, lane_heading.cos()[:, None], lane_heading.sin()[:, None], d, zero, lane_cosine],
+                           dim=-1)
+
+        # original=self.get_original_lane(x_lane)
+
+        return x_lane
 
     def training_step(self, data, batch_idx):
         """ Training step for the model. Computes the loss and logs it to WandB."""
@@ -239,74 +290,27 @@ class Direct_diffusion(pl.LightningModule):
 
             x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
+            x_lane=self.process_lane(x_lane_states)
 
-            x_lane_states=resample_polyline_torch_batch(x_lane_states)
+            t = torch.rand((data.num_graphs, 1), device=agent_batch.device)  # t ~ U[0,1]
+           # t = torch.randint(0, self.steps, (data.num_graphs, 1), device=x_agent.device) / self.steps
 
-            lane_pos=x_lane_states[:,0]
-            dx = x_lane_states[:, 1, 0] - x_lane_states[:, 0, 0]
-            dy = x_lane_states[:, 1, 1] - x_lane_states[:, 0, 1]
-
-            lane_heading = torch.atan2(dy, dx)
-
-            x_lane=transform_to_local(
-                x_lane_states,
-                None,
-                lane_pos,
-                lane_heading
-            )[0]#{"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
-
-            rel_lane=x_lane[:,1:]-x_lane[:,:-1]
-
-            dist = torch.norm(rel_lane, dim=-1)  # (N, 19)
-
-            # shared distance (your assumption)
-            d = dist.mean(dim=1, keepdim=True)  # (N, 1)
-
-            # segment headings
-            theta = torch.atan2(rel_lane[..., 1], rel_lane[..., 0])  # (N, 19)
-
-            # heading differences
-            dtheta = wrap_angle(theta[:, 1:] - theta[:, :-1] ) # (N, 18)
-
-            lane_cosine=torch.stack([dtheta.cos(), dtheta.sin()], dim=-1) .reshape(-1,36)
-
-            zero = torch.zeros_like(d)  # (N,1)
-
-            # dist=torch.norm(rel_lane,dim=-1)+1e-5
-            #
-            # lane_cosine=rel_lane/dist[:,:,None]
-            #
-            # lane_cosine=lane_cosine.reshape(-1,38)
-            #
-            # lane_cosine[:,0]=dist.mean(1)
-
-            x_lane=torch.cat([lane_pos,lane_heading.cos()[:,None],lane_heading.sin()[:,None],d,zero,lane_cosine],dim=-1)
-
-            #original=self.get_original_lane(x_lane)
-
-            t_batch = torch.rand((data.num_graphs, 1), device=agent_batch.device)  # t ~ U[0,1]
-
-            z_agent, agent_t, agent_denom = self.process_features(
-                x_agent, t_batch, agent_batch,
+            z_agent, agent_denom = self.process_features(
+                x_agent, t, agent_batch,
                 self.agent_mean, self.agent_scale,
             )
 
-            # lane
-            z_lane, lane_t, lane_denom = self.process_features(
-                x_lane, t_batch, lane_batch,
+            z_lane, lane_denom = self.process_features(
+                x_lane, t, lane_batch,
                 self.lane_mean, self.lane_scale,
             )
-            #
-            # z_lane_conn, lane_conn_t, lane_conn_denom = self.process_features(
-            #     x_lane_conn, t_batch, lane_conn_batch,
-            #     self.lane_con_mean, self.lane_con_scale,
-            # )
 
-            agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx)
+            agent_pred,lane_pred,lane_conn_logits=self.diff_model(z_agent,z_lane,x_lane,l2l_edge_index,t,agent_batch,lane_batch,scene_idx)
 
-            lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
+            #lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
 
             lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
+
             # lane_conn_loss=F.l1_loss(con_pred,x_lane_conn)
 
             # if torch.isnan(lane_conn_loss):
@@ -468,16 +472,14 @@ class Direct_diffusion(pl.LightningModule):
 
             z_lane_conn = None#torch.randn((l2l_edge_index.shape[1],5),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
 
-            steps=20
-
-            timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)
+            timesteps = torch.linspace(0, 1, self.steps + 1, device=agent_batch.device)
 
             scene_idx = 2 * data['lg_type'].long() + data['map_id'].long()
 
-            for i in range(steps):
+            for i in range(self.steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
-                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_agent=False)
+                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_agent=False,pred_con=False)
 
                 denom = (1.0 - t).clamp_min(self.t_eps)
                 #v_agent = (agent_pred - z_agent) / denom
@@ -488,7 +490,21 @@ class Direct_diffusion(pl.LightningModule):
                 z_lane=z_lane+(t_next-t)*v_lane
                # z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
 
-            for i in range(steps):
+
+            z_lane_conn=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch,scene_idx)
+
+            lane_conn_pred = torch.argmax(z_lane_conn, dim=1)
+
+            lane_conn_pred_all=torch.full((non_self_mask.shape[0],), 5, device=z_lane_conn.device)
+
+            lane_conn_pred_all[non_self_mask]=lane_conn_pred
+
+            lane_conn_samples =  F.one_hot(lane_conn_pred_all, num_classes=6)
+
+            lane_samples=self.get_original_lane(z_lane)
+
+
+            for i in range(self.steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
                 agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_map=False)
@@ -502,18 +518,6 @@ class Direct_diffusion(pl.LightningModule):
                # z_lane=z_lane+(t_next-t)*v_lane
                # z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
 
-
-            z_lane_conn=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
-
-            lane_conn_pred = torch.argmax(z_lane_conn, dim=1)
-
-            lane_conn_pred_all=torch.full((non_self_mask.shape[0],), 5, device=z_lane_conn.device)
-
-            lane_conn_pred_all[non_self_mask]=lane_conn_pred
-
-            lane_conn_samples =  F.one_hot(lane_conn_pred_all, num_classes=6)
-
-            lane_samples=self.get_original_lane(z_lane)
 
             agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
             agent_types = torch.argmax(z_agent[:,-3:], dim=1)
