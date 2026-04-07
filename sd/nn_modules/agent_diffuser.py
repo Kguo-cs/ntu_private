@@ -85,10 +85,10 @@ class MapDecoder(nn.Module):
         # if pred_con:
         #     self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 6)
         # else:
-        self.con_emb = MLPLayer(6,hidden_dim, hidden_dim)
+        self.con_emb = MLPLayer(5,hidden_dim, hidden_dim)
 
         self.output_layer=MLPLayer(hidden_dim,hidden_dim, 42)
-        self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 6)
+        self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 5)
 
         self.apply(weight_init)
 

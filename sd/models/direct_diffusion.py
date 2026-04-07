@@ -87,8 +87,8 @@ class Direct_diffusion(pl.LightningModule):
         self.register_buffer("lane_mean", torch.zeros(1, lane_dim))
         self.register_buffer("lane_scale", torch.ones(1, lane_dim))
 
-        self.register_buffer("lane_con_mean", torch.zeros(1, 6))
-        self.register_buffer("lane_con_scale", torch.ones(1, 6))
+        self.register_buffer("lane_con_mean", torch.zeros(1, 5))
+        self.register_buffer("lane_con_scale", torch.ones(1, 5))
 
         self.t_eps=0.01
 
@@ -175,6 +175,12 @@ class Direct_diffusion(pl.LightningModule):
             x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
             a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
             scene_idx = 2 * data['lg_type'].long() + data['map_id'].long()
+
+            non_self_mask=l2l_edge_index[0]!=l2l_edge_index[1]
+
+            l2l_edge_index=l2l_edge_index[:,non_self_mask]
+            lane_conn_batch=lane_conn_batch[non_self_mask]
+            x_lane_conn=x_lane_conn[non_self_mask,:5]
 
             x_agent=x_agent[:,[0,1,3,4,5,6,2,7,8,9]] #x,y, speed,cosθ,sinθ ,length, width,type
 
@@ -330,7 +336,11 @@ class Direct_diffusion(pl.LightningModule):
 
             z_lane = torch.randn_like(x_lane)*self.lane_scale+self.lane_mean
 
-            z_lane_conn = torch.randn((l2l_edge_index.shape[1],6),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
+            non_self_mask=l2l_edge_index[0]!=l2l_edge_index[1]
+
+            l2l_edge_index=l2l_edge_index[:,non_self_mask]
+
+            z_lane_conn = torch.randn((l2l_edge_index.shape[1],5),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
 
             steps=20
 
@@ -354,7 +364,12 @@ class Direct_diffusion(pl.LightningModule):
 
             # lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
             lane_conn_pred = torch.argmax(z_lane_conn, dim=1)
-            lane_conn_samples =  F.one_hot(lane_conn_pred, num_classes=6)
+
+            lane_conn_pred_all=torch.zeros([len(non_self_mask)],dtype=torch.long,device=lane_conn_pred.device)+5
+
+            lane_conn_pred_all[non_self_mask]=lane_conn_pred
+
+            lane_conn_samples =  F.one_hot(lane_conn_pred_all, num_classes=6)
 
             pred_head=torch.atan2(z_lane[:, 3], z_lane[:, 2])
 
