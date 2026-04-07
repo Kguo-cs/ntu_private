@@ -296,7 +296,7 @@ class Direct_diffusion(pl.LightningModule):
             #     self.lane_con_mean, self.lane_con_scale,
             # )
 
-            agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,None,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx)
+            agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx)
 
             lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
 
@@ -439,16 +439,31 @@ class Direct_diffusion(pl.LightningModule):
             for i in range(steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
-                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx)
+                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_agent=False)
 
                 denom = (1.0 - t).clamp_min(self.t_eps)
-                v_agent = (agent_pred - z_agent) / denom
+                #v_agent = (agent_pred - z_agent) / denom
                 v_lane = (lane_pred - z_lane) / denom
                 #v_lane_con = (con_pred - z_lane_conn) / denom
 
-                z_agent=z_agent+(t_next-t)*v_agent
+               # z_agent=z_agent+(t_next-t)*v_agent
                 z_lane=z_lane+(t_next-t)*v_lane
                # z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
+
+            for i in range(steps):
+                t = timesteps[i]
+                t_next = timesteps[i + 1]
+                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_map=False)
+
+                denom = (1.0 - t).clamp_min(self.t_eps)
+                v_agent = (agent_pred - z_agent) / denom
+                #v_lane = (lane_pred - z_lane) / denom
+                #v_lane_con = (con_pred - z_lane_conn) / denom
+
+                z_agent=z_agent+(t_next-t)*v_agent
+               # z_lane=z_lane+(t_next-t)*v_lane
+               # z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
+
 
             z_lane_conn=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch)
 

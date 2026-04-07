@@ -58,7 +58,8 @@ class MapDecoder(nn.Module):
             num_heads: int,
             head_dim: int,
             dropout: float,
-            pred_con=False
+            pred_lane=False,
+            pred_lane_conn=False,
     ) -> None:
         super(MapDecoder, self).__init__()
         self.num_layers = num_layers
@@ -81,11 +82,12 @@ class MapDecoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
-        self.pred_con=pred_con
+        self.pred_lane_conn=pred_lane_conn
+        self.pred_lane=pred_lane
 
-        if pred_con:
+        if self.pred_lane_conn:
             self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 5)
-        else:
+        elif self.pred_lane:
             self.output_layer=MLPLayer(hidden_dim,hidden_dim, 42)
 
             # self.con_emb = MLPLayer(5,hidden_dim, hidden_dim)
@@ -124,12 +126,18 @@ class MapDecoder(nn.Module):
         for i in range(self.num_layers):
             x_pt= self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
 
-        if self.pred_con:
+        output={
+            "pt_token": x_pt,
+            "position": pos_pt,
+            "orientation": orient_pt,
+            "batch": batch,
+        }
+        if self.pred_lane_conn:
             lane_conn_logits = self.pred_lane_conn( torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
 
             return lane_conn_logits
 
-        else:
+        elif self.pred_lane:
             res = self.output_layer(x_pt)
 
             res_theta = torch.atan2(res[:, 3], res[:, 2])
@@ -144,16 +152,13 @@ class MapDecoder(nn.Module):
             lane_pred = torch.cat(
                 [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
-            output={
-                "pt_token": x_pt,
-                "position": pos_pt,
-                "orientation": orient_pt,
-                "batch": batch,
-            }
+
             con_pred=None
             # con_pred=self.pred_lane_conn( torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
+            return output, lane_pred, con_pred
+        else:
+            return output
 
-        return output,lane_pred,con_pred
 
 class AgentDecoder(nn.Module):
 
@@ -309,8 +314,9 @@ class Agent_Diffuser(nn.Module):
             num_layers=3,
             num_heads=num_heads,
             head_dim=head_dim,
-            dropout=0,
-            )
+            dropout=dropout,
+            pred_lane=True
+        )
 
         self.connect_encoder=MapDecoder(
             hidden_dim,
@@ -319,7 +325,16 @@ class Agent_Diffuser(nn.Module):
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
-            pred_con=True
+            pred_lane_conn=True
+            )
+
+        self.map_encoder1=MapDecoder(
+            hidden_dim,
+            num_freq_bands=num_freq_bands,
+            num_layers=1,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=dropout
             )
 
         self.agent_encoder=AgentDecoder(
@@ -348,7 +363,7 @@ class Agent_Diffuser(nn.Module):
         return lane_conn_logits
 
 
-    def forward(self, z_agent,z_lane,z_lane_conn,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx=None):
+    def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=True,pred_agent=True):
 
         t_batch=self.t_embed(t_batch)
        # t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
@@ -362,9 +377,18 @@ class Agent_Diffuser(nn.Module):
 
         t_batch=t_batch+scene_type
 
-        map_feature,lane_pred,con_pred=self.map_encoder(z_lane,lane_batch,z_lane_conn,t_batch=t_batch+num_lanes_emb,l2l_edge_index=l2l_edge_index)
+        if pred_map:
+            map_feature,lane_pred,con_pred=self.map_encoder(z_lane,lane_batch,None,t_batch=t_batch+num_lanes_emb,l2l_edge_index=l2l_edge_index)
+        else:
+            lane_pred=None
+            con_pred=None
 
-        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb,agent_batch)
+        if pred_agent:
+            map_feature=self.map_encoder1(x_lane,lane_batch,None,t_batch=t_batch+num_lanes_emb,l2l_edge_index=l2l_edge_index)
+
+            agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb,agent_batch)
+        else:
+            agent_pred=None
 
 
         return agent_pred,lane_pred,con_pred
