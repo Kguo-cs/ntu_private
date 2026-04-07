@@ -325,7 +325,7 @@ class Direct_diffusion(pl.LightningModule):
                 all_state=True,
                 use_all_type=True
             )
-            lane_pred=self.get_original_lane(lane_pred)
+            #lane_pred=self.get_original_lane(lane_pred)
 
             #match_loss1=F.l1_loss(lane_pred,x_lane_states)
 
