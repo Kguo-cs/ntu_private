@@ -259,7 +259,7 @@ class Direct_diffusion(pl.LightningModule):
                 use_all_type=True
             )
 
-            lane_conn_loss=F.mse_loss(con_pred,x_lane_conn)
+            lane_conn_loss=F.l1_loss(con_pred,x_lane_conn)
 
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
             self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
