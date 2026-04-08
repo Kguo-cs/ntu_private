@@ -530,7 +530,6 @@ class Direct_diffusion(pl.LightningModule):
                     v_lane = (lane_pred - z_lane) / denom
                     z_lane=z_lane+(t_next-t)*v_lane
 
-
             map_feature,lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch,scene_idx)
 
             lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
@@ -709,7 +708,10 @@ class Direct_diffusion(pl.LightningModule):
     ### Taken largely from QCNet repository: https://github.com/ZikangZhou/QCNet
     def configure_optimizers(self):
         """ Configure the optimizer and learning rate scheduler for the model."""
-        #self.lr_warmup_steps=0
+        self.lr_warmup_steps=0
+        self.lr_min_ratio=1e-2
+        self.lr_total_steps=128
+
 
         def lr_lambda(current_step):
             current_step = self.current_epoch + 1
@@ -731,9 +733,9 @@ class Direct_diffusion(pl.LightningModule):
             )
         optimizer = torch.optim.AdamW(self.diff_model.parameters(), lr=5e-4)
 
-       # lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+        lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
 
-        return [optimizer]#, [lr_scheduler]
+        return [optimizer], [lr_scheduler]
 
         # decay = set()
         # no_decay = set()
