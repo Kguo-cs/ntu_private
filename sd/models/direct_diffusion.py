@@ -154,7 +154,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.t_eps=0.01
 
-        self.steps=100
+        self.steps=20
 
         self.lane_sampling_temperature=0.75
 
