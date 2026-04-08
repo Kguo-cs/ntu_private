@@ -161,7 +161,7 @@ class Direct_diffusion(pl.LightningModule):
     def process_features(self, x, t_batch, batch, mean, scale):
         if torch.all(mean==0):
             mean.copy_(x.mean(0, keepdim=True))
-            scale.copy_(x.std(0, keepdim=True))
+            scale.copy_(x.std(0, keepdim=True).clamp_min(min=1e-5))
 
 
         noise = torch.randn_like(x) * scale + mean
