@@ -28,6 +28,10 @@ from sd.utils.losses import GeometricLosses
 from sd.utils.data_helpers import sample_latents, reorder_indices
 from sd.utils.pyg_helpers import get_edge_index_bipartite, get_edge_index_complete_graph
 from sd.models.scenario_dreamer_ldm import ScenarioDreamerLDM
+from sd.utils.diffusion_helpers import (
+    cosine_beta_schedule,
+    extract
+)
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -107,6 +111,8 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
+        self.use_diffusion=False
+
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
             self.cfg_ldm = cfg_ldm
@@ -124,7 +130,8 @@ class Direct_diffusion(pl.LightningModule):
         else:
             self.diff_model = Agent_Diffuser(cfg.model)
 
-            #self.ldm = LDM(cfg_ldm)
+            if self.use_diffusion:
+                self.ldm = LDM(cfg_ldm)
 
         # nocturne-compatible metadata (stored in latent cache)
         if self.cfg.eval.cache_latents.enable_caching and self.cfg.dataset_name == 'waymo':
@@ -160,7 +167,14 @@ class Direct_diffusion(pl.LightningModule):
         noise = torch.randn_like(x) * scale + mean
         t = t_batch[batch]
 
-        z = (1 - t) * noise + t * x
+        if self.use_diffusion:
+            sample = (
+                    extract(self.ldm.sqrt_alphas_cumprod, t, x.shape) * x +
+                    extract(self.ldm.sqrt_one_minus_alphas_cumprod, t, x.shape) * noise
+            )
+
+        else:
+            z = (1 - t) * noise + t * x
         denom = (1 - t).clamp_min(self.t_eps)
 
         return z,  denom
