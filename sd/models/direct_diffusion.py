@@ -292,8 +292,8 @@ class Direct_diffusion(pl.LightningModule):
 
             x_lane=self.process_lane(x_lane_states)
 
-            t = torch.rand((data.num_graphs, 1), device=agent_batch.device)  # t ~ U[0,1]
-           # t = torch.randint(0, self.steps, (data.num_graphs, 1), device=x_agent.device) / self.steps
+           # t = torch.rand((data.num_graphs, 1), device=agent_batch.device)  # t ~ U[0,1]
+            t = torch.randint(0, self.steps, (data.num_graphs, 1), device=x_agent.device) / self.steps
 
             z_agent, agent_denom = self.process_features(
                 x_agent, t, agent_batch,
@@ -479,7 +479,7 @@ class Direct_diffusion(pl.LightningModule):
             for i in range(self.steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
-                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_agent=False,pred_con=False)
+                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_agent=False)
 
                 denom = (1.0 - t).clamp_min(self.t_eps)
                 #v_agent = (agent_pred - z_agent) / denom
@@ -491,11 +491,11 @@ class Direct_diffusion(pl.LightningModule):
                # z_lane_conn=z_lane_conn+(t_next-t)*v_lane_con
 
 
-            z_lane_conn=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch,scene_idx)
+            map_feature,lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch,scene_idx)
 
-            lane_conn_pred = torch.argmax(z_lane_conn, dim=1)
+            lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
 
-            lane_conn_pred_all=torch.full((non_self_mask.shape[0],), 5, device=z_lane_conn.device)
+            lane_conn_pred_all=torch.full((non_self_mask.shape[0],), 5, device=lane_conn_pred.device)
 
             lane_conn_pred_all[non_self_mask]=lane_conn_pred
 
@@ -507,7 +507,7 @@ class Direct_diffusion(pl.LightningModule):
             for i in range(self.steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
-                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_map=False)
+                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t.expand(data.num_graphs, 1),agent_batch,lane_batch,scene_idx,pred_map=False,map_feature=map_feature)
 
                 denom = (1.0 - t).clamp_min(self.t_eps)
                 v_agent = (agent_pred - z_agent) / denom

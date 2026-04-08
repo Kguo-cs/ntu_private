@@ -96,7 +96,7 @@ class MapDecoder(nn.Module):
 
         self.apply(weight_init)
 
-    def forward(self, z_lane,batch,t_batch=None,l2l_edge_index=None,pred_con=True):
+    def forward(self, z_lane,batch,t_batch=None,l2l_edge_index=None):
         pos_pt=z_lane[:,:2]
         orient_pt=torch.atan2(z_lane[:,3],z_lane[:,2])
 
@@ -134,10 +134,8 @@ class MapDecoder(nn.Module):
         }
 
         if self.pred_lane_conn:
-            if pred_con:
-                lane_conn_logits = self.pred_lane_conn( torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
-            else:
-                lane_conn_logits=None
+            lane_conn_logits = self.pred_lane_conn(
+                torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
 
             return output,lane_conn_logits
 
@@ -312,7 +310,7 @@ class Agent_Diffuser(nn.Module):
 
         dropout=0.1
 
-        num_layers=3
+        num_layers=2
 
         self.map_encoder=MapDecoder(
             hidden_dim,
@@ -361,10 +359,10 @@ class Agent_Diffuser(nn.Module):
 
         map_feature,lane_conn_logits=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
-        return lane_conn_logits
+        return map_feature,lane_conn_logits
 
 
-    def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=True,pred_agent=True,pred_con=True):
+    def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=True,pred_agent=True,map_feature=None):
 
         t_batch=self.t_embed(t_batch)
        # t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
@@ -383,7 +381,8 @@ class Agent_Diffuser(nn.Module):
             con_pred=None
 
         if pred_agent:
-            map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index,pred_con=pred_con)
+            if map_feature is None:
+                map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
             agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb+scene_type,agent_batch)
         else:
