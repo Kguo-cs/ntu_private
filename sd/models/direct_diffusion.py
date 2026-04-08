@@ -154,7 +154,9 @@ class Direct_diffusion(pl.LightningModule):
 
         self.t_eps=0.01
 
-        self.steps=20
+        self.lane_steps=100
+
+        self.agent_steps=20
 
         self.lane_sampling_temperature=0.75
 
@@ -298,7 +300,7 @@ class Direct_diffusion(pl.LightningModule):
             x_lane=self.process_lane(x_lane_states)
 
             if self.use_diffusion:
-                t = torch.randint(0, self.steps, (data.num_graphs,), device=x_agent.device) #/ self.steps
+                t = torch.randint(0, self.steps, (data.num_graphs,), device=x_agent.device)
             else:
                 t = torch.rand((data.num_graphs, 1), device=agent_batch.device)
 
@@ -482,13 +484,13 @@ class Direct_diffusion(pl.LightningModule):
             z_lane_conn = None#torch.randn((l2l_edge_index.shape[1],5),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
 
             if self.use_diffusion:
-                timesteps = torch.arange(self.steps+1, device=agent_batch.device)
+                timesteps = torch.arange(self.lane_steps+1, device=agent_batch.device)
             else:
-                timesteps = torch.linspace(0, 1, self.steps + 1, device=agent_batch.device)
+                timesteps = torch.linspace(0, 1, self.lane_steps + 1, device=agent_batch.device)
 
             scene_idx = 2 * data['lg_type'].long() + data['map_id'].long()
 
-            for i in range(self.steps):
+            for i in range(self.lane_steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
                 t_batch=t.expand(data.num_graphs)
@@ -532,8 +534,12 @@ class Direct_diffusion(pl.LightningModule):
 
             lane_samples=self.get_original_lane(z_lane)
 
+            if self.use_diffusion:
+                timesteps = torch.arange(self.agent_steps+1, device=agent_batch.device)
+            else:
+                timesteps = torch.linspace(0, 1, self.agent_steps + 1, device=agent_batch.device)
 
-            for i in range(self.steps):
+            for i in range(self.agent_steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
                 t_batch=t.expand(data.num_graphs)
