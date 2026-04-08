@@ -34,7 +34,7 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
         self.init_prob_matrix = torch.load(os.environ["PROJECT_ROOT"]+'/metadata/initial_prob_matrix_waymo.pt')
 
         if 'zs' in self.dataset_name:
-            self.num_workers=4
+            self.num_workers=8
         else:
             self.num_workers=10
 

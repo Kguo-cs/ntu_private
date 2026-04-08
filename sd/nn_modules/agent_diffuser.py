@@ -340,7 +340,8 @@ class Agent_Diffuser(nn.Module):
             dropout=dropout,
             )
 
-        self.t_embed=MLPLayer(1,hidden_dim,hidden_dim)
+        #self.t_embed=MLPLayer(1,hidden_dim,hidden_dim)
+        self.t_embedder = TimestepEmbedder(hidden_dim)
 
        # self.t_embedder = TimestepEmbedder(self.cfg_model.hidden_dim)
         self.num_agents_embedder = LabelEmbedder(30 + 1, hidden_dim, 0)
@@ -364,7 +365,11 @@ class Agent_Diffuser(nn.Module):
 
     def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=True,pred_agent=True,map_feature=None):
 
-        t_batch=self.t_embed(t_batch)
+        t_discrete=(t_batch[:,0]*20).long()
+
+        t_batch = self.t_embedder(t_discrete)
+
+        #t_batch=self.t_embed(t_batch)
        # t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
         num_agents = torch.bincount(agent_batch)
         num_lanes = torch.bincount(lane_batch)
