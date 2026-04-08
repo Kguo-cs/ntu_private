@@ -160,11 +160,14 @@ class Direct_diffusion(pl.LightningModule):
 
         self.lane_sampling_temperature=0.75
 
+        ego_shape= torch.tensor( [[0,     0,     0,     1,     5.2860,     2.3320,    1.0000,     0.0000,     0.0000]])
+
+        self.register_buffer("ego_shape", ego_shape)
+
     def process_features(self, x, t_batch, batch, mean, scale):
         if torch.all(mean==0):
             mean.copy_(x.mean(0, keepdim=True))
             scale.copy_(x.std(0, keepdim=True))
-
 
         noise = torch.randn_like(x) * scale + mean
         t = t_batch[batch]
@@ -308,6 +311,12 @@ class Direct_diffusion(pl.LightningModule):
                 x_agent, t, agent_batch,
                 self.agent_mean, self.agent_scale,
             )
+
+            ego_mask=agent_batch[1:]!=agent_batch[:-1]
+            ego_mask=torch.cat([torch.ones_like(ego_mask[:1]),ego_mask])
+
+            z_agent[ego_mask,:6]=self.ego_shape[:,:6]
+            z_agent[ego_mask,-3:]=self.ego_shape[:,-3:]
 
             z_lane, lane_denom = self.process_features(
                 x_lane, t, lane_batch,
@@ -539,12 +548,16 @@ class Direct_diffusion(pl.LightningModule):
             else:
                 timesteps = torch.linspace(0, 1, self.agent_steps + 1, device=agent_batch.device)
 
+            ego_mask = agent_batch[1:] != agent_batch[:-1]
+            ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
+
             for i in range(self.agent_steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
                 t_batch=t.expand(data.num_graphs)
 
                 agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=False,map_feature=map_feature)
+
 
 
                 if self.use_diffusion:
@@ -570,6 +583,9 @@ class Direct_diffusion(pl.LightningModule):
                     denom = (1.0 - t).clamp_min(self.t_eps)
                     v_agent = (agent_pred - z_agent) / denom
                     z_agent=z_agent+(t_next-t)*v_agent
+
+                z_agent[ego_mask, :6] = self.ego_shape[:, :6]
+                z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
 
             agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
             agent_types = torch.argmax(z_agent[:,-3:], dim=1)
