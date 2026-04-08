@@ -111,7 +111,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=False
+        self.use_diffusion=True
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -156,7 +156,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.lane_steps=100
 
-        self.agent_steps=20
+        self.agent_steps=100
 
         self.lane_sampling_temperature=0.75
 
@@ -303,7 +303,7 @@ class Direct_diffusion(pl.LightningModule):
             x_lane=self.process_lane(x_lane_states)
 
             if self.use_diffusion:
-                t = torch.randint(0, self.steps, (data.num_graphs,), device=x_agent.device)
+                t = torch.randint(0, self.lane_steps, (data.num_graphs,), device=x_agent.device)
             else:
                 t = torch.rand((data.num_graphs, 1), device=agent_batch.device)
 
@@ -493,7 +493,7 @@ class Direct_diffusion(pl.LightningModule):
             z_lane_conn = None#torch.randn((l2l_edge_index.shape[1],5),device=z_lane.device)*self.lane_con_scale+self.lane_con_mean
 
             if self.use_diffusion:
-                timesteps = torch.arange(self.lane_steps+1, device=agent_batch.device)
+                timesteps = torch.arange(self.lane_steps-1,-1,-1, device=agent_batch.device)
             else:
                 timesteps = torch.linspace(0, 1, self.lane_steps + 1, device=agent_batch.device)
 
@@ -501,7 +501,6 @@ class Direct_diffusion(pl.LightningModule):
 
             for i in range(self.lane_steps):
                 t = timesteps[i]
-                t_next = timesteps[i + 1]
                 t_batch=t.expand(data.num_graphs)
 
                 agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane_conn,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_agent=False)
@@ -526,6 +525,8 @@ class Direct_diffusion(pl.LightningModule):
 
                     z_lane=z_lane*self.lane_scale+self.lane_mean
                 else:
+                    t_next = timesteps[i + 1]
+
                     denom = (1.0 - t).clamp_min(self.t_eps)
                     v_lane = (lane_pred - z_lane) / denom
                     z_lane=z_lane+(t_next-t)*v_lane
@@ -543,7 +544,7 @@ class Direct_diffusion(pl.LightningModule):
             lane_samples=self.get_original_lane(z_lane)
 
             if self.use_diffusion:
-                timesteps = torch.arange(self.agent_steps+1, device=agent_batch.device)
+                timesteps = torch.arange(self.agent_steps-1,-1,-1, device=agent_batch.device)
             else:
                 timesteps = torch.linspace(0, 1, self.agent_steps + 1, device=agent_batch.device)
 
@@ -555,7 +556,6 @@ class Direct_diffusion(pl.LightningModule):
 
             for i in range(self.agent_steps):
                 t = timesteps[i]
-                t_next = timesteps[i + 1]
                 t_batch=t.expand(data.num_graphs)
 
                 agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=False,map_feature=map_feature)
@@ -580,6 +580,8 @@ class Direct_diffusion(pl.LightningModule):
 
                     z_agent=z_agent*self.agent_scale+self.agent_mean
                 else:
+                    t_next = timesteps[i + 1]
+
                     denom = (1.0 - t).clamp_min(self.t_eps)
                     v_agent = (agent_pred - z_agent) / denom
                     # z_agent=z_agent+(t_next-t)*v_agent
