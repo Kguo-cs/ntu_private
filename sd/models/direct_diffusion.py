@@ -111,7 +111,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=True
+        self.use_diffusion=False
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -156,7 +156,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.lane_steps=100
 
-        self.agent_steps=100
+        self.agent_steps=20
 
         self.lane_sampling_temperature=0.75
 
@@ -554,6 +554,16 @@ class Direct_diffusion(pl.LightningModule):
             z_agent[ego_mask, :6] = self.ego_shape[:, :6]
             z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
 
+            noise_level = torch.zeros(len(z_agent), self.agent_steps, 1, device=agent_batch.device)
+
+            #if self.use_sde:
+            t_rand = torch.randint(0, self.agent_steps, (data.num_graphs,), device=agent_batch.device)
+
+            t_rand=t_rand[agent_batch]
+
+            noise_level[torch.arange(len(z_agent)), t_rand, 0] = 0.7
+
+
             for i in range(self.agent_steps):
                 t = timesteps[i]
                 t_batch=t.expand(data.num_graphs)
@@ -589,13 +599,12 @@ class Direct_diffusion(pl.LightningModule):
                     v_agent = v_agent / self.agent_scale
                     z_agent = (z_agent-self.agent_mean)/self.agent_scale
 
-
                     z_agent, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                         1 - t,
                         1 - t_next,
                         -v_agent,
                         z_agent,
-                        noise_level=0.1
+                        noise_level=noise_level[:,i]
                     )
                     z_agent = z_agent*self.agent_scale+self.agent_mean
 
@@ -725,7 +734,7 @@ class Direct_diffusion(pl.LightningModule):
             sigma_prev,
             model_output: torch.FloatTensor,
             sample: torch.FloatTensor,
-            noise_level: float = 0.7,
+            noise_level = 0.7,
             prev_sample=None,
             sde_type = 'sde',
             return_sqrt_dt= False,
