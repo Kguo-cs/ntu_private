@@ -183,7 +183,7 @@ def train_autoencoder(cfg, cfg_ldm, save_dir=None):
         accelerator='gpu',
         devices=-1,
         strategy='auto',
-        callbacks=[model_summary, model_checkpoint, lr_monitor, TQDMProgressBar(refresh_rate=20)],
+        callbacks=[model_summary, model_checkpoint, lr_monitor],
         max_steps=cfg.train.max_steps,
         check_val_every_n_epoch=cfg.train.check_val_every_n_epoch,
         precision=cfg.train.precision,
