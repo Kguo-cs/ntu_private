@@ -193,31 +193,24 @@ class Direct_diffusion(pl.LightningModule):
             lane_heading
         )[0]  # {"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
 
-        rel_lane = x_lane[:, 1:] - x_lane[:, :-1]
-
-        dist = torch.norm(rel_lane, dim=-1)  # (N, 19)
-
-        # shared distance (your assumption)
-        d = dist.mean(dim=1, keepdim=True)  # (N, 1)
-
-        # segment headings
-        theta = torch.atan2(rel_lane[..., 1], rel_lane[..., 0])  # (N, 19)
-
-        # heading differences
-        dtheta = wrap_angle(theta[:, 1:] - theta[:, :-1])  # (N, 18)
-
-        lane_cosine = torch.stack([dtheta.cos(), dtheta.sin()], dim=-1).reshape(-1, 36)
-
-
-        # dist=torch.norm(rel_lane,dim=-1)+1e-5
+        # rel_lane = x_lane[:, 1:] - x_lane[:, :-1]
         #
-        # lane_cosine=rel_lane/dist[:,:,None]
+        # dist = torch.norm(rel_lane, dim=-1)  # (N, 19)
         #
-        # lane_cosine=lane_cosine.reshape(-1,38)
+        # # shared distance (your assumption)
+        # d = dist.mean(dim=1, keepdim=True)  # (N, 1)
         #
-        # lane_cosine[:,0]=dist.mean(1)
+        # # segment headings
+        # theta = torch.atan2(rel_lane[..., 1], rel_lane[..., 0])  # (N, 19)
+        #
+        # # heading differences
+        # dtheta = wrap_angle(theta[:, 1:] - theta[:, :-1])  # (N, 18)
+        #
+        # lane_cosine = torch.stack([dtheta.cos(), dtheta.sin()], dim=-1).reshape(-1, 36)
+        # rel_lane=torch.cat([d, d, lane_cosine],dim=1)
 
-        x_lane = torch.cat([lane_pos, lane_heading.cos()[:, None], lane_heading.sin()[:, None], d, d, lane_cosine],
+        x_lane = torch.cat([lane_pos, lane_heading.cos()[:, None], lane_heading.sin()[:, None],
+                            x_lane[:,-1:].flatten(1,2),x_lane[:,1:-1].flatten(1,2)],
                            dim=-1)
 
         # original=self.get_original_lane(x_lane)
@@ -379,42 +372,44 @@ class Direct_diffusion(pl.LightningModule):
         heading0 = torch.atan2(z_lane[:, 3], z_lane[:, 2])  # (N,)
 
         # shared step length
-        d = z_lane[:, 4:6].mean(1)  # (N,)
-
-        # delta angles (cos/sin form)
-        dtheta_vec = z_lane[:, 6:].reshape(-1, 18, 2)  # (N,18,2)
-
-        # normalize for safety
-        norm = torch.norm(dtheta_vec, dim=-1, keepdim=True).clamp_min(1e-6)
-        dtheta_vec = dtheta_vec / norm
-
-        # recover angle increments
-        dtheta = torch.atan2(dtheta_vec[..., 1], dtheta_vec[..., 0])  # (N,18)
-
-        # reconstruct full theta sequence
-        # first delta = 0
-        zero = torch.zeros_like(d[:, None])  # (N,1)
-
-        theta = torch.cumsum(
-            torch.cat([zero, dtheta], dim=1),  # (N,19)
-            dim=1
-        ) #+ heading0[:, None]  # absolute heading
-
-        # segment vectors
-        dx = torch.cos(theta) * d[:, None]  # (N,19)
-        dy = torch.sin(theta) * d[:, None]
-
-        lane_rel = torch.stack([dx, dy], dim=-1)  # (N,19,2)
-
-        # lane_cosine = z_lane[:, 6:].reshape(-1, 18, 2)
+        # d = z_lane[:, 4:6].mean(1)  # (N,)
         #
-        # lane_cosine=torch.cat([torch.zeros_like(lane_cosine[:,:1]), lane_cosine], dim=1)
+        # # delta angles (cos/sin form)
+        # dtheta_vec = z_lane[:, 6:].reshape(-1, 18, 2)  # (N,18,2)
         #
-        # lane_cosine[:, 0, 0] = 1
+        # # normalize for safety
+        # norm = torch.norm(dtheta_vec, dim=-1, keepdim=True).clamp_min(1e-6)
+        # dtheta_vec = dtheta_vec / norm
         #
-        # lane_rel = lane_cosine / torch.norm(lane_cosine, dim=-1, keepdim=True).clamp_min(1e-6) * dist[:, None, None]
+        # # recover angle increments
+        # dtheta = torch.atan2(dtheta_vec[..., 1], dtheta_vec[..., 0])  # (N,18)
+        #
+        # # reconstruct full theta sequence
+        # # first delta = 0
+        # zero = torch.zeros_like(d[:, None])  # (N,1)
+        #
+        # theta = torch.cumsum(
+        #     torch.cat([zero, dtheta], dim=1),  # (N,19)
+        #     dim=1
+        # ) #+ heading0[:, None]  # absolute heading
+        #
+        # # segment vectors
+        # dx = torch.cos(theta) * d[:, None]  # (N,19)
+        # dy = torch.sin(theta) * d[:, None]
+        #
+        # lane_rel = torch.stack([dx, dy], dim=-1)  # (N,19,2)
+        #
+        # # lane_cosine = z_lane[:, 6:].reshape(-1, 18, 2)
+        # #
+        # # lane_cosine=torch.cat([torch.zeros_like(lane_cosine[:,:1]), lane_cosine], dim=1)
+        # #
+        # # lane_cosine[:, 0, 0] = 1
+        # #
+        # # lane_rel = lane_cosine / torch.norm(lane_cosine, dim=-1, keepdim=True).clamp_min(1e-6) * dist[:, None, None]
+        #
+        # lane_local = torch.cumsum(lane_rel, dim=1)  # z_lane[:, 4:].reshape(-1,19,2),
 
-        lane_local = torch.cumsum(lane_rel, dim=1)  # z_lane[:, 4:].reshape(-1,19,2),
+        lane_local=z_lane[:, 4:].reshape(-1,19,2)
 
         lane_samples = transform_to_global(
             lane_local,
@@ -423,7 +418,7 @@ class Direct_diffusion(pl.LightningModule):
             heading0
         )[0]
 
-        lane_samples = torch.cat([z_lane[:, None, :2], lane_samples], dim=1)
+        lane_samples = torch.cat([z_lane[:, None, :2], lane_samples[:,1:],lane_samples[:,:1]], dim=1)
 
         return lane_samples
 
