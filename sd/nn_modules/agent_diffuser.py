@@ -367,7 +367,7 @@ class Agent_Diffuser(nn.Module):
 
         #$t_discrete=(t_batch).long()
 
-        t_batch = self.t_embedder(t_batch)
+        t_batch = self.t_embedder(t_batch.reshape(-1))
 
         #t_batch=self.t_embed(t_batch)
        # t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))

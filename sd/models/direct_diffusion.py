@@ -111,7 +111,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=True
+        self.use_diffusion=False
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -297,8 +297,10 @@ class Direct_diffusion(pl.LightningModule):
 
             x_lane=self.process_lane(x_lane_states)
 
-           # t = torch.rand((data.num_graphs, 1), device=agent_batch.device)  # t ~ U[0,1]
-            t = torch.randint(0, self.steps, (data.num_graphs,), device=x_agent.device) #/ self.steps
+            if self.use_diffusion:
+                t = torch.randint(0, self.steps, (data.num_graphs,), device=x_agent.device) #/ self.steps
+            else:
+                t = torch.rand((data.num_graphs, 1), device=agent_batch.device)
 
             z_agent, agent_denom = self.process_features(
                 x_agent, t, agent_batch,
