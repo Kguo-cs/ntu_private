@@ -142,22 +142,22 @@ class MapDecoder(nn.Module):
         elif self.pred_lane:
             res = self.output_layer(x_pt)
 
-            res_theta = torch.atan2(res[:, 3], res[:, 2])
-
-            local_pos, local_theta = transform_to_global(
-                res[:, :2],
-                res_theta,
-                pos_pt,
-                orient_pt,
-            )
-
-            lane_pred = torch.cat(
-                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
+            # res_theta = torch.atan2(res[:, 3], res[:, 2])
+            #
+            # local_pos, local_theta = transform_to_global(
+            #     res[:, :2],
+            #     res_theta,
+            #     pos_pt,
+            #     orient_pt,
+            # )
+            #
+            # res = torch.cat(
+            #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
 
             con_pred=None
             # con_pred=self.pred_lane_conn( torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
-            return output, lane_pred, con_pred
+            return output, res, con_pred
         else:
             return output
 
@@ -278,19 +278,19 @@ class AgentDecoder(nn.Module):
 
         res = self.output_layer(feat_a)
 
-        res_theta = torch.atan2(res[:, 3], res[:, 2])
+        # res_theta = torch.atan2(res[:, 3], res[:, 2])
+        #
+        # local_pos, local_theta = transform_to_global(
+        #     res[:, :2],
+        #     res_theta,
+        #     pos_s,
+        #     theta,
+        # )
+        #
+        # res = torch.cat(
+        #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
-        local_pos, local_theta = transform_to_global(
-            res[:, :2],
-            res_theta,
-            pos_s,
-            theta,
-        )
-
-        a_pred = torch.cat(
-            [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
-
-        return a_pred
+        return res
 
 from sd.utils.dit_layers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP
 from sd.utils.pyg_helpers import get_indices_within_scene

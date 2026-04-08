@@ -111,7 +111,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=False
+        self.use_diffusion=True
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -129,6 +129,8 @@ class Direct_diffusion(pl.LightningModule):
             self.diff_model=self.model.diff_model
         else:
             self.diff_model = Agent_Diffuser(cfg.model)
+            self.lane_loss_fn = GeometricLosses['l2']((1))
+            self.agent_loss_fn = GeometricLosses['l2']((1))
 
             if self.use_diffusion:
                 self.ldm = LDM(cfg_ldm)
@@ -156,7 +158,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.lane_steps=100
 
-        self.agent_steps=20
+        self.agent_steps=100
 
         self.lane_sampling_temperature=0.75
 
@@ -169,7 +171,9 @@ class Direct_diffusion(pl.LightningModule):
             mean.copy_(x.mean(0, keepdim=True))
             scale.copy_(x.std(0, keepdim=True))
 
-        noise = torch.randn_like(x) * scale + mean
+        raw_noise=torch.randn_like(x)
+
+        noise = raw_noise * scale + mean
         t = t_batch[batch]
 
         if self.use_diffusion:
@@ -179,7 +183,7 @@ class Direct_diffusion(pl.LightningModule):
             z = (1 - t) * noise + t * x
             denom = (1 - t).clamp_min(self.t_eps)
 
-        return z,  denom
+        return z,  denom,raw_noise
 
     def process_lane(self,x_lane_states1):
 
@@ -307,7 +311,7 @@ class Direct_diffusion(pl.LightningModule):
             else:
                 t = torch.rand((data.num_graphs, 1), device=agent_batch.device)
 
-            z_agent, agent_denom = self.process_features(
+            z_agent, agent_denom,agent_noise = self.process_features(
                 x_agent, t, agent_batch,
                 self.agent_mean, self.agent_scale,
             )
@@ -318,7 +322,7 @@ class Direct_diffusion(pl.LightningModule):
             z_agent[ego_mask,:6]=self.ego_shape[:,:6]
             z_agent[ego_mask,-3:]=self.ego_shape[:,-3:]
 
-            z_lane, lane_denom = self.process_features(
+            z_lane, lane_denom,lane_noise = self.process_features(
                 x_lane, t, lane_batch,
                 self.lane_mean, self.lane_scale,
             )
@@ -336,44 +340,49 @@ class Direct_diffusion(pl.LightningModule):
 
             self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
-            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
-                agent_batch,
-                agent_pred,
-                x_agent,
-                agent_denom,
-                scale=self.agent_scale,
-                all_state=True,
-                use_all_type=True,
-                use_match=True
-               # w_shape=1,
-            )
+            if self.use_diffusion:
+                match_loss = self.agent_loss_fn(agent_pred, agent_noise, agent_batch).mean()
+                match_loss1 = self.lane_loss_fn(lane_pred, lane_noise, lane_batch).mean()
 
-            match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
-                lane_batch,
-                lane_pred,
-                x_lane,
-                lane_denom,
-                all_state=False,
-                use_all_type=True,
-               # use_match=True
-            )
-            #lane_pred=self.get_original_lane(lane_pred)
+            else:
+                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
+                    agent_batch,
+                    agent_pred,
+                    x_agent,
+                    agent_denom,
+                    scale=self.agent_scale,
+                    all_state=True,
+                    use_all_type=True,
+                    use_match=True
+                   # w_shape=1,
+                )
 
-            #match_loss1=F.l1_loss(lane_pred,x_lane_states)
+                match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+                    lane_batch,
+                    lane_pred,
+                    x_lane,
+                    lane_denom,
+                    all_state=False,
+                    use_all_type=True,
+                   # use_match=True
+                )
+                #lane_pred=self.get_original_lane(lane_pred)
+
+                #match_loss1=F.l1_loss(lane_pred,x_lane_states)
 
 
+                self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+                self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+                self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+                self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+
+                # self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
+                # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
+                # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
-            self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
-            self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
-            self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
-            self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
-
             self.log('train/match_loss1', match_loss1, on_step=True, batch_size=1)
-            # self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
-            # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
-            # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
 
-            loss=match_loss+10*match_loss1+10*lane_conn_loss
+            loss = match_loss + 10 * match_loss1 + 10 * lane_conn_loss
 
             self.log('train/loss', loss, on_step=True, batch_size=1)
 
@@ -507,16 +516,20 @@ class Direct_diffusion(pl.LightningModule):
 
                 if self.use_diffusion:
 
-                    lane_pred=(lane_pred-self.lane_mean)/self.lane_scale
+                    #lane_pred=(lane_pred-self.lane_mean)/self.lane_scale
 
                     z_lane=(z_lane-self.lane_mean)/self.lane_scale
+
+                    t_lane = t_batch[lane_batch]
+
+                    lane_pred = self.ldm.predict_start_from_noise(z_lane, t=t_lane, noise=lane_pred)
 
                     model_mean_lane, posterior_log_variance_lane = self.ldm.q_posterior(x_start=lane_pred, x_t=z_lane,
                                                                                     t=t_batch[lane_batch])
 
                     noise_lane = torch.randn_like(x_lane)
 
-                    nonzero_mask_lane = (1 - (t_batch[lane_batch] == 0).float()).reshape(len(x_lane), *((1,) * (len(x_lane.shape) - 1)))
+                    nonzero_mask_lane = (1 - (t_lane == 0).float()).reshape(len(x_lane), *((1,) * (len(x_lane.shape) - 1)))
 
                     z_lane = model_mean_lane + nonzero_mask_lane * (
                         posterior_log_variance_lane).exp().sqrt() * noise_lane * self.lane_sampling_temperature
@@ -548,40 +561,42 @@ class Direct_diffusion(pl.LightningModule):
             else:
                 timesteps = torch.linspace(0, 1, self.agent_steps + 1, device=agent_batch.device)
 
+                noise_level = torch.zeros(len(z_agent), self.agent_steps, 1, device=agent_batch.device)
+
+                t_rand = torch.randint(0, self.agent_steps, (data.num_graphs,), device=agent_batch.device)
+
+                t_rand=t_rand[agent_batch]
+
+                noise_level[torch.arange(len(z_agent)), t_rand, 0] = 0.7
+
             ego_mask = agent_batch[1:] != agent_batch[:-1]
             ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
 
             z_agent[ego_mask, :6] = self.ego_shape[:, :6]
             z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
 
-            noise_level = torch.zeros(len(z_agent), self.agent_steps, 1, device=agent_batch.device)
-
-            #if self.use_sde:
-            t_rand = torch.randint(0, self.agent_steps, (data.num_graphs,), device=agent_batch.device)
-
-            t_rand=t_rand[agent_batch]
-
-            noise_level[torch.arange(len(z_agent)), t_rand, 0] = 0.7
-
-
             for i in range(self.agent_steps):
                 t = timesteps[i]
-                t_batch=t.expand(data.num_graphs)
+                t_batch = t.expand(data.num_graphs)
 
-                agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=False,map_feature=map_feature)
+                agent_pred, lane_pred, con_pred = self.diff_model(z_agent, z_lane, z_lane, l2l_edge_index, t_batch,
+                                                                  agent_batch, lane_batch, scene_idx, pred_map=False,map_feature=map_feature)
 
                 if self.use_diffusion:
 
-                    agent_pred=(agent_pred-self.agent_mean)/self.agent_scale
-
+                    #agent_pred=(agent_pred-self.agent_mean)/self.agent_scale
+                    t_agent=t_batch[agent_batch]
+                    
                     z_agent=(z_agent-self.agent_mean)/self.agent_scale
+                    
+                    agent_pred=self.ldm.predict_start_from_noise(z_agent, t=t_agent, noise=agent_pred)
 
                     model_mean_agent, posterior_log_variance_agent = self.ldm.q_posterior(x_start=agent_pred, x_t=z_agent,
-                                                                                    t=t_batch[agent_batch])
+                                                                                    t=t_agent)
 
                     noise_agent = torch.randn_like(x_agent)
 
-                    nonzero_mask_agent = (1 - (t_batch[agent_batch] == 0).float()).reshape(len(x_agent), *((1,) * (len(x_agent.shape) - 1)))
+                    nonzero_mask_agent = (1 - (t_agent == 0).float()).reshape(len(x_agent), *((1,) * (len(x_agent.shape) - 1)))
 
                     z_agent = model_mean_agent + nonzero_mask_agent * (
                         posterior_log_variance_agent).exp().sqrt() * noise_agent
