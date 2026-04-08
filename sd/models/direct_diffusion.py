@@ -161,7 +161,7 @@ class Direct_diffusion(pl.LightningModule):
     def process_features(self, x, t_batch, batch, mean, scale):
         if torch.all(mean==0):
             mean.copy_(x.mean(0, keepdim=True))
-            scale.copy_(x.std(0, keepdim=True).clamp_min(min=1e-5))
+            scale.copy_(x.std(0, keepdim=True))
 
 
         noise = torch.randn_like(x) * scale + mean
@@ -176,9 +176,9 @@ class Direct_diffusion(pl.LightningModule):
 
         return z,  denom
 
-    def process_lane(self,x_lane_states):
+    def process_lane(self,x_lane_states1):
 
-        x_lane_states = resample_polyline_torch_batch(x_lane_states)
+        x_lane_states = resample_polyline_torch_batch(x_lane_states1)
 
         lane_pos = x_lane_states[:, 0]
         dx = x_lane_states[:, 1, 0] - x_lane_states[:, 0, 0]
@@ -208,7 +208,6 @@ class Direct_diffusion(pl.LightningModule):
 
         lane_cosine = torch.stack([dtheta.cos(), dtheta.sin()], dim=-1).reshape(-1, 36)
 
-        zero = torch.zeros_like(d)  # (N,1)
 
         # dist=torch.norm(rel_lane,dim=-1)+1e-5
         #
@@ -218,7 +217,7 @@ class Direct_diffusion(pl.LightningModule):
         #
         # lane_cosine[:,0]=dist.mean(1)
 
-        x_lane = torch.cat([lane_pos, lane_heading.cos()[:, None], lane_heading.sin()[:, None], d, zero, lane_cosine],
+        x_lane = torch.cat([lane_pos, lane_heading.cos()[:, None], lane_heading.sin()[:, None], d, d, lane_cosine],
                            dim=-1)
 
         # original=self.get_original_lane(x_lane)
@@ -380,7 +379,7 @@ class Direct_diffusion(pl.LightningModule):
         heading0 = torch.atan2(z_lane[:, 3], z_lane[:, 2])  # (N,)
 
         # shared step length
-        d = z_lane[:, 4]  # (N,)
+        d = z_lane[:, 4:6].mean(1)  # (N,)
 
         # delta angles (cos/sin form)
         dtheta_vec = z_lane[:, 6:].reshape(-1, 18, 2)  # (N,18,2)
