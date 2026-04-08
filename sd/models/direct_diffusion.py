@@ -124,6 +124,8 @@ class Direct_diffusion(pl.LightningModule):
         else:
             self.diff_model = Agent_Diffuser(cfg.model)
 
+            #self.ldm = LDM(cfg_ldm)
+
         # nocturne-compatible metadata (stored in latent cache)
         if self.cfg.eval.cache_latents.enable_caching and self.cfg.dataset_name == 'waymo':
             with open(self.cfg.eval.cache_latents.nocturne_train_filenames_path, 'rb') as f:
@@ -147,7 +149,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.t_eps=0.01
 
-        self.steps=20
+        self.steps=100
 
     def process_features(self, x, t_batch, batch, mean, scale):
         if torch.all(mean==0):

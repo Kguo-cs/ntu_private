@@ -16,7 +16,7 @@ class LDM(nn.Module):
         self.cfg = cfg
         self.cfg_model = self.cfg.model
         self.cfg_dataset = self.cfg.dataset
-        self.model = DiT(cfg)
+        #self.model = DiT(cfg)
         
         n_timesteps = self.cfg_model.n_diffusion_timesteps
         betas = cosine_beta_schedule(n_timesteps)
