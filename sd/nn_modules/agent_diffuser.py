@@ -365,6 +365,28 @@ class Agent_Diffuser(nn.Module):
 
         return map_feature,lane_conn_logits
 
+    def pred_agent(self,z_agent,t_batch,agent_batch,c):
+
+        map_feature,ego_mask,embed=c
+
+        z_agent[ego_mask, :6] = self.ego_shape[:, :6]
+        z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
+
+        t_batch = self.t_embedder(t_batch.reshape(-1))
+
+        agent_pred = self.agent_encoder(map_feature, z_agent, t_batch + embed, agent_batch)
+
+        return agent_pred
+
+    def pred_lane(self, z_lane, t_batch, lane_batch, c):
+
+        l2l_edge_index, embed = c
+
+        t_batch = self.t_embedder(t_batch.reshape(-1))
+
+        _, lane_pred, con_pred = self.map_encoder(z_lane, lane_batch, t_batch + embed ,    l2l_edge_index=l2l_edge_index)
+
+        return lane_pred
 
     def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=True,pred_agent=True,map_feature=None):
 
