@@ -551,14 +551,15 @@ class Direct_diffusion(pl.LightningModule):
             ego_mask = agent_batch[1:] != agent_batch[:-1]
             ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
 
+            z_agent[ego_mask, :6] = self.ego_shape[:, :6]
+            z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
+
             for i in range(self.agent_steps):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
                 t_batch=t.expand(data.num_graphs)
 
                 agent_pred,lane_pred,con_pred=self.diff_model(z_agent,z_lane,z_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=False,map_feature=map_feature)
-
-
 
                 if self.use_diffusion:
 
