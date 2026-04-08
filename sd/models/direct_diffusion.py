@@ -153,7 +153,6 @@ class Direct_diffusion(pl.LightningModule):
         self.register_buffer("lane_mean", torch.zeros(1, lane_dim))
         self.register_buffer("lane_scale", torch.ones(1, lane_dim))
 
-
         self.t_eps=0.01
 
         self.lane_steps=100
@@ -161,10 +160,6 @@ class Direct_diffusion(pl.LightningModule):
         self.agent_steps=100
 
         self.lane_sampling_temperature=0.75
-
-        ego_shape= torch.tensor( [[0,     0,     0,     1,     5.2860,     2.3320,    1.0000,     0.0000,     0.0000]])
-
-        self.register_buffer("ego_shape", ego_shape)
 
     def process_features(self, x, t_batch, batch, mean, scale):
         if torch.all(mean==0):
@@ -316,12 +311,6 @@ class Direct_diffusion(pl.LightningModule):
                 self.agent_mean, self.agent_scale,
             )
 
-            ego_mask=agent_batch[1:]!=agent_batch[:-1]
-            ego_mask=torch.cat([torch.ones_like(ego_mask[:1]),ego_mask])
-
-            z_agent[ego_mask,:6]=self.ego_shape[:,:6]
-            z_agent[ego_mask,-3:]=self.ego_shape[:,-3:]
-
             z_lane, lane_denom,lane_noise = self.process_features(
                 x_lane, t, lane_batch,
                 self.lane_mean, self.lane_scale,
@@ -329,14 +318,7 @@ class Direct_diffusion(pl.LightningModule):
 
             agent_pred,lane_pred,lane_conn_logits=self.diff_model(z_agent,z_lane,x_lane,l2l_edge_index,t,agent_batch,lane_batch,scene_idx)
 
-            #lane_conn_logits=self.diff_model.predict_con(x_lane,l2l_edge_index,lane_batch)
-
             lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
-
-            # lane_conn_loss=F.l1_loss(con_pred,x_lane_conn)
-
-            # if torch.isnan(lane_conn_loss):
-            #     print(lane_conn_loss.item())
 
             self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
@@ -345,6 +327,12 @@ class Direct_diffusion(pl.LightningModule):
                 match_loss1 = self.lane_loss_fn(lane_pred, lane_noise, lane_batch).mean()
 
             else:
+                ego_mask = agent_batch[1:] != agent_batch[:-1]
+                ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
+
+                agent_pred[ego_mask, :6] = self.diff_model.ego_shape[:, :6]
+                agent_pred[ego_mask, -3:] = self.diff_model.ego_shape[:, -3:]
+
                 match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
                     agent_batch,
                     agent_pred,
@@ -569,11 +557,6 @@ class Direct_diffusion(pl.LightningModule):
 
                 noise_level[torch.arange(len(z_agent)), t_rand, 0] = 0.7
 
-            ego_mask = agent_batch[1:] != agent_batch[:-1]
-            ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
-
-            z_agent[ego_mask, :6] = self.ego_shape[:, :6]
-            z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
 
             for i in range(self.agent_steps):
                 t = timesteps[i]
@@ -623,8 +606,12 @@ class Direct_diffusion(pl.LightningModule):
                     )
                     z_agent = z_agent*self.agent_scale+self.agent_mean
 
-                z_agent[ego_mask, :6] = self.ego_shape[:, :6]
-                z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
+            ego_mask = agent_batch[1:] != agent_batch[:-1]
+            ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
+
+            z_agent[ego_mask, :6] = self.diff_model.ego_shape[:, :6]
+            z_agent[ego_mask, -3:] = self.diff_model.ego_shape[:, -3:]
+
 
             agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
             agent_types = torch.argmax(z_agent[:,-3:], dim=1)

@@ -347,6 +347,9 @@ class Agent_Diffuser(nn.Module):
         self.num_agents_embedder = LabelEmbedder(30 + 1, hidden_dim, 0)
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
+        ego_shape= torch.tensor( [[0,     0,     0,     1,     5.2860,     2.3320,    1.0000,     0.0000,     0.0000]])
+
+        self.register_buffer("ego_shape", ego_shape)
 
         self.apply(weight_init)
 
@@ -366,6 +369,7 @@ class Agent_Diffuser(nn.Module):
     def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=True,pred_agent=True,map_feature=None):
 
         #$t_discrete=(t_batch).long()
+
 
         t_batch = self.t_embedder(t_batch.reshape(-1))
 
@@ -389,7 +393,16 @@ class Agent_Diffuser(nn.Module):
             if map_feature is None:
                 map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
+            ego_mask = agent_batch[1:] != agent_batch[:-1]
+            ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
+            z_agent[ego_mask, :6] = self.ego_shape[:, :6]
+            z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
+
             agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb+scene_type,agent_batch)
+
+            # agent_pred[ego_mask, :6] = self.ego_shape[:, :6]
+            # agent_pred[ego_mask, -3:] = self.ego_shape[:, -3:]
+
         else:
             agent_pred=None
 
