@@ -142,17 +142,17 @@ class MapDecoder(nn.Module):
         elif self.pred_lane:
             res = self.output_layer(x_pt)
 
-            # res_theta = torch.atan2(res[:, 3], res[:, 2])
-            #
-            # local_pos, local_theta = transform_to_global(
-            #     res[:, :2],
-            #     res_theta,
-            #     pos_pt,
-            #     orient_pt,
-            # )
-            #
-            # res = torch.cat(
-            #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
+            res_theta = torch.atan2(res[:, 3], res[:, 2])
+
+            local_pos, local_theta = transform_to_global(
+                res[:, :2],
+                res_theta,
+                pos_pt,
+                orient_pt,
+            )
+
+            res = torch.cat(
+                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
 
             con_pred=None
@@ -278,17 +278,17 @@ class AgentDecoder(nn.Module):
 
         res = self.output_layer(feat_a)
 
-        # res_theta = torch.atan2(res[:, 3], res[:, 2])
-        #
-        # local_pos, local_theta = transform_to_global(
-        #     res[:, :2],
-        #     res_theta,
-        #     pos_s,
-        #     theta,
-        # )
-        #
-        # res = torch.cat(
-        #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
+        res_theta = torch.atan2(res[:, 3], res[:, 2])
+
+        local_pos, local_theta = transform_to_global(
+            res[:, :2],
+            res_theta,
+            pos_s,
+            theta,
+        )
+
+        res = torch.cat(
+            [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
         return res
 
@@ -300,7 +300,7 @@ class Agent_Diffuser(nn.Module):
 
     def __init__(self, cfg):
         super(Agent_Diffuser, self).__init__()
-        hidden_dim=256
+        hidden_dim=128
 
         num_freq_bands=hidden_dim//2
 
