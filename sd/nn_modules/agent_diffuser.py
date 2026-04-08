@@ -365,9 +365,9 @@ class Agent_Diffuser(nn.Module):
 
     def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx,pred_map=True,pred_agent=True,map_feature=None):
 
-        t_discrete=(t_batch[:,0]*100).long()
+        #$t_discrete=(t_batch).long()
 
-        t_batch = self.t_embedder(t_discrete)
+        t_batch = self.t_embedder(t_batch)
 
         #t_batch=self.t_embed(t_batch)
        # t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
