@@ -109,7 +109,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=False
+        self.use_diffusion=True
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -165,14 +165,16 @@ class Direct_diffusion(pl.LightningModule):
             scale.copy_(x.std(0, keepdim=True))
 
         raw_noise=torch.randn_like(x)
-
-        noise = raw_noise * scale + mean
         t = t_batch[batch]
 
         if self.use_diffusion:
-            z =  extract(self.ldm.sqrt_alphas_cumprod, t, x.shape) * x + extract(self.ldm.sqrt_one_minus_alphas_cumprod, t, x.shape) * noise
+            x= (x-mean)/scale
+            z =  extract(self.ldm.sqrt_alphas_cumprod, t, x.shape) * x + extract(self.ldm.sqrt_one_minus_alphas_cumprod, t, x.shape) * raw_noise
+            z= z * scale + mean
             denom=1
         else:
+            noise = raw_noise * scale + mean
+
             z = (1 - t) * noise + t * x
             denom = (1 - t).clamp_min(self.t_eps)
 
