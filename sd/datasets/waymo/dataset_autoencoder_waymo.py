@@ -897,11 +897,21 @@ class WaymoDatasetAutoEncoder(Dataset):
         #     min_lane_y=self.cfg.min_lane_y,
         #     max_lane_x=self.cfg.max_lane_x,
         #     max_lane_y=self.cfg.max_lane_y)
+        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
+            agent_states,
+            agent_states,
+            road_points,
+            road_points,
+            edge_index_lane_to_lane,
+            agent_states,
+            road_points,
+            lg_type,
+            dataset='waymo')
 
         # Training‑only randomisation of non‑ego indices ----------
-        if self.mode == 'train':
-            agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
-            edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+        # if self.mode == 'train':
+        #     agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
+        edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
         
         # Partition masks (only for partitioned lane graph) ---------
         if lg_type == PARTITIONED:
@@ -974,16 +984,6 @@ class WaymoDatasetAutoEncoder(Dataset):
 
         # plt.savefig('scene_{}.png'.format(idx), dpi=1000)
         # plt.clf()
-        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
-            agent_states,
-            agent_states,
-            road_points,
-            road_points,
-            edge_index_lane_to_lane,
-            agent_states,
-            road_points,
-            lg_type,
-            dataset='waymo')
 
         # --------------------------------------------------------------
         # ️Assemble final PyG heterogeneous graph ------------------
