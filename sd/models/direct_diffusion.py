@@ -110,7 +110,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=False
+        self.use_diffusion=True
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -284,50 +284,50 @@ class Direct_diffusion(pl.LightningModule):
 
             self.log('train/lane_conn_loss', lane_conn_loss, on_step=True, batch_size=1)
 
-            if self.use_diffusion:
-                match_loss = self.agent_loss_fn(agent_pred, agent_noise, agent_batch).mean()
-                match_loss1 = self.lane_loss_fn(lane_pred, lane_noise, lane_batch).mean()
-            else:
-                ego_mask = agent_batch[1:] != agent_batch[:-1]
-                ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
+            # if self.use_diffusion:
+            #     match_loss = self.agent_loss_fn(agent_pred, agent_noise, agent_batch).mean()
+            #     match_loss1 = self.lane_loss_fn(lane_pred, lane_noise, lane_batch).mean()
+            # else:
+            ego_mask = agent_batch[1:] != agent_batch[:-1]
+            ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
 
-                agent_pred[ego_mask, :6] = self.diff_model.agent_encoder.ego_shape[:, :6]
-                agent_pred[ego_mask, -3:] = self.diff_model.agent_encoder.ego_shape[:, -3:]
+            agent_pred[ego_mask, :6] = self.diff_model.agent_encoder.ego_shape[:, :6]
+            agent_pred[ego_mask, -3:] = self.diff_model.agent_encoder.ego_shape[:, -3:]
 
-                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
-                    agent_batch,
-                    agent_pred,
-                    x_agent,
-                    agent_denom,
-                    scale=self.agent_scale,
-                    all_state=True,
-                    use_all_type=True,
-                    use_match=True
-                   # w_shape=1,
-                )
+            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
+                agent_batch,
+                agent_pred,
+                x_agent,
+                agent_denom,
+                scale=self.agent_scale,
+                all_state=True,
+                use_all_type=True,
+                use_match=True
+               # w_shape=1,
+            )
 
-                match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
-                    lane_batch,
-                    lane_pred,
-                    x_lane,
-                    lane_denom,
-                    all_state=False,
-                    use_all_type=True,
-                   # use_match=True
-                )
+            match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+                lane_batch,
+                lane_pred,
+                x_lane,
+                lane_denom,
+                all_state=False,
+                use_all_type=True,
+               # use_match=True
+            )
                 #lane_pred=self.get_original_lane(lane_pred)
 
                 #match_loss1=F.l1_loss(lane_pred,x_lane_states)
 
 
-                self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
-                self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
-                self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
-                self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+            self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+            self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+            self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+            self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
 
-                # self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
-                # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
-                # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
+            # self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
+            # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
+            # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
             self.log('train/match_loss1', match_loss1, on_step=True, batch_size=1)
 
@@ -398,7 +398,7 @@ class Direct_diffusion(pl.LightningModule):
         z_norm = (z - mean) / scale
 
         # predict x0
-        x0 = ldm.predict_start_from_noise(z_norm, t=t_local, noise=pred)
+        x0 = (pred-mean)/scale#ldm.predict_start_from_noise(z_norm, t=t_local, noise=pred)
 
         # posterior
         model_mean, logvar = ldm.q_posterior(
