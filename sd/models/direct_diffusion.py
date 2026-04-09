@@ -110,7 +110,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=False
+        self.use_diffusion=True
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
