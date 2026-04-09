@@ -8,6 +8,9 @@ import math
 from sd.cfgs.config import LANE_CONNECTION_TYPES_WAYMO, LANE_CONNECTION_TYPES_NUPLAN
 import wandb
 
+import matplotlib
+matplotlib.use('Agg')
+
 def plot_scene(
         agent_states, 
         road_points, 
@@ -32,10 +35,10 @@ def plot_scene(
             y_min = min(y_min, tile_corners[:, 1].min())
             y_max = max(y_max, tile_corners[:, 1].max())
     else:
-        x_max = 32 
-        x_min = -32
-        y_max = 32 
-        y_min = -32
+        x_max = 32+16
+        x_min = -32-16
+        y_max = 32+16
+        y_min = -32-16
 
     x_range = x_max - x_min
     y_range = y_max - y_min

@@ -142,18 +142,18 @@ class MapDecoder(nn.Module):
         elif self.pred_lane:
             res = self.output_layer(x_pt)
 
-            # res_theta = torch.atan2(res[:, 3], res[:, 2])
-            #
-            # local_pos, local_theta = transform_to_global(
-            #     res[:, :2],
-            #     res_theta,
-            #     pos_pt,
-            #     orient_pt,
-            # )
-            #
-            # res = torch.cat(
-            #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
-            #
+            res_theta = torch.atan2(res[:, 3], res[:, 2])
+
+            local_pos, local_theta = transform_to_global(
+                res[:, :2],
+                res_theta,
+                pos_pt,
+                orient_pt,
+            )
+
+            res = torch.cat(
+                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
+
 
             con_pred=None
             # con_pred=self.pred_lane_conn( torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
@@ -288,17 +288,17 @@ class AgentDecoder(nn.Module):
 
         res = self.output_layer(feat_a)
 
-        # res_theta = torch.atan2(res[:, 3], res[:, 2])
-        #
-        # local_pos, local_theta = transform_to_global(
-        #     res[:, :2],
-        #     res_theta,
-        #     pos_s,
-        #     theta,
-        # )
-        #
-        # res = torch.cat(
-        #     [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
+        res_theta = torch.atan2(res[:, 3], res[:, 2])
+
+        local_pos, local_theta = transform_to_global(
+            res[:, :2],
+            res_theta,
+            pos_s,
+            theta,
+        )
+
+        res = torch.cat(
+            [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
         return res
 
