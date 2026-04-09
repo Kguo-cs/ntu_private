@@ -302,7 +302,7 @@ class Direct_diffusion(pl.LightningModule):
                     scale=self.agent_scale,
                     all_state=True,
                     use_all_type=True,
-                    use_match=True
+                   # use_match=True
                    # w_shape=1,
                 )
 
@@ -628,7 +628,7 @@ class Direct_diffusion(pl.LightningModule):
         if visualize:
             print(f"Visualizing batch {batch_idx}...")
 
-            num_samples_to_visualize = 6
+            num_samples_to_visualize = 4
 
             images_to_log = visualize_batch(
                 num_samples_to_visualize,
@@ -639,7 +639,7 @@ class Direct_diffusion(pl.LightningModule):
                 lane_conn_samples,
                 data,
                 save_dir=None,
-                epoch=self.current_epoch,
+                epoch=0,
                 batch_idx=batch_idx,
                 save_wandb=True)
             self.logger.experiment.log(images_to_log)
