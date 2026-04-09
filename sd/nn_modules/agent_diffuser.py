@@ -93,6 +93,7 @@ class MapDecoder(nn.Module):
             # self.con_emb = MLPLayer(5,hidden_dim, hidden_dim)
             #
             # self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 5)
+        self.pos_emb_lane = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(100))).float(), requires_grad=False)
 
         self.apply(weight_init)
 
@@ -100,7 +101,7 @@ class MapDecoder(nn.Module):
         pos_pt=z_lane[:,:2]
         orient_pt=torch.atan2(z_lane[:,3],z_lane[:,2])
 
-        x_pt=self.lane_emb(z_lane)
+        x_pt=self.lane_emb(z_lane)+self.pos_emb_lane[get_indices_within_scene(batch)]
 
         if t_batch is not None:
             x_pt=x_pt+t_batch[batch]
@@ -218,6 +219,9 @@ class AgentDecoder(nn.Module):
         ego_shape= torch.tensor( [[0,     0,     0,     1,     5.2860,     2.3320,    1.0000,     0.0000,     0.0000]])
 
         self.register_buffer("ego_shape", ego_shape)
+        # These will be overwritten by sin/cos positional encodings
+
+        self.pos_emb_agent = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(30))).float(), requires_grad=False)
 
         self.apply(weight_init)
 
@@ -236,7 +240,7 @@ class AgentDecoder(nn.Module):
 
         feat_a = self.agent_emb(z_agent)#[:,:4]
 
-        feat_a = feat_a + t_batch[batch]
+        feat_a = feat_a + t_batch[batch]+self.pos_emb_agent[get_indices_within_scene(batch)]
 
         # feat_attr=self.attr_emb(z_agent[:,4:])
 
@@ -310,7 +314,7 @@ class Agent_Diffuser(nn.Module):
 
     def __init__(self, cfg):
         super(Agent_Diffuser, self).__init__()
-        hidden_dim=256
+        hidden_dim=128
 
         num_freq_bands=hidden_dim//2
 

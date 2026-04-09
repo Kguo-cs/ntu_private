@@ -231,49 +231,10 @@ class Direct_diffusion(pl.LightningModule):
             with torch.no_grad():
                 agent_mu, lane_mu, agent_log_var, lane_log_var = self.autoencoder.model.forward(data, return_latents=True)
 
-                scene_type = data['lg_type']
-                road_points = data['lane'].x
-                agent_states = data['agent'].x
-
-                agent_mu2=[]
-                agent_log_var2=[]
-                lane_mu2=[]
-                lane_log_var2=[]
-                agent_partition_mask2=[]
-                lane_partition_mask2=[]
-
-
-                for i in range(data.num_graphs):
-                    n_lanes=len(road_points[lane_batch==i])
-
-                    edge_index_lane_to_lane = get_edge_index_complete_graph(n_lanes)
-
-                    agent_mu1, agent_log_var1, lane_mu1, lane_log_var1, edge_index_lane_to_lane1, agent_partition_mask1, lane_partition_mask1 = reorder_indices(
-                        agent_mu[agent_batch==i].cpu().numpy(),
-                        agent_log_var[agent_batch==i].cpu().numpy(),
-                        lane_mu[lane_batch==i].cpu().numpy(),
-                        lane_log_var[lane_batch==i].cpu().numpy(),
-                        edge_index_lane_to_lane,
-                        agent_states[agent_batch==i].cpu().numpy(),
-                        road_points[lane_batch==i].cpu().numpy(),
-                        scene_type[i],
-                        dataset='waymo')
-
-                    agent_mu2.append(torch.tensor(agent_mu1))
-                    agent_log_var2.append(torch.tensor(agent_log_var1))
-                    lane_mu2.append(torch.tensor(lane_mu1))
-                    lane_log_var2.append(torch.tensor(lane_log_var1))
-                    agent_partition_mask2.append(torch.tensor(agent_partition_mask1))
-                    lane_partition_mask2.append(torch.tensor(lane_partition_mask1))
-
-                device=agent_mu.device
-
-                data['agent'].x=torch.cat(agent_mu2).to(device)
-                data['agent'].log_var=torch.cat(agent_log_var2).to(device)
-                data['lane'].x=torch.cat(lane_mu2).to(device)
-                data['lane'].log_var=torch.cat(lane_log_var2).to(device)
-                data['agent'].partition_mask=torch.cat(agent_partition_mask2).to(device)
-                data['lane'].partition_mask=torch.cat(lane_partition_mask2).to(device)
+                data['agent'].x=agent_mu
+                data['agent'].log_var=agent_log_var
+                data['lane'].x=lane_mu
+                data['lane'].log_var=lane_log_var
 
                 data['agent'].latents, data['lane'].latents = sample_latents(
                     data,

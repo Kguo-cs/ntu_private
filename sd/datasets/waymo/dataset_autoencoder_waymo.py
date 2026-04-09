@@ -28,6 +28,7 @@ from sd.utils.data_helpers import (
 )
 from sd.utils.torch_helpers import from_numpy
 from sd.utils.geometry import apply_se2_transform, rotate_and_normalize_angles
+from sd.utils.data_helpers import unnormalize_scene, normalize_latents, unnormalize_latents, convert_batch_to_scenarios, reorder_indices
 
 class WaymoDatasetAutoEncoder(Dataset):
     """A Torch-Geometric ``Dataset`` wrapping Waymo scenes for auto-encoding.
@@ -973,8 +974,17 @@ class WaymoDatasetAutoEncoder(Dataset):
 
         # plt.savefig('scene_{}.png'.format(idx), dpi=1000)
         # plt.clf()
-        
-        
+        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane1, agent_partition_mask1, lane_partition_mask1 = reorder_indices(
+            agent_states,
+            agent_states,
+            road_points,
+            road_points,
+            edge_index_lane_to_lane,
+            agent_states,
+            road_points,
+            lg_type,
+            dataset='waymo')
+
         # --------------------------------------------------------------
         # ️Assemble final PyG heterogeneous graph ------------------
         # --------------------------------------------------------------
@@ -1009,6 +1019,7 @@ class WaymoDatasetAutoEncoder(Dataset):
         d['map_id'] = noct_compatible
         # else:
         #     d['map_id'] = map_id_i
+
 
         return d
     
