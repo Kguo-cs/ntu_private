@@ -392,7 +392,7 @@ class Agent_Diffuser(nn.Module):
 
         t_batch = self.t_embedder(t_batch.reshape(-1))
 
-        _, lane_pred, con_pred = self.map_encoder(z_lane, lane_batch, torch.cat([t_batch,embed],dim=-1) ,    l2l_edge_index=l2l_edge_index)
+        _, lane_pred, con_pred = self.map_encoder(z_lane, lane_batch, t_batch+embed ,    l2l_edge_index=l2l_edge_index)
 
         return lane_pred
 
@@ -408,7 +408,9 @@ class Agent_Diffuser(nn.Module):
 
         scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training)#, force_drop_ids=torch.ones_like(scene_idx))
 
-        _,lane_pred,_=self.map_encoder(z_lane,lane_batch,t_batch=torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1),l2l_edge_index=l2l_edge_index)
+        #torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1)
+
+        _,lane_pred,_=self.map_encoder(z_lane,lane_batch,t_batch+num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
         map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
