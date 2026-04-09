@@ -32,6 +32,7 @@ from sd.utils.diffusion_helpers import (
     cosine_beta_schedule,
     extract
 )
+from sd.utils.viz import visualize_batch
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -109,7 +110,7 @@ class Direct_diffusion(pl.LightningModule):
 
         self.scenarios={}
 
-        self.use_diffusion=True
+        self.use_diffusion=False
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
@@ -509,14 +510,16 @@ class Direct_diffusion(pl.LightningModule):
 
             else:
                 t_next = timesteps[i + 1]
+                t_next_batch = t_next.expand(batch.max() + 1)
+                t_next_local = t_next_batch[batch]
 
                 if use_sde:
                     z = self.sample_step_sde(
-                        z, pred, t, t_next, mean, scale,
+                        z, pred, t_local, t_next_local, mean, scale,
                         noise_level[:, i], self.sde_step_with_logprob
                     )
                 else:
-                    z = self.sample_step_flow(z, pred, t, t_next, scale, eps)
+                    z = self.sample_step_flow(z, pred, t_local, t_next_local, scale, eps)
 
         return z
 
@@ -603,7 +606,7 @@ class Direct_diffusion(pl.LightningModule):
                 temperature=self.lane_sampling_temperature,
                 c=c,
                 pred_v="lane"
-            )
+            )            
 
             map_feature,lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch,scene_type+ num_lanes_emb)
 
@@ -658,6 +661,28 @@ class Direct_diffusion(pl.LightningModule):
         data['lane'].x = lane_samples
         data['agent'].type = torch.nn.functional.one_hot(agent_types, num_classes=self.cfg_dataset.num_agent_types)
         data['lane', 'to', 'lane'].type =   lane_conn_samples
+        lane_types=None
+
+        visualize=True
+        if visualize:
+            print(f"Visualizing batch {batch_idx}...")
+
+            num_samples_to_visualize = 6
+
+            images_to_log_batch = visualize_batch(
+                num_samples_to_visualize,
+                agent_samples,
+                lane_samples,
+                agent_types,
+                lane_types,
+                lane_conn_samples,
+                data,
+                save_dir=None,
+                epoch=self.current_epoch,
+                batch_idx=batch_idx,
+                save_wandb=True)
+        else:
+            images_to_log_batch = None
 
         batch_of_scenarios = convert_batch_to_scenarios(
             data,
@@ -670,7 +695,6 @@ class Direct_diffusion(pl.LightningModule):
             mode='initial_scene',
         )
         self.scenarios.update(batch_of_scenarios)
-
 
 
     def validation_step(self, data, batch_idx):
@@ -809,9 +833,10 @@ class Direct_diffusion(pl.LightningModule):
 
                 prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1 * dt) * variance_noise
 
+            sqrt_term = std_dev_t * torch.sqrt(torch.clamp(-1 * dt, min=0))
             log_prob = (
-                    -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1 * dt)) ** 2))
-                    - torch.log(std_dev_t * torch.sqrt(-1 * dt))
+                    -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * (sqrt_term ** 2))
+                    - torch.log(sqrt_term.clamp_min(1e-8))
                     - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
             )
 
@@ -834,7 +859,7 @@ class Direct_diffusion(pl.LightningModule):
         log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
 
         if return_sqrt_dt:
-            return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
+            return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(torch.clamp(-1 * dt, min=0))
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     ### Taken largely from QCNet repository: https://github.com/ZikangZhou/QCNet

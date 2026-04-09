@@ -157,7 +157,7 @@ def plot_scene(
             )
 
     # Create the save directory if it doesn't exist
-    if not os.path.exists(save_dir):
+    if not return_fig and not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
 
     if return_fig:
