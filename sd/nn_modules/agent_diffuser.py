@@ -413,6 +413,7 @@ class Agent_Diffuser(nn.Module):
 
         if pred_agent:
             if map_feature is None:
+                #x_lane=x_lane+torch.randn_like(x_lane)*0.01
                 map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
             ego_mask = agent_batch[1:] != agent_batch[:-1]
