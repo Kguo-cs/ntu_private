@@ -310,7 +310,7 @@ class Agent_Diffuser(nn.Module):
 
     def __init__(self, cfg):
         super(Agent_Diffuser, self).__init__()
-        hidden_dim=128
+        hidden_dim=256
 
         num_freq_bands=hidden_dim//2
 
@@ -331,6 +331,12 @@ class Agent_Diffuser(nn.Module):
             dropout=dropout,
             pred_lane=True
         )
+
+        hidden_dim=128
+
+        num_freq_bands=hidden_dim//2
+
+        head_dim=hidden_dim//num_heads
 
         self.connect_encoder=MapDecoder(
             hidden_dim,
