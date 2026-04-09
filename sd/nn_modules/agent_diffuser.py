@@ -86,7 +86,7 @@ class MapDecoder(nn.Module):
         self.pred_lane=pred_lane
 
         if self.pred_lane_conn:
-            self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 5)
+            self.pred_lane_conn=MLPLayer(hidden_dim*3,hidden_dim, 5)
         elif self.pred_lane:
             self.output_layer=MLPLayer(hidden_dim,hidden_dim, 42)
 
@@ -135,7 +135,7 @@ class MapDecoder(nn.Module):
 
         if self.pred_lane_conn:
             lane_conn_logits = self.pred_lane_conn(
-                torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]]], dim=-1))
+                torch.cat([x_pt[l2l_edge_index[0]], x_pt[l2l_edge_index[1]],r_pt2pt], dim=-1))
 
             return output,lane_conn_logits
 
