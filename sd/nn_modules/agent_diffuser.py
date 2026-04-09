@@ -322,7 +322,7 @@ class Agent_Diffuser(nn.Module):
 
         head_dim=hidden_dim//num_heads
 
-        dropout=0.1
+        dropout=0
 
         num_layers=3
 
