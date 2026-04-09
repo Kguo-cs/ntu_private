@@ -302,7 +302,7 @@ class Direct_diffusion(pl.LightningModule):
                     scale=self.agent_scale,
                     all_state=True,
                     use_all_type=True,
-                   # use_match=True
+                    use_match=True
                    # w_shape=1,
                 )
 
