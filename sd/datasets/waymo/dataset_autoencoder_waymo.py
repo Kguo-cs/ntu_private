@@ -974,7 +974,7 @@ class WaymoDatasetAutoEncoder(Dataset):
 
         # plt.savefig('scene_{}.png'.format(idx), dpi=1000)
         # plt.clf()
-        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane1, agent_partition_mask1, lane_partition_mask1 = reorder_indices(
+        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
             agent_states,
             agent_states,
             road_points,
