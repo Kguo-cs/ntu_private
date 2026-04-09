@@ -519,7 +519,7 @@ class Direct_diffusion(pl.LightningModule):
                         noise_level[:, i], self.sde_step_with_logprob
                     )
                 else:
-                    z = self.sample_step_flow(z, pred, t_local, t_next_local, scale, eps)
+                    z = self.sample_step_flow(z, pred, t, t_next, scale, eps)
 
         return z
 
@@ -669,7 +669,7 @@ class Direct_diffusion(pl.LightningModule):
 
             num_samples_to_visualize = 6
 
-            images_to_log_batch = visualize_batch(
+            images_to_log = visualize_batch(
                 num_samples_to_visualize,
                 agent_samples,
                 lane_samples,
@@ -681,8 +681,8 @@ class Direct_diffusion(pl.LightningModule):
                 epoch=self.current_epoch,
                 batch_idx=batch_idx,
                 save_wandb=True)
-        else:
-            images_to_log_batch = None
+            self.logger.experiment.log(images_to_log)
+
 
         batch_of_scenarios = convert_batch_to_scenarios(
             data,
