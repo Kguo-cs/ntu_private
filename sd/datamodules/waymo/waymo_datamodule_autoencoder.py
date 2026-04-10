@@ -174,7 +174,7 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
                 # )
                 #
                 # # these two are placeholders
-                d['lane'].x = from_numpy(road_points).to(torch.float)#torch.empty((num_lanes, self.cfg_model.lane_latent_dim))
+                d['lane'].x = from_numpy(road_points).to(torch.float)*32#torch.empty((num_lanes, self.cfg_model.lane_latent_dim))
                 d['agent'].x = torch.empty((num_agents, 10))
 
                 # the lane latents will be used in the land-conditioned generation
@@ -199,7 +199,7 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
        # self.val_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='val')
 
         self.val_dataset, conditioning_filenames = self._initialize_pyg_dset(
-            mode="lane_conditioned",#initial_scene",
+            mode="initial_scene",#initial_scene",
             num_samples=1024,
             batch_size=1024,
             conditioning_path=os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_autoencoder_latents_waymo/train",

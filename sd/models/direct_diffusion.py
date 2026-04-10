@@ -183,20 +183,20 @@ class Direct_diffusion(pl.LightningModule):
 
     def process_lane(self,x_lane_states1):
 
-        x_lane_states = resample_polyline_torch_batch(x_lane_states1)
+        x_lane = resample_polyline_torch_batch(x_lane_states1)
 
-        lane_pos = x_lane_states[:, 0]
-        dx = x_lane_states[:, 1, 0] - x_lane_states[:, 0, 0]
-        dy = x_lane_states[:, 1, 1] - x_lane_states[:, 0, 1]
+        lane_pos = x_lane[:, 0]
+        dx = x_lane[:, 1, 0] - x_lane[:, 0, 0]
+        dy = x_lane[:, 1, 1] - x_lane[:, 0, 1]
 
         lane_heading = torch.atan2(dy, dx)
 
-        x_lane = transform_to_local(
-            x_lane_states,
-            None,
-            lane_pos,
-            lane_heading
-        )[0]  # {"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
+        # x_lane = transform_to_local(
+        #     x_lane_states,
+        #     None,
+        #     lane_pos,
+        #     lane_heading
+        # )[0]  # {"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
 
         # rel_lane = x_lane[:, 1:] - x_lane[:, :-1]
         #
@@ -382,14 +382,14 @@ class Direct_diffusion(pl.LightningModule):
 
         lane_local=z_lane[:, 4:].reshape(-1,19,2)
 
-        lane_samples = transform_to_global(
-            lane_local,
-            None,
-            z_lane[:, :2],
-            heading0
-        )[0]
+        # lane_local = transform_to_global(
+        #     lane_local,
+        #     None,
+        #     z_lane[:, :2],
+        #     heading0
+        # )[0]
 
-        lane_samples = torch.cat([z_lane[:, None, :2], lane_samples[:,1:],lane_samples[:,:1]], dim=1)
+        lane_samples = torch.cat([z_lane[:, None, :2], lane_local[:,1:],lane_local[:,:1]], dim=1)
 
         return lane_samples
 
@@ -552,21 +552,22 @@ class Direct_diffusion(pl.LightningModule):
                                                   train=self.training)  # , force_drop_ids=torch.ones_like(scene_idx))
 
             c=(l2l_edge_index, scene_type+ num_lanes_emb)
-            # z_lane = torch.randn_like(x_lane)*self.lane_scale*self.lane_sampling_temperature+self.lane_mean
 
-            # z_lane = self.sample_block(
-            #     z=z_lane,
-            #     steps=self.lane_steps,
-            #     timesteps=timesteps,
-            #     batch=lane_batch,
-            #     mean=self.lane_mean,
-            #     scale=self.lane_scale,
-            #     temperature=self.lane_sampling_temperature,
-            #     c=c,
-            #     pred_v="lane"
-            # )
+            z_lane = torch.randn_like(x_lane)*self.lane_scale*self.lane_sampling_temperature+self.lane_mean
 
-            z_lane=self.process_lane(x_lane*32)
+            z_lane = self.sample_block(
+                z=z_lane,
+                steps=self.lane_steps,
+                timesteps=timesteps,
+                batch=lane_batch,
+                mean=self.lane_mean,
+                scale=self.lane_scale,
+                temperature=self.lane_sampling_temperature,
+                c=c,
+                pred_v="lane"
+            )
+
+            #z_lane=self.process_lane(x_lane)
 
             map_feature,lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch,scene_type+ num_lanes_emb)
 
@@ -578,7 +579,7 @@ class Direct_diffusion(pl.LightningModule):
 
             lane_conn_samples =  F.one_hot(lane_conn_pred_all, num_classes=6)
 
-            lane_samples=x_lane*32#self.get_original_lane(z_lane)
+            lane_samples=self.get_original_lane(z_lane)
 
             z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 

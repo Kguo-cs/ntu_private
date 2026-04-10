@@ -8,7 +8,7 @@ rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/l
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/checkpoints/
 
-rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt zs@10.87.225.106:~/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/
+rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo zs@10.87.225.106:~/code/sim/sd/checkpoints/
 
 
 rsync -avz /home/ke/code/sim/sd/metadata/ ke@10.87.114.128:~/keguo/sim/sd/metadata/
