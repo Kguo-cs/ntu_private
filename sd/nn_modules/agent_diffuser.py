@@ -498,6 +498,9 @@ class Agent_Diffuser(nn.Module):
         scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training)#, force_drop_ids=torch.ones_like(scene_idx))
 
         #torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1)
+        map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
+
+        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb+scene_type,agent_batch)
 
         if self.use_dit:
             x_lane = self.lane_embedder(x_lane)
@@ -520,9 +523,6 @@ class Agent_Diffuser(nn.Module):
         else:
             _,lane_pred,_=self.map_encoder(z_lane,lane_batch,t_batch+num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
-        map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
-
-        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb+scene_type,agent_batch)
 
 
         return agent_pred,lane_pred,con_pred
