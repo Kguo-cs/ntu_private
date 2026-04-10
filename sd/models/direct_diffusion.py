@@ -191,12 +191,12 @@ class Direct_diffusion(pl.LightningModule):
 
         lane_heading = torch.atan2(dy, dx)
 
-        # x_lane = transform_to_local(
-        #     x_lane_states,
-        #     None,
-        #     lane_pos,
-        #     lane_heading
-        # )[0]  # {"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
+        x_lane = transform_to_local(
+            x_lane,
+            None,
+            lane_pos,
+            lane_heading
+        )[0]  # {"none": 0, "pred": 1, "succ": 2, "left": 3, "right": 4, "self": 5}
 
         # rel_lane = x_lane[:, 1:] - x_lane[:, :-1]
         #
@@ -382,12 +382,12 @@ class Direct_diffusion(pl.LightningModule):
 
         lane_local=z_lane[:, 4:].reshape(-1,19,2)
 
-        # lane_local = transform_to_global(
-        #     lane_local,
-        #     None,
-        #     z_lane[:, :2],
-        #     heading0
-        # )[0]
+        lane_local = transform_to_global(
+            lane_local,
+            None,
+            z_lane[:, :2],
+            heading0
+        )[0]
 
         lane_samples = torch.cat([z_lane[:, None, :2], lane_local[:,1:],lane_local[:,:1]], dim=1)
 
