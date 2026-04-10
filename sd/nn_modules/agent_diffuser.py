@@ -153,7 +153,7 @@ class MapDecoder(nn.Module):
             )
 
             res = torch.cat(
-                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
+                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]+z_lane[:,4:]], dim=-1)
 
 
             con_pred=None
