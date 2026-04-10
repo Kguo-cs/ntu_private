@@ -325,34 +325,6 @@ class Agent_Diffuser(nn.Module):
         dropout=0
 
         num_layers=3
-        self.use_dit=False
-
-        if self.use_dit:
-            self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
-
-            self.blocks = nn.ModuleList([
-                FactorizedDiTBlock(
-                    hidden_dim,
-                    hidden_dim,
-                    num_heads,
-                    num_heads,
-                    dropout,
-                    mlp_ratio=4,
-                    num_l2l_blocks=1
-                ) for _ in range(3)
-            ])
-            self.pred_lane_noise = FinalLayer(hidden_dim, 42)
-
-        else:
-            self.map_encoder=MapDecoder(
-                hidden_dim,
-                num_freq_bands=num_freq_bands,
-                num_layers=num_layers,
-                num_heads=num_heads,
-                head_dim=head_dim,
-                dropout=dropout,
-                pred_lane=True
-            )
 
         # hidden_dim=128
         #
@@ -386,8 +358,37 @@ class Agent_Diffuser(nn.Module):
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        # self.apply(weight_init)
-        self.initialize_weights()
+        self.use_dit = False
+
+        if self.use_dit:
+            self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
+
+            self.blocks = nn.ModuleList([
+                FactorizedDiTBlock(
+                    hidden_dim,
+                    hidden_dim,
+                    num_heads,
+                    num_heads,
+                    dropout,
+                    mlp_ratio=4,
+                    num_l2l_blocks=1
+                ) for _ in range(3)
+            ])
+            self.pred_lane_noise = FinalLayer(hidden_dim, 42)
+            self.initialize_weights()
+
+        else:
+            self.map_encoder = MapDecoder(
+                hidden_dim,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                pred_lane=True
+            )
+
+            self.apply(weight_init)
 
     def initialize_weights(self):
         """ Custom initialization for DiT model"""
