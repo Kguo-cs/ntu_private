@@ -358,7 +358,7 @@ class Agent_Diffuser(nn.Module):
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        self.use_dit = False
+        self.use_dit = True
 
         if self.use_dit:
             self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
@@ -375,7 +375,7 @@ class Agent_Diffuser(nn.Module):
                 ) for _ in range(3)
             ])
             self.pred_lane_noise = FinalLayer(hidden_dim, 42)
-            self.initialize_weights()
+            #self.initialize_weights()
 
         else:
             self.map_encoder = MapDecoder(
@@ -388,7 +388,7 @@ class Agent_Diffuser(nn.Module):
                 pred_lane=True
             )
 
-            self.apply(weight_init)
+        self.apply(weight_init)
 
     def initialize_weights(self):
         """ Custom initialization for DiT model"""
