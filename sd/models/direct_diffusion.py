@@ -325,11 +325,11 @@ class Direct_diffusion(pl.LightningModule):
             self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
             self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
 
-            # self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
-            # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
-            # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
             self.log('train/match_loss', match_loss, on_step=True, batch_size=1)
             self.log('train/match_loss1', match_loss1, on_step=True, batch_size=1)
+            self.log('train/pos_loss1', pos_loss1, on_step=True, batch_size=1)
+            self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
+            self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
 
             loss = match_loss + 10 * match_loss1 + 10 * lane_conn_loss
 
