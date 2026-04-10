@@ -8,6 +8,8 @@ import glob
 import torch
 from sd.cfgs.config import PROPORTION_NOCTURNE_COMPATIBLE, NON_PARTITIONED, NOCTURNE_COMPATIBLE
 from sd.utils.pyg_helpers import get_edge_index_complete_graph, get_edge_index_bipartite
+import pickle
+from sd.utils.torch_helpers import from_numpy
 
 # this is so that CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -137,7 +139,7 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
                 edge_index_lane_to_agent = cond_d['edge_index_lane_to_agent']
                 edge_index_agent_to_agent = cond_d['edge_index_agent_to_agent']
                 scene_type = cond_d['scene_type']
-                if self.cfg.dataset_name == 'nuplan':
+                if self.dataset_name == 'nuplan':
                     map_id = cond_d['map_id']
                 else:
                     map_id = cond_d['nocturne_compatible']
@@ -145,38 +147,38 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
                 num_agents = agent_mu.shape[0]
 
                 # apply recursive ordering
-                agent_mu, agent_log_var, lane_mu, lane_log_var, edge_index_lane_to_lane, _, _ = reorder_indices(
-                    agent_mu,
-                    agent_log_var,
-                    lane_mu,
-                    lane_log_var,
-                    edge_index_lane_to_lane,
-                    agent_states,
-                    road_points,
-                    scene_type,
-                    dataset=self.cfg.dataset_name)
-                edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+                # agent_mu, agent_log_var, lane_mu, lane_log_var, edge_index_lane_to_lane, _, _ = reorder_indices(
+                #     agent_mu,
+                #     agent_log_var,
+                #     lane_mu,
+                #     lane_log_var,
+                #     edge_index_lane_to_lane,
+                #     agent_states,
+                #     road_points,
+                #     scene_type,
+                #     dataset=self.cfg.dataset_name)
+                # edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
 
                 d['map_id'] = map_id
                 d['lg_type'] = scene_type
                 d['num_lanes'] = num_lanes
                 d['num_agents'] = num_agents
-
-                _, lane_latents = normalize_latents(
-                    torch.empty((num_agents, self.cfg_model.agent_latent_dim)),
-                    from_numpy(lane_mu),
-                    self.cfg_dataset.agent_latents_mean,
-                    self.cfg_dataset.agent_latents_std,
-                    self.cfg_dataset.lane_latents_mean,
-                    self.cfg_dataset.lane_latents_std
-                )
-
-                # these two are placeholders
-                d['lane'].x = torch.empty((num_lanes, self.cfg_model.lane_latent_dim))
-                d['agent'].x = torch.empty((num_agents, self.cfg_model.agent_latent_dim))
+                #
+                # _, lane_latents = normalize_latents(
+                #     torch.empty((num_agents, self.cfg_model.agent_latent_dim)),
+                #     from_numpy(lane_mu),
+                #     self.cfg_dataset.agent_latents_mean,
+                #     self.cfg_dataset.agent_latents_std,
+                #     self.cfg_dataset.lane_latents_mean,
+                #     self.cfg_dataset.lane_latents_std
+                # )
+                #
+                # # these two are placeholders
+                d['lane'].x = from_numpy(road_points).to(torch.float)#torch.empty((num_lanes, self.cfg_model.lane_latent_dim))
+                d['agent'].x = torch.empty((num_agents, 10))
 
                 # the lane latents will be used in the land-conditioned generation
-                d['lane'].latents = lane_latents
+                # d['lane'].latents = lane_latents
                 d['lane', 'to', 'lane'].edge_index = from_numpy(edge_index_lane_to_lane)
                 d['agent', 'to', 'agent'].edge_index = from_numpy(edge_index_agent_to_agent)
                 d['lane', 'to', 'agent'].edge_index = from_numpy(edge_index_lane_to_agent)
@@ -197,10 +199,10 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
        # self.val_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='val')
 
         self.val_dataset, conditioning_filenames = self._initialize_pyg_dset(
-            mode="initial_scene",
+            mode="lane_conditioned",#initial_scene",
             num_samples=1024,
             batch_size=1024,
-            conditioning_path=None,
+            conditioning_path=os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_autoencoder_latents_waymo/train",
             nocturne_compatible_only=False
         )
 

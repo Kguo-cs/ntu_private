@@ -1,6 +1,6 @@
 ### training configurations
 seed: 0 # training seed for reproducibility
-save_dir: ${scratch_root}/checkpoints/ # directory to save checkpoints/log files
+save_dir: ${scratch_root}/lightning_logs/ # directory to save checkpoints/log files
 run_name: null # name of saved directory for run
 wandb_project: scenario-dreamer # wandb project
 wandb_entity: null # wandb entity

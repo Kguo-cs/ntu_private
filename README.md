@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt ke@10.87.114.128:~/keguo/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/sd/checkpoints/scenario_dreamer_ctrl_sim_preprocess.tar.gz guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/checkpoints/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/sd/checkpoints/
 
 rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt zs@10.87.225.106:~/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/
 

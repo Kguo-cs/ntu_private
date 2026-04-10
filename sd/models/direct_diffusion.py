@@ -531,10 +531,6 @@ class Direct_diffusion(pl.LightningModule):
             x_agent= data['agent'].x
             x_lane= data['lane'].x
 
-            z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
-
-            z_lane = torch.randn_like(x_lane)*self.lane_scale*self.lane_sampling_temperature+self.lane_mean
-
             non_self_mask=l2l_edge_index[0]!=l2l_edge_index[1]
 
             l2l_edge_index=l2l_edge_index[:,non_self_mask]
@@ -556,18 +552,21 @@ class Direct_diffusion(pl.LightningModule):
                                                   train=self.training)  # , force_drop_ids=torch.ones_like(scene_idx))
 
             c=(l2l_edge_index, scene_type+ num_lanes_emb)
+            # z_lane = torch.randn_like(x_lane)*self.lane_scale*self.lane_sampling_temperature+self.lane_mean
 
-            z_lane = self.sample_block(
-                z=z_lane,
-                steps=self.lane_steps,
-                timesteps=timesteps,
-                batch=lane_batch,
-                mean=self.lane_mean,
-                scale=self.lane_scale,
-                temperature=self.lane_sampling_temperature,
-                c=c,
-                pred_v="lane"
-            )            
+            # z_lane = self.sample_block(
+            #     z=z_lane,
+            #     steps=self.lane_steps,
+            #     timesteps=timesteps,
+            #     batch=lane_batch,
+            #     mean=self.lane_mean,
+            #     scale=self.lane_scale,
+            #     temperature=self.lane_sampling_temperature,
+            #     c=c,
+            #     pred_v="lane"
+            # )
+
+            z_lane=self.process_lane(x_lane*32)
 
             map_feature,lane_conn_logits=self.diff_model.predict_con(z_lane,l2l_edge_index,lane_batch,scene_type+ num_lanes_emb)
 
@@ -579,7 +578,9 @@ class Direct_diffusion(pl.LightningModule):
 
             lane_conn_samples =  F.one_hot(lane_conn_pred_all, num_classes=6)
 
-            lane_samples=self.get_original_lane(z_lane)
+            lane_samples=x_lane*32#self.get_original_lane(z_lane)
+
+            z_agent =  torch.randn_like(x_agent)*self.agent_scale+self.agent_mean
 
             if self.use_diffusion:
                 timesteps = torch.arange(self.agent_steps-1,-1,-1, device=agent_batch.device)
