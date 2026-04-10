@@ -225,7 +225,7 @@ class AgentDecoder(nn.Module):
 
         self.apply(weight_init)
 
-    def forward(self, map_feature,z_agent,t_batch,batch):
+    def forward(self, map_feature,z_agent,t_batch,batch,a2a_edge_index,l2a_edge_index):
 
         ego_mask = batch[1:] != batch[:-1]
 
@@ -262,7 +262,8 @@ class AgentDecoder(nn.Module):
             agent_train_mask=None,
             layer_num=self.num_layers,
             counter_feat_a=None,
-            dis_edge_mask=None
+            dis_edge_mask=None,
+            a2a_edge_index=a2a_edge_index
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         mask = None
@@ -279,7 +280,8 @@ class AgentDecoder(nn.Module):
             pl2a_radius=100,
             max_num_neighbors=100,
             agent_train_mask=None,
-            layer_num=self.num_layers
+            layer_num=self.num_layers,
+            l2a_edge_index=l2a_edge_index
         )
 
         for layer_i in range(self.num_layers):
@@ -350,15 +352,12 @@ class Agent_Diffuser(nn.Module):
             dropout=dropout,
             )
 
-        #self.t_embed=MLPLayer(1,hidden_dim,hidden_dim)
         self.t_embedder = TimestepEmbedder(hidden_dim)
-
-       # self.t_embedder = TimestepEmbedder(self.cfg_model.hidden_dim)
         self.num_agents_embedder = LabelEmbedder(30 + 1, hidden_dim, 0)
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        self.use_dit = True
+        self.use_dit = False
 
         if self.use_dit:
             self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
@@ -389,56 +388,6 @@ class Agent_Diffuser(nn.Module):
             )
 
         self.apply(weight_init)
-
-    def initialize_weights(self):
-        """ Custom initialization for DiT model"""
-        # Initialize transformer layers:
-        def _basic_init(module):
-            if isinstance(module, nn.Linear):
-                torch.nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.constant_(module.bias, 0)
-        self.apply(_basic_init)
-
-        # # Initialize (and freeze) lane and agent pos_embed by sin-cos embedding:
-        # pos_emb_lane = get_1d_sincos_pos_embed_from_grid(self.pos_emb_lane.shape[-1], np.arange(self.pos_emb_lane.shape[0]))
-        # self.pos_emb_lane.data.copy_(torch.from_numpy(pos_emb_lane).float())
-        # pos_emb_agent = get_1d_sincos_pos_embed_from_grid(self.pos_emb_agent.shape[-1], self.cfg_dataset.max_num_lanes + np.arange(self.pos_emb_agent.shape[0]))
-        # self.pos_emb_agent.data.copy_(torch.from_numpy(pos_emb_agent).float())
-
-        # Initialize label embedding table:
-        nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
-
-        # Initialize num lane and num agent embedding tables:
-        nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
-        nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
-
-        # Initialize timestep embedding MLP:
-        nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
-        nn.init.normal_(self.t_embedder.mlp[2].weight, std=0.02)
-
-        # Zero-out adaLN modulation layers in DiT blocks:
-        for block in self.blocks:
-            for l2l_block in block.l2l_blocks:
-                nn.init.constant_(l2l_block.adaLN_modulation[-1].weight, 0)
-                nn.init.constant_(l2l_block.adaLN_modulation[-1].bias, 0)
-        #     nn.init.constant_(block.a2a_block.adaLN_modulation[-1].weight, 0)
-        #     nn.init.constant_(block.a2a_block.adaLN_modulation[-1].bias, 0)
-        #     nn.init.constant_(block.l2a_block.adaLN_modulation[-1].weight, 0)
-        #     nn.init.constant_(block.l2a_block.adaLN_modulation[-1].bias, 0)
-        #     nn.init.constant_(block.a2l_block.adaLN_modulation[-1].weight, 0)
-        #     nn.init.constant_(block.a2l_block.adaLN_modulation[-1].bias, 0)
-        #
-        # # Zero-out output layers:
-        # nn.init.constant_(self.pred_agent_noise.adaLN_modulation[-1].weight, 0)
-        # nn.init.constant_(self.pred_agent_noise.adaLN_modulation[-1].bias, 0)
-        # nn.init.constant_(self.pred_agent_noise.linear.weight, 0)
-        # nn.init.constant_(self.pred_agent_noise.linear.bias, 0)
-
-        nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].weight, 0)
-        nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].bias, 0)
-        nn.init.constant_(self.pred_lane_noise.linear.weight, 0)
-        nn.init.constant_(self.pred_lane_noise.linear.bias, 0)
 
     def predict_con(self,x_lane,l2l_edge_index,lane_batch,embed):
 
@@ -486,7 +435,7 @@ class Agent_Diffuser(nn.Module):
 
         return lane_pred
 
-    def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx):
+    def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,a2a_edge_index,l2a_edge_index,t_batch,agent_batch,lane_batch,scene_idx):
 
         t_batch_embed = self.t_embedder(t_batch.reshape(-1))
 
@@ -501,7 +450,7 @@ class Agent_Diffuser(nn.Module):
         #torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1)
         map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
-        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch_embed+num_agents_emb+scene_type,agent_batch)
+        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch_embed+num_agents_emb+scene_type,agent_batch,a2a_edge_index,l2a_edge_index)
 
         lane_pred=self.pred_lane(z_lane, t_batch, lane_batch, (l2l_edge_index, num_lanes_emb+scene_type))
 

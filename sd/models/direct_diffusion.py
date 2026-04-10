@@ -278,7 +278,9 @@ class Direct_diffusion(pl.LightningModule):
                 self.lane_mean, self.lane_scale,
             )
 
-            agent_pred,lane_pred,lane_conn_logits=self.diff_model(z_agent,z_lane,x_lane,l2l_edge_index,t,agent_batch,lane_batch,scene_idx)
+            l2a_edge_index[1]-=len(z_lane)
+
+            agent_pred,lane_pred,lane_conn_logits=self.diff_model(z_agent,z_lane,x_lane,l2l_edge_index,a2a_edge_index,l2a_edge_index,t,agent_batch,lane_batch,scene_idx)
 
             lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
 

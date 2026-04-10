@@ -150,6 +150,7 @@ class EdgeEncoder(nn.Module):
             layer_num=1,
             counter_feat_a=None,
             dis_edge_mask=None,
+            a2a_edge_index=None
         ):
         if mask is not None:
             pos_s = pos_s[mask]
@@ -157,11 +158,14 @@ class EdgeEncoder(nn.Module):
             head_vector_s = head_vector_s[mask]
             batch_s = batch_s[mask]
 
-        edge_index_a2a = radiusGraphNearest(x=pos_s,
-                                            r=max_radius,
-                                            batch=batch_s,
-                                            loop=False,
-                                            max_num_neighbors=max_num_neighbors)
+        if a2a_edge_index is None:
+            edge_index_a2a = radiusGraphNearest(x=pos_s,
+                                                r=max_radius,
+                                                batch=batch_s,
+                                                loop=False,
+                                                max_num_neighbors=max_num_neighbors)
+        else:
+            edge_index_a2a = a2a_edge_index
 
         if agent_train_mask is not None and layer_num==1:
             edge_index_a2a = edge_index_a2a[:, agent_train_mask[edge_index_a2a[1]]]
@@ -290,7 +294,8 @@ class EdgeEncoder(nn.Module):
             agent_train_mask=None,
             use_counterfactual=False,
             route_map_index=None,
-            layer_num=1
+            layer_num=1,
+            l2a_edge_index=None
     ):
 
         if agent_train_mask is not None and layer_num==1:
@@ -310,12 +315,17 @@ class EdgeEncoder(nn.Module):
             batch_s=batch_s
             n_step=1
 
-        edge_index_pl2a = radiusGraphNearest2(x=pos_s,
-                                              y=pos_pl,
-                                              r=pl2a_radius,
-                                              batch_x=batch_s,
-                                              batch_y=batch_pl,
-                                              max_num_neighbors=max_num_neighbors)
+
+        if l2a_edge_index is None:
+            edge_index_pl2a = radiusGraphNearest2(x=pos_s,
+                                                  y=pos_pl,
+                                                  r=pl2a_radius,
+                                                  batch_x=batch_s,
+                                                  batch_y=batch_pl,
+                                                  max_num_neighbors=max_num_neighbors)
+
+        else:
+            edge_index_pl2a=l2a_edge_index
 
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
         rel_orient_pl2a = wrap_angle(
