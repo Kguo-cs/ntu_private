@@ -269,16 +269,16 @@ class FactorizedDiTBlock(nn.Module):
             self.l2l_blocks.append(DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio))
         self.l2l_blocks = nn.ModuleList(self.l2l_blocks)
 
-        #a2a
-        self.a2a_block = DiTBlock(hidden_dim_agent, num_heads_agent, dropout, mlp_ratio)
-
-        # l2a
-        self.downsample_x_lane = nn.Linear(hidden_dim, hidden_dim_agent)
-        self.l2a_block = DiTBlock(hidden_dim_agent, num_heads_agent, dropout, mlp_ratio)
-        
-        # a2l
-        self.upsample_x_agent = nn.Linear(hidden_dim_agent, hidden_dim)
-        self.a2l_block = DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio)
+        # #a2a
+        # self.a2a_block = DiTBlock(hidden_dim_agent, num_heads_agent, dropout, mlp_ratio)
+        #
+        # # l2a
+        # self.downsample_x_lane = nn.Linear(hidden_dim, hidden_dim_agent)
+        # self.l2a_block = DiTBlock(hidden_dim_agent, num_heads_agent, dropout, mlp_ratio)
+        #
+        # # a2l
+        # self.upsample_x_agent = nn.Linear(hidden_dim_agent, hidden_dim)
+        # self.a2l_block = DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio)
         
 
     def forward(
@@ -292,21 +292,21 @@ class FactorizedDiTBlock(nn.Module):
             l2a_edge_index):
         
         # a2l
-        x_lane_agent = torch.cat([x_lane, self.upsample_x_agent(x_agent)], dim=0)
-        x_lane_agent = self.a2l_block(x_lane_agent, c, l2a_edge_index[[1, 0], :])
-        x_lane = x_lane_agent[:x_lane.shape[0]]
+        # x_lane_agent = torch.cat([x_lane, self.upsample_x_agent(x_agent)], dim=0)
+        # x_lane_agent = self.a2l_block(x_lane_agent, c, l2a_edge_index[[1, 0], :])
+        # x_lane = x_lane_agent[:x_lane.shape[0]]
         
         # l2l
         for i in range(self.num_l2l_blocks):
             x_lane = self.l2l_blocks[i](x_lane, c[:x_lane.shape[0]], l2l_edge_index)
         
-        # l2a
-        x_lane_agent = torch.cat([self.downsample_x_lane(x_lane), x_agent], dim=0)
-        x_lane_agent = self.l2a_block(x_lane_agent, c_small, l2a_edge_index)
-        x_agent = x_lane_agent[x_lane.shape[0]:]
-        
-        # a2a
-        x_agent = self.a2a_block(x_agent, c_small[x_lane.shape[0]:], a2a_edge_index)
+        # # l2a
+        # x_lane_agent = torch.cat([self.downsample_x_lane(x_lane), x_agent], dim=0)
+        # x_lane_agent = self.l2a_block(x_lane_agent, c_small, l2a_edge_index)
+        # x_agent = x_lane_agent[x_lane.shape[0]:]
+        #
+        # # a2a
+        # x_agent = self.a2a_block(x_agent, c_small[x_lane.shape[0]:], a2a_edge_index)
         
         
         return x_lane, x_agent

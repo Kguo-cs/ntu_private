@@ -153,7 +153,7 @@ class MapDecoder(nn.Module):
             )
 
             res = torch.cat(
-                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]+z_lane[:,4:]], dim=-1)
+                [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)
 
 
             con_pred=None
@@ -325,16 +325,34 @@ class Agent_Diffuser(nn.Module):
         dropout=0
 
         num_layers=3
+        self.use_dit=True
 
-        self.map_encoder=MapDecoder(
-            hidden_dim,
-            num_freq_bands=num_freq_bands,
-            num_layers=num_layers,
-            num_heads=num_heads,
-            head_dim=head_dim,
-            dropout=dropout,
-            pred_lane=True
-        )
+        if self.use_dit:
+            self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
+
+            self.blocks = nn.ModuleList([
+                FactorizedDiTBlock(
+                    hidden_dim,
+                    hidden_dim,
+                    num_heads,
+                    num_heads,
+                    dropout,
+                    mlp_ratio=4,
+                    num_l2l_blocks=1
+                ) for _ in range(3)
+            ])
+            self.pred_lane_noise = FinalLayer(hidden_dim, 42)
+
+        else:
+            self.map_encoder=MapDecoder(
+                hidden_dim,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                pred_lane=True
+            )
 
         # hidden_dim=128
         #
@@ -368,7 +386,58 @@ class Agent_Diffuser(nn.Module):
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        self.apply(weight_init)
+        # self.apply(weight_init)
+        self.initialize_weights()
+
+    def initialize_weights(self):
+        """ Custom initialization for DiT model"""
+        # Initialize transformer layers:
+        def _basic_init(module):
+            if isinstance(module, nn.Linear):
+                torch.nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+        self.apply(_basic_init)
+
+        # # Initialize (and freeze) lane and agent pos_embed by sin-cos embedding:
+        # pos_emb_lane = get_1d_sincos_pos_embed_from_grid(self.pos_emb_lane.shape[-1], np.arange(self.pos_emb_lane.shape[0]))
+        # self.pos_emb_lane.data.copy_(torch.from_numpy(pos_emb_lane).float())
+        # pos_emb_agent = get_1d_sincos_pos_embed_from_grid(self.pos_emb_agent.shape[-1], self.cfg_dataset.max_num_lanes + np.arange(self.pos_emb_agent.shape[0]))
+        # self.pos_emb_agent.data.copy_(torch.from_numpy(pos_emb_agent).float())
+
+        # Initialize label embedding table:
+        nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
+
+        # Initialize num lane and num agent embedding tables:
+        nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
+        nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
+
+        # Initialize timestep embedding MLP:
+        nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
+        nn.init.normal_(self.t_embedder.mlp[2].weight, std=0.02)
+
+        # Zero-out adaLN modulation layers in DiT blocks:
+        for block in self.blocks:
+            for l2l_block in block.l2l_blocks:
+                nn.init.constant_(l2l_block.adaLN_modulation[-1].weight, 0)
+                nn.init.constant_(l2l_block.adaLN_modulation[-1].bias, 0)
+        #     nn.init.constant_(block.a2a_block.adaLN_modulation[-1].weight, 0)
+        #     nn.init.constant_(block.a2a_block.adaLN_modulation[-1].bias, 0)
+        #     nn.init.constant_(block.l2a_block.adaLN_modulation[-1].weight, 0)
+        #     nn.init.constant_(block.l2a_block.adaLN_modulation[-1].bias, 0)
+        #     nn.init.constant_(block.a2l_block.adaLN_modulation[-1].weight, 0)
+        #     nn.init.constant_(block.a2l_block.adaLN_modulation[-1].bias, 0)
+        #
+        # # Zero-out output layers:
+        # nn.init.constant_(self.pred_agent_noise.adaLN_modulation[-1].weight, 0)
+        # nn.init.constant_(self.pred_agent_noise.adaLN_modulation[-1].bias, 0)
+        # nn.init.constant_(self.pred_agent_noise.linear.weight, 0)
+        # nn.init.constant_(self.pred_agent_noise.linear.bias, 0)
+
+        nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].weight, 0)
+        nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].bias, 0)
+        nn.init.constant_(self.pred_lane_noise.linear.weight, 0)
+        nn.init.constant_(self.pred_lane_noise.linear.bias, 0)
 
     def predict_con(self,x_lane,l2l_edge_index,lane_batch,embed):
 
@@ -392,7 +461,27 @@ class Agent_Diffuser(nn.Module):
 
         t_batch = self.t_embedder(t_batch.reshape(-1))
 
-        _, lane_pred, con_pred = self.map_encoder(z_lane, lane_batch, t_batch+embed ,    l2l_edge_index=l2l_edge_index)
+        if self.use_dit:
+            x_lane = self.lane_embedder(z_lane)
+
+            c=(t_batch+embed)[lane_batch]
+
+            for block in self.blocks:
+                x_lane, x_agent = block(
+                    x_lane,
+                    None,
+                    c,
+                    None,
+                    l2l_edge_index,
+                    None,
+                    None)
+            c_lane = c
+
+            lane_pred = self.pred_lane_noise(x_lane, c_lane)#.unsqueeze(1)
+
+        else:
+
+           _, lane_pred, con_pred = self.map_encoder(z_lane, lane_batch, t_batch+embed ,    l2l_edge_index=l2l_edge_index)
 
         return lane_pred
 
@@ -410,7 +499,26 @@ class Agent_Diffuser(nn.Module):
 
         #torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1)
 
-        _,lane_pred,_=self.map_encoder(z_lane,lane_batch,t_batch+num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
+        if self.use_dit:
+            x_lane = self.lane_embedder(x_lane)
+
+            c=(t_batch+num_lanes_emb+scene_type)[lane_batch]
+
+            for block in self.blocks:
+                x_lane, x_agent = block(
+                    x_lane,
+                    None,
+                    c,
+                    None,
+                    l2l_edge_index,
+                    None,
+                    None)
+            c_lane = c
+
+            lane_pred = self.pred_lane_noise(x_lane, c_lane)#.unsqueeze(1)
+
+        else:
+            _,lane_pred,_=self.map_encoder(z_lane,lane_batch,t_batch+num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
         map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
