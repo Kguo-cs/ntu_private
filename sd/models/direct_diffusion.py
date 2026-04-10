@@ -602,7 +602,9 @@ class Direct_diffusion(pl.LightningModule):
             ego_mask = agent_batch[1:] != agent_batch[:-1]
             ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
 
-            c=(map_feature, scene_type+ num_agents_emb)
+            l2a_edge_index[1]-=len(z_lane)
+
+            c=(map_feature, scene_type+ num_agents_emb,a2a_edge_index,l2a_edge_index)
 
             z_agent = self.sample_block(
                 z=z_agent,

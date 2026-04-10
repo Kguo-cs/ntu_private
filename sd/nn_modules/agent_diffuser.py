@@ -397,11 +397,11 @@ class Agent_Diffuser(nn.Module):
 
     def pred_agent(self,z_agent,t_batch,agent_batch,c):
 
-        map_feature,embed=c
+        map_feature,embed,a2a_edge_index,l2a_edge_index=c
 
         t_batch = self.t_embedder(t_batch.reshape(-1))
 
-        agent_pred = self.agent_encoder(map_feature, z_agent, t_batch + embed, agent_batch)
+        agent_pred = self.agent_encoder(map_feature, z_agent, t_batch + embed, agent_batch,a2a_edge_index,l2a_edge_index)
 
         return agent_pred
 
