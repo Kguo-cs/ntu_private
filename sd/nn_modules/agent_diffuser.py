@@ -488,7 +488,7 @@ class Agent_Diffuser(nn.Module):
 
     def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,t_batch,agent_batch,lane_batch,scene_idx):
 
-        t_batch = self.t_embedder(t_batch.reshape(-1))
+        t_batch_embed = self.t_embedder(t_batch.reshape(-1))
 
         num_agents = torch.bincount(agent_batch)
         num_lanes = torch.bincount(lane_batch)
@@ -501,7 +501,7 @@ class Agent_Diffuser(nn.Module):
         #torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1)
         map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
-        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb+scene_type,agent_batch)
+        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch_embed+num_agents_emb+scene_type,agent_batch)
 
         lane_pred=self.pred_lane(z_lane, t_batch, lane_batch, (l2l_edge_index, num_lanes_emb+scene_type))
 
