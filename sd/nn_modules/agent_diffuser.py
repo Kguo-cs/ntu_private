@@ -325,7 +325,7 @@ class Agent_Diffuser(nn.Module):
         dropout=0
 
         num_layers=3
-        self.use_dit=True
+        self.use_dit=False
 
         if self.use_dit:
             self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
