@@ -358,7 +358,7 @@ class Agent_Diffuser(nn.Module):
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        self.use_dit = False
+        self.use_dit = True
 
         if self.use_dit:
             self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
@@ -503,28 +503,7 @@ class Agent_Diffuser(nn.Module):
 
         agent_pred=self.agent_encoder(map_feature,z_agent,t_batch+num_agents_emb+scene_type,agent_batch)
 
-        if self.use_dit:
-            x_lane = self.lane_embedder(x_lane)
-
-            c=(t_batch+num_lanes_emb+scene_type)[lane_batch]
-
-            for block in self.blocks:
-                x_lane, x_agent = block(
-                    x_lane,
-                    None,
-                    c,
-                    None,
-                    l2l_edge_index,
-                    None,
-                    None)
-            c_lane = c
-
-            lane_pred = self.pred_lane_noise(x_lane, c_lane)#.unsqueeze(1)
-
-        else:
-            _,lane_pred,_=self.map_encoder(z_lane,lane_batch,t_batch+num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
-
-
+        lane_pred=self.pred_lane(z_lane, t_batch, lane_batch, (l2l_edge_index, num_lanes_emb+scene_type))
 
         return agent_pred,lane_pred,con_pred
 
