@@ -47,63 +47,63 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
     return emb
 #
-#
-# class AttentionLayerDiT(MessagePassing):
-#     """Transformer attention layer for DiT, taken from https://github.com/facebookresearch/DiT"""
-#     def __init__(self,
-#                  hidden_dim,
-#                  num_heads=8,
-#                  qkv_bias=False,
-#                  qk_norm=False,
-#                  attn_drop=0.0,
-#                  proj_drop=0.0,
-#                  norm_layer=nn.LayerNorm,
-#                  **kwargs):
-#         super(AttentionLayerDiT, self).__init__(aggr='add', node_dim=0, **kwargs)
-#         assert hidden_dim % num_heads == 0, 'hidden_dim should be divisible by num_heads'
-#
-#         self.num_heads = num_heads
-#         self.head_dim = hidden_dim // num_heads
-#         self.scale = self.head_dim ** -0.5
-#
-#         self.to_q = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
-#         self.to_k = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
-#         self.to_v = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
-#
-#         # Optional normalization for q and k
-#         self.q_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
-#         self.k_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
-#
-#         # Attention and projection dropout
-#         self.attn_drop = nn.Dropout(attn_drop)
-#         self.proj = nn.Linear(hidden_dim, hidden_dim)
-#         self.proj_drop = nn.Dropout(proj_drop)
-#
-#     def message(self, q_i, k_j, v_j, index, ptr):
-#         sim = (q_i * k_j).sum(dim=-1) * self.scale
-#         attn = softmax(sim, index, ptr)
-#         attn = self.attn_drop(attn)
-#         return v_j * attn.unsqueeze(-1)
-#
-#     def update(self, inputs):
-#         inputs = inputs.view(-1, self.num_heads * self.head_dim)
-#         return inputs
-#
-#     def _attn_block(self, x_src, x_dst, edge_index):
-#         q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
-#         k = self.to_k(x_src).view(-1, self.num_heads, self.head_dim)
-#         v = self.to_v(x_src).view(-1, self.num_heads, self.head_dim)
-#
-#         q, k = self.q_norm(q), self.k_norm(k)
-#         x_dst =  self.propagate(edge_index=edge_index, q=q, k=k, v=v)
-#
-#         x_dst = self.proj(x_dst)
-#         x_dst = self.proj_drop(x_dst)
-#         return x_dst
-#
-#     def forward(self, x, edge_index):
-#         x_src = x_dst = x
-#         return self._attn_block(x_src, x_dst, edge_index)
+
+class AttentionLayerDiT(MessagePassing):
+    """Transformer attention layer for DiT, taken from https://github.com/facebookresearch/DiT"""
+    def __init__(self,
+                 hidden_dim,
+                 num_heads=8,
+                 qkv_bias=False,
+                 qk_norm=False,
+                 attn_drop=0.0,
+                 proj_drop=0.0,
+                 norm_layer=nn.LayerNorm,
+                 **kwargs):
+        super(AttentionLayerDiT, self).__init__(aggr='add', node_dim=0, **kwargs)
+        assert hidden_dim % num_heads == 0, 'hidden_dim should be divisible by num_heads'
+
+        self.num_heads = num_heads
+        self.head_dim = hidden_dim // num_heads
+        self.scale = self.head_dim ** -0.5
+
+        self.to_q = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
+        self.to_k = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
+        self.to_v = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
+
+        # Optional normalization for q and k
+        self.q_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+        self.k_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+
+        # Attention and projection dropout
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(hidden_dim, hidden_dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+    def message(self, q_i, k_j, v_j, index, ptr):
+        sim = (q_i * k_j).sum(dim=-1) * self.scale
+        attn = softmax(sim, index, ptr)
+        attn = self.attn_drop(attn)
+        return v_j * attn.unsqueeze(-1)
+
+    def update(self, inputs):
+        inputs = inputs.view(-1, self.num_heads * self.head_dim)
+        return inputs
+
+    def _attn_block(self, x_src, x_dst, edge_index):
+        q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
+        k = self.to_k(x_src).view(-1, self.num_heads, self.head_dim)
+        v = self.to_v(x_src).view(-1, self.num_heads, self.head_dim)
+
+        q, k = self.q_norm(q), self.k_norm(k)
+        x_dst =  self.propagate(edge_index=edge_index, q=q, k=k, v=v)
+
+        x_dst = self.proj(x_dst)
+        x_dst = self.proj_drop(x_dst)
+        return x_dst
+
+    def forward(self, x, edge_index):
+        x_src = x_dst = x
+        return self._attn_block(x_src, x_dst, edge_index)
 
 
 class Mlp(nn.Module):
@@ -217,184 +217,184 @@ class TimestepEmbedder(nn.Module):
         t_emb = self.mlp(t_freq)
         return t_emb
 
-
-class AttentionLayerDiT(MessagePassing):
-    """Transformer attention layer for DiT with optional relational bias.
-
-    v3 upgrades (backwards compatible):
-    -------------------------------
-    1) Optional relational bias (use_rel_bias):
-       - Per-edge, per-head additive logit bias.
-    2) Optional relational value gate (use_rel_gate):
-       - Per-edge, per-head multiplicative gate on the message/value.
-       - Gate is parameterized as (1 + tanh(.)) and ZERO-INIT so initial behavior
-         is exactly identical to the baseline.
-
-    When use_rel_bias=False, behavior is identical to the original implementation.
-    """
-
-    def __init__(
-        self,
-        hidden_dim,
-        num_heads=8,
-        qkv_bias=True,
-        qk_norm=True,
-        attn_drop=0.0,
-        proj_drop=0.0,
-        norm_layer=nn.LayerNorm,
-        # -------- Relational parameters --------
-        use_rel_bias=True,
-        rel_dim=64,
-        edge_dim=32,
-        use_rel_gate: bool = True,
-        attn_logit_clip=30,
-        **kwargs,
-    ):
-        super(AttentionLayerDiT, self).__init__(aggr='add', node_dim=0, **kwargs)
-        assert hidden_dim % num_heads == 0, 'hidden_dim should be divisible by num_heads'
-
-        self.num_heads = num_heads
-        self.head_dim = hidden_dim // num_heads
-        self.scale = self.head_dim ** -0.5
-        self.hidden_dim = hidden_dim
-
-        # -------- Standard attention components --------
-        self.to_q = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
-        self.to_k = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
-        self.to_v = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
-
-        # Optional normalization for q and k (improves stability)
-        self.q_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
-        self.k_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
-
-        # Attention and projection dropout
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(hidden_dim, hidden_dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-        # -------- Relational bias / gate components --------
-        self.use_rel_bias = bool(use_rel_bias)
-        self.rel_dim = int(rel_dim)
-        self.edge_dim = int(edge_dim)
-        self.use_rel_gate = bool(use_rel_gate)
-        self.attn_logit_clip = attn_logit_clip
-
-        if self.use_rel_bias:
-            # Low-dim projection for pairwise computation (memory efficient)
-            self.rel_proj = nn.Linear(hidden_dim, self.rel_dim)
-            self.rel_norm = nn.LayerNorm(self.rel_dim)
-
-            # Edge MLP: [u_i, u_j, |u_i - u_j|] -> edge_dim
-            self.edge_mlp = nn.Sequential(
-                nn.Linear(3 * self.rel_dim, self.edge_dim * 2),
-                nn.SiLU(),
-                nn.Linear(self.edge_dim * 2, self.edge_dim),
-            )
-
-            # Edge features -> per-head attention bias (ZERO-INIT for stability)
-            self.edge_to_bias = nn.Linear(self.edge_dim, num_heads, bias=False)
-
-            # Optional: Edge features -> per-head value gate (ZERO-INIT; starts as identity)
-            if self.use_rel_gate:
-                self.edge_to_gate = nn.Linear(self.edge_dim, num_heads, bias=False)
-
-    def _zero_init_rel_bias(self):
-        """Zero-initialize relational layers. Called during DiT.initialize_weights()."""
-        if not self.use_rel_bias:
-            return
-        # Ensure edge_mlp outputs ~0 at init
-        nn.init.zeros_(self.edge_mlp[-1].weight)
-        nn.init.zeros_(self.edge_mlp[-1].bias)
-        # Ensure logit bias starts at 0
-        nn.init.zeros_(self.edge_to_bias.weight)
-        # Ensure value gate starts at identity: tanh(0)=0 -> 1+0=1
-        if getattr(self, "use_rel_gate", False) and hasattr(self, "edge_to_gate"):
-            nn.init.zeros_(self.edge_to_gate.weight)
-
-    def message(self, q_i, k_j, v_j, index, ptr, rel_bias=None, rel_gate=None):
-        """Compute attention message with optional relational bias/gate.
-
-        Args:
-            q_i: (E, num_heads, head_dim) queries of target nodes
-            k_j: (E, num_heads, head_dim) keys of source nodes
-            v_j: (E, num_heads, head_dim) values of source nodes
-            rel_bias: (E, num_heads) additive bias on logits
-            rel_gate: (E, num_heads) multiplicative gate on message/value
-        """
-        sim = (q_i * k_j).sum(dim=-1) * self.scale  # (E, num_heads)
-
-        if rel_bias is not None:
-            sim = sim + rel_bias
-
-        if self.attn_logit_clip is not None and float(self.attn_logit_clip) > 0:
-            sim = torch.clamp(sim, -float(self.attn_logit_clip), float(self.attn_logit_clip))
-
-        attn = softmax(sim, index, ptr)
-        attn = self.attn_drop(attn)
-
-        msg = v_j * attn.unsqueeze(-1)  # (E, num_heads, head_dim)
-        if rel_gate is not None:
-            msg = msg * rel_gate.unsqueeze(-1)
-        return msg
-
-    def update(self, inputs):
-        inputs = inputs.view(-1, self.num_heads * self.head_dim)
-        return inputs
-
-    def _compute_rel_bias_and_gate(self, x, edge_index):
-        """Compute per-edge relational bias and optional value gate.
-
-        Returns:
-            rel_bias: (E, num_heads)
-            rel_gate: (E, num_heads) or None
-        """
-        u = self.rel_norm(self.rel_proj(x))  # (N, rel_dim)
-
-        # edge_index[0]=src, edge_index[1]=dst (PyG convention)
-        u_i = u[edge_index[1]]  # dst (E, rel_dim)
-        u_j = u[edge_index[0]]  # src (E, rel_dim)
-
-        edge_feat = torch.cat([u_i, u_j, torch.abs(u_i - u_j)], dim=-1)  # (E, 3*rel_dim)
-        edge_feat = self.edge_mlp(edge_feat)  # (E, edge_dim)
-
-        rel_bias = self.edge_to_bias(edge_feat)  # (E, num_heads)
-
-        rel_gate = None
-        if self.use_rel_gate and hasattr(self, "edge_to_gate"):
-            # Identity at init: 1 + tanh(0) = 1
-            rel_gate = 1.0 + torch.tanh(self.edge_to_gate(edge_feat))  # (E, num_heads)
-
-        return rel_bias, rel_gate
-
-    def _attn_block(self, x_src, x_dst, edge_index):
-        q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
-        k = self.to_k(x_src).view(-1, self.num_heads, self.head_dim)
-        v = self.to_v(x_src).view(-1, self.num_heads, self.head_dim)
-
-        q, k = self.q_norm(q), self.k_norm(k)
-
-        rel_bias = None
-        rel_gate = None
-        if self.use_rel_bias:
-            rel_bias, rel_gate = self._compute_rel_bias_and_gate(x_src, edge_index)
-
-        x_dst = self.propagate(
-            edge_index=edge_index,
-            q=q,
-            k=k,
-            v=v,
-            rel_bias=rel_bias,
-            rel_gate=rel_gate,
-        )
-
-        x_dst = self.proj(x_dst)
-        x_dst = self.proj_drop(x_dst)
-        return x_dst
-
-    def forward(self, x, edge_index):
-        x_src = x_dst = x
-        return self._attn_block(x_src, x_dst, edge_index)
-
+#
+# class AttentionLayerDiT(MessagePassing):
+#     """Transformer attention layer for DiT with optional relational bias.
+#
+#     v3 upgrades (backwards compatible):
+#     -------------------------------
+#     1) Optional relational bias (use_rel_bias):
+#        - Per-edge, per-head additive logit bias.
+#     2) Optional relational value gate (use_rel_gate):
+#        - Per-edge, per-head multiplicative gate on the message/value.
+#        - Gate is parameterized as (1 + tanh(.)) and ZERO-INIT so initial behavior
+#          is exactly identical to the baseline.
+#
+#     When use_rel_bias=False, behavior is identical to the original implementation.
+#     """
+#
+#     def __init__(
+#         self,
+#         hidden_dim,
+#         num_heads=8,
+#         qkv_bias=True,
+#         qk_norm=True,
+#         attn_drop=0.0,
+#         proj_drop=0.0,
+#         norm_layer=nn.LayerNorm,
+#         # -------- Relational parameters --------
+#         use_rel_bias=True,
+#         rel_dim=64,
+#         edge_dim=32,
+#         use_rel_gate: bool = True,
+#         attn_logit_clip=30,
+#         **kwargs,
+#     ):
+#         super(AttentionLayerDiT, self).__init__(aggr='add', node_dim=0, **kwargs)
+#         assert hidden_dim % num_heads == 0, 'hidden_dim should be divisible by num_heads'
+#
+#         self.num_heads = num_heads
+#         self.head_dim = hidden_dim // num_heads
+#         self.scale = self.head_dim ** -0.5
+#         self.hidden_dim = hidden_dim
+#
+#         # -------- Standard attention components --------
+#         self.to_q = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
+#         self.to_k = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
+#         self.to_v = nn.Linear(hidden_dim, self.head_dim * num_heads, bias=qkv_bias)
+#
+#         # Optional normalization for q and k (improves stability)
+#         self.q_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+#         self.k_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+#
+#         # Attention and projection dropout
+#         self.attn_drop = nn.Dropout(attn_drop)
+#         self.proj = nn.Linear(hidden_dim, hidden_dim)
+#         self.proj_drop = nn.Dropout(proj_drop)
+#
+#         # -------- Relational bias / gate components --------
+#         self.use_rel_bias = bool(use_rel_bias)
+#         self.rel_dim = int(rel_dim)
+#         self.edge_dim = int(edge_dim)
+#         self.use_rel_gate = bool(use_rel_gate)
+#         self.attn_logit_clip = attn_logit_clip
+#
+#         if self.use_rel_bias:
+#             # Low-dim projection for pairwise computation (memory efficient)
+#             self.rel_proj = nn.Linear(hidden_dim, self.rel_dim)
+#             self.rel_norm = nn.LayerNorm(self.rel_dim)
+#
+#             # Edge MLP: [u_i, u_j, |u_i - u_j|] -> edge_dim
+#             self.edge_mlp = nn.Sequential(
+#                 nn.Linear(3 * self.rel_dim, self.edge_dim * 2),
+#                 nn.SiLU(),
+#                 nn.Linear(self.edge_dim * 2, self.edge_dim),
+#             )
+#
+#             # Edge features -> per-head attention bias (ZERO-INIT for stability)
+#             self.edge_to_bias = nn.Linear(self.edge_dim, num_heads, bias=False)
+#
+#             # Optional: Edge features -> per-head value gate (ZERO-INIT; starts as identity)
+#             if self.use_rel_gate:
+#                 self.edge_to_gate = nn.Linear(self.edge_dim, num_heads, bias=False)
+#
+#     def _zero_init_rel_bias(self):
+#         """Zero-initialize relational layers. Called during DiT.initialize_weights()."""
+#         if not self.use_rel_bias:
+#             return
+#         # Ensure edge_mlp outputs ~0 at init
+#         nn.init.zeros_(self.edge_mlp[-1].weight)
+#         nn.init.zeros_(self.edge_mlp[-1].bias)
+#         # Ensure logit bias starts at 0
+#         nn.init.zeros_(self.edge_to_bias.weight)
+#         # Ensure value gate starts at identity: tanh(0)=0 -> 1+0=1
+#         if getattr(self, "use_rel_gate", False) and hasattr(self, "edge_to_gate"):
+#             nn.init.zeros_(self.edge_to_gate.weight)
+#
+#     def message(self, q_i, k_j, v_j, index, ptr, rel_bias=None, rel_gate=None):
+#         """Compute attention message with optional relational bias/gate.
+#
+#         Args:
+#             q_i: (E, num_heads, head_dim) queries of target nodes
+#             k_j: (E, num_heads, head_dim) keys of source nodes
+#             v_j: (E, num_heads, head_dim) values of source nodes
+#             rel_bias: (E, num_heads) additive bias on logits
+#             rel_gate: (E, num_heads) multiplicative gate on message/value
+#         """
+#         sim = (q_i * k_j).sum(dim=-1) * self.scale  # (E, num_heads)
+#
+#         if rel_bias is not None:
+#             sim = sim + rel_bias
+#
+#         if self.attn_logit_clip is not None and float(self.attn_logit_clip) > 0:
+#             sim = torch.clamp(sim, -float(self.attn_logit_clip), float(self.attn_logit_clip))
+#
+#         attn = softmax(sim, index, ptr)
+#         attn = self.attn_drop(attn)
+#
+#         msg = v_j * attn.unsqueeze(-1)  # (E, num_heads, head_dim)
+#         if rel_gate is not None:
+#             msg = msg * rel_gate.unsqueeze(-1)
+#         return msg
+#
+#     def update(self, inputs):
+#         inputs = inputs.view(-1, self.num_heads * self.head_dim)
+#         return inputs
+#
+#     def _compute_rel_bias_and_gate(self, x, edge_index):
+#         """Compute per-edge relational bias and optional value gate.
+#
+#         Returns:
+#             rel_bias: (E, num_heads)
+#             rel_gate: (E, num_heads) or None
+#         """
+#         u = self.rel_norm(self.rel_proj(x))  # (N, rel_dim)
+#
+#         # edge_index[0]=src, edge_index[1]=dst (PyG convention)
+#         u_i = u[edge_index[1]]  # dst (E, rel_dim)
+#         u_j = u[edge_index[0]]  # src (E, rel_dim)
+#
+#         edge_feat = torch.cat([u_i, u_j, torch.abs(u_i - u_j)], dim=-1)  # (E, 3*rel_dim)
+#         edge_feat = self.edge_mlp(edge_feat)  # (E, edge_dim)
+#
+#         rel_bias = self.edge_to_bias(edge_feat)  # (E, num_heads)
+#
+#         rel_gate = None
+#         if self.use_rel_gate and hasattr(self, "edge_to_gate"):
+#             # Identity at init: 1 + tanh(0) = 1
+#             rel_gate = 1.0 + torch.tanh(self.edge_to_gate(edge_feat))  # (E, num_heads)
+#
+#         return rel_bias, rel_gate
+#
+#     def _attn_block(self, x_src, x_dst, edge_index):
+#         q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
+#         k = self.to_k(x_src).view(-1, self.num_heads, self.head_dim)
+#         v = self.to_v(x_src).view(-1, self.num_heads, self.head_dim)
+#
+#         q, k = self.q_norm(q), self.k_norm(k)
+#
+#         rel_bias = None
+#         rel_gate = None
+#         if self.use_rel_bias:
+#             rel_bias, rel_gate = self._compute_rel_bias_and_gate(x_src, edge_index)
+#
+#         x_dst = self.propagate(
+#             edge_index=edge_index,
+#             q=q,
+#             k=k,
+#             v=v,
+#             rel_bias=rel_bias,
+#             rel_gate=rel_gate,
+#         )
+#
+#         x_dst = self.proj(x_dst)
+#         x_dst = self.proj_drop(x_dst)
+#         return x_dst
+#
+#     def forward(self, x, edge_index):
+#         x_src = x_dst = x
+#         return self._attn_block(x_src, x_dst, edge_index)
+#
 
 class DiTBlock(nn.Module):
     """
