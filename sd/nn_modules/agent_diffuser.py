@@ -28,6 +28,7 @@ from sd.cfgs.config import NON_PARTITIONED
 # its affiliates is strictly prohibited.
 
 from typing import Dict
+from torch_scatter import scatter_mean
 
 import numpy as np
 import torch
@@ -97,14 +98,12 @@ class MapDecoder(nn.Module):
 
         self.apply(weight_init)
 
-    def forward(self, z_lane,batch,t_batch=None,l2l_edge_index=None):
+    def forward(self, z_lane,batch,c,l2l_edge_index):
         pos_pt=z_lane[:,:2]
         orient_pt=torch.atan2(z_lane[:,3],z_lane[:,2])
 
-        x_pt=self.lane_emb(z_lane)#+self.pos_emb_lane[get_indices_within_scene(batch)]
+        x_pt=self.lane_emb(z_lane)+c[batch]#+self.pos_emb_lane[get_indices_within_scene(batch)]
 
-        if t_batch is not None:
-            x_pt=x_pt+t_batch[batch]
 
         head_vector = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
 
@@ -219,10 +218,25 @@ class AgentDecoder(nn.Module):
         # These will be overwritten by sin/cos positional encodings
 
         # self.pos_emb_agent = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(30))).float(), requires_grad=False)
+        self.use_gcf=True
+
+
+        if self.use_gcf:
+            self.gcf = GlobalContextFusion(
+                hidden_dim,
+                hidden_dim,
+                hidden_dim,
+                var_scale=0.15,
+            )
 
         self.apply(weight_init)
 
     def forward(self, map_feature,z_agent,t_batch,batch,a2a_edge_index,l2a_edge_index):
+        batch_pl = map_feature["batch"]
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
+        feat_map = map_feature["pt_token"]
+
 
 
         theta = torch.atan2(z_agent[:, 3], z_agent[:, 2])
@@ -231,14 +245,13 @@ class AgentDecoder(nn.Module):
 
         feat_a = self.agent_emb(z_agent)#[:,:4]
 
+        if self.use_gcf:
+            ctx = self.gcf(feat_map, feat_a, batch_pl, batch)
+            t_batch=t_batch+ctx
+
         feat_a = feat_a + t_batch[batch]#+self.pos_emb_agent[get_indices_within_scene(batch)]
 
         # feat_attr=self.attr_emb(z_agent[:,4:])
-
-        batch_pl = map_feature["batch"]
-        pos_pl = map_feature["position"]
-        orient_pl = map_feature["orientation"]
-        feat_map = map_feature["pt_token"]
 
         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
@@ -301,6 +314,68 @@ class AgentDecoder(nn.Module):
 
 from sd.utils.dit_layers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP
 from sd.utils.pyg_helpers import get_indices_within_scene
+
+
+class GlobalContextFusion(nn.Module):
+    """Global Context Fusion module for capturing scene-level statistics.
+
+    v3 upgrade:
+    ----------
+    - Optionally inject (scaled) second-moment info via var ≈ E[x^2] - (E[x])^2.
+      This is controlled by `var_scale` (default 0.0 -> disabled).
+    - IMPORTANT: This does NOT change parameter shapes (checkpoint-friendly) because
+      it does not change the fuse_mlp input dimensionality.
+    """
+
+    def __init__(self, lane_hidden_dim, agent_hidden_dim, output_dim, var_scale: float = 0.0):
+        super().__init__()
+
+        self.var_scale = float(var_scale)
+
+        # Upsample agent features to lane dimension
+        self.agent_to_hidden = nn.Linear(agent_hidden_dim, lane_hidden_dim)
+
+        # MLP to fuse lane and agent context
+        self.fuse_mlp = nn.Sequential(
+            nn.Linear(lane_hidden_dim * 2, lane_hidden_dim),
+            nn.SiLU(),
+            nn.Linear(lane_hidden_dim, output_dim),
+        )
+
+        # Zero-initialized projection to conditioning (critical for stability)
+        self.ctx_to_c = nn.Linear(output_dim, output_dim, bias=False)
+
+    def _zero_init(self):
+        nn.init.zeros_(self.ctx_to_c.weight)
+        nn.init.zeros_(self.fuse_mlp[-1].weight)
+        nn.init.zeros_(self.fuse_mlp[-1].bias)
+
+    def forward(self, x_lane, x_agent, lane_batch, agent_batch):
+        # Per-scene mean pooling
+        ctx_lane_mean = scatter_mean(x_lane, lane_batch, dim=0)  # (B, lane_hidden_dim)
+
+        agent_up = self.agent_to_hidden(x_agent)  # (Na, lane_hidden_dim)
+        ctx_agent_mean = scatter_mean(agent_up, agent_batch, dim=0)  # (B, lane_hidden_dim)
+
+        ctx_lane = ctx_lane_mean
+        ctx_agent = ctx_agent_mean
+
+        # Optional: add variance (second moment)
+        if self.var_scale != 0.0:
+            m2_lane = scatter_mean(x_lane * x_lane, lane_batch, dim=0)
+            var_lane = torch.relu(m2_lane - ctx_lane_mean * ctx_lane_mean)
+            ctx_lane = ctx_lane_mean + self.var_scale * var_lane
+
+            m2_agent = scatter_mean(agent_up * agent_up, agent_batch, dim=0)
+            var_agent = torch.relu(m2_agent - ctx_agent_mean * ctx_agent_mean)
+            ctx_agent = ctx_agent_mean + self.var_scale * var_agent
+
+        ctx_combined = torch.cat([ctx_lane, ctx_agent], dim=-1)  # (B, 2*lane_hidden_dim)
+        ctx = self.fuse_mlp(ctx_combined)  # (B, output_dim)
+
+        ctx_delta = self.ctx_to_c(ctx)  # (B, output_dim)
+        return ctx_delta
+
 
 class Agent_Diffuser(nn.Module):
     """Scenario Dreamer AutoEncoder."""
@@ -403,11 +478,14 @@ class Agent_Diffuser(nn.Module):
 
         self.register_buffer("ego_shape", ego_shape)
 
+        self.use_gcf=True
+
+
         self.apply(weight_init)
 
     def predict_con(self,x_lane,l2l_edge_index,lane_batch,embed):
 
-        map_feature,lane_conn_logits=self.connect_encoder(x_lane,lane_batch,t_batch=embed,l2l_edge_index=l2l_edge_index)
+        map_feature,lane_conn_logits=self.connect_encoder(x_lane,lane_batch,embed,l2l_edge_index=l2l_edge_index)
 
         return map_feature,lane_conn_logits
 
@@ -493,8 +571,9 @@ class Agent_Diffuser(nn.Module):
 
         scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training)#, force_drop_ids=torch.ones_like(scene_idx))
 
-        #torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1)
-        map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
+
+
+        map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
         agent_pred=self.pred_agent(z_agent,t_batch,agent_batch, (map_feature,num_agents_emb+scene_type,a2a_edge_index,l2a_edge_index))
 
