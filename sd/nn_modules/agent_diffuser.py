@@ -340,7 +340,7 @@ class Agent_Diffuser(nn.Module):
         if self.use_agent_dit:
             self.agent_embedder = TwoLayerResMLP(10, hidden_dim)
 
-            self.blocks = nn.ModuleList([
+            self.agent_blocks = nn.ModuleList([
                 FactorizedDiTBlock(
                     hidden_dim,
                     hidden_dim,
@@ -369,7 +369,7 @@ class Agent_Diffuser(nn.Module):
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        self.use_dit = False
+        self.use_dit = True
 
         if self.use_dit:
             self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
@@ -430,7 +430,7 @@ class Agent_Diffuser(nn.Module):
             c_agent=(t_batch+embed)[agent_batch]
             c_lane=(t_batch+embed)[map_feature["batch"]]
 
-            for block in self.blocks:
+            for block in self.agent_blocks:
                 x_lane, x_agent = block(
                     map_feature["pt_token"],
                     x_agent,
