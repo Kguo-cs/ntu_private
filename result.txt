@@ -923,6 +923,23 @@ Agent metrics:  ['nearest_dist_jsd: 0.05', 'lat_dev_jsd: 0.03', 'ang_dev_jsd: 0.
 
 
 
+
+| **Lane metrics**            | Value | **Agent metrics**   | Value |
+|-----------------------------|-------|---------------------|-------|
+| route_length_mean (m)       | 38.80 | nearest_dist_jsd    | 0.05  |
+| route_length_std (m)        | 13.56 | lat_dev_jsd         | 0.03  |
+| endpoint_dist_mean (m)      | 0.21  | ang_dev_jsd         | 0.08  |
+| endpoint_dist_std (m)       | 0.81  | length_jsd          | 0.43  |
+| frechet_connectivity        | 0.10  | width_jsd           | 0.29  |
+| frechet_density             | 0.26  | speed_jsd           | 0.38  |
+| frechet_reach               | 0.26  | collision_rate (%)  | 4.01  |
+| frechet_convenience         | 1.29  |                     |       |
+
+</details>
+
+
+
+
 vectorworld
 
 meanflow:
@@ -934,5 +951,14 @@ Agent metrics:  ['nearest_dist_jsd: 0.30', 'lat_dev_jsd: 0.82', 'ang_dev_jsd: 0.
 flow1024:
 Lane metrics:  ['route_length_mean: 39.05', 'route_length_std: 14.77', 'endpoint_dist_mean: 0.10', 'endpoint_dist_std: 0.41', 'frechet_connectivity: 0.37', 'frechet_density: 0.88', 'frechet_reach: 0.65', 'frechet_convenience: 33.86']
 Agent metrics:  ['nearest_dist_jsd: 0.10', 'lat_dev_jsd: 0.18', 'ang_dev_jsd: 0.42', 'length_jsd: 0.67', 'width_jsd: 0.22', 'speed_jsd: 0.51', 'collision_rate: 6.16']
+
+
+Lane metrics:  ['route_length_mean: 39.02', 'route_length_std: 15.51', 'endpoint_dist_mean: 0.10', 'endpoint_dist_std: 0.48', 'frechet_connectivity: 0.25', 'frechet_density: 0.23', 'frechet_reach: 0.41', 'frechet_convenience: 29.38']
+Agent metrics:  ['nearest_dist_jsd: 0.09', 'lat_dev_jsd: 0.14', 'ang_dev_jsd: 0.07', 'length_jsd: 0.12', 'width_jsd: 0.11', 'speed_jsd: 0.18', 'collision_rate: 6.06']
+
+
+diffusion
+Lane metrics:  ['route_length_mean: 37.44', 'route_length_std: 11.46', 'endpoint_dist_mean: 0.04', 'endpoint_dist_std: 0.18', 'frechet_connectivity: 0.17', 'frechet_density: 0.20', 'frechet_reach: 0.51', 'frechet_convenience: 68.74']
+Agent metrics:  ['nearest_dist_jsd: 0.03', 'lat_dev_jsd: 0.01', 'ang_dev_jsd: 0.08', 'length_jsd: 0.19', 'width_jsd: 0.18', 'speed_jsd: 0.42', 'collision_rate: 3.27']
 
 
