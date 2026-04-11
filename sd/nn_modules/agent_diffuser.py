@@ -216,9 +216,6 @@ class AgentDecoder(nn.Module):
         #self.attr_emb = MLPLayer(6,hidden_dim, hidden_dim)
 
         self.num_layers=num_layers
-        ego_shape= torch.tensor( [[0,     0,     0,     1,     5.2860,     2.3320,    1.0000,     0.0000,     0.0000]])
-
-        self.register_buffer("ego_shape", ego_shape)
         # These will be overwritten by sin/cos positional encodings
 
         # self.pos_emb_agent = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(30))).float(), requires_grad=False)
@@ -227,12 +224,6 @@ class AgentDecoder(nn.Module):
 
     def forward(self, map_feature,z_agent,t_batch,batch,a2a_edge_index,l2a_edge_index):
 
-        ego_mask = batch[1:] != batch[:-1]
-
-        ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
-
-        z_agent[ego_mask, :6] = self.ego_shape[:, :6]
-        z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
 
         theta = torch.atan2(z_agent[:, 3], z_agent[:, 2])
 
@@ -343,14 +334,35 @@ class Agent_Diffuser(nn.Module):
             dropout=dropout,
             pred_lane_conn=True
             )
-        self.agent_encoder=AgentDecoder(
-            hidden_dim,
-            num_freq_bands=num_freq_bands,
-            num_layers=num_layers,
-            num_heads=num_heads,
-            head_dim=head_dim,
-            dropout=dropout,
-            )
+
+        self.use_agent_dit=True
+        
+        if self.use_agent_dit:
+            self.agent_embedder = TwoLayerResMLP(10, hidden_dim)
+
+            self.blocks = nn.ModuleList([
+                FactorizedDiTBlock(
+                    hidden_dim,
+                    hidden_dim,
+                    num_heads,
+                    num_heads,
+                    dropout,
+                    mlp_ratio=4,
+                    num_l2l_blocks=1,
+                    pred_lane=False
+                ) for _ in range(3)
+            ])
+            self.pred_agent_noise = FinalLayer(hidden_dim, 10)
+
+        else:
+            self.agent_encoder=AgentDecoder(
+                hidden_dim,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                )
 
         self.t_embedder = TimestepEmbedder(hidden_dim)
         self.num_agents_embedder = LabelEmbedder(30 + 1, hidden_dim, 0)
@@ -370,7 +382,8 @@ class Agent_Diffuser(nn.Module):
                     num_heads,
                     dropout,
                     mlp_ratio=4,
-                    num_l2l_blocks=1
+                    num_l2l_blocks=1,
+                    pred_agent=False
                 ) for _ in range(3)
             ])
             self.pred_lane_noise = FinalLayer(hidden_dim, 42)
@@ -386,6 +399,9 @@ class Agent_Diffuser(nn.Module):
                 dropout=dropout,
                 pred_lane=True
             )
+        ego_shape= torch.tensor( [[0,     0,     0,     1,     5.2860,     2.3320,    1.0000,     0.0000,     0.0000]])
+
+        self.register_buffer("ego_shape", ego_shape)
 
         self.apply(weight_init)
 
@@ -401,7 +417,36 @@ class Agent_Diffuser(nn.Module):
 
         t_batch = self.t_embedder(t_batch.reshape(-1))
 
-        agent_pred = self.agent_encoder(map_feature, z_agent, t_batch + embed, agent_batch,a2a_edge_index,l2a_edge_index)
+        ego_mask = agent_batch[1:] != agent_batch[:-1]
+
+        ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
+
+        z_agent[ego_mask, :6] = self.ego_shape[:, :6]
+        z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
+
+        if self.use_agent_dit:
+            x_agent = self.agent_embedder(z_agent)
+
+            c_agent=(t_batch+embed)[agent_batch]
+            c_lane=(t_batch+embed)[map_feature["batch"]]
+
+            for block in self.blocks:
+                x_lane, x_agent = block(
+                    map_feature["pt_token"],
+                    x_agent,
+                    None,
+                    torch.cat([c_lane,c_agent]),
+                    None,
+                    a2a_edge_index,
+                    l2a_edge_index)
+
+            agent_pred = self.pred_agent_noise(x_agent, c_agent)#.unsqueeze(1)
+
+        else:
+            l2a_edge_index=l2a_edge_index.clone()
+            l2a_edge_index[1]=l2a_edge_index[1]-len(map_feature["pt_token"])
+
+            agent_pred = self.agent_encoder(map_feature, z_agent, t_batch + embed, agent_batch,a2a_edge_index,l2a_edge_index)
 
         return agent_pred
 
@@ -437,7 +482,7 @@ class Agent_Diffuser(nn.Module):
 
     def forward(self, z_agent,z_lane,x_lane,l2l_edge_index,a2a_edge_index,l2a_edge_index,t_batch,agent_batch,lane_batch,scene_idx):
 
-        t_batch_embed = self.t_embedder(t_batch.reshape(-1))
+        #t_batch_embed = self.t_embedder(t_batch.reshape(-1))
 
         num_agents = torch.bincount(agent_batch)
         num_lanes = torch.bincount(lane_batch)
@@ -450,7 +495,7 @@ class Agent_Diffuser(nn.Module):
         #torch.cat([t_batch,num_lanes_emb+scene_type],dim=-1)
         map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,t_batch=num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
-        agent_pred=self.agent_encoder(map_feature,z_agent,t_batch_embed+num_agents_emb+scene_type,agent_batch,a2a_edge_index,l2a_edge_index)
+        agent_pred=self.pred_agent(z_agent,t_batch,agent_batch, (map_feature,num_agents_emb+scene_type,a2a_edge_index,l2a_edge_index))
 
         lane_pred=self.pred_lane(z_lane, t_batch, lane_batch, (l2l_edge_index, num_lanes_emb+scene_type))
 

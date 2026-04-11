@@ -278,8 +278,6 @@ class Direct_diffusion(pl.LightningModule):
                 self.lane_mean, self.lane_scale,
             )
 
-            l2a_edge_index[1]-=len(z_lane)
-
             agent_pred,lane_pred,lane_conn_logits=self.diff_model(z_agent,z_lane,x_lane,l2l_edge_index,a2a_edge_index,l2a_edge_index,t,agent_batch,lane_batch,scene_idx)
 
             lane_conn_loss=self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch).mean()
@@ -293,8 +291,8 @@ class Direct_diffusion(pl.LightningModule):
             ego_mask = agent_batch[1:] != agent_batch[:-1]
             ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
 
-            agent_pred[ego_mask, :6] = self.diff_model.agent_encoder.ego_shape[:, :6]
-            agent_pred[ego_mask, -3:] = self.diff_model.agent_encoder.ego_shape[:, -3:]
+            agent_pred[ego_mask, :6] = self.diff_model.ego_shape[:, :6]
+            agent_pred[ego_mask, -3:] = self.diff_model.ego_shape[:, -3:]
 
             match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
                 agent_batch,
@@ -602,7 +600,6 @@ class Direct_diffusion(pl.LightningModule):
             ego_mask = agent_batch[1:] != agent_batch[:-1]
             ego_mask = torch.cat([torch.ones_like(ego_mask[:1]), ego_mask])
 
-            l2a_edge_index[1]-=len(z_lane)
 
             c=(map_feature, scene_type+ num_agents_emb,a2a_edge_index,l2a_edge_index)
 
@@ -618,8 +615,8 @@ class Direct_diffusion(pl.LightningModule):
                 pred_v='agent'
             )
 
-            z_agent[ego_mask, :6] = self.diff_model.agent_encoder.ego_shape[:, :6]
-            z_agent[ego_mask, -3:] = self.diff_model.agent_encoder.ego_shape[:, -3:]
+            z_agent[ego_mask, :6] = self.diff_model.ego_shape[:, :6]
+            z_agent[ego_mask, -3:] = self.diff_model.ego_shape[:, -3:]
 
             agent_samples= z_agent[:,[0,1,6,2,3,4,5]]# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
             agent_types = torch.argmax(z_agent[:,-3:], dim=1)
