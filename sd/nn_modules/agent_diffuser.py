@@ -422,7 +422,7 @@ class Agent_Diffuser(nn.Module):
             pred_lane_conn=True
             )
 
-        self.use_agent_dit=False
+        self.use_agent_dit=True
         
         if self.use_agent_dit:
             self.agent_embedder = TwoLayerResMLP(10, hidden_dim)
@@ -456,7 +456,7 @@ class Agent_Diffuser(nn.Module):
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        self.use_dit = False
+        self.use_dit = True
 
         if self.use_dit:
             self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
