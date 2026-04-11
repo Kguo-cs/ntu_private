@@ -7,8 +7,6 @@ from typing import Tuple, Union
 import torch.nn.functional as F
 from tensorflow.python.layers.core import dropout
 
-from sd.utils.layers import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock
-from sd.utils.train_helpers import weight_init
 from sd.utils.losses import GeometricLosses
 from sd.utils.data_container import get_batches, get_features, get_edge_indices, get_encoder_edge_indices
 from sd.utils.data_helpers import reparameterize
@@ -95,6 +93,14 @@ class MapDecoder(nn.Module):
             #
             # self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 5)
        # self.pos_emb_lane = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(100))).float(), requires_grad=False)
+        self.use_gcf=True
+        if self.use_gcf:
+            self.gcf = GlobalContextFusion(
+                hidden_dim,
+                hidden_dim,
+                hidden_dim,
+                var_scale=0.15,
+            )
 
         self.apply(weight_init)
 
@@ -102,7 +108,17 @@ class MapDecoder(nn.Module):
         pos_pt=z_lane[:,:2]
         orient_pt=torch.atan2(z_lane[:,3],z_lane[:,2])
 
+
+
         x_pt=self.lane_emb(z_lane)+c[batch]#+self.pos_emb_lane[get_indices_within_scene(batch)]
+
+        if self.use_gcf:
+            ctx = self.gcf(x_pt, x_pt, batch, batch)
+            c=c+ctx
+
+
+
+        x_pt=x_pt+c[batch]
 
 
         head_vector = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
@@ -219,8 +235,6 @@ class AgentDecoder(nn.Module):
 
         # self.pos_emb_agent = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(30))).float(), requires_grad=False)
         self.use_gcf=True
-
-
         if self.use_gcf:
             self.gcf = GlobalContextFusion(
                 hidden_dim,
@@ -236,8 +250,6 @@ class AgentDecoder(nn.Module):
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
-
-
 
         theta = torch.atan2(z_agent[:, 3], z_agent[:, 2])
 
@@ -477,9 +489,6 @@ class Agent_Diffuser(nn.Module):
         ego_shape= torch.tensor( [[0,     0,     0,     1,     5.2860,     2.3320,    1.0000,     0.0000,     0.0000]])
 
         self.register_buffer("ego_shape", ego_shape)
-
-        self.use_gcf=True
-
 
         self.apply(weight_init)
 
