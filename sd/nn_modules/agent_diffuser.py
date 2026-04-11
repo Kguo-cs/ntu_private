@@ -429,13 +429,14 @@ class Agent_Diffuser(nn.Module):
 
             c_agent=(t_batch+embed)[agent_batch]
             c_lane=(t_batch+embed)[map_feature["batch"]]
+            c=torch.cat([c_lane,c_agent])
 
             for block in self.agent_blocks:
                 x_lane, x_agent = block(
                     map_feature["pt_token"],
                     x_agent,
-                    None,
-                    torch.cat([c_lane,c_agent]),
+                    c,
+                    c,
                     None,
                     a2a_edge_index,
                     l2a_edge_index)
