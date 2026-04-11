@@ -335,7 +335,7 @@ class Agent_Diffuser(nn.Module):
             pred_lane_conn=True
             )
 
-        self.use_agent_dit=True
+        self.use_agent_dit=False
         
         if self.use_agent_dit:
             self.agent_embedder = TwoLayerResMLP(10, hidden_dim)

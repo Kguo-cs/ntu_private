@@ -920,3 +920,16 @@ Agent metrics:  ['nearest_dist_jsd: 0.05', 'lat_dev_jsd: 0.04', 'ang_dev_jsd: 0.
 
 Lane metrics:  ['route_length_mean: 38.70', 'route_length_std: 13.33', 'endpoint_dist_mean: 0.20', 'endpoint_dist_std: 0.80', 'frechet_connectivity: 0.12', 'frechet_density: 0.22', 'frechet_reach: 0.36', 'frechet_convenience: 2.08']
 Agent metrics:  ['nearest_dist_jsd: 0.05', 'lat_dev_jsd: 0.03', 'ang_dev_jsd: 0.09', 'length_jsd: 0.43', 'width_jsd: 0.30', 'speed_jsd: 0.37', 'collision_rate: 4.10']
+
+
+
+vectorworld
+
+meanflow:
+
+Lane metrics:  ['route_length_mean: 37.96', 'route_length_std: 14.64', 'endpoint_dist_mean: 0.42', 'endpoint_dist_std: 1.37', 'frechet_connectivity: 0.77', 'frechet_density: 0.35', 'frechet_reach: 1.18', 'frechet_convenience: 55.01']
+Agent metrics:  ['nearest_dist_jsd: 0.30', 'lat_dev_jsd: 0.82', 'ang_dev_jsd: 0.61', 'length_jsd: 0.19', 'width_jsd: 0.13', 'speed_jsd: 0.12', 'collision_rate: 13.64']
+--------------------------------------------------------------------------
+
+flow:
+
