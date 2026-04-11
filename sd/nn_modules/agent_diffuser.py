@@ -316,7 +316,7 @@ class Agent_Diffuser(nn.Module):
 
     def __init__(self, cfg):
         super(Agent_Diffuser, self).__init__()
-        hidden_dim=256
+        hidden_dim=128
 
         num_freq_bands=hidden_dim//2
 
@@ -357,7 +357,7 @@ class Agent_Diffuser(nn.Module):
         self.num_lanes_embedder = LabelEmbedder(100 + 1, hidden_dim, 0)
         self.scene_type_embedder = LabelEmbedder(2 * 2, hidden_dim, 0)
 
-        self.use_dit = True
+        self.use_dit = False
 
         if self.use_dit:
             self.lane_embedder = TwoLayerResMLP(42, hidden_dim)
