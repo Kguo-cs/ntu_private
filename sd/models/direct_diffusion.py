@@ -311,8 +311,8 @@ class Direct_diffusion(pl.LightningModule):
             agent_pred[ego_mask, :6] = self.diff_model.ego_shape[:, :6]
             agent_pred[ego_mask, -3:] = self.diff_model.ego_shape[:, -3:]
 
-            # pred_static=agent_pred[:, :-3]/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
-            # gt_static=x_agent[:, :-3]/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
+            pred_static=agent_pred[:, :-3]#/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
+            gt_static=x_agent[:, :-3]#/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
             #
             # # - New: static 7D internal display pair (x,y) weighted -
             # static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
@@ -326,12 +326,12 @@ class Direct_diffusion(pl.LightningModule):
             #     1 * other_err
             # )  # (Na,)
             #
-            # agent_static_loss = _scene_mean(static_err_weighted, agent_batch)
-            # agent_type_loss = self.agent_type_loss_fn(
-            #     agent_pred[:, -3:], x_agent_types, agent_batch
-            # ).mean()
+            #agent_static_loss = _scene_mean(static_err_weighted, agent_batch)
+            agent_type_loss = self.agent_type_loss_fn(
+                agent_pred[:, -3:], x_agent_types, agent_batch
+            ).mean()
             #
-            # match_loss=agent_static_loss+agent_type_loss*10
+            # match_loss=agent_static_loss+agent_type_loss
             #
             # lane_pred=self.get_original_lane(lane_pred)
             #
@@ -339,13 +339,13 @@ class Direct_diffusion(pl.LightningModule):
 
             match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
                 agent_batch,
-                agent_pred,
-                x_agent,
+                pred_static,
+                gt_static,
                 agent_denom,
                 scale=self.agent_scale,
                 all_state=True,
                 use_all_type=True,
-                use_match=True
+                # use_match=True
                # w_shape=1,
             )
 
@@ -374,7 +374,7 @@ class Direct_diffusion(pl.LightningModule):
             # self.log('train/heading_loss1', heading_loss1, on_step=True, batch_size=1)
             # self.log('train/vel_loss1', vel_loss1, on_step=True, batch_size=1)
 
-            loss = match_loss + 10 * match_loss1 + 10 * lane_conn_loss
+            loss = match_loss + 10 * match_loss1 + 10 * lane_conn_loss+agent_type_loss
 
             self.log('train/loss', loss, on_step=True, batch_size=1)
 
