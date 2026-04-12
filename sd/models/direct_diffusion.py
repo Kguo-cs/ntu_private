@@ -311,53 +311,53 @@ class Direct_diffusion(pl.LightningModule):
             agent_pred[ego_mask, :6] = self.diff_model.ego_shape[:, :6]
             agent_pred[ego_mask, -3:] = self.diff_model.ego_shape[:, -3:]
 
-            pred_static=agent_pred[:, :-3]/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
-            gt_static=x_agent[:, :-3]/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
-
-            # - New: static 7D internal display pair (x,y) weighted -
-            static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
-            # Location error for each agent (x,y)
-            pos_err = static_abs[:, 0:2].mean(dim=1)              # (Na,)
-            # Average error of the remaining 5 dimensions
-            other_err = static_abs[:, 2:].mean(dim=1)             # (Na,)
-
-            static_err_weighted = (
-                3    * pos_err +
-                1 * other_err
-            )  # (Na,)
-
-            agent_static_loss = _scene_mean(static_err_weighted, agent_batch)
-            agent_type_loss = self.agent_type_loss_fn(
-                agent_pred[:, -3:], x_agent_types, agent_batch
-            ).mean()
-
-            match_loss=agent_static_loss+agent_type_loss*10
-
-            lane_pred=self.get_original_lane(lane_pred)
-
-            match_loss1 = self.lane_loss_fn(lane_pred/32, x_lane_states/32, lane_batch).mean()
-
-            # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
-            #     agent_batch,
-            #     agent_pred,
-            #     x_agent,
-            #     agent_denom,
-            #     scale=self.agent_scale,
-            #     all_state=True,
-            #     use_all_type=True,
-            #     use_match=True
-            #    # w_shape=1,
-            # )
+            # pred_static=agent_pred[:, :-3]/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
+            # gt_static=x_agent[:, :-3]/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
             #
-            # match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
-            #     lane_batch,
-            #     lane_pred,
-            #     x_lane,
-            #     lane_denom,
-            #     all_state=False,
-            #     use_all_type=True,
-            #    # use_match=True
-            # )
+            # # - New: static 7D internal display pair (x,y) weighted -
+            # static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
+            # # Location error for each agent (x,y)
+            # pos_err = static_abs[:, 0:2].mean(dim=1)              # (Na,)
+            # # Average error of the remaining 5 dimensions
+            # other_err = static_abs[:, 2:].mean(dim=1)             # (Na,)
+            #
+            # static_err_weighted = (
+            #     3    * pos_err +
+            #     1 * other_err
+            # )  # (Na,)
+            #
+            # agent_static_loss = _scene_mean(static_err_weighted, agent_batch)
+            # agent_type_loss = self.agent_type_loss_fn(
+            #     agent_pred[:, -3:], x_agent_types, agent_batch
+            # ).mean()
+            #
+            # match_loss=agent_static_loss+agent_type_loss*10
+            #
+            # lane_pred=self.get_original_lane(lane_pred)
+            #
+            # match_loss1 = self.lane_loss_fn(lane_pred/32, x_lane_states/32, lane_batch).mean()
+
+            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
+                agent_batch,
+                agent_pred,
+                x_agent,
+                agent_denom,
+                scale=self.agent_scale,
+                all_state=True,
+                use_all_type=True,
+                use_match=True
+               # w_shape=1,
+            )
+
+            match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+                lane_batch,
+                lane_pred,
+                x_lane,
+                lane_denom,
+                all_state=False,
+                use_all_type=True,
+               # use_match=True
+            )
                 #lane_pred=self.get_original_lane(lane_pred)
 
                 #match_loss1=F.l1_loss(lane_pred,x_lane_states)
