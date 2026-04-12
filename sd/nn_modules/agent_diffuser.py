@@ -234,14 +234,6 @@ class AgentDecoder(nn.Module):
         # These will be overwritten by sin/cos positional encodings
 
         # self.pos_emb_agent = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(30))).float(), requires_grad=False)
-        self.use_gcf=True
-        if self.use_gcf:
-            self.gcf = GlobalContextFusion(
-                hidden_dim,
-                hidden_dim,
-                hidden_dim,
-                var_scale=0.15,
-            )
 
         self.apply(weight_init)
 
@@ -257,9 +249,6 @@ class AgentDecoder(nn.Module):
 
         feat_a = self.agent_emb(z_agent)#[:,:4]
 
-        if self.use_gcf:
-            ctx = self.gcf(feat_map, feat_a, batch_pl, batch)
-            t_batch=t_batch+ctx
 
         feat_a = feat_a + t_batch[batch]#+self.pos_emb_agent[get_indices_within_scene(batch)]
 
@@ -422,6 +411,15 @@ class Agent_Diffuser(nn.Module):
             pred_lane_conn=True
             )
 
+        self.use_gcf = True
+        if self.use_gcf:
+            self.gcf = GlobalContextFusion(
+                hidden_dim,
+                10,
+                hidden_dim,
+                var_scale=0.15,
+            )
+
         self.use_agent_dit=True
         
         if self.use_agent_dit:
@@ -510,6 +508,10 @@ class Agent_Diffuser(nn.Module):
 
         z_agent[ego_mask, :6] = self.ego_shape[:, :6]
         z_agent[ego_mask, -3:] = self.ego_shape[:, -3:]
+
+        if self.use_gcf:
+            ctx = self.gcf(map_feature["pt_token"], z_agent, map_feature["batch"], agent_batch)
+            t_batch=t_batch+ctx
 
         if self.use_agent_dit:
             x_agent = self.agent_embedder(z_agent)
