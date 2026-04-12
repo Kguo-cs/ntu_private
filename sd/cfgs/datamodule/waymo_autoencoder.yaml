@@ -3,7 +3,7 @@ defaults:
 
 _target_: sd.datamodules.waymo.waymo_datamodule_autoencoder.WaymoDataModuleAutoEncoder
 
-train_batch_size: 512
+train_batch_size: 128
 val_batch_size: 1024
 dataset_cfg: null
 

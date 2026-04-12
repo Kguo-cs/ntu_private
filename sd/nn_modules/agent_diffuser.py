@@ -93,7 +93,7 @@ class MapDecoder(nn.Module):
             #
             # self.pred_lane_conn=MLPLayer(hidden_dim*2,hidden_dim, 5)
        # self.pos_emb_lane = nn.Parameter(torch.from_numpy(get_1d_sincos_pos_embed_from_grid(hidden_dim, np.arange(100))).float(), requires_grad=False)
-        self.use_gcf=True
+        self.use_gcf=False
         if self.use_gcf:
             self.gcf = GlobalContextFusion(
                 hidden_dim,
@@ -282,8 +282,8 @@ class AgentDecoder(nn.Module):
             mask=mask,  # [n_agent, n_step]
             batch_s=batch,  # [n_agent,n_step]
             batch_pl=batch_pl,  # [n_pl*n_step]
-            pl2a_radius=100,
-            max_num_neighbors=100,
+            pl2a_radius=40,
+            max_num_neighbors=20,
             agent_train_mask=None,
             layer_num=self.num_layers,
             l2a_edge_index=l2a_edge_index
@@ -383,7 +383,7 @@ class Agent_Diffuser(nn.Module):
 
     def __init__(self, cfg):
         super(Agent_Diffuser, self).__init__()
-        hidden_dim=128
+        hidden_dim=512
 
         num_freq_bands=hidden_dim//2
 
@@ -411,7 +411,7 @@ class Agent_Diffuser(nn.Module):
             pred_lane_conn=True
             )
 
-        self.use_gcf = True
+        self.use_gcf = False
         if self.use_gcf:
             self.gcf = GlobalContextFusion(
                 hidden_dim,
@@ -420,7 +420,7 @@ class Agent_Diffuser(nn.Module):
                 var_scale=0.15,
             )
 
-        self.use_agent_dit=True
+        self.use_agent_dit=False
         
         if self.use_agent_dit:
             self.agent_embedder = TwoLayerResMLP(10, hidden_dim)
@@ -581,8 +581,6 @@ class Agent_Diffuser(nn.Module):
         num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)
 
         scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training)#, force_drop_ids=torch.ones_like(scene_idx))
-
-
 
         map_feature,con_pred=self.connect_encoder(x_lane,lane_batch,num_lanes_emb+scene_type,l2l_edge_index=l2l_edge_index)
 
