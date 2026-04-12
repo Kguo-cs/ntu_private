@@ -331,7 +331,7 @@ class Direct_diffusion(pl.LightningModule):
                 agent_pred[:, -3:], x_agent_types, agent_batch
             ).mean()
 
-            match_loss=agent_static_loss+agent_type_loss
+            match_loss=agent_static_loss+agent_type_loss*10
 
             lane_pred=self.get_original_lane(lane_pred)
 
