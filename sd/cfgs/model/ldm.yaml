@@ -1,7 +1,7 @@
 # architecture parameters
 autoencoder_run_name: null # Name of the autoencoder run
 autoencoder_path: null # Path to the pre-trained autoencoder checkpoint
-hidden_dim: 2048 # Hidden layer dimension for lane embeddings
+hidden_dim: 1024 # Hidden layer dimension for lane embeddings
 num_heads: 16 # Number of attention heads for *_to_lane attention layers
 agent_hidden_dim: 512 # Hidden layer dimension for agent embeddings
 agent_num_heads: 8 # Number of attention heads for *_to_agent attention layers
