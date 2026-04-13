@@ -141,7 +141,7 @@ def train_autoencoder(cfg,cfg_ldm, save_dir=None):
     """ Train the Scenario Dreamer AutoEncoder model."""
     cfg_ldm = set_latent_stats(cfg_ldm)
 
-    datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg_ldm.dataset)
+    datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg.dataset)
 
     model=Direct_diffusion(cfg,cfg_ldm)
     #model = ScenarioDreamerAutoEncoder(cfg)
@@ -188,7 +188,7 @@ def train_autoencoder(cfg,cfg_ldm, save_dir=None):
                          gradient_clip_val=cfg.train.gradient_clip_val,
                        #  logger=logger,
                          num_nodes=1,
-                         num_sanity_val_steps=1,
+                         num_sanity_val_steps=0,
                          max_epochs=128,
                          log_every_n_steps=100
                         )
