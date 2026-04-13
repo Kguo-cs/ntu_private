@@ -76,7 +76,7 @@ class WaymoDatasetLDM(Dataset):
         edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
 
         # sample for ldm training
-        d = dict()
+        #d = dict()
         d = ScenarioDreamerData()
         d['idx'] = idx
         d['num_lanes'] = num_lanes 
