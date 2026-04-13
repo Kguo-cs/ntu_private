@@ -139,9 +139,7 @@ def train_ldm(cfg, cfg_ae, save_dir=None):
 
 def train_autoencoder(cfg,cfg_ldm, save_dir=None):
     """ Train the Scenario Dreamer AutoEncoder model."""
-    print(cfg_ldm)
     cfg_ldm = set_latent_stats(cfg_ldm)
-    print(cfg_ldm)
 
     datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg_ldm.dataset)
 
@@ -229,6 +227,8 @@ def main(cfg):
         OmegaConf.set_struct(cfg, True)
     
     pl.seed_everything(cfg.train.seed, workers=True)
+
+    print(model_name)
 
     # checkpoints saved here
     save_dir = os.path.join(cfg.train.save_dir, cfg.train.run_name)
