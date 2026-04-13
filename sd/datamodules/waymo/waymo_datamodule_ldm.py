@@ -32,6 +32,7 @@ class WaymoDataModuleLDM(pl.LightningDataModule):
         self.cfg_dataset = dataset_cfg
 
         self.init_prob_matrix = torch.load(os.environ["PROJECT_ROOT"] + '/metadata/initial_prob_matrix_waymo.pt')
+        self.dataset_name = self.cfg_dataset.dataset_path
 
         if 'zs' in self.dataset_name:
             self.num_workers = 8
