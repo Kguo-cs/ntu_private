@@ -899,10 +899,12 @@ class WaymoDatasetAutoEncoder(Dataset):
             max_lane_y=self.cfg.max_lane_y)
 
         # Training‑only randomisation of non‑ego indices ----------
-        if self.mode == 'train':
-            agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
-            edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
-        
+        # if self.mode == 'train':
+        #     agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
+        #     edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+
+
+
         # Partition masks (only for partitioned lane graph) ---------
         if lg_type == PARTITIONED:
             a2a_mask, l2l_mask, l2a_mask, lane_partition_mask = self.get_partitioned_masks(
@@ -934,19 +936,21 @@ class WaymoDatasetAutoEncoder(Dataset):
             # remove left and right connections for evaluation
             road_connection_types = road_connection_types[:, [0,1,2,5]]
 
-        edge_index_lane_to_lane = get_edge_index_complete_graph(len(road_points))
+        #edge_index_lane_to_lane = get_edge_index_complete_graph(len(road_points))
 
-        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
-            agent_states,
-            agent_states,
-            road_points,
-            road_points,
-            edge_index_lane_to_lane.numpy(),
-            agent_states,
-            road_points,
-            lg_type,
-            dataset='waymo')
-        edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+        # agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask,perm,lane_perm = reorder_indices(
+        #     agent_states,
+        #     agent_states,
+        #     road_points,
+        #     road_points,
+        #     edge_index_lane_to_lane.numpy(),
+        #     agent_states,
+        #     road_points,
+        #     lg_type,
+        #     dataset='waymo')
+        # edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+
+
 
 
         # --------------------------------------------------------------
@@ -961,7 +965,6 @@ class WaymoDatasetAutoEncoder(Dataset):
         d['agent'].type = from_numpy(agent_types)
         d['lane'].x = from_numpy(road_points)
         d['lane'].partition_mask = from_numpy(lane_partition_mask)
-        d['agent'].partition_mask = from_numpy(agent_partition_mask)
         d['num_agents_after_origin'] = num_agents_after_origin
         d['num_lanes_after_origin'] = num_lanes_after_origin
 
