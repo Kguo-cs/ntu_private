@@ -1,7 +1,7 @@
 defaults:
 - base
 
-run_name: base512_edge # from base.yaml
+run_name: base512 #_edge # from base.yaml
 lr_schedule: constant # from base.yaml
 save_top_k: 0 # only save latest checkpoint
 max_steps: 165000 # from base.yaml
