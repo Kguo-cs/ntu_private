@@ -883,35 +883,25 @@ class WaymoDatasetAutoEncoder(Dataset):
         # ───────────────────────────────────────────────────────────────
         
         # Feature normalisation (into [‑1,1]) ----------------------
-        # agent_states, road_points = normalize_scene(
-        #     agent_states,
-        #     road_points,
-        #     fov=self.cfg.fov,
-        #     min_speed=self.cfg.min_speed,
-        #     max_speed=self.cfg.max_speed,
-        #     min_length=self.cfg.min_length,
-        #     max_length=self.cfg.max_length,
-        #     min_width=self.cfg.min_width,
-        #     max_width=self.cfg.max_width,
-        #     min_lane_x=self.cfg.min_lane_x,
-        #     min_lane_y=self.cfg.min_lane_y,
-        #     max_lane_x=self.cfg.max_lane_x,
-        #     max_lane_y=self.cfg.max_lane_y)
-        # agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
-        #     agent_states,
-        #     agent_states,
-        #     road_points,
-        #     road_points,
-        #     edge_index_lane_to_lane,
-        #     agent_states,
-        #     road_points,
-        #     lg_type,
-        #     dataset='waymo')
+        agent_states, road_points = normalize_scene(
+            agent_states,
+            road_points,
+            fov=self.cfg.fov,
+            min_speed=self.cfg.min_speed,
+            max_speed=self.cfg.max_speed,
+            min_length=self.cfg.min_length,
+            max_length=self.cfg.max_length,
+            min_width=self.cfg.min_width,
+            max_width=self.cfg.max_width,
+            min_lane_x=self.cfg.min_lane_x,
+            min_lane_y=self.cfg.min_lane_y,
+            max_lane_x=self.cfg.max_lane_x,
+            max_lane_y=self.cfg.max_lane_y)
 
         # Training‑only randomisation of non‑ego indices ----------
         # if self.mode == 'train':
         #     agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
-        # edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+#        edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
         
         # Partition masks (only for partitioned lane graph) ---------
         if lg_type == PARTITIONED:
@@ -984,6 +974,18 @@ class WaymoDatasetAutoEncoder(Dataset):
 
         # plt.savefig('scene_{}.png'.format(idx), dpi=1000)
         # plt.clf()
+        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
+            agent_states,
+            agent_states,
+            road_points,
+            road_points,
+            edge_index_lane_to_lane.numpy(),
+            agent_states,
+            road_points,
+            lg_type,
+            dataset='waymo')
+        edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+
 
         # --------------------------------------------------------------
         # ️Assemble final PyG heterogeneous graph ------------------
@@ -997,7 +999,8 @@ class WaymoDatasetAutoEncoder(Dataset):
         d['agent'].type = from_numpy(agent_types)
         d['lane'].x = from_numpy(road_points)
         d['lane'].partition_mask = from_numpy(lane_partition_mask)
-        d['num_agents_after_origin'] = num_agents_after_origin 
+        d['agent'].partition_mask = from_numpy(agent_partition_mask)
+        d['num_agents_after_origin'] = num_agents_after_origin
         d['num_lanes_after_origin'] = num_lanes_after_origin
 
         # Assuming edge_index tensors for different edge types

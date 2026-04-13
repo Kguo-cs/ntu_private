@@ -10,7 +10,7 @@ lane_latent_dim: 24 # Dimension of autoencoder lane latents
 agent_latent_dim: 8 # Dimension of autoencoder agent latents
 dropout: 0 # Dropout rate
 label_dropout: 0.1 # Dropout rate for labels for training (to enable classifier-free guidance at inference)
-num_l2l_blocks: 3 # Number of lane-to-lane blocks in each factorized DiT block
+num_l2l_blocks: 1 # Number of lane-to-lane blocks in each factorized DiT block
 
 # sampling parameters
 n_diffusion_timesteps: 100 # Number of diffusion timesteps

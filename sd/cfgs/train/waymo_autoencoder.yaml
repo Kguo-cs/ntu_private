@@ -1,7 +1,7 @@
 defaults:
 - base
 
-run_name: global_agent_lane_type #_normlos10type #24stepagentditgcf #_gcf2_gateagent2dita2l #res_lanegtnoprocess #_opt #_diffx0_reorder #_nomatch_diff #_50k_lane002_norel_256 #_diffnoise  #diff #noise01 #diff #_match #_headlast_nscene_s075_magent_nodiff #_attrlocallanehead__drop01_shape1scenario_dreamer_autoencoder_waymo # from base.yaml
+run_name: base256 #global_agent_sdlane_type #_normlos10type #24stepagentditgcf #_gcf2_gateagent2dita2l #res_lanegtnoprocess #_opt #_diffx0_reorder #_nomatch_diff #_50k_lane002_norel_256 #_diffnoise  #diff #noise01 #diff #_match #_headlast_nscene_s075_magent_nodiff #_attrlocallanehead__drop01_shape1scenario_dreamer_autoencoder_waymo # from base.yaml
 max_steps: 350000 # from base.yaml
 warmup_steps: 1000 # from base.yaml
 lr_schedule: linear # from base.yaml

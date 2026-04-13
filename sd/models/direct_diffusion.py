@@ -118,38 +118,56 @@ class Direct_diffusion(pl.LightningModule):
         self.save_hyperparameters()
         self.cfg = cfg
         self.cfg_dataset = self.cfg.dataset
-
-        self.use_latent=False
-        self.eval_set =os.environ["PROJECT_ROOT"]+"/metadata/waymo_eval_set.pkl"
-
-        self.lane_conn_loss_fn = GeometricLosses['cross_entropy'](apply_mean=False)
-
         self.scenarios={}
-        self.lane_loss_fn = GeometricLosses['l2']((1,2))
-        self.agent_loss_fn = GeometricLosses['l1']((1))
-        self.agent_type_loss_fn = GeometricLosses["cross_entropy"](apply_mean=False)
 
-        self.use_diffusion=False
+        self.use_latent=True
+
+
 
         if self.use_latent:
             self.cfg_model = cfg_ldm.model
             self.cfg_ldm = cfg_ldm
-            # self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
-            #                                                                    cfg=cfg, map_location='cpu',
-            #                                                                    weights_only=False)  # 🔥 key fix)
-            # self.diff_model = LDM(cfg_ldm).load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt",
-            #                                                                    cfg=cfg, map_location='cpu',
-            #                                                                    weights_only=False)  # 🔥 key fix)
+            self.autoencoder = ScenarioDreamerAutoEncoder.load_from_checkpoint(self.cfg_model.autoencoder_path,
+                                                                               cfg=cfg, map_location='cpu',
+                                                                               weights_only=False)  # 🔥 key fix)
+            self.diff_model = LDM(cfg_ldm)#.load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt",
+                                                                               # cfg=cfg, map_location='cpu',
+                                                                               # weights_only=False)  # 🔥 key fix)
 
-            self.model=ScenarioDreamerLDM.load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt", cfg=cfg_ldm, cfg_ae=cfg,weights_only=False)
-
-            self.autoencoder=self.model.autoencoder
-            self.diff_model=self.model.diff_model
+            # self.model=ScenarioDreamerLDM.load_from_checkpoint(os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_ldm_base_waymo/last-001.ckpt", cfg=cfg_ldm, cfg_ae=cfg,weights_only=False)
+            #
+            # self.autoencoder=self.model.autoencoder
+            # self.diff_model=self.model.diff_model
         else:
             self.diff_model = Agent_Diffuser(cfg.model)
+            self.use_diffusion = False
 
             if self.use_diffusion:
                 self.ldm = LDM(cfg_ldm)
+
+            agent_dim = 10
+
+            self.register_buffer("agent_mean", torch.zeros(1, agent_dim))
+            self.register_buffer("agent_scale", torch.ones(1, agent_dim))
+
+            lane_dim = 42
+
+            self.register_buffer("lane_mean", torch.zeros(1, lane_dim))
+            self.register_buffer("lane_scale", torch.ones(1, lane_dim))
+
+            self.t_eps = 0.01
+
+            self.lane_steps = 24
+
+            self.agent_steps = 24
+
+            self.lane_sampling_temperature = 0.75
+
+            self.lane_conn_loss_fn = GeometricLosses['cross_entropy'](apply_mean=False)
+
+            self.lane_loss_fn = GeometricLosses['l2']((1, 2))
+            self.agent_loss_fn = GeometricLosses['l1']((1))
+            self.agent_type_loss_fn = GeometricLosses["cross_entropy"](apply_mean=False)
 
         # nocturne-compatible metadata (stored in latent cache)
         if self.cfg.eval.cache_latents.enable_caching and self.cfg.dataset_name == 'waymo':
@@ -158,24 +176,8 @@ class Direct_diffusion(pl.LightningModule):
             with open(self.cfg.eval.cache_latents.nocturne_val_filenames_path, 'rb') as f:
                 nocturne_val_filenames = pickle.load(f)
             self.nocturne_compatible_filenames = nocturne_train_filenames + nocturne_val_filenames
+        self.eval_set =os.environ["PROJECT_ROOT"]+"/metadata/waymo_eval_set.pkl"
 
-        agent_dim=10
-
-        self.register_buffer("agent_mean", torch.zeros(1, agent_dim))
-        self.register_buffer("agent_scale", torch.ones(1, agent_dim))
-
-        lane_dim=42
-
-        self.register_buffer("lane_mean", torch.zeros(1, lane_dim))
-        self.register_buffer("lane_scale", torch.ones(1, lane_dim))
-
-        self.t_eps=0.01
-
-        self.lane_steps=24
-
-        self.agent_steps=24
-
-        self.lane_sampling_temperature=0.75
 
     def process_features(self, x, t_batch, batch, mean, scale):
         if torch.all(mean==0):
@@ -311,53 +313,53 @@ class Direct_diffusion(pl.LightningModule):
             agent_pred[ego_mask, :6] = self.diff_model.ego_shape[:, :6]
             agent_pred[ego_mask, -3:] = self.diff_model.ego_shape[:, -3:]
 
-            pred_static=agent_pred[:, :-3]#/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
-            gt_static=x_agent[:, :-3]#/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
+            # pred_static=agent_pred[:, :-3]#/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
+            # gt_static=x_agent[:, :-3]#/(torch.tensor([[64,64,1,1,22.929+0.098,12.527+0.096,114.088]],device=agent_batch.device)/2)
+            # #
+            # # - New: static 7D internal display pair (x,y) weighted -
+            # static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
+            # # Location error for each agent (x,y)
+            # pos_err = static_abs[:, 0:2].mean(dim=1)              # (Na,)
+            # # Average error of the remaining 5 dimensions
+            # other_err = static_abs[:, 2:].mean(dim=1)             # (Na,)
             #
-            # - New: static 7D internal display pair (x,y) weighted -
-            static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
-            # Location error for each agent (x,y)
-            pos_err = static_abs[:, 0:2].mean(dim=1)              # (Na,)
-            # Average error of the remaining 5 dimensions
-            other_err = static_abs[:, 2:].mean(dim=1)             # (Na,)
-
-            static_err_weighted = (
-                3    * pos_err +
-                1 * other_err
-            )  # (Na,)
-
-            agent_static_loss = _scene_mean(static_err_weighted, agent_batch)
-            agent_type_loss = self.agent_type_loss_fn(
-                agent_pred[:, -3:], x_agent_types, agent_batch
-            ).mean()
+            # static_err_weighted = (
+            #     3    * pos_err +
+            #     1 * other_err
+            # )  # (Na,)
             #
-            match_loss=agent_static_loss+agent_type_loss
+            # agent_static_loss = _scene_mean(static_err_weighted, agent_batch)
+            # agent_type_loss = self.agent_type_loss_fn(
+            #     agent_pred[:, -3:], x_agent_types, agent_batch
+            # ).mean()
+            # #
+            # match_loss=agent_static_loss+agent_type_loss
+            # #
+            lane_pred=self.get_original_lane(lane_pred)
             #
-            # lane_pred=self.get_original_lane(lane_pred)
-            #
-            # match_loss1 = self.lane_loss_fn(lane_pred/32, x_lane_states/32, lane_batch).mean()
+            match_loss1 = self.lane_loss_fn(lane_pred/32, x_lane_states/32, lane_batch).mean()
 
-            # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
-            #     agent_batch,
-            #     pred_static,
-            #     gt_static,
-            #     agent_denom,
-            #     scale=self.agent_scale,
-            #     all_state=True,
-            #     use_all_type=True,
-            #     # use_match=True
-            #    # w_shape=1,
-            # )
-
-            match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
-                lane_batch,
-                lane_pred,
-                x_lane,
-                lane_denom,
-                all_state=False,
+            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
+                agent_batch,
+                agent_pred,
+                x_agent,
+                agent_denom,
+                scale=self.agent_scale,
+                all_state=True,
                 use_all_type=True,
-               # use_match=True
+                use_match=True
+               # w_shape=1,
             )
+
+            # match_loss1, pos_loss1, heading_loss1, shape_loss1, vel_loss1, _ = get_matching_loss(
+            #     lane_batch,
+            #     lane_pred,
+            #     x_lane,
+            #     lane_denom,
+            #     all_state=False,
+            #     use_all_type=True,
+            #    # use_match=True
+            # )
                 #lane_pred=self.get_original_lane(lane_pred)
 
                 #match_loss1=F.l1_loss(lane_pred,x_lane_states)
