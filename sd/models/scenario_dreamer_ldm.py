@@ -22,6 +22,7 @@ from torch import nn
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import grad_norm
 torch.set_printoptions(sci_mode=False)
+from sd.utils.metrics_helpers import convert_data_to_unified_format, compute_lane_metrics, compute_agent_metrics
 
 class ScenarioDreamerLDM(pl.LightningModule):
     def __init__(self, cfg, cfg_ae):
@@ -38,6 +39,8 @@ class ScenarioDreamerLDM(pl.LightningModule):
         from torch_ema import ExponentialMovingAverage
 
         self.ema = ExponentialMovingAverage(self.diff_model.parameters(), decay=self.cfg.train.ema_decay)
+        self.scenarios={}
+        self.eval_set =os.environ["PROJECT_ROOT"]+"/metadata/waymo_eval_set.pkl"
 
     
     def on_train_start(self):
@@ -90,31 +93,183 @@ class ScenarioDreamerLDM(pl.LightningModule):
             Using the data object for sample generation allows us to also generate inpainting samples, as the data object contains the ground truth latents.
             before the partition."""
         with self.ema.average_parameters():
-            loss_dict = self.diff_model.loss(data)
-            self._log_losses(loss_dict, split='val', batch_size=data.batch_size)
+            data['lane'].x=torch.empty((data['lane'].x.shape[0], self.cfg_model.lane_latent_dim))
+            data['agent'].x=torch.empty((data['agent'].x.shape[0], self.cfg_model.agent_latent_dim))
 
-            # is_global_zero ensures that only one process logs the visualization
-            visualize = self.cfg.train.num_samples_to_visualize > 0 and self.trainer.is_global_zero and batch_idx == 0
-            viz_dir = self.cfg.train.viz_dir
-            
-            num_samples = self.cfg.train.num_samples_to_visualize
-            indices = torch.arange(num_samples)
-            subset_data_list = data.index_select(indices)
-            subset_data = Batch.from_data_list(subset_data_list)  
-            
-            _, images_to_log = self.forward(
-                subset_data,
-                'train', # mode
-                batch_idx,
-                viz_dir,
-                visualize=visualize,
-                save_wandb=self.cfg.train.track,
-                num_samples_to_visualize=self.cfg.train.num_samples_to_visualize
+            data = data.to(self.device)
+            agent_latents, lane_latents = self.diff_model.forward(data, mode='initial_scene')
+            agent_latents, lane_latents = unnormalize_latents(
+                agent_latents,
+                lane_latents,
+                self.cfg_dataset.agent_latents_mean,
+                self.cfg_dataset.agent_latents_std,
+                self.cfg_dataset.lane_latents_mean,
+                self.cfg_dataset.lane_latents_std
             )
-            
-            if self.cfg.train.track and visualize:
+
+            agent_samples, lane_samples, agent_types, lane_types, lane_conn_samples = self.autoencoder.model.forward_decoder(
+                agent_latents,
+                lane_latents,
+                data)
+
+            agent_samples, lane_samples = unnormalize_scene(
+                agent_samples,
+                lane_samples,
+                fov=self.cfg_dataset.fov,
+                min_speed=self.cfg_dataset.min_speed,
+                max_speed=self.cfg_dataset.max_speed,
+                min_length=self.cfg_dataset.min_length,
+                max_length=self.cfg_dataset.max_length,
+                min_width=self.cfg_dataset.min_width,
+                max_width=self.cfg_dataset.max_width,
+                min_lane_x=self.cfg_dataset.min_lane_x,
+                min_lane_y=self.cfg_dataset.min_lane_y,
+                max_lane_x=self.cfg_dataset.max_lane_x,
+                max_lane_y=self.cfg_dataset.max_lane_y)
+
+            data['agent'].x = agent_samples
+            data['lane'].x = lane_samples
+            data['agent'].type = torch.nn.functional.one_hot(agent_types, num_classes=self.cfg_dataset.num_agent_types)
+            data['lane', 'to', 'lane'].type = lane_conn_samples
+            lane_types = None
+
+            visualize = True
+            if visualize:
+                print(f"Visualizing batch {batch_idx}...")
+
+                num_samples_to_visualize = 4
+
+                images_to_log = visualize_batch(
+                    num_samples_to_visualize,
+                    agent_samples,
+                    lane_samples,
+                    agent_types,
+                    lane_types,
+                    lane_conn_samples,
+                    data,
+                    save_dir=None,
+                    epoch=0,
+                    batch_idx=batch_idx,
+                    save_wandb=True)
                 self.logger.experiment.log(images_to_log)
 
+            batch_of_scenarios = convert_batch_to_scenarios(
+                data,
+                batch_size=data.num_graphs,
+                batch_idx=batch_idx,
+                cache_dir=None,
+                conditioning_filenames=None,
+                cache_samples=False,
+                cache_lane_types=self.cfg.dataset_name == 'nuplan',
+                mode='initial_scene',
+            )
+            self.scenarios.update(batch_of_scenarios)
+
+            # loss_dict = self.diff_model.loss(data)
+            # self._log_losses(loss_dict, split='val', batch_size=data.batch_size)
+            #
+            # # is_global_zero ensures that only one process logs the visualization
+            # visualize = self.cfg.train.num_samples_to_visualize > 0 and self.trainer.is_global_zero and batch_idx == 0
+            # viz_dir = self.cfg.train.viz_dir
+            #
+            # num_samples = self.cfg.train.num_samples_to_visualize
+            # indices = torch.arange(num_samples)
+            # subset_data_list = data.index_select(indices)
+            # subset_data = Batch.from_data_list(subset_data_list)
+            #
+            # _, images_to_log = self.forward(
+            #     subset_data,
+            #     'train', # mode
+            #     batch_idx,
+            #     viz_dir,
+            #     visualize=visualize,
+            #     save_wandb=self.cfg.train.track,
+            #     num_samples_to_visualize=self.cfg.train.num_samples_to_visualize
+            # )
+            #
+            # if self.cfg.train.track and visualize:
+            #     self.logger.experiment.log(images_to_log)
+
+    def on_validation_epoch_end(self):
+        self.compute_metrics()
+
+        self.scenarios={}
+
+    def compute_metrics(self):
+        """Compute metrics given the generated samples and the ground truth samples."""
+        #sample_paths = [os.path.join(self.samples_path, file) for file in os.listdir(self.samples_path)]
+
+        with open(self.eval_set, 'rb') as f:
+            gt_sample_filenames = pickle.load(f)['files']
+
+        if self.cfg.dataset_name == 'nuplan':
+            gt_sample_ids = [os.path.splitext(file)[0] for file in gt_sample_filenames]
+
+        num_samples = len(self.scenarios)
+        gt_sample_filenames = gt_sample_filenames[:num_samples]
+        num_gt_samples = len(gt_sample_filenames)
+        assert num_samples == num_gt_samples, "Number of samples and ground truth samples do not match."
+
+        print("Number of evaluated samples (real/generated): ", num_samples)
+        samples = []
+        gt_samples = []
+        print("Converting samples to unified format for metrics computation...")
+        for i,data in enumerate(self.scenarios.values()):
+            #data=self.scenarios[i]
+            # with open(sample_paths[i], 'rb') as f:
+            #     data = pickle.load(f)
+            sample = convert_data_to_unified_format(data, dataset_name=f"{self.cfg.dataset_name}")
+
+            if self.cfg.dataset_name == 'waymo':
+                # agent and lane gt data are loaded from the preprocessed scenario dreamer waymo data
+                with open(os.path.join(os.environ["PROJECT_ROOT"]+'/checkpoints/scenario_dreamer_ae_preprocess_waymo/test', gt_sample_filenames[i]), 'rb') as f:
+                    gt_data = pickle.load(f)
+            else:
+                # the gt agent data comes from the preprocessed scenario dreamer nuplan data
+                sample_id = gt_sample_ids[i]
+                with open(os.path.join(self.cfg.eval.metrics.gt_agent_test_dir, f'{sample_id}_0.pkl'), 'rb') as f:
+                    gt_agent_data = pickle.load(f)
+
+                # As the lane graph is preprocessed slightly differently between SLEDGE and scenario dreamer,
+                # for fairest comparison with SLEDGE we process the gt lane graphs following the SLEDGE preprocessing scheme (this requires
+                # loading from the SLEDGE preprocessed nuplan data)
+                # We could preprocess the gt lane graphs using the scenario dreamer preprocessing scheme,
+                # but then we wouldn't know if performance improvement compared to SLEDGE is attributed to the GT lane graph preprocessing
+                # being more aligned with scenario dreamer.
+                # In practice, we find both preprocessing schemes yield very similar performance.
+                with gzip.open(os.path.join(self.cfg.eval.metrics.gt_lane_test_dir, gt_sample_filenames[i]), 'rb') as f:
+                    gt_lane_data = pickle.load(f)
+
+                gt_data = gt_lane_data
+                # add agent data to the gt lane data
+                gt_data['agent_states'] = gt_agent_data['agent_states']
+                gt_data['agent_types'] = gt_agent_data['agent_types']
+                gt_data['lg_type'] = gt_agent_data['lg_type']
+
+            gt_sample = convert_data_to_unified_format(gt_data, dataset_name=f'{self.cfg.dataset_name}_gt')
+
+            if len(sample['G']) > 0:
+                samples.append(sample)
+            gt_samples.append(gt_sample)
+
+        lane_metrics = compute_lane_metrics(samples=samples, gt_samples=gt_samples)
+        agent_metrics = compute_agent_metrics(samples=samples, gt_samples=gt_samples)
+
+        print("--------------------------------------------------------------------------")
+        print("Lane metrics: ", ["{}: {:.2f}".format(k, v) for (k, v) in lane_metrics.items()])
+        print("Agent metrics: ", ["{}: {:.2f}".format(k, v) for (k, v) in agent_metrics.items()])
+        print("--------------------------------------------------------------------------")
+
+        # metrics = {
+        #     'lane_metrics': lane_metrics,
+        #     'agent_metrics': agent_metrics
+        # }
+        for key,value in lane_metrics.items():
+            self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
+        for key,value in agent_metrics.items():
+            self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
+
+        # # save metrics to file
 
     def forward(self, 
                 data,
