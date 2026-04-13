@@ -35,7 +35,7 @@ class WaymoDatasetLDM(Dataset):
         super(WaymoDatasetLDM, self).__init__()
         self.cfg = cfg
         self.split_name = split_name 
-        self.dataset_dir = os.path.join(self.cfg.dataset_path, f"{self.split_name}")
+        self.dataset_dir = os.path.join(os.environ["PROJECT_ROOT"]+'/checkpoints/scenario_dreamer_autoencoder_latents_waymo', f"{self.split_name}")
         if not os.path.exists(self.dataset_dir):
             os.makedirs(self.dataset_dir, exist_ok=True)
 

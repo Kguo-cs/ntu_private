@@ -243,30 +243,29 @@ class Direct_diffusion(pl.LightningModule):
 
     def training_step(self, data, batch_idx):
         """ Training step for the model. Computes the loss and logs it to WandB."""
-        agent_batch, lane_batch, lane_conn_batch = get_batches(data)
-
         if self.use_latent:
+            if "latents" not in data.keys():
+                with torch.no_grad():
+                    agent_mu, lane_mu, agent_log_var, lane_log_var = self.autoencoder.model.forward(data, return_latents=True)
 
-            with torch.no_grad():
-                agent_mu, lane_mu, agent_log_var, lane_log_var = self.autoencoder.model.forward(data, return_latents=True)
+                    data['agent'].x=agent_mu
+                    data['agent'].log_var=agent_log_var
+                    data['lane'].x=lane_mu
+                    data['lane'].log_var=lane_log_var
 
-                data['agent'].x=agent_mu
-                data['agent'].log_var=agent_log_var
-                data['lane'].x=lane_mu
-                data['lane'].log_var=lane_log_var
-
-                data['agent'].latents, data['lane'].latents = sample_latents(
-                    data,
-                    self.cfg_ldm.dataset.agent_latents_mean,
-                    self.cfg_ldm.dataset.agent_latents_std,
-                    self.cfg_ldm.dataset.lane_latents_mean,
-                    self.cfg_ldm.dataset.lane_latents_std,
-                    normalize=True)  # sample normalized latents for training
+                    data['agent'].latents, data['lane'].latents = sample_latents(
+                        data,
+                        self.cfg_ldm.dataset.agent_latents_mean,
+                        self.cfg_ldm.dataset.agent_latents_std,
+                        self.cfg_ldm.dataset.lane_latents_mean,
+                        self.cfg_ldm.dataset.lane_latents_std,
+                        normalize=True)  # sample normalized latents for training
 
             loss_dict = self.diff_model.loss(data)
             self._log_losses(loss_dict, split='train')
             loss=loss_dict['loss']
         else:
+            agent_batch, lane_batch, lane_conn_batch = get_batches(data)
 
             x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
             a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)

@@ -11,7 +11,7 @@ rsync -avz -e "ssh -p 32884" /home/ke/code/sim/sd/checkpoints/scenario_dreamer_a
 rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo zs@10.87.225.106:~/code/sim/sd/checkpoints/
 
 
-rsync -avz /home/ke/code/sim/sd/metadata/ ke@10.87.114.128:~/keguo/sim/sd/metadata/
+rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo ke@10.87.114.128:~/keguo/sim/sd/checkpoints/
 
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 

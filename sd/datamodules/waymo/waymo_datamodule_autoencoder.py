@@ -10,6 +10,7 @@ from sd.cfgs.config import PROPORTION_NOCTURNE_COMPATIBLE, NON_PARTITIONED, NOCT
 from sd.utils.pyg_helpers import get_edge_index_complete_graph, get_edge_index_bipartite
 import pickle
 from sd.utils.torch_helpers import from_numpy
+from sd.datasets.waymo.dataset_ldm_waymo import WaymoDatasetLDM
 
 # this is so that CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -195,8 +196,10 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
         return data_list, conditioning_filenames
 
     def setup(self, stage):
-        self.train_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='train')
+        #self.train_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='train')
        # self.val_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='val')
+
+        self.train_dataset=WaymoDatasetLDM(self.cfg_dataset, split_name='train')
 
         self.val_dataset, conditioning_filenames = self._initialize_pyg_dset(
             mode="initial_scene",#initial_scene",
