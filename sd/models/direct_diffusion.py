@@ -33,6 +33,7 @@ from sd.utils.diffusion_helpers import (
     extract
 )
 from sd.utils.viz import visualize_batch
+from torch_geometric.loader import DataLoader
 
 # this ensures CPUs are not suboptimally utilized
 def worker_init_fn(worker_id):
@@ -573,7 +574,7 @@ class Direct_diffusion(pl.LightningModule):
         return z
 
     @torch.no_grad()
-    def generate(self,data,batch_idx):
+    def infer(self,data,batch_idx):
 
         if self.use_latent:
             #with self.model.ema.average_parameters():
@@ -715,7 +716,76 @@ class Direct_diffusion(pl.LightningModule):
         data['lane', 'to', 'lane'].type =   lane_conn_samples
         lane_types=None
 
-        visualize=True
+
+
+        return data
+
+    def generate(
+            self,
+            mode,
+            num_samples,
+            batch_size,
+            cache_samples=False,
+            visualize=False,
+            conditioning_path=None,
+            cache_dir=None,
+            viz_dir=None,
+            save_wandb=False,
+            return_samples=False,
+            nocturne_compatible_only=False,
+    ):
+        """ Generate samples using the diffusion model."""
+        if conditioning_path is not None:
+            assert len(os.listdir(
+                conditioning_path)) >= num_samples, f"Not enough conditioning samples in {conditioning_path} to generate {num_samples} samples."
+
+        print(f"Generating {num_samples} samples with mode={mode}...")
+
+        self.eval()
+        with torch.no_grad():
+           # with self.ema.average_parameters():
+            #images_to_log = {}
+
+            # initialize pyg dataset with appropriate metadata (edge indices, etc.)
+            dset, conditioning_filenames = self._initialize_pyg_dset(
+                mode,
+                num_samples,
+                batch_size,
+                conditioning_path,
+                nocturne_compatible_only
+            )
+
+            dataloader = DataLoader(
+                dset,
+                batch_size=batch_size,
+                shuffle=False,
+                drop_last=False
+            )
+            scenarios = {}
+            for batch_idx, data in enumerate(tqdm(dataloader)):
+                # updates data object with generated samples
+                data = self.infer(
+                    data,
+                    batch_idx)
+                batch_of_scenarios = convert_batch_to_scenarios(
+                    data,
+                    batch_size=batch_size,
+                    batch_idx=batch_idx,
+                    cache_dir=cache_dir,
+                    conditioning_filenames=conditioning_filenames,
+                    cache_samples=cache_samples,
+                    cache_lane_types=self.cfg.dataset_name == 'nuplan',
+                    mode=mode,
+                )
+                scenarios.update(batch_of_scenarios)
+
+        return scenarios if return_samples else None
+
+    def validation_step(self, data, batch_idx):
+        """ Validation step for the model. Computes the loss and logs it to WandB."""
+        data=self.infer(data,batch_idx)
+
+        visualize=False
         if visualize:
             print(f"Visualizing batch {batch_idx}...")
 
@@ -723,11 +793,11 @@ class Direct_diffusion(pl.LightningModule):
 
             images_to_log = visualize_batch(
                 num_samples_to_visualize,
-                agent_samples,
-                lane_samples,
-                agent_types,
-                lane_types,
-                lane_conn_samples,
+                data['agent'].x ,
+                data['lane'].x ,
+                data['agent'].type,
+                None,
+                data['lane', 'to', 'lane'].type,
                 data,
                 save_dir=None,
                 epoch=0,
@@ -747,13 +817,6 @@ class Direct_diffusion(pl.LightningModule):
             mode='initial_scene',
         )
         self.scenarios.update(batch_of_scenarios)
-
-        return batch_of_scenarios
-
-
-    def validation_step(self, data, batch_idx):
-        """ Validation step for the model. Computes the loss and logs it to WandB."""
-        self.generate(data,batch_idx)
 
     def on_validation_epoch_end(self):
         self.compute_metrics()
