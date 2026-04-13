@@ -23,7 +23,7 @@ beta_1: 0.9 # following SceneControl
 beta_2: 0.999 # following SceneControl
 epsilon: 10e-8 # following SceneControl
 weight_decay: 1e-5 # following SceneControl
-gradient_clip_val: 10.0
+gradient_clip_val: 0.5 #10.0
 
 ### loss function configurations
 loss_type: l2 # l2 loss on vectorized elements
