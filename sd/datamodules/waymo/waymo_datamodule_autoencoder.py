@@ -196,9 +196,9 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
         return data_list, conditioning_filenames
 
     def setup(self, stage):
-        self.train_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='train')
+       # self.train_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='train')
        # self.val_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='val')
-       # self.train_dataset=WaymoDatasetLDM(self.cfg_dataset, split_name='train')
+        self.train_dataset=WaymoDatasetLDM(self.cfg_dataset, split_name='train')
 
         self.val_dataset, conditioning_filenames = self._initialize_pyg_dset(
             mode="initial_scene",#initial_scene",
