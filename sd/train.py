@@ -60,14 +60,14 @@ def train_ctrl_sim(cfg, save_dir=None):
     trainer = pl.Trainer(accelerator=cfg.train.accelerator,
                          devices=cfg.train.devices,
                          strategy='auto',#DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
-                         callbacks=[model_summary, model_checkpoint, lr_monitor],
+                         callbacks=[model_summary, model_checkpoint, lr_monitor,TQDMProgressBar(refresh_rate=1)],
                          max_steps=cfg.train.max_steps,
                          check_val_every_n_epoch=cfg.train.check_val_every_n_epoch,
                          precision=cfg.train.precision,
                          limit_train_batches=cfg.train.limit_train_batches, # train on smaller dataset
                          limit_val_batches=cfg.train.limit_val_batches,
                          gradient_clip_val=cfg.train.gradient_clip_val,
-                         logger=logger
+                        # logger=logger
                         )
     model = CtRLSim(cfg)
     trainer.fit(model, datamodule, ckpt_path=ckpt_path)

@@ -91,6 +91,8 @@ class CtRLSimDataset(Dataset):
             if not os.path.exists(self.gpudrive_set_dir):
                 os.makedirs(self.gpudrive_set_dir, exist_ok=True)
 
+        print(len(self.files),self.split_name)
+
 
     def get_upsampled_and_sd_lanes(self, compact_lane_graph):
         """ Upsample lane polylines to a high resolution for precise offroad checks,

@@ -748,6 +748,8 @@ class Direct_diffusion(pl.LightningModule):
         )
         self.scenarios.update(batch_of_scenarios)
 
+        return batch_of_scenarios
+
 
     def validation_step(self, data, batch_idx):
         """ Validation step for the model. Computes the loss and logs it to WandB."""
