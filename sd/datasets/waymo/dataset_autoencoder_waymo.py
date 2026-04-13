@@ -899,9 +899,9 @@ class WaymoDatasetAutoEncoder(Dataset):
             max_lane_y=self.cfg.max_lane_y)
 
         # Training‑only randomisation of non‑ego indices ----------
-        # if self.mode == 'train':
-        #     agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
-#        edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+        if self.mode == 'train':
+            agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
+            edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
         
         # Partition masks (only for partitioned lane graph) ---------
         if lg_type == PARTITIONED:
@@ -934,58 +934,18 @@ class WaymoDatasetAutoEncoder(Dataset):
             # remove left and right connections for evaluation
             road_connection_types = road_connection_types[:, [0,1,2,5]]
 
-        ### FOR TESTING VISUALIZATION PURPOSES
-        # colors = ['black', 'silver', 'lightcoral', 'firebrick', 'red', 'coral', 'sienna', 'darkorange', 'gold', 'darkkhaki', 'olive', 'yellow', 'yellowgreen', 'chartreuse', 'forestgreen', 'turquoise', 'lightcyan', 'teal', 'aqua', 'deepskyblue', 'royalblue', 'navy', 'mediumpurple', 'indigo', 'violet', 'darkviolet', 'magenta', 'deeppink', 'pink']
-        # ct = 0
-        # for i in range(len(road_points)):
-        #     lane = road_points[i, :, :2]
-        #     if len(lane) == 0:
-        #         continue
-            
-        #     plt.plot(lane[:, 0], lane[:, 1], color=colors[ct % len(colors)], linewidth=1.5)
-        #     ct += 1
-        
-        #     label_idx = len(lane) // 2
-        #     plt.annotate(i,
-        #         (lane[label_idx, 0], lane[label_idx, 1]), zorder=5, fontsize=5)
-
-        # for j in range(edge_index_lane_to_lane.shape[1]):
-        #     if road_connection_types[j, 1] == 1: # or road_connection_types[j, 2] == 1 or road_connection_types[j, 3] == 1 or road_connection_types[j, 4] == 1:
-        #         src_idx = edge_index_lane_to_lane[0, j]
-        #         dest_idx = edge_index_lane_to_lane[1, j]
-
-        #         print(j, src_idx, dest_idx)
-                
-        #         lane_src = road_points[src_idx, :, :2]
-        #         lane_dest = road_points[dest_idx, :, :2]
-        #         print(lane_src, lane_dest)
-        #         exit()
-        #         src_pos = lane_src[10, :2]
-        #         dest_pos = lane_dest[10, :2]
-
-        #         edge_color = 'black'
-        #         if road_connection_types[j, 2] == 1:
-        #             edge_color = 'red'
-        #         elif road_connection_types[j, 3] == 1:
-        #             edge_color = 'green'
-        #         elif road_connection_types[j, 4] == 1:
-        #             edge_color = 'blue'
-        #         plt.arrow(src_pos[0], src_pos[1], dest_pos[0] - src_pos[0], dest_pos[1] - src_pos[1], length_includes_head=True, head_width=1, head_length=1, zorder=10, color=edge_color)
-
-        # plt.savefig('scene_{}.png'.format(idx), dpi=1000)
-        # plt.clf()
-        agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
-            agent_states,
-            agent_states,
-            road_points,
-            road_points,
-            edge_index_lane_to_lane.numpy(),
-            agent_states,
-            road_points,
-            lg_type,
-            dataset='waymo')
-        edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
-
+        # agent_states, agent_log_var, road_points, lane_log_var, edge_index_lane_to_lane, agent_partition_mask, lane_partition_mask = reorder_indices(
+        #     agent_states,
+        #     agent_states,
+        #     road_points,
+        #     road_points,
+        #     edge_index_lane_to_lane.numpy(),
+        #     agent_states,
+        #     road_points,
+        #     lg_type,
+        #     dataset='waymo')
+        # edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+        #
 
         # --------------------------------------------------------------
         # ️Assemble final PyG heterogeneous graph ------------------
@@ -999,7 +959,7 @@ class WaymoDatasetAutoEncoder(Dataset):
         d['agent'].type = from_numpy(agent_types)
         d['lane'].x = from_numpy(road_points)
         d['lane'].partition_mask = from_numpy(lane_partition_mask)
-        d['agent'].partition_mask = from_numpy(agent_partition_mask)
+       # d['agent'].partition_mask = from_numpy(agent_partition_mask)
         d['num_agents_after_origin'] = num_agents_after_origin
         d['num_lanes_after_origin'] = num_lanes_after_origin
 
