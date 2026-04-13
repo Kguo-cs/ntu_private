@@ -962,8 +962,8 @@ class WaymoDatasetAutoEncoder(Dataset):
         d['lane'].x = from_numpy(road_points)
         d['lane'].partition_mask = from_numpy(lane_partition_mask)
         d['agent'].partition_mask = from_numpy(agent_partition_mask)
-      #  d['num_agents_after_origin'] = num_agents_after_origin
-      #  d['num_lanes_after_origin'] = num_lanes_after_origin
+        d['num_agents_after_origin'] = num_agents_after_origin
+        d['num_lanes_after_origin'] = num_lanes_after_origin
 
         # Assuming edge_index tensors for different edge types
         d['lane', 'to', 'lane'].edge_index = edge_index_lane_to_lane
