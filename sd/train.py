@@ -228,8 +228,6 @@ def main(cfg):
     
     pl.seed_everything(cfg.train.seed, workers=True)
 
-    print(model_name)
-
     # checkpoints saved here
     save_dir = os.path.join(cfg.train.save_dir, cfg.train.run_name)
     if not os.path.exists(save_dir):

@@ -144,8 +144,8 @@ def train_ldm(cfg, cfg_ae, save_dir=None):
 
 def train_autoencoder(cfg, cfg_ldm, save_dir=None):
     """ Train the Scenario Dreamer AutoEncoder model."""
-    datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg.dataset)
     cfg_ldm = set_latent_stats(cfg_ldm)
+    datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg_ldm.dataset)
 
     model = Direct_diffusion(cfg, cfg_ldm)
     # model = ScenarioDreamerAutoEncoder(cfg)
@@ -183,7 +183,7 @@ def train_autoencoder(cfg, cfg_ldm, save_dir=None):
         accelerator='gpu',
         devices=-1,
         strategy='auto',
-        callbacks=[model_summary, model_checkpoint, lr_monitor],
+        callbacks=[model_summary, model_checkpoint, lr_monitor, TQDMProgressBar(refresh_rate=20)],
         max_steps=cfg.train.max_steps,
         check_val_every_n_epoch=cfg.train.check_val_every_n_epoch,
         precision=cfg.train.precision,

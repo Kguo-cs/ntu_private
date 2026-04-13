@@ -532,41 +532,41 @@ class Direct_diffusion(pl.LightningModule):
     def generate(self,data,batch_idx):
 
         if self.use_latent:
-            with self.model.ema.average_parameters():
+            #with self.model.ema.average_parameters():
 
-                data['lane'].x=torch.empty((data['lane'].x.shape[0], self.cfg_model.lane_latent_dim))
-                data['agent'].x=torch.empty((data['agent'].x.shape[0], self.cfg_model.agent_latent_dim))
+            data['lane'].x=torch.empty((data['lane'].x.shape[0], self.cfg_model.lane_latent_dim))
+            data['agent'].x=torch.empty((data['agent'].x.shape[0], self.cfg_model.agent_latent_dim))
 
-                data = data.to(self.device)
-                agent_latents, lane_latents = self.diff_model.forward(data, mode='initial_scene')
-                agent_latents, lane_latents = unnormalize_latents(
-                    agent_latents,
-                    lane_latents,
-                    self.cfg_ldm.dataset.agent_latents_mean,
-                    self.cfg_ldm.dataset.agent_latents_std,
-                    self.cfg_ldm.dataset.lane_latents_mean,
-                    self.cfg_ldm.dataset.lane_latents_std
-                )
+            data = data.to(self.device)
+            agent_latents, lane_latents = self.diff_model.forward(data, mode='initial_scene')
+            agent_latents, lane_latents = unnormalize_latents(
+                agent_latents,
+                lane_latents,
+                self.cfg_ldm.dataset.agent_latents_mean,
+                self.cfg_ldm.dataset.agent_latents_std,
+                self.cfg_ldm.dataset.lane_latents_mean,
+                self.cfg_ldm.dataset.lane_latents_std
+            )
 
-                agent_samples, lane_samples, agent_types, lane_types, lane_conn_samples = self.autoencoder.model.forward_decoder(
-                    agent_latents,
-                    lane_latents,
-                    data)
+            agent_samples, lane_samples, agent_types, lane_types, lane_conn_samples = self.autoencoder.model.forward_decoder(
+                agent_latents,
+                lane_latents,
+                data)
 
-                agent_samples, lane_samples = unnormalize_scene(
-                    agent_samples,
-                    lane_samples,
-                    fov=self.cfg_dataset.fov,
-                    min_speed=self.cfg_dataset.min_speed,
-                    max_speed=self.cfg_dataset.max_speed,
-                    min_length=self.cfg_dataset.min_length,
-                    max_length=self.cfg_dataset.max_length,
-                    min_width=self.cfg_dataset.min_width,
-                    max_width=self.cfg_dataset.max_width,
-                    min_lane_x=self.cfg_dataset.min_lane_x,
-                    min_lane_y=self.cfg_dataset.min_lane_y,
-                    max_lane_x=self.cfg_dataset.max_lane_x,
-                    max_lane_y=self.cfg_dataset.max_lane_y)
+            agent_samples, lane_samples = unnormalize_scene(
+                agent_samples,
+                lane_samples,
+                fov=self.cfg_dataset.fov,
+                min_speed=self.cfg_dataset.min_speed,
+                max_speed=self.cfg_dataset.max_speed,
+                min_length=self.cfg_dataset.min_length,
+                max_length=self.cfg_dataset.max_length,
+                min_width=self.cfg_dataset.min_width,
+                max_width=self.cfg_dataset.max_width,
+                min_lane_x=self.cfg_dataset.min_lane_x,
+                min_lane_y=self.cfg_dataset.min_lane_y,
+                max_lane_x=self.cfg_dataset.max_lane_x,
+                max_lane_y=self.cfg_dataset.max_lane_y)
 
         else:
             agent_batch, lane_batch, lane_conn_batch = get_batches(data)
