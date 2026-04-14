@@ -33,9 +33,9 @@ class DiT(nn.Module):
         self.agent_embedder = TwoLayerResMLP(self.cfg_model.agent_latent_dim, self.cfg_model.agent_hidden_dim)
         
         # These will be overwritten by sin/cos positional encodings
-        #self.pos_emb_lane = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_lanes, self.cfg_model.hidden_dim), requires_grad=False)
-       # self.pos_emb_agent = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_agents, self.cfg_model.agent_hidden_dim), requires_grad=False)
-        
+        self.pos_emb_lane = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_lanes, self.cfg_model.hidden_dim), requires_grad=False)
+        self.pos_emb_agent = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_agents, self.cfg_model.agent_hidden_dim), requires_grad=False)
+
         # factorized dit blocks
         self.blocks = nn.ModuleList([
             FactorizedDiTBlock(
@@ -66,10 +66,10 @@ class DiT(nn.Module):
         self.apply(_basic_init)
 
         # Initialize (and freeze) lane and agent pos_embed by sin-cos embedding:
-        # pos_emb_lane = get_1d_sincos_pos_embed_from_grid(self.pos_emb_lane.shape[-1], np.arange(self.pos_emb_lane.shape[0]))
-        # self.pos_emb_lane.data.copy_(torch.from_numpy(pos_emb_lane).float())
-        # pos_emb_agent = get_1d_sincos_pos_embed_from_grid(self.pos_emb_agent.shape[-1], self.cfg_dataset.max_num_lanes + np.arange(self.pos_emb_agent.shape[0]))
-        # self.pos_emb_agent.data.copy_(torch.from_numpy(pos_emb_agent).float())
+        pos_emb_lane = get_1d_sincos_pos_embed_from_grid(self.pos_emb_lane.shape[-1], np.arange(self.pos_emb_lane.shape[0]))
+        self.pos_emb_lane.data.copy_(torch.from_numpy(pos_emb_lane).float())
+        pos_emb_agent = get_1d_sincos_pos_embed_from_grid(self.pos_emb_agent.shape[-1], self.cfg_dataset.max_num_lanes + np.arange(self.pos_emb_agent.shape[0]))
+        self.pos_emb_agent.data.copy_(torch.from_numpy(pos_emb_agent).float())
 
         # Initialize label embedding table:
         nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
