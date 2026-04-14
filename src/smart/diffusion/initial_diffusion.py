@@ -165,7 +165,12 @@ class InitDiffusion(nn.Module):
 
             if self.learn_autoencoder:
                 rec_loss,agent_loss,kl_loss,pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
-                return rec_loss,agent_loss,kl_loss
+
+                pos_error=(pred_init[:,:2]-m_init[:,:2]).abs().mean()
+                head_error=(pred_init[:,2:4]-m_init[:,2:4]).abs().mean()
+                shape_error=(pred_init[:,4:6]-m_init[:,4:6]).abs().mean()
+                vel_error=(pred_init[:,6:8]-m_init[:,6:8]).abs().mean()
+                return rec_loss,agent_loss,kl_loss,pos_error,head_error,shape_error,vel_error
             else:
                 loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 

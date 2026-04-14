@@ -120,10 +120,15 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.init_decoder.use_gan:
                 loss=self.encoder.agent_encoder.init_decoder.D.update( self.log,self.optimizers(), self.encoder.agent_encoder.init_decoder.G,pred["initial_logit"])
             elif self.encoder.agent_encoder.init_decoder.learn_autoencoder:
-                rec_loss, agent_loss, kl_loss=pred[   "initial_logit"]
+                rec_loss, agent_loss, kl_loss,pos_loss,heading_loss,shape_loss,vel_loss=pred[   "initial_logit"]
                 self.log('train/rec_loss', rec_loss, on_step=True, batch_size=1)
                 self.log('train/agent_loss', agent_loss, on_step=True, batch_size=1)
                 self.log('train/kl_loss', kl_loss, on_step=True, batch_size=1)
+                self.log('train/pos_loss', pos_loss, on_step=True, batch_size=1)
+                self.log('train/heading_loss', heading_loss, on_step=True, batch_size=1)
+                self.log('train/shape_loss', shape_loss, on_step=True, batch_size=1)
+                self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
+
                 loss=rec_loss
             else:
                 match_loss,  collision_loss, pos_loss, heading_loss, shape_loss, vel_loss = pred[
