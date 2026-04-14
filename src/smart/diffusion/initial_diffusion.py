@@ -42,15 +42,15 @@ class InitDiffusion(nn.Module):
         self.latent_diffusion=False
         self.learn_autoencoder = True
 
-        if self.learn_autoencoder:
+        if self.learn_autoencoder or self.latent_diffusion:
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
 
-        if self.latent_diffusion:
-
-            self.G=LDM()
-        else:
-            self.G = ScaleFlow(args,token_processor)
+        # if self.latent_diffusion:
+        #
+        #     self.G=LDM()
+        # else:
+        self.G = ScaleFlow(args,token_processor)
 
         self.use_gail=False
 
@@ -173,10 +173,10 @@ class InitDiffusion(nn.Module):
             else:
                 if self.latent_diffusion:
                     with torch.no_grad():
-                        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.process_input(
-                            diff_input, tokenized_agent, initial_map_feature)
+                        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.autoencoder.process_input(
+                             tokenized_agent, initial_map_feature)
 
-                        diff_input = self.forward_encoder(diff_input, tokenized_agent["nonego_type"], pos_pl,
+                        diff_input = self.autoencoder.forward_encoder(diff_input, tokenized_agent["nonego_type"], initial_map_feature["position"],
                                                           lane_embeddings, ego_embedding,
                                                           a2a_edge_index, l2a_edge_index,
                                                           l2l_edge_index, pos_idx)[0]
@@ -200,10 +200,11 @@ class InitDiffusion(nn.Module):
                 pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 
                 if self.latent_diffusion:
-                    lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.process_input(
+                    lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.autoencoder.process_input(
                         tokenized_agent,initial_map_feature)
 
-                    pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent["nonego_type"],num_graphs, ego_embedding,lane_embeddings,tokenized_agent["nonego_batch"], batch_pl)
+                    pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent["nonego_type"],tokenized_agent["num_graphs"],
+                                                                 ego_embedding,lane_embeddings,tokenized_agent["nonego_batch"], initial_map_feature["batch"])
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent

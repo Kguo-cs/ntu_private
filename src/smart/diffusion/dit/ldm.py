@@ -15,7 +15,7 @@ class LDM(nn.Module):
         super(LDM, self).__init__()
         hidden_dim=512
 
-        self.model = DiT(hidden_dim)
+        self.net = DiT(hidden_dim)
         self.pose_embedding= MLPLayer(128+2+2, hidden_dim, hidden_dim)
         self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 

@@ -374,15 +374,15 @@ class AutoEncoder(nn.Module):
 
         lane_conn_embeddings =None
 
-        #pos_agent=x_agent[:,:2]
+        pos_agent=x_agent[:,:2]
 
-        # a2a_dist=torch.norm(pos_agent[a2a_edge_index[0]]-pos_agent[a2a_edge_index[1]],dim=-1)
-        #
-        # a2a_edge_index=a2a_edge_index[:,a2a_dist<60]
-        #
-        # a2l_dist=torch.norm(pos_agent[l2a_edge_index[1]-len(pos_pl)]-pos_pl[l2a_edge_index[0]],dim=-1)
-        #
-        # l2a_edge_index=l2a_edge_index[:,a2l_dist<60]
+        a2a_dist=torch.norm(pos_agent[a2a_edge_index[0]]-pos_agent[a2a_edge_index[1]],dim=-1)
+
+        a2a_edge_index=a2a_edge_index[:,a2a_dist<60]
+
+        a2l_dist=torch.norm(pos_agent[l2a_edge_index[1]-len(pos_pl)]-pos_pl[l2a_edge_index[0]],dim=-1)
+
+        l2a_edge_index=l2a_edge_index[:,a2l_dist<40]
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
