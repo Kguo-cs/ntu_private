@@ -115,14 +115,14 @@ class DiT(nn.Module):
                 unconditional=False):
         """ Forward pass of the DiT model."""
         
-       # lane_idx_batch = get_indices_within_scene(data['lane'].batch)
-       # agent_idx_batch = get_indices_within_scene(data['agent'].batch)
+        lane_idx_batch = get_indices_within_scene(data['lane'].batch)
+        agent_idx_batch = get_indices_within_scene(data['agent'].batch)
         
         # add positional embeddings
-       # pos_emb_lane = self.pos_emb_lane[lane_idx_batch]
-       # pos_emb_agent = self.pos_emb_agent[agent_idx_batch]
-        x_lane = self.lane_embedder(x_lane[:, 0]) #+ pos_emb_lane
-        x_agent = self.agent_embedder(x_agent[:, 0]) #+ pos_emb_agent
+        pos_emb_lane = self.pos_emb_lane[lane_idx_batch]
+        pos_emb_agent = self.pos_emb_agent[agent_idx_batch]
+        x_lane = self.lane_embedder(x_lane[:, 0]) + pos_emb_lane
+        x_agent = self.agent_embedder(x_agent[:, 0]) + pos_emb_agent
         
         scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
         scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training, force_drop_ids=torch.ones_like(scene_idx) if unconditional else None)
