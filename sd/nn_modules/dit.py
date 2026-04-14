@@ -33,8 +33,8 @@ class DiT(nn.Module):
         self.agent_embedder = TwoLayerResMLP(self.cfg_model.agent_latent_dim, self.cfg_model.agent_hidden_dim)
         
         # These will be overwritten by sin/cos positional encodings
-        self.pos_emb_lane = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_lanes, self.cfg_model.hidden_dim), requires_grad=False)
-        self.pos_emb_agent = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_agents, self.cfg_model.agent_hidden_dim), requires_grad=False)
+        #self.pos_emb_lane = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_lanes, self.cfg_model.hidden_dim), requires_grad=False)
+       # self.pos_emb_agent = nn.Parameter(torch.zeros(self.cfg_dataset.max_num_agents, self.cfg_model.agent_hidden_dim), requires_grad=False)
 
         # factorized dit blocks
         self.blocks = nn.ModuleList([
@@ -66,10 +66,10 @@ class DiT(nn.Module):
         self.apply(_basic_init)
 
         # Initialize (and freeze) lane and agent pos_embed by sin-cos embedding:
-        pos_emb_lane = get_1d_sincos_pos_embed_from_grid(self.pos_emb_lane.shape[-1], np.arange(self.pos_emb_lane.shape[0]))
-        self.pos_emb_lane.data.copy_(torch.from_numpy(pos_emb_lane).float())
-        pos_emb_agent = get_1d_sincos_pos_embed_from_grid(self.pos_emb_agent.shape[-1], self.cfg_dataset.max_num_lanes + np.arange(self.pos_emb_agent.shape[0]))
-        self.pos_emb_agent.data.copy_(torch.from_numpy(pos_emb_agent).float())
+        # pos_emb_lane = get_1d_sincos_pos_embed_from_grid(self.pos_emb_lane.shape[-1], np.arange(self.pos_emb_lane.shape[0]))
+        # self.pos_emb_lane.data.copy_(torch.from_numpy(pos_emb_lane).float())
+        # pos_emb_agent = get_1d_sincos_pos_embed_from_grid(self.pos_emb_agent.shape[-1], self.cfg_dataset.max_num_lanes + np.arange(self.pos_emb_agent.shape[0]))
+        # self.pos_emb_agent.data.copy_(torch.from_numpy(pos_emb_agent).float())
 
         # Initialize label embedding table:
         nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
@@ -115,14 +115,14 @@ class DiT(nn.Module):
                 unconditional=False):
         """ Forward pass of the DiT model."""
         
-        lane_idx_batch = get_indices_within_scene(data['lane'].batch)
-        agent_idx_batch = get_indices_within_scene(data['agent'].batch)
+       # lane_idx_batch = get_indices_within_scene(data['lane'].batch)
+       # agent_idx_batch = get_indices_within_scene(data['agent'].batch)
         
         # add positional embeddings
-        pos_emb_lane = self.pos_emb_lane[lane_idx_batch]
-        pos_emb_agent = self.pos_emb_agent[agent_idx_batch]
-        x_lane = self.lane_embedder(x_lane[:, 0]) + pos_emb_lane
-        x_agent = self.agent_embedder(x_agent[:, 0]) + pos_emb_agent
+       # pos_emb_lane = self.pos_emb_lane[lane_idx_batch]
+       # pos_emb_agent = self.pos_emb_agent[agent_idx_batch]
+        x_lane = self.lane_embedder(x_lane[:, 0]) #+ pos_emb_lane
+        x_agent = self.agent_embedder(x_agent[:, 0]) #+ pos_emb_agent
         
         scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
         scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training, force_drop_ids=torch.ones_like(scene_idx) if unconditional else None)

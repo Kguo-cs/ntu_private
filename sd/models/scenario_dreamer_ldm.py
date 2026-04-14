@@ -685,82 +685,82 @@ class ScenarioDreamerLDM(pl.LightningModule):
     def on_load_checkpoint(self, checkpoint):
         """ Called when loading a checkpoint. Loads the EMA state dict."""
         self.ema.load_state_dict(checkpoint['ema_state_dict'])
-
-    def configure_optimizers(self):
-        """ Configure the optimizer and learning rate scheduler for the model."""
-        self.lr_warmup_steps=0
-        self.lr_min_ratio=1e-2
-        self.lr_total_steps=128
-
-
-        def lr_lambda(current_step):
-            current_step = self.current_epoch + 1
-            if current_step < self.lr_warmup_steps:
-                return (
-                        self.lr_min_ratio
-                        + (1 - self.lr_min_ratio) * current_step / self.lr_warmup_steps
-                )
-            return self.lr_min_ratio + 0.5 * (1 - self.lr_min_ratio) * (
-                    1.0
-                    + math.cos(
-                math.pi
-                * min(
-                    1.0,
-                    (current_step - self.lr_warmup_steps)
-                    / (self.lr_total_steps - self.lr_warmup_steps),
-                )
-            )
-            )
-        optimizer = torch.optim.AdamW(self.diff_model.parameters(), lr=5e-4)
-
-        lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
-
-        return [optimizer], [lr_scheduler]
+    #
+    # def configure_optimizers(self):
+    #     """ Configure the optimizer and learning rate scheduler for the model."""
+    #     self.lr_warmup_steps=0
+    #     self.lr_min_ratio=1e-2
+    #     self.lr_total_steps=128
+    #
+    #
+    #     def lr_lambda(current_step):
+    #         current_step = self.current_epoch + 1
+    #         if current_step < self.lr_warmup_steps:
+    #             return (
+    #                     self.lr_min_ratio
+    #                     + (1 - self.lr_min_ratio) * current_step / self.lr_warmup_steps
+    #             )
+    #         return self.lr_min_ratio + 0.5 * (1 - self.lr_min_ratio) * (
+    #                 1.0
+    #                 + math.cos(
+    #             math.pi
+    #             * min(
+    #                 1.0,
+    #                 (current_step - self.lr_warmup_steps)
+    #                 / (self.lr_total_steps - self.lr_warmup_steps),
+    #             )
+    #         )
+    #         )
+    #     optimizer = torch.optim.AdamW(self.diff_model.parameters(), lr=5e-4)
+    #
+    #     lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+    #
+    #     return [optimizer], [lr_scheduler]
 
     #
     #  ### Taken largely from QCNet repository: https://github.com/ZikangZhou/QCNet
-    # def configure_optimizers(self):
-    #     """ Configure the optimizer and learning rate scheduler for the model."""
-    #     decay = set()
-    #     no_decay = set()
-    #     whitelist_weight_modules = (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.MultiheadAttention, nn.LSTM,
-    #                                 nn.LSTMCell, nn.GRU, nn.GRUCell)
-    #     blacklist_weight_modules = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.LayerNorm, nn.Embedding)
-    #     for module_name, module in self.diff_model.named_modules():
-    #         for param_name, param in module.named_parameters():
-    #             full_param_name = '%s.%s' % (module_name, param_name) if module_name else param_name
-    #             if 'bias' in param_name:
-    #                 no_decay.add(full_param_name)
-    #             elif 'weight' in param_name:
-    #                 if isinstance(module, whitelist_weight_modules):
-    #                     decay.add(full_param_name)
-    #                 elif isinstance(module, blacklist_weight_modules):
-    #                     no_decay.add(full_param_name)
-    #             elif not ('weight' in param_name or 'bias' in param_name):
-    #                 no_decay.add(full_param_name)
-    #
-    #     # only optimize the diffusion model
-    #     param_dict = {param_name: param for param_name, param in self.diff_model.named_parameters()}
-    #     inter_params = decay & no_decay
-    #     union_params = decay | no_decay
-    #     assert len(inter_params) == 0
-    #     assert len(param_dict.keys() - union_params) == 0
-    #
-    #     optim_groups = [
-    #         {"params": [param_dict[param_name] for param_name in sorted(list(decay))],
-    #          "weight_decay": self.cfg.train.weight_decay},
-    #         {"params": [param_dict[param_name] for param_name in sorted(list(no_decay))],
-    #          "weight_decay": 0.0},
-    #     ]
-    #     optimizer = torch.optim.AdamW(optim_groups, lr=self.cfg.train.lr, weight_decay=self.cfg.train.weight_decay, betas=(self.cfg.train.beta_1, self.cfg.train.beta_2), eps=self.cfg.train.epsilon)
-    #
-    #     if self.cfg.train.lr_schedule == 'cosine':
-    #         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=create_lambda_lr_cosine(self.cfg))
-    #     elif self.cfg.train.lr_schedule == 'linear':
-    #         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=create_lambda_lr_linear(self.cfg))
-    #     elif self.cfg.train.lr_schedule == 'constant':
-    #         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=create_lambda_lr_constant(self.cfg))
-    #
-    #     return [optimizer], {"scheduler": scheduler,
-    #                          "interval": "step",
-    #                          "frequency": 1}
+    def configure_optimizers(self):
+        """ Configure the optimizer and learning rate scheduler for the model."""
+        decay = set()
+        no_decay = set()
+        whitelist_weight_modules = (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.MultiheadAttention, nn.LSTM,
+                                    nn.LSTMCell, nn.GRU, nn.GRUCell)
+        blacklist_weight_modules = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.LayerNorm, nn.Embedding)
+        for module_name, module in self.diff_model.named_modules():
+            for param_name, param in module.named_parameters():
+                full_param_name = '%s.%s' % (module_name, param_name) if module_name else param_name
+                if 'bias' in param_name:
+                    no_decay.add(full_param_name)
+                elif 'weight' in param_name:
+                    if isinstance(module, whitelist_weight_modules):
+                        decay.add(full_param_name)
+                    elif isinstance(module, blacklist_weight_modules):
+                        no_decay.add(full_param_name)
+                elif not ('weight' in param_name or 'bias' in param_name):
+                    no_decay.add(full_param_name)
+
+        # only optimize the diffusion model
+        param_dict = {param_name: param for param_name, param in self.diff_model.named_parameters()}
+        inter_params = decay & no_decay
+        union_params = decay | no_decay
+        assert len(inter_params) == 0
+        assert len(param_dict.keys() - union_params) == 0
+
+        optim_groups = [
+            {"params": [param_dict[param_name] for param_name in sorted(list(decay))],
+             "weight_decay": self.cfg.train.weight_decay},
+            {"params": [param_dict[param_name] for param_name in sorted(list(no_decay))],
+             "weight_decay": 0.0},
+        ]
+        optimizer = torch.optim.AdamW(optim_groups, lr=self.cfg.train.lr, weight_decay=self.cfg.train.weight_decay, betas=(self.cfg.train.beta_1, self.cfg.train.beta_2), eps=self.cfg.train.epsilon)
+
+        if self.cfg.train.lr_schedule == 'cosine':
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=create_lambda_lr_cosine(self.cfg))
+        elif self.cfg.train.lr_schedule == 'linear':
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=create_lambda_lr_linear(self.cfg))
+        elif self.cfg.train.lr_schedule == 'constant':
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=create_lambda_lr_constant(self.cfg))
+
+        return [optimizer], {"scheduler": scheduler,
+                             "interval": "step",
+                             "frequency": 1}
