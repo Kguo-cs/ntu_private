@@ -384,6 +384,7 @@ class AutoEncoder(nn.Module):
         loss = agent_loss +1e-2 * kl_loss
 
         agent_states_pred=agent_states_pred* scale
+        x_agent=x_agent* scale
 
         pos_error = (agent_states_pred[:, :2] - x_agent[:, :2]).abs().mean()
         head_error = (agent_states_pred[:, 2:4] - x_agent[:, 2:4]).abs().mean()
