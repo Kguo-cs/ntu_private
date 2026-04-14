@@ -94,11 +94,11 @@ def run(cfg: DictConfig) -> None:
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
 
     log.info(f"Instantiating loggers...")
-    logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
-    # setup model watching
-    for _logger in logger:
-        if isinstance(_logger, WandbLogger):
-            _logger.watch(model, log="all")
+    # logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
+    # # setup model watching
+    # for _logger in logger:
+    #     if isinstance(_logger, WandbLogger):
+    #         _logger.watch(model, log="all")
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(
@@ -106,17 +106,17 @@ def run(cfg: DictConfig) -> None:
     )
 
     log.info("Logging hyperparameters!")
-    log_hyperparameters(
-        {
-            "cfg": cfg,
-            "datamodule": datamodule,
-            "model": model,
-            "callbacks": callbacks,
-            "logger": logger,
-            "trainer": trainer,
-        }
-    )
-
+    # log_hyperparameters(
+    #     {
+    #         "cfg": cfg,
+    #         "datamodule": datamodule,
+    #         "model": model,
+    #         "callbacks": callbacks,
+    #         "logger": logger,
+    #         "trainer": trainer,
+    #     }
+    # )
+    #
     log.info(f"Resuming from ckpt: cfg.ckpt_path={cfg.ckpt_path}")
     if cfg.action == "fit":
         log.info("Starting training!")

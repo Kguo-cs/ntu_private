@@ -132,7 +132,7 @@ class InitDiffusion(nn.Module):
                 initial_map_feature = {}
 
                 for key in map_feature.keys():
-                    initial_map_feature[key] = map_feature[key][dist < 100]
+                    initial_map_feature[key] = map_feature[key][dist < 80]
 
             batch_pl = initial_map_feature["batch"]
             pos_pl = initial_map_feature["position"]
@@ -164,13 +164,7 @@ class InitDiffusion(nn.Module):
             diff_input,m_init=self.G.net.get_input(tokenized_agent)
 
             if self.learn_autoencoder:
-                rec_loss,agent_loss,kl_loss,pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
-
-                pos_error=(pred_init[:,:2]-m_init[:,:2]).abs().mean()
-                head_error=(pred_init[:,2:4]-m_init[:,2:4]).abs().mean()
-                shape_error=(pred_init[:,4:6]-m_init[:,4:6]).abs().mean()
-                vel_error=(pred_init[:,6:8]-m_init[:,6:8]).abs().mean()
-                return rec_loss,agent_loss,kl_loss,pos_error,head_error,shape_error,vel_error
+                return self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
             else:
                 loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
@@ -257,7 +251,7 @@ class InitDiffusion(nn.Module):
             if self.learn_autoencoder:
                 diff_input, m_init = self.G.net.get_input(tokenized_agent)
 
-                rec_loss,agent_loss,kl_loss,pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
+                pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
                 pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 

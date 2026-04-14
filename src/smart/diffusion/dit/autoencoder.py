@@ -282,6 +282,8 @@ class AutoEncoder(nn.Module):
     def __init__(self, num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads):
         super(AutoEncoder, self).__init__()
 
+        hidden_dim=128
+
         self.use_transformer=False
 
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
@@ -383,7 +385,12 @@ class AutoEncoder(nn.Module):
 
         agent_states_pred=agent_states_pred* scale
 
-        return loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach(),agent_states_pred
+        pos_error = (agent_states_pred[:, :2] - x_agent[:, :2]).abs().mean()
+        head_error = (agent_states_pred[:, 2:4] - x_agent[:, 2:4]).abs().mean()
+        shape_error = (agent_states_pred[:, 4:6] - x_agent[:, 4:6]).abs().mean()
+        vel_error = (agent_states_pred[:, 6:8] - x_agent[:, 6:8]).abs().mean()
+
+        return loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach(),pos_error,head_error,shape_error,vel_error,agent_states_pred
 
     def forward_encoder(self, data, return_latents=False, return_lane_embeddings=False):
 
