@@ -242,7 +242,7 @@ class ScenarioDreamerDecoder(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
         # ----------- latent -> hidden-dim projections -------------------- #
-        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding+agent_pos_idx
+        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding#+agent_pos_idx
 
         if self.use_transformer:
 
@@ -282,16 +282,14 @@ class AutoEncoder(nn.Module):
     def __init__(self, num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads):
         super(AutoEncoder, self).__init__()
 
-        self.hidden_dim=hidden_dim
 
-        latent_dim=8
 
         self.use_transformer=False
 
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
         self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
 
-        self.lane_embed= nn.Linear(hidden_dim+4, hidden_dim)
+        self.lane_embed= nn.Linear(128+4, hidden_dim)
 
         # loss functions for training variational auto.yaml
         self.agent_loss_fn = GeometricLosses['l1']()

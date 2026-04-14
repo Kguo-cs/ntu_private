@@ -43,7 +43,7 @@ class InitDiffusion(nn.Module):
 
         if self.latent_diffusion:
 
-            self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=hidden_dim,latent_dim=8,num_heads=8)
+            self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
 
         self.G = ScaleFlow(args,token_processor)
 
