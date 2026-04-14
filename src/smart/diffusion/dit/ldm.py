@@ -5,7 +5,7 @@ from .diffusion_helpers import (
     cosine_beta_schedule,
     extract
 )
-from src.smart.layers.autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock,GeometricLosses,reparameterize
+from src.smart.diffusion.dit.autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock,GeometricLosses,reparameterize
 from .dit import DiT
 
 from src.smart.layers import MLPLayer

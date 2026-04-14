@@ -5,7 +5,7 @@ import numpy as np
 from typing import Tuple, Union
 
 import torch.nn.functional as F
-from .autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock,GeometricLosses,reparameterize
+from src.smart.diffusion.dit.autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock,GeometricLosses,reparameterize
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 import math
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
@@ -300,40 +300,18 @@ class AutoEncoder(nn.Module):
         self.kl_loss_fn = GeometricLosses['kl']()
         self.apply(weight_init)
 
-        self.use_rel_ego=True
+        self.use_rel_ego=False
 
         if self.use_rel_ego:
             self.ego_embed = nn.Linear(9 + 3, hidden_dim)
-
-
-    def loss(self, x_agent, tokenized_agent,initial_map_feature):
-        batch = tokenized_agent["nonego_batch"]
-        agent_types = tokenized_agent["nonego_type"]
-        num_graphs = tokenized_agent["num_graphs"]
-
-        if self.use_rel_ego:
-            ego_pose = tokenized_agent["ego_feat"][:, :-3].reshape(-1, 3, 3)
-            type_count = tokenized_agent["ego_feat"][:, -3:][batch]
-
-            all_pos = ego_pose[:, :, :2][batch]
-            all_head = ego_pose[:, :, 2][batch]
-
-            theta = torch.atan2(x_agent[:, 3], x_agent[:, 2])
-
-            pos_s = x_agent[:, :2]
-
-            local_ego_pos, local_ego_head = transform_to_local(
-                all_pos,
-                all_head,
-                pos_s,
-                theta
-            )
-
-            all_features = torch.cat([local_ego_pos.flatten(1, 2), local_ego_head, type_count], dim=-1)
-
-            ego_embedding = self.ego_embed(all_features)
         else:
-            ego_embedding = tokenized_agent["ego_embedding"]
+            self.ego_embed = nn.Linear(128, hidden_dim)
+
+
+    def process_input(self, tokenized_agent,initial_map_feature):
+        batch = tokenized_agent["nonego_batch"]
+        num_graphs = tokenized_agent["num_graphs"]
+        ego_embedding = self.ego_embed(tokenized_agent["ego_embedding"])
 
         batch_pl = initial_map_feature["batch"]
         pos_pl = initial_map_feature["position"]
@@ -344,22 +322,20 @@ class AutoEncoder(nn.Module):
 
 
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
-        lane_conn_embeddings =None #lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
 
 
-        agent_mu, agent_log_var = self.encoder(
-            x_agent,
-            agent_types,
-            pos_idx,
-            ego_embedding,
-            lane_embeddings,
-            lane_conn_embeddings,
-            a2a_edge_index,
-            l2a_edge_index,
-            l2l_edge_index
-            )
+        return lane_embeddings,ego_embedding, a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx
 
-        agent_latents = reparameterize(agent_mu, agent_log_var)
+
+
+    def loss(self, x_agent, tokenized_agent,initial_map_feature):
+        agent_types=tokenized_agent["nonego_type"]
+        pos_pl = initial_map_feature["position"]
+        batch=tokenized_agent["nonego_batch"]
+
+        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx=self.process_input(tokenized_agent,initial_map_feature)
+
+        agent_latents,agent_mu, agent_log_var=self.forward_encoder(x_agent,agent_types,pos_pl, lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx)
 
         agent_states_pred = self.decoder(
             agent_latents,
@@ -394,15 +370,21 @@ class AutoEncoder(nn.Module):
 
         return loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach(),pos_error,head_error,shape_error,vel_error,agent_states_pred
 
-    def forward_encoder(self, data, return_latents=False, return_lane_embeddings=False):
+    def forward_encoder(self,x_agent,agent_types,pos_pl, lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx):
 
-        x_agent, agent_types,num_graphs,ego_embedding, lane_embeddings, batch, batch_pl=data
+        lane_conn_embeddings =None
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
+        pos_agent=x_agent[:,:2]
 
-        lane_conn_embeddings = None#lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
+        a2a_dist=torch.norm(pos_agent[a2a_edge_index[0]]-pos_agent[a2a_edge_index[1]],dim=-1)
 
-        encoder_output = self.encoder(
+        a2a_edge_index=a2a_edge_index[:,a2a_dist<60]
+
+        a2l_dist=torch.norm(pos_agent[l2a_edge_index[1]-len(pos_pl)]-pos_pl[l2a_edge_index[0]],dim=-1)
+
+        l2a_edge_index=l2a_edge_index[:,a2l_dist<60]
+
+        agent_mu, agent_log_var = self.encoder(
             x_agent,
             agent_types,
             pos_idx,
@@ -411,16 +393,12 @@ class AutoEncoder(nn.Module):
             lane_conn_embeddings,
             a2a_edge_index,
             l2a_edge_index,
-            l2l_edge_index
+            l2l_edge_index,
             )
-        agent_mu, agent_log_var = encoder_output
-
-        if return_latents:
-            return agent_mu, agent_log_var
 
         agent_latents = reparameterize(agent_mu, agent_log_var)
 
-        return agent_latents
+        return agent_latents,agent_mu, agent_log_var
 
     def forward_decoder(self, agent_latents, agent_types,num_graphs, ego_embedding,lane_embeddings,batch, batch_pl):
 
@@ -437,11 +415,6 @@ class AutoEncoder(nn.Module):
             l2a_edge_index)
 
         return agent_states_pred
-
-    def forward(self, data, return_latents=False, return_lane_embeddings=False):
-        encoder_output = self.forward_encoder(data, return_stats=return_latents,  return_lane_embeddings=return_lane_embeddings)
-
-        return encoder_output
 
 
 

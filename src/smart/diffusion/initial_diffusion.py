@@ -18,6 +18,7 @@ from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_n
     get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
 from .scale_flow import ScaleFlow
 from src.smart.diffusion.dit.autoencoder import AutoEncoder
+from src.smart.diffusion.dit.ldm import LDM
 
 
 class InitDiffusion(nn.Module):
@@ -38,14 +39,18 @@ class InitDiffusion(nn.Module):
         self.add_model_specific_args(parser)
         args = parser.parse_args()
 
-        self.latent_diffusion=True
+        self.latent_diffusion=False
         self.learn_autoencoder = True
 
-        if self.latent_diffusion:
+        if self.learn_autoencoder:
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
 
-        self.G = ScaleFlow(args,token_processor)
+        if self.latent_diffusion:
+
+            self.G=LDM()
+        else:
+            self.G = ScaleFlow(args,token_processor)
 
         self.use_gail=False
 
@@ -166,83 +171,22 @@ class InitDiffusion(nn.Module):
             if self.learn_autoencoder:
                 return self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
             else:
+                if self.latent_diffusion:
+                    with torch.no_grad():
+                        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.process_input(
+                            diff_input, tokenized_agent, initial_map_feature)
+
+                        diff_input = self.forward_encoder(diff_input, tokenized_agent["nonego_type"], pos_pl,
+                                                          lane_embeddings, ego_embedding,
+                                                          a2a_edge_index, l2a_edge_index,
+                                                          l2l_edge_index, pos_idx)[0]
+
                 loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
             if self.use_gan:
                 return  (m_init,match_loss.mean(),initial_map_feature, tokenized_agent)
-
-            if self.use_gail:
-                expert_dis_loss, _ = self.D.get_reward(m_init, t, tokenized_agent, initial_map_feature, "expert")
-
-                with torch.no_grad():
-                    pred_init, x_list, z_list, step_list, t_list = self.G.sample(tokenized_agent, initial_map_feature, None)
-
-                agent_dis_loss, agent_rewards = self.D.get_reward(z_list[-1][:,0], t, tokenized_agent,
-                                                                  initial_map_feature, "agent")
-
-                agent_action=torch.cat(x_list,dim=1).transpose(0, 1).flatten(0,1)   #action_list
-
-                agent_state=torch.cat(z_list,dim=1)
-
-                t=torch.cat(t_list,dim=1).transpose(0, 1).flatten(0,1)
-
-                n_step=agent_state.shape[1]-1
-
-                batch=tokenized_agent["nonego_batch"]
-
-                tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step) #n_agent ,n_step
-
-                batch = torch.stack(
-                    [
-                        batch + num_graphs * t
-                        for t in range(n_step)
-                    ],
-                    dim=1,
-                ).transpose(0, 1).flatten(0,1)  # [n_agent*n_step]
-
-                tokenized_agent["nonego_batch"]=batch
-
-                tokenized_agent["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][None].repeat(n_step,1).flatten(0,1)
-
-                agent_input_state=agent_state[:,:-1].transpose(0, 1).flatten(0,1) #t,a
-
-                agent_next_state=agent_state[:,1:].transpose(0, 1).flatten(0,1) #t,a
-
-                tokenized_agent["num_graphs"]=num_graphs*n_step
-
-                tokenized_agent["ego_embedding"]=ego_embedding[None].repeat(n_step,1,1).flatten(0,1)
-
-                #agent_dis_loss,agent_rewards = self.D.get_reward(agent_next_state, t, tokenized_agent, map_feature,"agent")
-
-                x_pred = self.G.net(agent_input_state, t, tokenized_agent, initial_map_feature, mode=1)[:,0]
-
-                agent_log_prob=-gaussian_nll_2d(x_pred[:,:8], x_pred[:,8:], agent_action)
-
-                feat_a = tokenized_agent["noise_feat"]  # [-2]
-
-                value = self.G.value_network(feat_a)[..., 0].view(n_step,-1)
-
-                rewards=torch.zeros_like(value)
-
-                #print(agent_rewards.shape,value.shape,rewards.shape)
-
-                rewards[-1]=agent_rewards[:,0]
-
-                advantages, value_loss = compute_advantages(rewards, value)
-
-                advantages=advantages.view(-1)
-
-                self.return_meanstd.update(advantages.detach())
-
-                advantages = self.return_meanstd.normalize(advantages)
-
-                ppo_loss = -(agent_log_prob * advantages).mean()
-
-                policy_loss = match_loss + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
-
-                match_loss = expert_dis_loss + agent_dis_loss + policy_loss
 
             loss = (match_loss.mean(), collision_loss, pos_loss.mean(), heading_loss.mean(), shape_loss.mean(), vel_loss.mean())
 
@@ -254,6 +198,12 @@ class InitDiffusion(nn.Module):
                 pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
                 pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
+
+                if self.latent_diffusion:
+                    lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.process_input(
+                        tokenized_agent,initial_map_feature)
+
+                    pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent["nonego_type"],num_graphs, ego_embedding,lane_embeddings,tokenized_agent["nonego_batch"], batch_pl)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent

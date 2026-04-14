@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 from .diffusion_helpers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, \
     get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP,get_indices_within_scene,weight_init
-from src.smart.layers.autoencoder import get_edgeindex
+from src.smart.diffusion.dit.autoencoder import get_edgeindex
 
 class DiT(nn.Module):
 
