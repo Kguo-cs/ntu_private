@@ -385,8 +385,22 @@ class AutoEncoder(nn.Module):
         # compute accuracy of lane conditional distribution predictor
         lane_cond_dis_pred_filtered = torch.argmax(lane_cond_dis_prob[~partition_mask], dim=-1)
         lane_cond_dis_acc = (torch.abs(lane_cond_dis_pred_filtered - lane_cond_dis[~partition_mask]) <= 3).float().mean()
-        
+
+        scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044]],device=x_agent.device)
+
+        agent_states_pred=agent_states_pred*scale
+        x_agent_states=x_agent_states*scale
+
+        pos_error = (agent_states_pred[:, :2] - x_agent_states[:, :2]).abs().mean()
+        head_error = (agent_states_pred[:, 2:4] - x_agent_states[:, 2:4]).abs().mean()
+        shape_error = (agent_states_pred[:, 4:6] - x_agent_states[:, 4:6]).abs().mean()
+        vel_error = (agent_states_pred[:, 6:] - x_agent_states[:, 6:]).abs().mean()
+
         loss_dict = {
+            "pos_error":pos_error,
+            "head_error":head_error,
+            "shape_error":shape_error,
+            "vel_error":vel_error,
             'loss': loss.mean(),
             'agent_loss': agent_loss.mean().detach(),
             'lane_loss': lane_loss.mean().detach(),

@@ -141,10 +141,10 @@ def train_autoencoder(cfg,cfg_ldm, save_dir=None):
     """ Train the Scenario Dreamer AutoEncoder model."""
     cfg_ldm = set_latent_stats(cfg_ldm)
 
-    datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg_ldm.dataset)
+    datamodule = instantiate(cfg.datamodule, dataset_cfg=cfg.dataset)
 
-    model=Direct_diffusion(cfg,cfg_ldm)
-    #model = ScenarioDreamerAutoEncoder(cfg)
+   # model=Direct_diffusion(cfg,cfg_ldm)
+    model = ScenarioDreamerAutoEncoder.load_from_checkpoint('/home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt',weights_only=False,cfg=cfg)
     # we always track the last epoch checkpoint for evaluation or resume training.   
     model_checkpoint = ModelCheckpoint(filename='model', save_last=True, save_top_k=0, dirpath=save_dir)
     
@@ -163,13 +163,13 @@ def train_autoencoder(cfg,cfg_ldm, save_dir=None):
         logger = None
     
     # resume training
-    files_in_save_dir = os.listdir(save_dir)
-    ckpt_path = None
+    # files_in_save_dir = os.listdir(save_dir)
+    # ckpt_path = None
     # for file in files_in_save_dir:
     #     if file.endswith('.ckpt') and 'last' in file:
     #         ckpt_path = os.path.join(save_dir, file)
     #         backup_ckpt_path = os.path.join(save_dir, 'backup.ckpt')
-    #         dummy = torch.load(ckpt_path) # this is to check if the checkpoint is valid
+    #         dummy = torch.load(ckpt_path,weights_only=False) # this is to check if the checkpoint is valid
     #         print("Successfully loaded last.ckpt")
     #         shutil.copyfile(ckpt_path, backup_ckpt_path)
     #         print("Resuming from checkpoint: ", ckpt_path)
@@ -186,14 +186,14 @@ def train_autoencoder(cfg,cfg_ldm, save_dir=None):
                          limit_train_batches=cfg.train.limit_train_batches,
                          limit_val_batches=cfg.train.limit_val_batches,
                          gradient_clip_val=cfg.train.gradient_clip_val,
-                       #  logger=logger,
+                         logger=logger,
                          num_nodes=1,
                          num_sanity_val_steps=0,
                          max_epochs=128,
                          log_every_n_steps=100
                         )
 
-    trainer.fit(model, datamodule, ckpt_path=ckpt_path)
+    trainer.fit(model, datamodule,weights_only=False)#, ckpt_path='/home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt')
 
 
 @hydra.main(version_base=None, config_path=CONFIG_PATH, config_name="config")

@@ -196,17 +196,17 @@ class WaymoDataModuleAutoEncoder(pl.LightningDataModule):
         return data_list, conditioning_filenames
 
     def setup(self, stage):
-       # self.train_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='train')
-       # self.val_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='val')
-        self.train_dataset=WaymoDatasetLDM(self.cfg_dataset, split_name='train')
-
-        self.val_dataset, conditioning_filenames = self._initialize_pyg_dset(
-            mode="initial_scene",#initial_scene",
-            num_samples=1024,
-            batch_size=1024,
-            conditioning_path=os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_autoencoder_latents_waymo/train",
-            nocturne_compatible_only=False
-        )
+       self.train_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='train')
+       self.val_dataset = WaymoDatasetAutoEncoder(self.cfg_dataset, split_name='val')
+       #  self.train_dataset=WaymoDatasetLDM(self.cfg_dataset, split_name='train')
+       #
+       #  self.val_dataset, conditioning_filenames = self._initialize_pyg_dset(
+       #      mode="initial_scene",#initial_scene",
+       #      num_samples=1024,
+       #      batch_size=1024,
+       #      conditioning_path=os.environ["PROJECT_ROOT"]+"/checkpoints/scenario_dreamer_autoencoder_latents_waymo/train",
+       #      nocturne_compatible_only=False
+       #  )
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, 
