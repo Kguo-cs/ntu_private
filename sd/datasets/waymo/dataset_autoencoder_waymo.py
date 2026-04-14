@@ -899,9 +899,9 @@ class WaymoDatasetAutoEncoder(Dataset):
             max_lane_y=self.cfg.max_lane_y)
 
         # Training‑only randomisation of non‑ego indices ----------
-        # if self.mode == 'train':
-        #     agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
-        #     edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
+        if self.mode == 'train':
+            agent_states, agent_types, road_points, edge_index_lane_to_lane = randomize_indices(agent_states, agent_types, road_points, edge_index_lane_to_lane)
+            edge_index_lane_to_lane = torch.from_numpy(edge_index_lane_to_lane)
 
 
 

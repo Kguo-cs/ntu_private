@@ -342,9 +342,6 @@ class AutoEncoder(nn.Module):
 
         lane_embeddings=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
 
-        scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
-
-        x_agent=x_agent/scale
 
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
         lane_conn_embeddings =None #lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
@@ -374,8 +371,12 @@ class AutoEncoder(nn.Module):
             l2l_edge_index,
             l2a_edge_index)
 
+        scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
+
+        # x_agent=x_agent/scale
+
         # agent vector regression loss
-        agent_loss = self.agent_loss_fn(agent_states_pred, x_agent, batch)#F.l1_loss(agent_states_pred,x_agent)#
+        agent_loss = self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#F.l1_loss(agent_states_pred,x_agent)#
 
         #agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
@@ -383,8 +384,8 @@ class AutoEncoder(nn.Module):
 
         loss = agent_loss +1e-2 * kl_loss
 
-        agent_states_pred=agent_states_pred* scale
-        x_agent=x_agent* scale
+        # agent_states_pred=agent_states_pred* scale
+        # x_agent=x_agent* scale
 
         pos_error = (agent_states_pred[:, :2] - x_agent[:, :2]).abs().mean()
         head_error = (agent_states_pred[:, 2:4] - x_agent[:, 2:4]).abs().mean()
