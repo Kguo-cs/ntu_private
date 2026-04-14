@@ -67,4 +67,4 @@ defaults:
   - train@ctrl_sim.train:      ${dataset_name}_ctrl_sim
   - model@ctrl_sim.model:      ${dataset_name}_ctrl_sim
   - datamodule@ctrl_sim.datamodule: ${dataset_name}_ctrl_sim
-  - sim: base
+  - sim: scenario_dreamer_100m_adv

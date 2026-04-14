@@ -9,6 +9,15 @@ from .autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorize
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 import math
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    rotate_to_global,
+    rotate_to_local,
+    weight_init
+)
 
 def sinusoidal_embedding(position, D):
     """
@@ -138,7 +147,7 @@ class ScenarioDreamerEncoder(nn.Module):
             l2a_edge_index: torch.Tensor,
             l2l_edge_index: torch.Tensor,
     ):
-        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding+agent_pos_idx
+        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding#+agent_pos_idx
 
         if self.use_transformer:
 
@@ -165,7 +174,7 @@ class ScenarioDreamerEncoder(nn.Module):
 
 
         agent_mu = self.agent_mu(agent_embeddings)
-        agent_log_var = self.agent_log_var(agent_embeddings)
+        agent_log_var = self.agent_log_var(agent_embeddings).clamp(-10, 10)
 
         return agent_mu, agent_log_var
 
@@ -282,6 +291,8 @@ class AutoEncoder(nn.Module):
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
         self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
 
+        self.lane_embed= nn.Linear(hidden_dim+4, hidden_dim)
+
         # loss functions for training variational auto.yaml
         self.agent_loss_fn = GeometricLosses['l1']()
         self.lane_loss_fn = GeometricLosses['l1']((1, 2))
@@ -291,14 +302,55 @@ class AutoEncoder(nn.Module):
         self.kl_loss_fn = GeometricLosses['kl']()
         self.apply(weight_init)
 
+        self.use_rel_ego=True
+
+        if self.use_rel_ego:
+            self.ego_embed = nn.Linear(9 + 3, hidden_dim)
 
 
-    def loss(self, data):
+    def loss(self, x_agent, tokenized_agent,initial_map_feature):
+        batch = tokenized_agent["nonego_batch"]
+        agent_types = tokenized_agent["nonego_type"]
+        num_graphs = tokenized_agent["num_graphs"]
 
-        x_agent, agent_types,num_graphs, ego_embedding,lane_embeddings, batch, batch_pl=data
+        if self.use_rel_ego:
+            ego_pose = tokenized_agent["ego_feat"][:, :-3].reshape(-1, 3, 3)
+            type_count = tokenized_agent["ego_feat"][:, -3:][batch]
+
+            all_pos = ego_pose[:, :, :2][batch]
+            all_head = ego_pose[:, :, 2][batch]
+
+            theta = torch.atan2(x_agent[:, 3], x_agent[:, 2])
+
+            pos_s = x_agent[:, :2]
+
+            local_ego_pos, local_ego_head = transform_to_local(
+                all_pos,
+                all_head,
+                pos_s,
+                theta
+            )
+
+            all_features = torch.cat([local_ego_pos.flatten(1, 2), local_ego_head, type_count], dim=-1)
+
+            ego_embedding = self.ego_embed(all_features)
+        else:
+            ego_embedding = tokenized_agent["ego_embedding"]
+
+        batch_pl = initial_map_feature["batch"]
+        pos_pl = initial_map_feature["position"]
+        orient_pl = initial_map_feature["orientation"]
+        feat_map = initial_map_feature["pt_token"]
+
+        lane_embeddings=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
+
+        scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
+
+        x_agent=x_agent/scale
 
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
         lane_conn_embeddings =None #lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
+
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
@@ -325,13 +377,15 @@ class AutoEncoder(nn.Module):
             l2a_edge_index)
 
         # agent vector regression loss
-        agent_loss = F.l1_loss(agent_states_pred,x_agent)#self.agent_loss_fn(agent_states_pred, x_agent, batch)
+        agent_loss = self.agent_loss_fn(agent_states_pred, x_agent, batch)#F.l1_loss(agent_states_pred,x_agent)#
 
         #agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
         loss = agent_loss +1e-2 * kl_loss
+
+        agent_states_pred=agent_states_pred* scale
 
         return loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach(),agent_states_pred
 

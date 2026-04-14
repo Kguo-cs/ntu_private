@@ -10,6 +10,7 @@
 # disclosure or distribution of this material and related documentation
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
+
 from typing import List
 
 import hydra
@@ -30,7 +31,7 @@ from typing import Iterable, Pattern, Union
 
 os.environ["WANDB_SILENT"] = "true"
 
-wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')#offline  no login
+wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
 wandb.require("service")  # forces the new service backend
 # Optional: use thread start (very robust in multiprocess settings)
 settings = wandb.Settings(start_method="thread")
@@ -39,7 +40,9 @@ os.environ["WANDB__SERVICE_WAIT"] = "3000"
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
-sys.path.append('/home/zs/code/sim')
+sys.path.append('/home/ke/code/catk')
+sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
+sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
 sys.path.append('/home/ke/keguo/sim')
 sys.path.append('/home/guoke/sim')
@@ -77,7 +80,6 @@ torch.set_float32_matmul_precision("highest")# #“highest” (default),
 #h800 ==4090 highest
 
 
-
 def run(cfg: DictConfig) -> None:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
@@ -102,7 +104,7 @@ def run(cfg: DictConfig) -> None:
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks,# logger=logger
+        cfg.trainer, callbacks=callbacks, logger=logger
     )
 
     log.info("Logging hyperparameters!")
@@ -129,7 +131,7 @@ def run(cfg: DictConfig) -> None:
                 model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
                 if model.bc_map_net is not None:
                     model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule)
+        trainer.fit(model=model, datamodule=datamodule)#
     elif cfg.action == "validate":
         log.info("Starting validating!")
         trainer.validate(
@@ -157,5 +159,3 @@ def main(cfg: DictConfig) -> None:
 if __name__ == "__main__":
     main()
     log.info("run.py DONE!!!")
-
-

@@ -17,6 +17,7 @@ from src.smart.gan.discriminator import InitDiscriminator
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
     get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
 from .scale_flow import ScaleFlow
+from src.smart.diffusion.dit.autoencoder import AutoEncoder
 
 
 class InitDiffusion(nn.Module):
@@ -29,21 +30,26 @@ class InitDiffusion(nn.Module):
         ) -> None:
         super(InitDiffusion, self).__init__()
 
-        self.latent_diffusion=False
         self.use_gan = False
-        self.use_dit=False
         self.sep_map=False
         self.use_all_pos=token_processor.use_all_pos
 
         parser = ArgumentParser()
         self.add_model_specific_args(parser)
         args = parser.parse_args()
+
+        self.latent_diffusion=True
+        self.learn_autoencoder = True
+
+        if self.latent_diffusion:
+
+            self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=hidden_dim,latent_dim=8,num_heads=8)
+
         self.G = ScaleFlow(args,token_processor)
 
         self.use_gail=False
 
         if self.use_gail or self.use_gan:
-            # self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -157,7 +163,11 @@ class InitDiffusion(nn.Module):
         if self.training:
             diff_input,m_init=self.G.net.get_input(tokenized_agent)
 
-            loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
+            if self.learn_autoencoder:
+                rec_loss,agent_loss,kl_loss,pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
+                return rec_loss,agent_loss,kl_loss
+            else:
+                loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
@@ -239,7 +249,12 @@ class InitDiffusion(nn.Module):
 
             return loss
         else:
-            pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
+            if self.learn_autoencoder:
+                diff_input, m_init = self.G.net.get_input(tokenized_agent)
+
+                rec_loss,agent_loss,kl_loss,pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
+            else:
+                pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent

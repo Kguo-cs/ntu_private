@@ -962,3 +962,19 @@ Lane metrics:  ['route_length_mean: 37.44', 'route_length_std: 11.46', 'endpoint
 Agent metrics:  ['nearest_dist_jsd: 0.03', 'lat_dev_jsd: 0.01', 'ang_dev_jsd: 0.08', 'length_jsd: 0.19', 'width_jsd: 0.18', 'speed_jsd: 0.42', 'collision_rate: 3.27']
 
 
+| **Simulator** | **Other Agent Beh** | **Test Env** | **ARL** | **CR**  | **OR**  | **SR**  |
+|---------------|---------------------|--------------|---------|---------|---------|---------|
+|   GPUDrive    | Log Replay          |  Waymo Test  |   55m   |   7.6   |  5.6    |  87.2   |
+|     SD        | Log Replay          |  Waymo Test  |   55m   |   7.6   |  3.6    |  88.0   |
+|     SD        | CtRL-Sim (Pos Tilt) |  Waymo Test  |   55m   |   6.8   |  3.2    |  87.6   |
+|     SD        | CtRL-Sim (Pos Tilt) |  SD (55m)    |   55m   |   7.6   |  8.4    |  82.8   |
+|     SD        | CtRL-Sim (Pos Tilt) |  SD (100m)   |   100m  |   24.0  |  12.0   |  64.0   |
+|     SD        | CtRL-Sim (Neg Tilt) |  SD (100m)   |   100m  |   27.2  |  12.4   |  60.8   |
+
+
+waymo_ctrl_sim: ['collision rate: 0.064000', 'off route rate: 0.036000', 'completed rate: 0.880000', 'progress: 51.515058']
+
+
+waymo_log_replay:  ['collision rate: 0.056000', 'off route rate: 0.044000', 'completed rate: 0.888000', 'progress: 51.418655']
+
+scenario_dreamer_100m_adv ['collision rate: 0.244000', 'off route rate: 0.108000', 'completed rate: 0.648000', 'progress: 81.717712']

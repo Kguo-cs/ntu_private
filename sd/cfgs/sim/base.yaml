@@ -6,7 +6,7 @@ policy: idm # or rl (policy being evaluated)
 rl_model_path: ${project_root}/metadata/gpudrive_checkpoint # path to the RL model
 rl_model_name: pretrained # name of the RL model
 polyline_reduction_threshold: 0.1 # from gpudrive 
-visualize: True # create videos of the simulation?
+visualize: False # create videos of the simulation?
 lightweight: False # lightweight visualization (runs faster, less dpi and lower frame rate)
 movie_path: ${project_root}/movies # path to save visualization movies
 verbose: True # report metrics after each simulation?
