@@ -1,4 +1,9 @@
 import hydra
+import os
+os.environ["PROJECT_ROOT"] = '/home/ke/code/sim/sd'
+
+if 'sd' not in os.environ["PROJECT_ROOT"]:
+    os.environ["PROJECT_ROOT"] = os.getcwd()+'/sd'
 from simulator import Simulator
 from policies.idm_policy import IDMPolicy
 from policies.rl_policy import RLPolicy

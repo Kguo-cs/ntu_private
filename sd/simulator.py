@@ -62,7 +62,7 @@ class Simulator:
         self.behaviour_model = CtRLSimBehaviourModel(
             mode=self.mode, # if mode == waymo_log_replay, class only used for computing metrics
             model_path=self.cfg.sim.behaviour_model.model_path,
-            model=CtRLSim.load_from_checkpoint(self.cfg.sim.behaviour_model.model_path).to('cuda'),
+            model=CtRLSim.load_from_checkpoint(self.cfg.sim.behaviour_model.model_path,weights_only=False).to('cuda'),
             dset=self.ctrl_sim_dset,
             use_rtg=self.cfg.sim.behaviour_model.use_rtg, 
             predict_rtgs=self.cfg.sim.behaviour_model.predict_rtgs,

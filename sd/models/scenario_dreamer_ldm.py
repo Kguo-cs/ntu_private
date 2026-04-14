@@ -718,7 +718,7 @@ class ScenarioDreamerLDM(pl.LightningModule):
     #     return [optimizer], [lr_scheduler]
 
     #
-    #  ### Taken largely from QCNet repository: https://github.com/ZikangZhou/QCNet
+     ### Taken largely from QCNet repository: https://github.com/ZikangZhou/QCNet
     def configure_optimizers(self):
         """ Configure the optimizer and learning rate scheduler for the model."""
         decay = set()
@@ -752,7 +752,7 @@ class ScenarioDreamerLDM(pl.LightningModule):
             {"params": [param_dict[param_name] for param_name in sorted(list(no_decay))],
              "weight_decay": 0.0},
         ]
-        optimizer = torch.optim.AdamW(optim_groups, lr=self.cfg.train.lr, weight_decay=self.cfg.train.weight_decay, betas=(self.cfg.train.beta_1, self.cfg.train.beta_2), eps=self.cfg.train.epsilon)
+        optimizer = torch.optim.AdamW(optim_groups, lr=5e-4, weight_decay=self.cfg.train.weight_decay, betas=(self.cfg.train.beta_1, self.cfg.train.beta_2), eps=self.cfg.train.epsilon)
 
         if self.cfg.train.lr_schedule == 'cosine':
             scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=create_lambda_lr_cosine(self.cfg))

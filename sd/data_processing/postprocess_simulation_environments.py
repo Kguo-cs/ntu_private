@@ -3,7 +3,13 @@ import pickle
 from tqdm import tqdm
 import numpy as np
 import hydra
+import os
 
+
+os.environ["PROJECT_ROOT"] = '/home/ke/code/sim/sd'
+
+if 'sd' not in os.environ["PROJECT_ROOT"]:
+    os.environ["PROJECT_ROOT"] = os.getcwd()+'/sd'
 from sd.utils.sim_env_helpers import postprocess_sim_env
 from sd.cfgs.config import CONFIG_PATH
 
