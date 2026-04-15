@@ -20,6 +20,24 @@ from src.smart.utils import (
 )
 from src.smart.layers import MLPLayer
 
+
+def _scene_mean(values: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
+    """Compute mean over scenes given node-wise values and batch indices."""
+    if values.numel() == 0:
+        return values.new_tensor(0.0)
+    if batch.numel() == 0:
+        return values.mean()
+    B = int(batch.max().item()) + 1
+    per_scene = []
+    for b in range(B):
+        mask = batch == b
+        if mask.any():
+            per_scene.append(values[mask].mean())
+    if len(per_scene) == 0:
+        return values.mean()
+    return torch.stack(per_scene).mean()
+
+
 def sinusoidal_embedding(position, D):
     """
     Create sinusoidal positional embeddings for positions 1 to N
@@ -375,10 +393,25 @@ class AutoEncoder(nn.Module):
 
         scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
 
-        # x_agent=x_agent/scale
+        pred_static=agent_states_pred/scale
+        gt_static=x_agent/scale
+
+        # - New: static 7D internal display pair (x,y) weighted -
+        static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
+        # Location error for each agent (x,y)
+        pos_err = static_abs[:, 0:2].mean(dim=1)              # (Na,)
+        # Average error of the remaining 5 dimensions
+        other_err = static_abs[:, 2:].mean(dim=1)             # (Na,)
+
+        static_err_weighted = (
+            3    * pos_err +
+            1 * other_err
+        )  # (Na,)
+
+        agent_loss = _scene_mean(static_err_weighted, batch)
 
         # agent vector regression loss
-        agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#=
+       # agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#=
 
         #agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
