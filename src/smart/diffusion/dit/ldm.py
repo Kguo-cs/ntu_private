@@ -15,7 +15,7 @@ class LDM(nn.Module):
         super(LDM, self).__init__()
         hidden_dim=512
 
-        self.net = DiT(hidden_dim)
+        self.model = DiT(hidden_dim)
         self.ego_embedding1 = MLPLayer(19, hidden_dim, hidden_dim)
         self.lane_embed= nn.Linear(128+4, hidden_dim)
 
@@ -79,9 +79,9 @@ class LDM(nn.Module):
     def p_mean_variance(self, x_agent, x_lane, data, t_agent, t_lane):
         """ Predict the mean and log variance of the posterior distribution p(x_{t-1} | x_t, x_0)."""
         # noise prediction
-        conditional_epsilon_agent = self.net(x_agent, x_lane, data, t_agent, t_lane,
+        conditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
                                                                          unconditional=False)
-        unconditional_epsilon_agent = self.net(x_agent, x_lane, data, t_agent, t_lane,
+        unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
                                                                              unconditional=True)
         # # classifier-free guidance
         epsilon_agent = unconditional_epsilon_agent + 4.0 * (
@@ -287,7 +287,7 @@ class LDM(nn.Module):
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
 
-        agent_noise_pred = self.net(x_agent_noisy, x_lane, data, t_agent,t_lane)
+        agent_noise_pred = self.model(x_agent_noisy, x_lane, data, t_agent,t_lane)
         agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
         return (agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss),agent_noise_pred ,x_agent_noisy,t_agent
 
