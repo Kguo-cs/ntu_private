@@ -301,7 +301,7 @@ class AutoEncoder(nn.Module):
     def __init__(self, num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads):
         super(AutoEncoder, self).__init__()
 
-        hidden_dim=512
+        hidden_dim=256
         num_heads=4
 
         self.use_transformer=False

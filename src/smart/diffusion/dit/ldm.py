@@ -13,7 +13,7 @@ from src.smart.layers import MLPLayer
 class LDM(nn.Module):
     def __init__(self):
         super(LDM, self).__init__()
-        hidden_dim=256
+        hidden_dim=512
 
         self.net = DiT(hidden_dim)
         self.ego_embedding1 = MLPLayer(19, hidden_dim, hidden_dim)
