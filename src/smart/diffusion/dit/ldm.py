@@ -56,6 +56,10 @@ class LDM(nn.Module):
         self.lane_loss_fn = GeometricLosses[loss_type]((1, 2))
         self.agent_loss_fn = GeometricLosses[loss_type]((1))#((1, 2))
 
+        self.register_buffer("normal_mean", torch.zeros(1, 8))
+        self.register_buffer("normal_scale", torch.ones(1, 8))
+
+
     def predict_start_from_noise(self, x_t, t, noise):
         """ Predict the start of the diffusion chain from the noised sample x_t and noise."""
         return (
@@ -295,6 +299,12 @@ class LDM(nn.Module):
         pos_pl = initial_map_feature["position"]
         orient_pl = initial_map_feature["orientation"]
         feat_map = initial_map_feature["pt_token"]
+
+        if torch.all(self.normal_mean==0):
+            self.normal_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(x_agent, dim=0, keepdim=True))
+
+        x_agent=(x_agent-self.normal_mean)/self.normal_scale
 
         x_lane=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
 

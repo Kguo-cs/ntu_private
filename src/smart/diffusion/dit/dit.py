@@ -77,8 +77,6 @@ class DiT(nn.Module):
         # self.pred_lane_noise = FinalLayer(hidden_dim, self.cfg_model.lane_latent_dim)
         self.initialize_weights()
 
-        self.register_buffer("normal_mean", torch.zeros(1, self.agent_latent_dim))
-        self.register_buffer("normal_scale", torch.ones(1, self.agent_latent_dim))
 
 
 
@@ -109,13 +107,6 @@ class DiT(nn.Module):
         m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
 
         diff_input = m_init
-
-        if torch.all(self.normal_mean==0):
-
-            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
-            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
-
-        diff_input=(diff_input-self.normal_mean)/self.normal_scale
 
         return diff_input,m_init
 
