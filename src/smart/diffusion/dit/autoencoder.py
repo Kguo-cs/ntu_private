@@ -306,7 +306,7 @@ class AutoEncoder(nn.Module):
         if self.use_rel_ego:
             self.ego_embed = nn.Linear(9 + 3, hidden_dim)
         else:
-            self.ego_embed = nn.Linear(19, hidden_dim)
+            self.ego_embed = ResidualMLP(16 + 3, hidden_dim, hidden_dim)
 
 
     def process_input(self, tokenized_agent,initial_map_feature):
