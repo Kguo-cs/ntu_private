@@ -311,7 +311,30 @@ class AutoEncoder(nn.Module):
     def process_input(self, tokenized_agent,initial_map_feature):
         batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
-        ego_embedding = self.ego_embed(tokenized_agent["ego_embedding"])
+
+        if self.use_rel_ego:
+            ego_pose = tokenized_agent["ego_feat"][:, :-3].reshape(-1, 3, 3)
+            type_count = tokenized_agent["ego_feat"][:, -3:][batch]
+
+            all_pos = ego_pose[:, :, :2][batch]
+            all_head = ego_pose[:, :, 2][batch]
+
+            theta = torch.atan2(x_agent[:, 3], x_agent[:, 2])
+
+            pos_s = x_agent[:, :2]
+
+            local_ego_pos, local_ego_head = transform_to_local(
+                all_pos,
+                all_head,
+                pos_s,
+                theta
+            )
+
+            all_features = torch.cat([local_ego_pos.flatten(1, 2), local_ego_head, type_count], dim=-1)
+
+            ego_embedding = self.ego_embed(all_features)
+        else:
+            ego_embedding = self.ego_embed(tokenized_agent["ego_embedding"])
 
         batch_pl = initial_map_feature["batch"]
         pos_pl = initial_map_feature["position"]
@@ -352,7 +375,7 @@ class AutoEncoder(nn.Module):
         # x_agent=x_agent/scale
 
         # agent vector regression loss
-        agent_loss = self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#F.l1_loss(agent_states_pred,x_agent)#
+        agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred, x_agent/scale, batch)#
 
         #agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)

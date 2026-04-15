@@ -186,14 +186,14 @@ def train_autoencoder(cfg,cfg_ldm, save_dir=None):
                          limit_train_batches=cfg.train.limit_train_batches,
                          limit_val_batches=cfg.train.limit_val_batches,
                          gradient_clip_val=cfg.train.gradient_clip_val,
-                         logger=logger,
+                         #logger=logger,
                          num_nodes=1,
                          num_sanity_val_steps=0,
                          max_epochs=128,
                          log_every_n_steps=100
                         )
 
-    trainer.fit(model, datamodule,weights_only=False)#, ckpt_path='/home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt')
+    trainer.fit(model, datamodule,weights_only=False)#, ckpt_path='/home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt')#
 
 
 @hydra.main(version_base=None, config_path=CONFIG_PATH, config_name="config")

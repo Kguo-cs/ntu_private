@@ -379,7 +379,7 @@ def convert_data_to_unified_format(data, dataset_name):
     """ Converts the data from the dataset to a unified format for metrics computation."""
     
     # we are evaluating initial scenes, not inpainted scenes
-    assert data['lg_type'] == NON_PARTITIONED
+    #assert data['lg_type'] == NON_PARTITIONED
     
     if dataset_name == 'waymo' or dataset_name == 'waymo_gt':
         G_succ, centerlines = get_networkx_lane_graph(data)

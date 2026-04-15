@@ -11,6 +11,7 @@ from sd.utils.losses import GeometricLosses
 from sd.utils.data_container import get_batches, get_features, get_edge_indices, get_encoder_edge_indices
 from sd.utils.data_helpers import reparameterize
 from sd.cfgs.config import NON_PARTITIONED
+from sd.utils.data_helpers import unnormalize_scene
 
 class ScenarioDreamerEncoder(nn.Module):
     """Encoder of the Scenario Dreamer AutoEncoder."""
@@ -386,15 +387,49 @@ class AutoEncoder(nn.Module):
         lane_cond_dis_pred_filtered = torch.argmax(lane_cond_dis_prob[~partition_mask], dim=-1)
         lane_cond_dis_acc = (torch.abs(lane_cond_dis_pred_filtered - lane_cond_dis[~partition_mask]) <= 3).float().mean()
 
-        scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044]],device=x_agent.device)
+        #scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044]],device=x_agent.device)
 
-        agent_states_pred=agent_states_pred*scale
-        x_agent_states=x_agent_states*scale
+        x_agent_states, x_lane_states = unnormalize_scene(
+            x_agent_states,
+            x_lane_states,
+            fov=64,
+            min_speed=0,
+            max_speed=114.088,
+            min_length=-0.098,
+            max_length=22.929,
+            min_width= 0.096,
+            max_width=12.527,
+            min_lane_x=-32,
+            min_lane_y=-32,
+            max_lane_x=32,
+            max_lane_y=32)
+
+        agent_states_pred, lane_states_pred = unnormalize_scene(
+            agent_states_pred,
+            lane_states_pred,
+            fov=64,
+            min_speed=0,
+            max_speed=114.088,
+            min_length=-0.098,
+            max_length=22.929,
+            min_width=0.096,
+            max_width=12.527,
+            min_lane_x=-32,
+            min_lane_y=-32,
+            max_lane_x=32,
+            max_lane_y=32)
 
         pos_error = (agent_states_pred[:, :2] - x_agent_states[:, :2]).abs().mean()
         head_error = (agent_states_pred[:, 2:4] - x_agent_states[:, 2:4]).abs().mean()
         shape_error = (agent_states_pred[:, 4:6] - x_agent_states[:, 4:6]).abs().mean()
         vel_error = (agent_states_pred[:, 6:] - x_agent_states[:, 6:]).abs().mean()
+
+        new_data=data.clone()
+
+        new_data['agent'].x = agent_states_pred.detach()
+        new_data['lane'].x = lane_states_pred.detach()
+        new_data['agent'].type = torch.nn.functional.one_hot(agent_types_pred, num_classes=3).detach()
+        new_data['lane', 'to', 'lane'].type = lane_conn_pred.detach()
 
         loss_dict = {
             "pos_error":pos_error,
@@ -412,7 +447,7 @@ class AutoEncoder(nn.Module):
             'lane_cond_dis_acc': lane_cond_dis_acc
         }
         
-        return loss_dict
+        return loss_dict,new_data
     
     
     def forward_encoder(self, data, return_stats=False, return_lane_embeddings=False):
