@@ -408,7 +408,7 @@ class AutoEncoder(nn.Module):
             1 * other_err
         )  # (Na,)
 
-        agent_loss = _scene_mean(static_err_weighted, batch)
+        agent_loss = static_err_weighted.mean()#_scene_mean(static_err_weighted, batch)
 
         # agent vector regression loss
        # agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#=
