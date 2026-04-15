@@ -86,24 +86,28 @@ class SMART(LightningModule):
             for p in self.encoder.parameters():
                 p.requires_grad = False
 
-            for p in self.encoder.agent_encoder.parameters():
-                p.requires_grad = True
+            # for p in self.encoder.agent_encoder.parameters():
+            #     p.requires_grad = True
+            #
+            # if self.encoder.learn_dis and self.encoder.gail:
+            #     for p in self.encoder.discriminator.parameters():
+            #         p.requires_grad = True
+            #
+            if self.token_processor.learn_init:
+                if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
+                    for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
+                        p.requires_grad = True
+                else:
+                    for p in self.encoder.agent_encoder.init_decoder.G.parameters():
+                        p.requires_grad = True
 
-            if self.encoder.learn_dis and self.encoder.gail:
-                for p in self.encoder.discriminator.parameters():
-                    p.requires_grad = True
-
-            if not self.token_processor.learn_init:
-                for p in self.encoder.agent_encoder.init_decoder.parameters():
-                    p.requires_grad = False
-
-            if self.encoder.sep_map:
-                for p in self.encoder.map_encoder1.parameters():
-                    p.requires_grad = True
-
-            if self.token_processor.traj_diffusion:
-                for p in self.encoder.traj_diffuser.parameters():
-                    p.requires_grad = True
+            # if self.encoder.sep_map:
+            #     for p in self.encoder.map_encoder1.parameters():
+            #         p.requires_grad = True
+            #
+            # if self.token_processor.traj_diffusion:
+            #     for p in self.encoder.traj_diffuser.parameters():
+            #         p.requires_grad = True
 
 
         self.n_rollout_closed_val = model_config.n_rollout_closed_val

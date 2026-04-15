@@ -97,7 +97,7 @@ class ScaleFlow(nn.Module):
         )
 
         if not self.net.use_rel_ego:
-            self.ego_embedding1 = MLPLayer(16 + 3, args.hidden_dim, args.hidden_dim)
+            self.ego_embedding = MLPLayer(16 + 3, args.hidden_dim, args.hidden_dim)
 
         # self.var_sched = VarianceSchedule(
         #     num_steps=args.num_diffusion_steps,

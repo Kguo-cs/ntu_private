@@ -13,11 +13,10 @@ from src.smart.layers import MLPLayer
 class LDM(nn.Module):
     def __init__(self):
         super(LDM, self).__init__()
-        hidden_dim=512
+        hidden_dim=128
 
         self.net = DiT(hidden_dim)
-        self.pose_embedding= MLPLayer(128+2+2, hidden_dim, hidden_dim)
-        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
+        self.ego_embedding = MLPLayer(19, hidden_dim, hidden_dim)
 
         n_timesteps = 100
         betas = cosine_beta_schedule(n_timesteps)
@@ -75,7 +74,7 @@ class LDM(nn.Module):
     def p_mean_variance(self, x_agent, x_lane, data, t_agent, t_lane):
         """ Predict the mean and log variance of the posterior distribution p(x_{t-1} | x_t, x_0)."""
         # noise prediction
-        conditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
+        conditional_epsilon_agent = self.net(x_agent, x_lane, data, t_agent, t_lane,
                                                                          unconditional=False)
         # unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
         #                                                                      unconditional=True)
@@ -275,21 +274,20 @@ class LDM(nn.Module):
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
 
-        agent_noise_pred = self.model(x_agent_noisy, x_lane, data, t_agent,t_lane)
+        agent_noise_pred = self.net(x_agent_noisy, x_lane, data, t_agent,t_lane)
         agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
-        return agent_loss,agent_noise_pred,t_agent,t_agent
+        return (agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss),agent_noise_pred ,x_agent_noisy,t_agent
 
     def get_loss(self, x_agent,tokenized_agent,map_feature,non_ego):
         """ Sample diffusion timesteps for training and compute the loss for the diffusion model."""
         # batch of agent and lane latents
-        # m_init, tokenized_agent, map_feature, eval_mask = non_ego=
-        #x_agent,agent_batch,x_lane,lane_batch,batch_size
 
-        (pos_pl, orient_pl, lane_batch, x_lane)=map_feature
+        lane_batch = map_feature["batch"]
+        x_lane = map_feature["pt_token"]
 
         batch_size=tokenized_agent["num_graphs"]
-        agent_batch = tokenized_agent["batch"][non_ego].clone()
-        nonego_type_sorted = tokenized_agent["nonego_type_sorted"]
+        agent_batch = tokenized_agent["nonego_batch"]
+        nonego_type_sorted = tokenized_agent["nonego_type"]
         ego_embedding = tokenized_agent["ego_embedding"]
 
         # batch of random timesteps

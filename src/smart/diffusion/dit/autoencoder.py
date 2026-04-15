@@ -283,7 +283,7 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
 
         hidden_dim=256
-        num_heads=8
+        num_heads=4
 
         self.use_transformer=False
 
@@ -306,7 +306,7 @@ class AutoEncoder(nn.Module):
         if self.use_rel_ego:
             self.ego_embed = nn.Linear(9 + 3, hidden_dim)
         else:
-            self.ego_embed = nn.Linear(128, hidden_dim)
+            self.ego_embed = nn.Linear(19, hidden_dim)
 
 
     def process_input(self, tokenized_agent,initial_map_feature):
@@ -335,7 +335,8 @@ class AutoEncoder(nn.Module):
 
             ego_embedding = self.ego_embed(all_features)
         else:
-            ego_embedding = self.ego_embed(tokenized_agent["ego_embedding"])
+            ego_embedding = self.ego_embed(tokenized_agent["ego_feat"])
+            ego_embedding = ego_embedding[batch]
 
         batch_pl = initial_map_feature["batch"]
         pos_pl = initial_map_feature["position"]

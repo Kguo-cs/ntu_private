@@ -5,6 +5,15 @@ import numpy as np
 from .diffusion_helpers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, \
     get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP,get_indices_within_scene,weight_init
 from src.smart.diffusion.dit.autoencoder import get_edgeindex
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    rotate_to_global,
+    rotate_to_local,
+    weight_init
+)
 
 class DiT(nn.Module):
 
@@ -13,6 +22,8 @@ class DiT(nn.Module):
         # self.cfg = cfg
         # self.cfg_model = self.cfg.model
         # self.cfg_dataset = self.cfg.dataset
+
+        self.use_rel_ego=False
 
         self.agent_hidden_dim=hidden_dim
         self.dropout=0
@@ -65,6 +76,48 @@ class DiT(nn.Module):
         self.pred_agent_noise = FinalLayer(self.agent_hidden_dim, self.agent_latent_dim)
         # self.pred_lane_noise = FinalLayer(hidden_dim, self.cfg_model.lane_latent_dim)
         self.initialize_weights()
+
+        self.register_buffer("normal_mean", torch.zeros(1, self.agent_latent_dim))
+        self.register_buffer("normal_scale", torch.ones(1, self.agent_latent_dim))
+
+
+
+    def get_input(self,tokenized_agent):
+
+        batch_ego_pos=tokenized_agent["batch_ego_pos"]
+        batch_ego_heading=tokenized_agent["batch_ego_heading"]
+        non_ego=tokenized_agent["non_ego"]
+
+        initial_shape = tokenized_agent["initial_shape"][non_ego]
+        non_ego_pos=tokenized_agent["initial_pos"][non_ego]
+        non_ego_head=tokenized_agent["initial_heading"][non_ego]
+
+        local_pos, local_heading = transform_to_local(non_ego_pos,
+                                                      non_ego_head,
+                                                      batch_ego_pos,
+                                                      batch_ego_heading,
+                                                      )
+
+        head_cosine = torch.cat([local_heading.cos().unsqueeze(-1), local_heading.sin().unsqueeze(-1)],
+                                dim=-1)  # [0,2]
+
+        if "local_vel" in tokenized_agent.keys():
+            local_vel=tokenized_agent["local_vel"][non_ego]
+        else:
+            local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
+
+        m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
+
+        diff_input = m_init
+
+        if torch.all(self.normal_mean==0):
+
+            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+
+        diff_input=(diff_input-self.normal_mean)/self.normal_scale
+
+        return diff_input,m_init
 
     def initialize_weights(self):
         """ Custom initialization for DiT model"""

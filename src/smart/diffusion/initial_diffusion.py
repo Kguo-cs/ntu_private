@@ -46,11 +46,10 @@ class InitDiffusion(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
 
-        # if self.latent_diffusion:
-        #
-        #     self.G=LDM()
-        # else:
-        self.G = ScaleFlow(args,token_processor)
+        if self.latent_diffusion:
+            self.G=LDM()
+        else:
+            self.G = ScaleFlow(args,token_processor)
 
         self.use_gail=False
 
@@ -115,8 +114,8 @@ class InitDiffusion(nn.Module):
             ego_feat = tokenized_agent["ego_feat"]
             nonego_batch=tokenized_agent["nonego_batch"]
 
-        if not self.G.net.use_rel_ego:
-            ego_embedding=self.G.ego_embedding1(ego_feat)
+        if not self.G.net.use_rel_ego and not self.learn_autoencoder:
+            ego_embedding=self.G.ego_embedding(ego_feat)
             ego_embedding = ego_embedding[nonego_batch]
 
             tokenized_agent["ego_embedding"] = ego_embedding
@@ -188,7 +187,7 @@ class InitDiffusion(nn.Module):
             if self.use_gan:
                 return  (m_init,match_loss.mean(),initial_map_feature, tokenized_agent)
 
-            loss = (match_loss.mean(), collision_loss, pos_loss.mean(), heading_loss.mean(), shape_loss.mean(), vel_loss.mean())
+            loss = (match_loss.mean(), collision_loss.mean(), pos_loss.mean(), heading_loss.mean(), shape_loss.mean(), vel_loss.mean())
 
             return loss
         else:
