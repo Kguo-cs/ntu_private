@@ -8,7 +8,7 @@ rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/l
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/epoch=37-step=144590.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo zs@10.87.225.106:~/code/sim/sd/checkpoints/
+rsync -avz /home/ke/code/sim/src/waymo_data/epoch=35-step=136980.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
 
 rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo ke@10.87.114.128:~/keguo/sim/sd/checkpoints/
@@ -20,7 +20,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/autoenc256_map80_6040_l1_mlp3/2026-04-15_13-09-59/bc/o1arkm2z/checkpoints/epoch=37-step=144590.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/sd/lightning_logs/auto1024_gradclip05_latent_noorderPos/last.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/auto_kl01/2026-04-15_18-15-13/bc/4vk6xx5i/checkpoints/epoch=35-step=136980.ckpt ./
 
 rsync -avz -e "ssh -p 32884" /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  guoke@sprl-server9.dynip.ntu.edu.sg:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
