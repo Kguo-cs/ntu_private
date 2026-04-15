@@ -40,7 +40,7 @@ class InitDiffusion(nn.Module):
         args = parser.parse_args()
 
         self.latent_diffusion=True
-        self.learn_autoencoder = True
+        self.learn_autoencoder = False
 
         if self.learn_autoencoder or self.latent_diffusion:
 
