@@ -16,8 +16,8 @@ class LDM(nn.Module):
         hidden_dim=512
 
         self.model = DiT(hidden_dim)
-        self.ego_embedding1 = MLPLayer(19, hidden_dim, hidden_dim)
-        self.lane_embed= nn.Linear(128+4, hidden_dim)
+        self.ego_embedding= MLPLayer(19, hidden_dim, hidden_dim)
+        self.lane_embed1= nn.Linear(128+4, hidden_dim)
 
         n_timesteps = 100
         betas = cosine_beta_schedule(n_timesteps)
@@ -223,7 +223,7 @@ class LDM(nn.Module):
         orient_pl = initial_map_feature["orientation"]
         feat_map = initial_map_feature["pt_token"]
 
-        x_lane=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
+        x_lane=self.lane_embed1(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
 
         num_agents = len(agent_batch)
 
@@ -306,7 +306,7 @@ class LDM(nn.Module):
 
         x_agent=(x_agent-self.normal_mean)/self.normal_scale
 
-        x_lane=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
+        x_lane=self.lane_embed1(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
 
         batch_size=tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]

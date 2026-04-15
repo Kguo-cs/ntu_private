@@ -115,7 +115,7 @@ class InitDiffusion(nn.Module):
             nonego_batch=tokenized_agent["nonego_batch"]
 
         if not self.G.model.use_rel_ego and not self.learn_autoencoder:
-            ego_embedding=self.G.ego_embedding1(ego_feat)
+            ego_embedding=self.G.ego_embedding(ego_feat)
             ego_embedding = ego_embedding[nonego_batch]
 
             tokenized_agent["ego_embedding"] = ego_embedding
