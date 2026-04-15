@@ -393,25 +393,25 @@ class AutoEncoder(nn.Module):
 
         scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
 
-        pred_static=agent_states_pred/scale
-        gt_static=x_agent/scale
-
-        # - New: static 7D internal display pair (x,y) weighted -
-        static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
-        # Location error for each agent (x,y)
-        pos_err = static_abs[:, 0:2].mean(dim=1)              # (Na,)
-        # Average error of the remaining 5 dimensions
-        other_err = static_abs[:, 2:].mean(dim=1)             # (Na,)
-
-        static_err_weighted = (
-            3    * pos_err +
-            1 * other_err
-        )  # (Na,)
-
-        agent_loss = static_err_weighted.mean()#_scene_mean(static_err_weighted, batch)
+        # pred_static=agent_states_pred/scale
+        # gt_static=x_agent/scale
+        #
+        # # - New: static 7D internal display pair (x,y) weighted -
+        # static_abs = torch.abs(pred_static - gt_static)  # (Na, 7)
+        # # Location error for each agent (x,y)
+        # pos_err = static_abs[:, 0:2].mean(dim=1)              # (Na,)
+        # # Average error of the remaining 5 dimensions
+        # other_err = static_abs[:, 2:].mean(dim=1)             # (Na,)
+        #
+        # static_err_weighted = (
+        #     3    * pos_err +
+        #     1 * other_err
+        # )  # (Na,)
+        #
+        # agent_loss = static_err_weighted.mean()#_scene_mean(static_err_weighted, batch)
 
         # agent vector regression loss
-       # agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#=
+        agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#=
 
         #agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
