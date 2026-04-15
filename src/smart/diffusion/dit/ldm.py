@@ -17,6 +17,7 @@ class LDM(nn.Module):
 
         self.net = DiT(hidden_dim)
         self.ego_embedding = MLPLayer(19, hidden_dim, hidden_dim)
+        self.lane_embed= nn.Linear(128+4, hidden_dim)
 
         n_timesteps = 100
         betas = cosine_beta_schedule(n_timesteps)
@@ -201,26 +202,32 @@ class LDM(nn.Module):
 
     def sample(self,
                tokenized_agent,
-               map_feature,
+               initial_map_feature,
                non_ego,
-               num_samples: int,
+               num_samples: int=1,
                start_data=None,
                reverse_steps=None,
                sampling="ddpm",
                stride=20,
                if_output_diffusion_process=False,
                ):
-        (pos_pl, orient_pl, lane_batch, x_lane)=map_feature
 
         batch_size=tokenized_agent["num_graphs"]
-        agent_batch = tokenized_agent["batch"][non_ego].clone()
+        agent_batch = tokenized_agent["nonego_batch"]
+        lane_batch = initial_map_feature["batch"]
+        pos_pl = initial_map_feature["position"]
+        orient_pl = initial_map_feature["orientation"]
+        feat_map = initial_map_feature["pt_token"]
 
-        num_agents = non_ego.sum()
+        x_lane=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
 
-        device=non_ego.device
+        num_agents = len(agent_batch)
+
+        device=agent_batch.device
 
         x_agent = torch.randn([num_agents,  5+3]).to(device)
-        nonego_type_sorted = tokenized_agent["nonego_type_sorted"]
+
+        nonego_type_sorted = tokenized_agent["nonego_type"]
         ego_embedding = tokenized_agent["ego_embedding"]
 
         data=(agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding)
@@ -234,7 +241,9 @@ class LDM(nn.Module):
 
             x_agent = torch.clip(x_agent, -5, 5)
 
-        return x_agent[:,None]#[:, 0]
+        x_agent=x_agent*self.net.normal_scale+self.net.normal_mean
+
+        return x_agent,[]#[:, 0][:,None]
 
     @torch.no_grad()
     def forward(self, data, mode='initial_scene'):
@@ -278,12 +287,16 @@ class LDM(nn.Module):
         agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
         return (agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss),agent_noise_pred ,x_agent_noisy,t_agent
 
-    def get_loss(self, x_agent,tokenized_agent,map_feature,non_ego):
+    def get_loss(self, x_agent,tokenized_agent,initial_map_feature,non_ego):
         """ Sample diffusion timesteps for training and compute the loss for the diffusion model."""
         # batch of agent and lane latents
 
-        lane_batch = map_feature["batch"]
-        x_lane = map_feature["pt_token"]
+        lane_batch = initial_map_feature["batch"]
+        pos_pl = initial_map_feature["position"]
+        orient_pl = initial_map_feature["orientation"]
+        feat_map = initial_map_feature["pt_token"]
+
+        x_lane=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
 
         batch_size=tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]

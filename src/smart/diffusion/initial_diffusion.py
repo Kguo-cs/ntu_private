@@ -150,15 +150,12 @@ class InitDiffusion(nn.Module):
                                                        ego_heading[batch_pl],
                                                        )
 
-            if self.G.net.use_padding or (self.use_gan and self.D.use_entry_former):
-                initial_map_feature = self.G.net.padding(pos_pl, orient_pl, feat_map, batch_pl, tokenized_agent["num_graphs"])
-            else:
-                initial_map_feature = {
-                    "pt_token": feat_map,
-                    "position": pos_pl,
-                    "orientation": orient_pl,
-                    "batch": batch_pl,
-                }
+            initial_map_feature = {
+                "pt_token": feat_map,
+                "position": pos_pl,
+                "orientation": orient_pl,
+                "batch": batch_pl,
+            }
 
             tokenized_agent["initial_map_feature"] = initial_map_feature
         else:

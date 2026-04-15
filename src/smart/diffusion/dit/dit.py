@@ -30,9 +30,9 @@ class DiT(nn.Module):
         self.num_heads=8
         self.agent_num_heads=8
         self.num_l2l_blocks=1
-        self.num_factorized_dit_blocks=1
+        self.num_factorized_dit_blocks=2
         self.agent_latent_dim=8
-        
+
 
         self.emb_drop = nn.Dropout(self.dropout)
         # # Condition on scene type
@@ -256,3 +256,59 @@ class DiT(nn.Module):
         x_agent = self.pred_agent_noise(x_agent, c_agent)#.unsqueeze(1)
 
         return x_agent
+
+
+    def get_output(self, pred_init, tokenized_agent):
+        non_ego=tokenized_agent["non_ego"]
+        gt_initial_pos = tokenized_agent["initial_pos"].clone()
+        gt_initial_heading = tokenized_agent["initial_heading"].clone()
+
+        shape = tokenized_agent["initial_shape"].clone()
+        batch_ego_pos = tokenized_agent["batch_ego_pos"]
+        batch_ego_heading = tokenized_agent["batch_ego_heading"]
+
+        pred_trans, pred_head, pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4], pred_init[..., 4:6], \
+            pred_init[..., 6:]
+
+        pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+
+        shape[non_ego, :2] = pred_shape[:, :2]
+
+        global_pos,global_heading=transform_to_global(
+            pred_trans,
+            pred_head,
+            batch_ego_pos,
+            batch_ego_heading,
+        )
+
+        gt_initial_pos[non_ego] = global_pos
+        gt_initial_heading[non_ego] = global_heading
+
+        if "local_vel" in tokenized_agent.keys():
+            rel_vel = tokenized_agent["local_vel"].clone()
+
+            rel_vel[non_ego] = pred_vel[:, :2]
+
+            gt_initial_vel=rotate_to_global(rel_vel, gt_initial_heading)
+
+        else:
+            global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
+
+            gt_initial_vel = tokenized_agent["initial_vel"].clone()
+
+            gt_initial_vel[non_ego] = global_pred_vel
+
+            rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
+
+        use_corner = False
+
+        if use_corner:
+            center_token_traj = tokenized_agent["token_traj"].flatten(1, 2)
+        else:
+            center_token_traj = tokenized_agent["token_traj"].mean(-2)
+
+        gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)
+
+        gt_initial_pos,gt_initial_heading,gt_initial_idx=gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None]
+
+        return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
