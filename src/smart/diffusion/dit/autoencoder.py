@@ -283,7 +283,7 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
 
         hidden_dim=256
-        num_heads=8
+        num_heads=4
 
         self.use_transformer=False
 
