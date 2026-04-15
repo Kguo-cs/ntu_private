@@ -283,6 +283,7 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
 
         hidden_dim=256
+        num_heads=8
 
         self.use_transformer=False
 
@@ -375,7 +376,7 @@ class AutoEncoder(nn.Module):
         # x_agent=x_agent/scale
 
         # agent vector regression loss
-        agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred, x_agent/scale, batch)#
+        agent_loss =self.agent_loss_fn(agent_states_pred, x_agent/scale, batch)#= F.l1_loss(agent_states_pred/scale,x_agent/scale)#
 
         #agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
