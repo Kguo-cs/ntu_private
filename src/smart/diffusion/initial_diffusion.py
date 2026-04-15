@@ -40,7 +40,7 @@ class InitDiffusion(nn.Module):
         args = parser.parse_args()
 
         self.latent_diffusion=True
-        self.learn_autoencoder = False
+        self.learn_autoencoder = True
 
         if self.learn_autoencoder or self.latent_diffusion:
 
@@ -115,7 +115,7 @@ class InitDiffusion(nn.Module):
             nonego_batch=tokenized_agent["nonego_batch"]
 
         if not self.G.net.use_rel_ego and not self.learn_autoencoder:
-            ego_embedding=self.G.ego_embedding(ego_feat)
+            ego_embedding=self.G.ego_embedding1(ego_feat)
             ego_embedding = ego_embedding[nonego_batch]
 
             tokenized_agent["ego_embedding"] = ego_embedding

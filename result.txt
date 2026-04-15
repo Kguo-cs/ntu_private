@@ -978,3 +978,17 @@ waymo_ctrl_sim: ['collision rate: 0.064000', 'off route rate: 0.036000', 'comple
 waymo_log_replay:  ['collision rate: 0.056000', 'off route rate: 0.044000', 'completed rate: 0.888000', 'progress: 51.418655']
 
 scenario_dreamer_100m_adv ['collision rate: 0.244000', 'off route rate: 0.108000', 'completed rate: 0.648000', 'progress: 81.717712']
+
+
+#autoencoder
+    # Lane
+    # metrics: ['route_length_mean: 47.09', 'route_length_std: 41.18', 'endpoint_dist_mean: 30.21',
+    #           'endpoint_dist_std: 18.18', 'frechet_connectivity: 0.07', 'frechet_density: 1.67', 'frechet_reach: 0.05',
+    #           'frechet_convenience: 1.33']
+    # Agent
+    # metrics: ['nearest_dist_jsd: 0.08', 'lat_dev_jsd: 0.10', 'ang_dev_jsd: 1.44', 'length_jsd: 1.06', 'width_jsd: 0.25',
+    #           'speed_jsd: 0.94', 'collision_rate: 2.13']
+
+ #gt
+Lane metrics:  ['route_length_mean: 47.53', 'route_length_std: 43.46', 'endpoint_dist_mean: 30.21', 'endpoint_dist_std: 18.18', 'frechet_connectivity: 0.07', 'frechet_density: 1.66', 'frechet_reach: 0.05', 'frechet_convenience: 1.33']
+Agent metrics:  ['nearest_dist_jsd: 0.06', 'lat_dev_jsd: 0.04', 'ang_dev_jsd: 1.56', 'length_jsd: 1.04', 'width_jsd: 0.25', 'speed_jsd: 0.96', 'collision_rate: 0.10']

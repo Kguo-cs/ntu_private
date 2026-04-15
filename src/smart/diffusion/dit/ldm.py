@@ -13,10 +13,10 @@ from src.smart.layers import MLPLayer
 class LDM(nn.Module):
     def __init__(self):
         super(LDM, self).__init__()
-        hidden_dim=128
+        hidden_dim=256
 
         self.net = DiT(hidden_dim)
-        self.ego_embedding = MLPLayer(19, hidden_dim, hidden_dim)
+        self.ego_embedding1 = MLPLayer(19, hidden_dim, hidden_dim)
         self.lane_embed= nn.Linear(128+4, hidden_dim)
 
         n_timesteps = 100
@@ -245,7 +245,7 @@ class LDM(nn.Module):
 
             x_agent = torch.clip(x_agent, -5, 5)
 
-        x_agent=x_agent*self.net.normal_scale+self.net.normal_mean
+        x_agent=x_agent*self.normal_scale+self.normal_mean
 
         return x_agent,[]#[:, 0][:,None]
 

@@ -417,7 +417,7 @@ class AutoEncoder(nn.Module):
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        loss = agent_loss +1e-2 * kl_loss
+        loss = agent_loss +1e-1 * kl_loss
 
         # agent_states_pred=agent_states_pred* scale
         # x_agent=x_agent* scale

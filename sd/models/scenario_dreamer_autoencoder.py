@@ -209,14 +209,6 @@ class ScenarioDreamerAutoEncoder(pl.LightningModule):
 
         return loss_dict['loss']
 
-    # Lane
-    # metrics: ['route_length_mean: 47.09', 'route_length_std: 41.18', 'endpoint_dist_mean: 30.21',
-    #           'endpoint_dist_std: 18.18', 'frechet_connectivity: 0.07', 'frechet_density: 1.67', 'frechet_reach: 0.05',
-    #           'frechet_convenience: 1.33']
-    # Agent
-    # metrics: ['nearest_dist_jsd: 0.08', 'lat_dev_jsd: 0.10', 'ang_dev_jsd: 1.44', 'length_jsd: 1.06', 'width_jsd: 0.25',
-    #           'speed_jsd: 0.94', 'collision_rate: 2.13']
-
     def compute_metrics(self):
         """Compute metrics given the generated samples and the ground truth samples."""
         #sample_paths = [os.path.join(self.samples_path, file) for file in os.listdir(self.samples_path)]

@@ -426,10 +426,10 @@ class AutoEncoder(nn.Module):
 
         new_data=data.clone()
 
-        new_data['agent'].x = agent_states_pred.detach()
-        new_data['lane'].x = lane_states_pred.detach()
-        new_data['agent'].type = torch.nn.functional.one_hot(agent_types_pred, num_classes=3).detach()
-        new_data['lane', 'to', 'lane'].type = lane_conn_pred.detach()
+        new_data['agent'].x = x_agent_states.detach()
+        new_data['lane'].x = x_lane_states.detach()
+        new_data['agent'].type =x_agent_types #torch.nn.functional.one_hot(agent_types_pred, num_classes=3).detach()
+        new_data['lane', 'to', 'lane'].type = x_lane_conn.detach()
 
         loss_dict = {
             "pos_error":pos_error,
