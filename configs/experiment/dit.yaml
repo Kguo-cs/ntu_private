@@ -39,12 +39,13 @@ model:
 
 #ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 
-ckpt_path: './waymo_data/auto_l1_mlp3mean_epoch=63-step=243520.ckpt'
+#ckpt_path: './waymo_data/auto_l1_mlp3mean_epoch=63-step=243520.ckpt'
+ckpt_path: './logs/autoenc_map80_6040_l1/2026-04-15_13-53-55/bc/4fc368q6/checkpoints/epoch=63-step=243520.ckpt'
 
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
 
-task_name: dit512_l1_mlp3mean_clip_lane2 #_cfg #autoenc_map80_6040_l1 #dit512_ep51_cfg #autoenc_map80_6040_l1_mlp3mean #l2l #_norel_scaleloss60_l2l #dit256_l3_egotraj3_nosde_eps001 #_nomatch_vel #maskrunmean3_105drop01
+task_name: dit512_l1_clip_lane2 #_mlp3mean_cfg #autoenc_map80_6040_l1 #dit512_ep51_cfg #autoenc_map80_6040_l1_mlp3mean #l2l #_norel_scaleloss60_l2l #dit256_l3_egotraj3_nosde_eps001 #_nomatch_vel #maskrunmean3_105drop01
 
 trainer:
   limit_train_batches: 1.0
