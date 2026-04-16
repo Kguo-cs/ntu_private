@@ -236,6 +236,9 @@ class InitDenoiser(nn.Module):
 
         self.use_noise=False
 
+
+        self.lane_embed=MLPLayer(128+4,hidden_dim,hidden_dim)
+
         if self.use_noise:
             self.denoising_steps= 20
             self.ft_denoising_steps= 10
@@ -604,6 +607,9 @@ class InitDenoiser(nn.Module):
                         pos_pl = map_feature["position"]
                         orient_pl = map_feature["orientation"]
                         feat_map = map_feature["pt_token"]
+
+                        feat_map = self.lane_embed(
+                            torch.cat([feat_map, pos_pl, orient_pl.cos()[:, None], orient_pl.sin()[:, None]], dim=-1))
 
                         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
