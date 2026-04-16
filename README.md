@@ -4,7 +4,7 @@ nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
 rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.98:~/code/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt ke@10.87.114.128:~/keguo/sim/sd/checkpoints/scenario_dreamer_autoencoder_waymo
+rsync -avz /home/ke/code/sim/src/waymo_data/epoch=47-step=182640.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/epoch=37-step=144590.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
