@@ -16,7 +16,7 @@ class LDM(nn.Module):
         hidden_dim=512
 
         self.model = DiT(hidden_dim)
-        self.ego_embedding= MLPLayer(19, hidden_dim, hidden_dim)
+        self.ego_embedding1= MLPLayer(19, hidden_dim, hidden_dim)
         self.lane_embed1= nn.Linear(128+4, hidden_dim)
 
         n_timesteps = 100
