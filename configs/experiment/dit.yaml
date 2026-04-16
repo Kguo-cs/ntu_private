@@ -44,7 +44,7 @@ ckpt_path: './waymo_data/auto_l1_mlp3mean_epoch=63-step=243520.ckpt'
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
 
-task_name: dit512_auto_l1_mlp3mean #_cfg #autoenc_map80_6040_l1 #dit512_ep51_cfg #autoenc_map80_6040_l1_mlp3mean #l2l #_norel_scaleloss60_l2l #dit256_l3_egotraj3_nosde_eps001 #_nomatch_vel #maskrunmean3_105drop01
+task_name: dit512_l1_mlp3mean_clip_lane2 #_cfg #autoenc_map80_6040_l1 #dit512_ep51_cfg #autoenc_map80_6040_l1_mlp3mean #l2l #_norel_scaleloss60_l2l #dit256_l3_egotraj3_nosde_eps001 #_nomatch_vel #maskrunmean3_105drop01
 
 trainer:
   limit_train_batches: 1.0
@@ -53,7 +53,7 @@ trainer:
   #val_check_interval: 0.1
  # val_check_interval: 0.0000002
   max_epochs: 64
-  gradient_clip_val: 0.0
+  #gradient_clip_val: 0.0
 
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint

@@ -169,13 +169,7 @@ class InitDiffusion(nn.Module):
             else:
                 if self.latent_diffusion:
                     with torch.no_grad():
-                        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.autoencoder.process_input(
-                             tokenized_agent, initial_map_feature)
-
-                        diff_input = self.autoencoder.forward_encoder(diff_input, tokenized_agent["nonego_type"], initial_map_feature["position"],
-                                                          lane_embeddings, ego_embedding,
-                                                          a2a_edge_index, l2a_edge_index,
-                                                          l2l_edge_index, pos_idx)[0]
+                        diff_input = self.autoencoder.forward_encoder(diff_input,tokenized_agent,initial_map_feature)[0]
 
                 loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
@@ -194,6 +188,10 @@ class InitDiffusion(nn.Module):
                 pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
                 pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
+
+                # diff_input, m_init = self.G.model.get_input(tokenized_agent)
+                #
+                # pred_init = self.autoencoder.forward_encoder(diff_input, tokenized_agent, initial_map_feature)[0]
 
                 if self.latent_diffusion:
                     pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)

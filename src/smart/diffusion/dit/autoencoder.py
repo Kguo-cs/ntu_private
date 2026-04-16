@@ -374,12 +374,9 @@ class AutoEncoder(nn.Module):
 
     def loss(self, x_agent, tokenized_agent,initial_map_feature):
         agent_types=tokenized_agent["nonego_type"]
-        pos_pl = initial_map_feature["position"]
         batch=tokenized_agent["nonego_batch"]
 
-        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx=self.process_input(tokenized_agent,initial_map_feature)
-
-        agent_latents,agent_mu, agent_log_var=self.forward_encoder(x_agent,agent_types,pos_pl, lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx)
+        agent_latents,agent_mu, agent_log_var,a2a_edge_index, l2a_edge_index, l2l_edge_index,pos_idx,ego_embedding,lane_embeddings=self.forward_encoder(x_agent,tokenized_agent,initial_map_feature)
 
         agent_states_pred = self.decoder(
             agent_latents,
@@ -429,7 +426,13 @@ class AutoEncoder(nn.Module):
 
         return loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach(),pos_error,head_error,shape_error,vel_error,agent_states_pred
 
-    def forward_encoder(self,x_agent,agent_types,pos_pl, lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx):
+    def forward_encoder(self,x_agent,tokenized_agent,initial_map_feature):
+
+
+        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx=self.process_input(tokenized_agent,initial_map_feature)
+
+        pos_pl=initial_map_feature["position"]
+        agent_types=tokenized_agent["nonego_type"]
 
         lane_conn_embeddings =None
 
@@ -437,11 +440,11 @@ class AutoEncoder(nn.Module):
 
         a2a_dist=torch.norm(pos_agent[a2a_edge_index[0]]-pos_agent[a2a_edge_index[1]],dim=-1)
 
-        a2a_edge_index=a2a_edge_index[:,a2a_dist<60]
+        a2a_edge_index1=a2a_edge_index[:,a2a_dist<60]
 
         a2l_dist=torch.norm(pos_agent[l2a_edge_index[1]-len(pos_pl)]-pos_pl[l2a_edge_index[0]],dim=-1)
 
-        l2a_edge_index=l2a_edge_index[:,a2l_dist<40]
+        l2a_edge_index1=l2a_edge_index[:,a2l_dist<40]
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
@@ -450,14 +453,14 @@ class AutoEncoder(nn.Module):
             ego_embedding,
             lane_embeddings,
             lane_conn_embeddings,
-            a2a_edge_index,
-            l2a_edge_index,
+            a2a_edge_index1,
+            l2a_edge_index1,
             l2l_edge_index,
             )
 
         agent_latents = reparameterize(agent_mu, agent_log_var)
 
-        return agent_latents,agent_mu, agent_log_var
+        return agent_latents,agent_mu, agent_log_var,a2a_edge_index, l2a_edge_index, l2l_edge_index,pos_idx,ego_embedding,lane_embeddings
 
     def forward_decoder(self, agent_latents, tokenized_agent, initial_map_feature):
 
