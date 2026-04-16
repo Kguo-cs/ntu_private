@@ -459,9 +459,12 @@ class AutoEncoder(nn.Module):
 
         return agent_latents,agent_mu, agent_log_var
 
-    def forward_decoder(self, agent_latents, agent_types,num_graphs, ego_embedding,lane_embeddings,batch, batch_pl):
+    def forward_decoder(self, agent_latents, tokenized_agent, initial_map_feature):
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
+        lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.process_input(
+            tokenized_agent, initial_map_feature)
+
+        agent_types=tokenized_agent["nonego_type"]
 
         agent_states_pred = self.decoder(
             agent_latents,

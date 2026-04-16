@@ -81,14 +81,14 @@ class LDM(nn.Module):
         # noise prediction
         conditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
                                                                          unconditional=False)
-        unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
-                                                                             unconditional=True)
-        # # classifier-free guidance
-        epsilon_agent = unconditional_epsilon_agent + 4.0 * (
-                    conditional_epsilon_agent - unconditional_epsilon_agent)
+        # unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
+        #                                                                      unconditional=True)
+        # # # classifier-free guidance
+        # epsilon_agent = unconditional_epsilon_agent + 4.0 * (
+        #             conditional_epsilon_agent - unconditional_epsilon_agent)
         # epsilon_lane = unconditional_epsilon_lane + 4.0 * (
         #             conditional_epsilon_lane - unconditional_epsilon_lane)
-        # epsilon_agent=conditional_epsilon_agent
+        epsilon_agent=conditional_epsilon_agent
 
         t_agent = t_agent.detach().to(torch.int64)
         #t_lane = t_lane.detach().to(torch.int64)
@@ -129,80 +129,80 @@ class LDM(nn.Module):
         #     model_log_variance_lane).exp().sqrt() * noise_lane * self.lane_sampling_temperature
         #
         return next_x_agent#, next_x_lane
-
-    @torch.no_grad()
-    def p_sample_loop(
-            self,
-            agent_shape,
-            lane_shape,
-            data,
-            device='cuda',
-            mode='initial_scene',
-            return_diffusion_chain=False):
-        """ Generate a batch of samples from the diffusion model."""
-
-        agent_batch = data['agent'].batch
-        lane_batch = data['lane'].batch
-        batch_size = data.batch_size
-
-        x_agent = torch.randn(agent_shape, device=device)
-        # conditional generation on existing lane latents
-        if mode == 'lane_conditioned':
-            x_lane = data['lane'].latents[:, np.newaxis, :].to(device)
-        # jointly generate lane and agent latents
-        else:
-            x_lane = torch.randn(lane_shape, device=device) * self.lane_sampling_temperature
-
-        # for sample visualizations during training, we can condition on the noiseless latents
-        # before the partition to visualize inpainting performance.
-        if mode == 'train':
-            agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
-            x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1)
-            lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
-            x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1)
-
-        if mode == 'inpainting':
-            cond_lane_mask = data['lane'].mask
-            x_lane[cond_lane_mask] = data['lane'].latents[cond_lane_mask].unsqueeze(1)
-            cond_agent_mask = data['agent'].mask
-            x_agent[cond_agent_mask] = data['agent'].latents[cond_agent_mask].unsqueeze(1)
-
-        # useful for cool visuals :)
-        if return_diffusion_chain: diffusion_chain = [(x_agent, x_lane)]
-
-        # simulate reverse diffusion chain
-        for i in reversed(range(0, self.n_timesteps)):
-            timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
-            t_agent = timesteps[agent_batch]
-            t_lane = timesteps[lane_batch]
-
-            x_agent, x_lane = self.p_sample(x_agent, x_lane, data, t_agent, t_lane)
-
-            x_agent = torch.clip(x_agent, -5, 5)
-            if mode == 'lane_conditioned':
-                x_lane = data['lane'].latents[:, np.newaxis, :].to(device)
-            else:
-                # clip outputs to avoid degenerate samples
-                x_lane = torch.clip(x_lane, -5, 5)
-
-            if mode == 'inpainting':
-                cond_lane_mask = data['lane'].mask
-                x_lane[cond_lane_mask] = data['lane'].latents[cond_lane_mask].unsqueeze(1)
-                cond_agent_mask = data['agent'].mask
-                x_agent[cond_agent_mask] = data['agent'].latents[cond_agent_mask].unsqueeze(1)
-
-            if mode == 'train':
-                agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
-                x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1)
-                lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
-                x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1)
-
-            if return_diffusion_chain: diffusion_chain.append((x_agent, x_lane))
-
-        if return_diffusion_chain:
-            return x_agent[:, 0], x_lane[:, 0], diffusion_chain
-        else:
-            return x_agent[:, 0], x_lane[:, 0]
+    #
+    # @torch.no_grad()
+    # def p_sample_loop(
+    #         self,
+    #         agent_shape,
+    #         lane_shape,
+    #         data,
+    #         device='cuda',
+    #         mode='initial_scene',
+    #         return_diffusion_chain=False):
+    #     """ Generate a batch of samples from the diffusion model."""
+    #
+    #     agent_batch = data['agent'].batch
+    #     lane_batch = data['lane'].batch
+    #     batch_size = data.batch_size
+    #
+    #     x_agent = torch.randn(agent_shape, device=device)
+    #     # conditional generation on existing lane latents
+    #     if mode == 'lane_conditioned':
+    #         x_lane = data['lane'].latents[:, np.newaxis, :].to(device)
+    #     # jointly generate lane and agent latents
+    #     else:
+    #         x_lane = torch.randn(lane_shape, device=device) * self.lane_sampling_temperature
+    #
+    #     # for sample visualizations during training, we can condition on the noiseless latents
+    #     # before the partition to visualize inpainting performance.
+    #     if mode == 'train':
+    #         agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
+    #         x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1)
+    #         lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
+    #         x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1)
+    #
+    #     if mode == 'inpainting':
+    #         cond_lane_mask = data['lane'].mask
+    #         x_lane[cond_lane_mask] = data['lane'].latents[cond_lane_mask].unsqueeze(1)
+    #         cond_agent_mask = data['agent'].mask
+    #         x_agent[cond_agent_mask] = data['agent'].latents[cond_agent_mask].unsqueeze(1)
+    #
+    #     # useful for cool visuals :)
+    #     if return_diffusion_chain: diffusion_chain = [(x_agent, x_lane)]
+    #
+    #     # simulate reverse diffusion chain
+    #     for i in reversed(range(0, self.n_timesteps)):
+    #         timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
+    #         t_agent = timesteps[agent_batch]
+    #         t_lane = timesteps[lane_batch]
+    #
+    #         x_agent, x_lane = self.p_sample(x_agent, x_lane, data, t_agent, t_lane)
+    #
+    #         x_agent = torch.clip(x_agent, -5, 5)
+    #         if mode == 'lane_conditioned':
+    #             x_lane = data['lane'].latents[:, np.newaxis, :].to(device)
+    #         else:
+    #             # clip outputs to avoid degenerate samples
+    #             x_lane = torch.clip(x_lane, -5, 5)
+    #
+    #         if mode == 'inpainting':
+    #             cond_lane_mask = data['lane'].mask
+    #             x_lane[cond_lane_mask] = data['lane'].latents[cond_lane_mask].unsqueeze(1)
+    #             cond_agent_mask = data['agent'].mask
+    #             x_agent[cond_agent_mask] = data['agent'].latents[cond_agent_mask].unsqueeze(1)
+    #
+    #         if mode == 'train':
+    #             agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
+    #             x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1)
+    #             lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
+    #             x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1)
+    #
+    #         if return_diffusion_chain: diffusion_chain.append((x_agent, x_lane))
+    #
+    #     if return_diffusion_chain:
+    #         return x_agent[:, 0], x_lane[:, 0], diffusion_chain
+    #     else:
+    #         return x_agent[:, 0], x_lane[:, 0]
 
     def sample(self,
                tokenized_agent,

@@ -39,7 +39,7 @@ class InitDiffusion(nn.Module):
         self.add_model_specific_args(parser)
         args = parser.parse_args()
 
-        self.learn_autoencoder = True
+        self.learn_autoencoder = False
         self.latent_diffusion=True
 
         if self.learn_autoencoder or self.latent_diffusion:
@@ -196,11 +196,7 @@ class InitDiffusion(nn.Module):
                 pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 
                 if self.latent_diffusion:
-                    lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx = self.autoencoder.process_input(
-                        tokenized_agent,initial_map_feature)
-
-                    pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent["nonego_type"],tokenized_agent["num_graphs"],
-                                                                 ego_embedding,lane_embeddings,tokenized_agent["nonego_batch"], initial_map_feature["batch"])
+                    pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.model.get_output(
                 pred_init, tokenized_agent
