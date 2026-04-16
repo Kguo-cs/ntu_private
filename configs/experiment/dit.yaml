@@ -32,19 +32,19 @@ model:
     val_open_loop: False
     finetune: true
     smart: false
-   # n_batch_wosac_metric: 0
+    n_batch_wosac_metric: 0
 #    n_vis_batch: 1
 #    n_vis_scenario: 32
 #    n_vis_rollout: 2
 
 #ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 
-ckpt_path: './waymo_data/epoch=47-step=182640.ckpt'
+ckpt_path: './waymo_data/auto_l1_mlp3mean_epoch=63-step=243520.ckpt'
 
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
 
-task_name: dit512_ep47_cfg #autoenc_map80_6040_l1 #dit512_ep51_cfg #autoenc_map80_6040_l1_mlp3mean #l2l #_norel_scaleloss60_l2l #dit256_l3_egotraj3_nosde_eps001 #_nomatch_vel #maskrunmean3_105drop01
+task_name: dit512_auto_l1_mlp3mean_cfg #autoenc_map80_6040_l1 #dit512_ep51_cfg #autoenc_map80_6040_l1_mlp3mean #l2l #_norel_scaleloss60_l2l #dit256_l3_egotraj3_nosde_eps001 #_nomatch_vel #maskrunmean3_105drop01
 
 trainer:
   limit_train_batches: 1.0
