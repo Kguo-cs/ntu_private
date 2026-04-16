@@ -388,7 +388,7 @@ class AutoEncoder(nn.Module):
             l2l_edge_index,
             l2a_edge_index)
 
-        scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
+        scale=torch.tensor([[32.000/3, 32.000/3,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
 
         # pred_static=agent_states_pred/scale
         # gt_static=x_agent/scale
