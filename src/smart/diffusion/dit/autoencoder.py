@@ -431,7 +431,7 @@ class AutoEncoder(nn.Module):
 
         lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx=self.process_input(tokenized_agent,initial_map_feature)
 
-        pos_pl=initial_map_feature["position"]
+        pos_pl=initial_map_feature["position"][::2]
         agent_types=tokenized_agent["nonego_type"]
 
         lane_conn_embeddings =None
