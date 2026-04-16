@@ -309,7 +309,7 @@ class AutoEncoder(nn.Module):
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
         self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
 
-        self.lane_embed= nn.Linear(128+4, hidden_dim)
+        self.lane_embed= MLPLayer(128+4, hidden_dim,hidden_dim)
 
         # loss functions for training variational auto.yaml
         self.agent_loss_fn = GeometricLosses['l1']()
