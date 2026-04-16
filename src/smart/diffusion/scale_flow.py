@@ -146,8 +146,6 @@ class ScaleFlow(nn.Module):
 
         self.use_sde=False
 
-        self.use_GAIL=True
-
         self.noise_level=0.7
 
         self.rationorm=False
