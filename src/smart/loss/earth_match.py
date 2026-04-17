@@ -257,8 +257,8 @@ def get_closest_sum_idx(
     all_state=False,
     use_all_type=False,
 ):
-    fake_feat = fake_state if all_state else fake_state[:, :2]
-    real_feat = real_state if all_state else real_state[:, :2]
+    fake_feat = fake_state if all_state else fake_state[:, 4:6]
+    real_feat = real_state if all_state else real_state[:, 4:6]
 
     if use_all_type:
         batch = tokenized_agent
@@ -278,11 +278,14 @@ def get_closest_sum_idx(
         idx = mask.nonzero(as_tuple=True)[0]
         if len(idx) == 0:
             continue
-
+        #
         dist = torch.cdist(real_feat[idx], fake_feat[idx])
 
         row, col = linear_sum_assignment(dist.detach().cpu().numpy())
 
+        # row=torch.arange(len(real_feat[idx]))
+        # col=torch.randperm(len(real_feat[idx]))
+        #
         real_idx_all.append(idx[row])
         fake_idx_all.append(idx[col])
 
