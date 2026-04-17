@@ -627,14 +627,6 @@ class InitDenoiser(nn.Module):
                             dis_edge_mask=None
                         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
                         
-                        # dist_t=100-beta.reshape(-1)*90
-                        #
-                        # dist_mask=dist<dist_t[edge_index_a2a[0]]
-                        #
-                        # edge_index_a2a=edge_index_a2a[:,dist_mask]
-                        #
-                        # r_a2a=r_a2a[dist_mask]
-                        
                         if batch_pl.max().item() != num_graphs - 1:
                             if "non_ego_valid" not in tokenized_agent.keys():
                                 batch = tokenized_agent["repeat_batch"]
