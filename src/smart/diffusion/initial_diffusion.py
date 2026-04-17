@@ -40,11 +40,11 @@ class InitDiffusion(nn.Module):
         args = parser.parse_args()
 
         self.learn_autoencoder = False
-        self.latent_diffusion = False
+        self.latent_diffusion = True
 
-        if self.learn_autoencoder or self.latent_diffusion:
-
-            self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
+        # if self.learn_autoencoder or self.latent_diffusion:
+        #
+        #     self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
 
         if self.latent_diffusion:
             self.G=LDM()
@@ -167,9 +167,9 @@ class InitDiffusion(nn.Module):
             if self.learn_autoencoder:
                 return self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
             else:
-                if self.latent_diffusion:
-                    with torch.no_grad():
-                        diff_input = self.autoencoder.forward_encoder(diff_input,tokenized_agent,initial_map_feature)[0]
+                # if self.latent_diffusion:
+                #     with torch.no_grad():
+                #         diff_input = self.autoencoder.forward_encoder(diff_input,tokenized_agent,initial_map_feature)[0]
 
                 loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
@@ -193,8 +193,8 @@ class InitDiffusion(nn.Module):
                 #
                 # pred_init = self.autoencoder.forward_encoder(diff_input, tokenized_agent, initial_map_feature)[0]
 
-                if self.latent_diffusion:
-                    pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)
+                # if self.latent_diffusion:
+                #     pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.model.get_output(
                 pred_init, tokenized_agent
