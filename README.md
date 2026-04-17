@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz /home/ke/code/sim/src/waymo_data/autoenc256_map80_6040_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/auto_l1_mlp3mean_epoch=63-step=243520.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/autoenc_map80_6040_pos3_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/auto_l1_mlp3mean_epoch=63-step=243520.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
@@ -16,9 +16,10 @@ rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=5-step=22830.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/autoenc256_map80_6040_l1_mlp3/2026-04-15_13-09-59/bc/o1arkm2z/checkpoints/epoch=37-step=144590.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/autoenc_map80_6040_l1_pos3/2026-04-16_14-55-34/bc/h771hil6/checkpoints/epoch=63-step=121792.ckpt ./
+
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/auto_kl01/2026-04-15_18-15-13/bc/4vk6xx5i/checkpoints/epoch=35-step=136980.ckpt ./
 
