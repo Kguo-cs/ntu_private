@@ -40,7 +40,7 @@ class InitDiffusion(nn.Module):
         args = parser.parse_args()
 
         self.learn_autoencoder = False
-        self.latent_diffusion = True
+        self.latent_diffusion = False
 
         # if self.learn_autoencoder or self.latent_diffusion:
         #
@@ -207,7 +207,7 @@ class InitDiffusion(nn.Module):
         parser = parent_parser.add_argument_group('QCNet')
         parser.add_argument('--dataset', type=str, default='argoverse_v2')
         parser.add_argument('--input_dim', type=int, default=2)
-        parser.add_argument('--hidden_dim', type=int, default=512)
+        parser.add_argument('--hidden_dim', type=int, default=256)
         parser.add_argument('--output_dim', type=int, default=2)
         parser.add_argument('--output_head', action='store_true')
         parser.add_argument('--init_timestep', type=int, default=50)
