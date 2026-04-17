@@ -136,7 +136,7 @@ class InitDiffusion(nn.Module):
                 initial_map_feature = {}
 
                 for key in map_feature.keys():
-                    initial_map_feature[key] = map_feature[key][dist < 120]
+                    initial_map_feature[key] = map_feature[key][dist < 100]
 
             batch_pl = initial_map_feature["batch"]
             pos_pl = initial_map_feature["position"]
