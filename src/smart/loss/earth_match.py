@@ -257,8 +257,8 @@ def get_closest_sum_idx(
     all_state=False,
     use_all_type=False,
 ):
-    fake_feat = fake_state if all_state else fake_state[:, 4:6]
-    real_feat = real_state if all_state else real_state[:, 4:6]
+    fake_feat = fake_state if all_state else fake_state[:, 6:8]
+    real_feat = real_state if all_state else real_state[:, 6:8]
 
     if use_all_type:
         batch = tokenized_agent
