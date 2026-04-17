@@ -304,7 +304,7 @@ class LDM(nn.Module):
 
 
         agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
-        #agent_loss=(agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss)
+        agent_loss=(agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss)
 
 
         return agent_loss,agent_noise_pred ,x_agent_noisy,t_agent
