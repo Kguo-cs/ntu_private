@@ -451,7 +451,7 @@ class AutoEncoder(nn.Module):
 
         a2a_dist=torch.norm(pos_agent[a2a_edge_index[0]]-pos_agent[a2a_edge_index[1]],dim=-1)
 
-        a2a_edge_index1=a2a_edge_index[:,(0<a2a_dist) & (a2a_dist<60)]
+        a2a_edge_index1=a2a_edge_index[:, (a2a_dist<60)]#(0<a2a_dist) &
 
         a2l_dist=torch.norm(pos_agent[l2a_edge_index[1]-len(pos_pl)]-pos_pl[l2a_edge_index[0]],dim=-1)
 
