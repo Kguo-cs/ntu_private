@@ -376,7 +376,7 @@ class AutoEncoder(nn.Module):
         agent_types=tokenized_agent["nonego_type"]
         batch=tokenized_agent["nonego_batch"]
 
-        agent_latents,agent_mu, agent_log_var,a2a_edge_index, l2a_edge_index, l2l_edge_index,pos_idx,ego_embedding,lane_embeddings=self.forward_encoder(x_agent,tokenized_agent,initial_map_feature)
+        agent_latents,agent_mu, agent_log_var,a2a_edge_index, l2a_edge_index, l2l_edge_index,pos_idx,ego_embedding,lane_embeddings,a2a_edge_index1=self.forward_encoder(x_agent,tokenized_agent,initial_map_feature)
 
         agent_states_pred = self.decoder(
             agent_latents,
@@ -388,7 +388,7 @@ class AutoEncoder(nn.Module):
             l2l_edge_index,
             l2a_edge_index)
 
-        scale=torch.tensor([[32.000/5, 32.000/5,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
+        scale=torch.tensor([[32.000/3, 32.000/3,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
 
         # pred_static=agent_states_pred/scale
         # gt_static=x_agent/scale
@@ -414,7 +414,18 @@ class AutoEncoder(nn.Module):
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        loss = agent_loss +1e-2 * kl_loss
+        pos_agent=agent_states_pred[:,:2]
+
+        a2a_dist=torch.norm(pos_agent[a2a_edge_index1[0]]-pos_agent[a2a_edge_index1[1]],dim=-1)
+
+        radius=torch.norm(agent_states_pred[:,4:6],dim=-1)/2
+
+        rad_sum =radius[a2a_edge_index1[0]]+radius[a2a_edge_index1[1]]  # (M,M)
+
+        collision_loss = torch.relu(rad_sum  - a2a_dist).sum()/tokenized_agent["num_graphs"]#+ 0.1
+
+        loss = agent_loss +1e-2 * kl_loss+0.1*collision_loss
+
 
         # agent_states_pred=agent_states_pred* scale
         # x_agent=x_agent* scale
@@ -440,7 +451,7 @@ class AutoEncoder(nn.Module):
 
         a2a_dist=torch.norm(pos_agent[a2a_edge_index[0]]-pos_agent[a2a_edge_index[1]],dim=-1)
 
-        a2a_edge_index1=a2a_edge_index[:,a2a_dist<60]
+        a2a_edge_index1=a2a_edge_index[:,(0<a2a_dist) & (a2a_dist<60)]
 
         a2l_dist=torch.norm(pos_agent[l2a_edge_index[1]-len(pos_pl)]-pos_pl[l2a_edge_index[0]],dim=-1)
 
@@ -460,7 +471,7 @@ class AutoEncoder(nn.Module):
 
         agent_latents = reparameterize(agent_mu, agent_log_var)
 
-        return agent_latents,agent_mu, agent_log_var,a2a_edge_index, l2a_edge_index, l2l_edge_index,pos_idx,ego_embedding,lane_embeddings
+        return agent_latents,agent_mu, agent_log_var,a2a_edge_index, l2a_edge_index, l2l_edge_index,pos_idx,ego_embedding,lane_embeddings,a2a_edge_index1
 
     def forward_decoder(self, agent_latents, tokenized_agent, initial_map_feature):
 

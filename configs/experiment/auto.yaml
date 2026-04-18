@@ -45,7 +45,7 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
 
-task_name: autoenc256_map100_lane2_pos5 #dit128_map80_pos3_matchsq
+task_name: autoenc256_map100_lane2_pos3_col #dit128_map80_pos3_matchsq
 
 
 trainer:
