@@ -418,11 +418,11 @@ class AutoEncoder(nn.Module):
 
         a2a_dist=torch.norm(pos_agent[a2a_edge_index1[0]]-pos_agent[a2a_edge_index1[1]],dim=-1)
 
-        radius=torch.norm(agent_states_pred[:,4:6],dim=-1)/2
+        radius=torch.norm(x_agent[:,4:6],dim=-1)/2
 
         rad_sum =radius[a2a_edge_index1[0]]+radius[a2a_edge_index1[1]]  # (M,M)
 
-        collision_loss = torch.relu(rad_sum -0.1 - a2a_dist).sum()/tokenized_agent["num_graphs"]#+ 0.1
+        collision_loss = torch.relu(rad_sum  - a2a_dist).sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
 
         loss = agent_loss +1e-2 * kl_loss+0.1*collision_loss
 
