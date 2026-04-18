@@ -42,7 +42,7 @@ model:
 #ckpt_path: './waymo_data/autoenc256_map80_6040_epoch=63-step=121792.ckpt'
 #ckpt_path: 'logs/autoenc256_map100_lane2_pos5/2026-04-18_11-00-59/bc/5mah9442/checkpoints/epoch=63-step=121792.ckpt'
 #ckpt_path: 'logs/autoenc256_map100_lane2_pos3_col/2026-04-18_11-27-16/bc/211fp6eq/checkpoints/epoch=63-step=121792.ckpt'
-ckpt_path: '/logs/autoenc256_map100_lane2_pos3_colw/2026-04-18_06-39-27/bc/q7hr6u01/checkpoints/last.ckpt'
+ckpt_path: 'logs/autoenc256_map100_lane2_pos3_colw/2026-04-18_06-39-27/bc/q7hr6u01/checkpoints/last.ckpt'
 
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
