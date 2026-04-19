@@ -293,7 +293,7 @@ class LDM(nn.Module):
 
         x_agent_recon = self.predict_start_from_noise(x_agent_noisy, t=t_agent, noise=agent_noise_pred)
 
-        fake_state = x_agent_recon[:, 0]*self.normal_scale+self.normal_mean
+        fake_state = x_agent_recon*self.normal_scale+self.normal_mean
         agent_batch, lane_batch, batch_size, nonego_type_sorted, ego_embedding=data
 
         collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
