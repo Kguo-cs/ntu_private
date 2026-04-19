@@ -356,7 +356,7 @@ class ScaleFlow(nn.Module):
 
                     v_pred = (x_pred - z) /denom
 
-                    match_loss=F.l1_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+                    match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
 
                     fake_state=x_pred[:,0]
 
