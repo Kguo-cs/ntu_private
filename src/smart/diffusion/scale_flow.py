@@ -332,29 +332,29 @@ class ScaleFlow(nn.Module):
 
                     x_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
 
-                denom = (1 - t).clamp_min(self.t_eps)
+                denom = (1 - t).clamp_min(self.t_eps)*t
 
-                # if use_match:
-                #     match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
-                #         tokenized_agent,
-                #         x_pred[:,0],
-                #         x[:,0],
-                #         denom[:,0],
-                #         scale=self.model.normal_scale,
-                #         all_state=False,
-                #         use_col=False,
-                #         use_all_type=False,
-                #         use_match=False
-                #     )
-                # else:
-                pos_loss = heading_loss = shape_loss = vel_loss = collision_loss = torch.tensor(0.0,
-                                                                                                device=device)
+                if use_match:
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss, _ = get_matching_loss(
+                        tokenized_agent,
+                        x_pred[:,0],
+                        x[:,0],
+                        denom[:,0],
+                        scale=self.model.normal_scale,
+                        all_state=False,
+                        use_col=False,
+                        use_all_type=False,
+                        use_match=False
+                    )
+                else:
+                    pos_loss = heading_loss = shape_loss = vel_loss = collision_loss = torch.tensor(0.0,
+                                                                                                    device=device)
 
-                v_target = (x - z) /denom
+                    v_target = (x - z) /denom*t
 
-                v_pred = (x_pred - z) /denom
+                    v_pred = (x_pred - z) /denom*t
 
-                match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+                    match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
 
             else:
                 v_target =x - e
