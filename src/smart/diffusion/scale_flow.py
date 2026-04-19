@@ -335,33 +335,33 @@ class ScaleFlow(nn.Module):
                 denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)
 
                 # if use_match:
-                # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                #     tokenized_agent,
-                #     x_pred[:,0],
-                #     x[:,0],
-                #     denom[:,0],
-                #     scale=self.model.normal_scale,
-                #     all_state=False,
-                #     use_col=True,
-                #     use_all_type=False,
-                #     use_match=False
-                # )
+                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    tokenized_agent,
+                    x_pred[:,0],
+                    x[:,0],
+                    denom[:,0],
+                    scale=self.model.normal_scale,
+                    all_state=False,
+                    use_col=True,
+                    use_all_type=False,
+                    use_match=False
+                )
                 # else:
-                pos_loss = heading_loss = shape_loss = vel_loss = collision_loss = torch.tensor(0.0,
-                                                                                                device=device)
-
-                v_target = (x - z) /denom
-
-                v_pred = (x_pred - z) /denom
-
-                match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
-
-                fake_state=x_pred[:,0]
-
-                collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
-                                                                     torch.atan2(fake_state[:, 3], fake_state[:, 2]),
-                                                                     fake_state[:, 4], fake_state[:, 5],
-                                                                     tokenized_agent["nonego_batch"])
+                # pos_loss = heading_loss = shape_loss = vel_loss = collision_loss = torch.tensor(0.0,
+                #                                                                                 device=device)
+                #
+                # v_target = (x - z) /denom
+                #
+                # v_pred = (x_pred - z) /denom
+                #
+                # match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+                #
+                # fake_state=x_pred[:,0]
+                #
+                # collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
+                #                                                      torch.atan2(fake_state[:, 3], fake_state[:, 2]),
+                #                                                      fake_state[:, 4], fake_state[:, 5],
+                #                                                      tokenized_agent["nonego_batch"])
 
             else:
                 v_target =x - e

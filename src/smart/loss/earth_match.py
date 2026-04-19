@@ -288,5 +288,5 @@ def get_matching_loss(
 
     # [03:08<13:55,  3.71it/s, v_num=4e1b]
 
-    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,(col_loss).expm1()*10
+    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
