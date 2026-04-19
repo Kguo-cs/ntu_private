@@ -117,7 +117,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.model.use_all_type
 
-        self.t_eps=0.01
+        self.t_eps=0.05
 
         self.P_std=1
 
@@ -335,7 +335,7 @@ class ScaleFlow(nn.Module):
                     policy_loss=0
                     x_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
 
-                denom = (1 - t).clamp_min(self.t_eps)/t.clamp_min(self.t_eps)
+                denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)
 
                 if use_match:
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
@@ -347,7 +347,7 @@ class ScaleFlow(nn.Module):
                         all_state=False,
                         use_col=False,
                         use_all_type=False,
-                        use_match=False
+                        use_match=True
                     )
                 else:
                     pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
