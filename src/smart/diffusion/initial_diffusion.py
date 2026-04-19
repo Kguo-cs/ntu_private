@@ -46,7 +46,9 @@ class InitDiffusion(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
 
-        if self.latent_diffusion:
+        self.ldm=True
+
+        if self.ldm:
             self.G1=LDM()
         else:
             self.G1 = ScaleFlow(args,token_processor)
