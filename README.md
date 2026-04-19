@@ -21,7 +21,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/autoenc_map80_6040_l1_pos3/2026-04-16_14-55-34/bc/h771hil6/checkpoints/epoch=63-step=121792.ckpt ./
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/auto_kl01/2026-04-15_18-15-13/bc/4vk6xx5i/checkpoints/epoch=35-step=136980.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow256_map100_rellane/2026-04-19_10-03-19/bc/3gebsglj/checkpoints/epoch=11-step=22836.ckpt ./
 
 rsync -avz -e "ssh -p 32884" /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  guoke@sprl-server9.dynip.ntu.edu.sg:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
@@ -32,7 +32,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/dit256_l3_egotraj3_nosde_eps001/2026-04-03_09-50-53/bc/9g8azbcz/checkpoints/epoch=63-step=121792.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/autoenc256_map80_6040/2026-04-16_02-26-10/bc/zevsprws/checkpoints/epoch=63-step=121792.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow256_map100_rellane_t/2026-04-19_05-16-20/bc/prrg9sfg/checkpoints/epoch=15-step=30448.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 

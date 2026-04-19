@@ -145,7 +145,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=False
+        self.use_sde=True
 
         self.noise_level=0.7
 
@@ -292,8 +292,11 @@ class ScaleFlow(nn.Module):
 
                     tokenized_agent["num_graphs"] = num_graphs * n_step
 
-                    tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1,
-                                                                                                     1).flatten(0, 1)
+                    if self.model.use_rel_ego:
+                        tokenized_agent["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(n_step, 1,1).flatten(0, 1)
+                    else:
+                        tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1,
+                                                                                                         1).flatten(0, 1)
 
                     x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
@@ -306,7 +309,7 @@ class ScaleFlow(nn.Module):
                         1 - t_next_sampled,
                         -v_pred,
                         z_sampled,
-                        noise_level=torch.tensor(self.noise_level, device=device),
+                        noise_level=self.noise_level,
                         prev_sample=prev_sample
                     )
                     # scale = self.model.normal_scale[None] * self.noise_level
@@ -325,42 +328,42 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t #/sqrt_dt.mean()
 
-                    collision_loss = per_sample_policy_loss.mean()
+                    policy_loss = per_sample_policy_loss.mean()
 
                     x_pred=x_pred_all[len(z_sampled):]
                 else:
-
+                    policy_loss=0
                     x_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
 
                 denom = (1 - t).clamp_min(self.t_eps)/t.clamp_min(self.t_eps)
 
-                # if use_match:
-                # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                #     tokenized_agent,
-                #     x_pred[:,0],
-                #     x[:,0],
-                #     denom[:,0],
-                #     scale=self.model.normal_scale,
-                #     all_state=False,
-                #     use_col=True,
-                #     use_all_type=False,
-                #     use_match=False
-                # )
-                # else:
-                pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
+                if use_match:
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                        tokenized_agent,
+                        x_pred[:,0],
+                        x[:,0],
+                        denom[:,0],
+                        scale=self.model.normal_scale,
+                        all_state=False,
+                        use_col=False,
+                        use_all_type=False,
+                        use_match=False
+                    )
+                else:
+                    pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
 
-                v_target = (x - z) /denom
+                    v_target = (x - z) /denom
 
-                v_pred = (x_pred - z) /denom
+                    v_pred = (x_pred - z) /denom
 
-                match_loss=F.l1_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+                    match_loss=F.l1_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
 
-                fake_state=x_pred[:,0]
+                    fake_state=x_pred[:,0]
 
-                collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
-                                                                     torch.atan2(fake_state[:, 3], fake_state[:, 2]),
-                                                                     fake_state[:, 4], fake_state[:, 5],
-                                                                     tokenized_agent["nonego_batch"])
+                    collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
+                                                                         torch.atan2(fake_state[:, 3], fake_state[:, 2]),
+                                                                         fake_state[:, 4], fake_state[:, 5],
+                                                                         tokenized_agent["nonego_batch"])
 
             else:
                 v_target =x - e
@@ -369,7 +372,7 @@ class ScaleFlow(nn.Module):
 
                 x_pred =e+v_pred
 
-        loss=(match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
@@ -379,7 +382,7 @@ class ScaleFlow(nn.Module):
             sigma_prev,
             model_output: torch.FloatTensor,
             sample: torch.FloatTensor,
-            noise_level: float = 0.7,
+            noise_level = 0.7,
             prev_sample=None,
             sde_type: Optional[str] = 'sde',
             return_sqrt_dt: Optional[bool] = False,
@@ -487,9 +490,6 @@ class ScaleFlow(nn.Module):
                 z,
                 noise_level
             )
-            # scale = self.model.normal_scale[None]
-            #
-            # z=z+ (t_next - t_n) * v_pred+noise_level*torch.randn_like(v_pred)*scale
         else:
             z = z + (t_next - t_n) * v_pred
 
