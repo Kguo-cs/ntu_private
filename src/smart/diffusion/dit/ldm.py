@@ -291,7 +291,11 @@ class LDM(nn.Module):
 
         agent_noise_pred = self.model(x_agent_noisy, x_lane, data, t_agent,t_lane)
 
-        x_agent_recon = self.predict_start_from_noise(x_agent_noisy, t=t_agent, noise=agent_noise_pred)
+       # print(agent_noise_pred.max())
+
+        x_agent_recon = self.predict_start_from_noise(x_agent_noisy, t=t_agent, noise=agent_noise_pred).clamp_(min=-5,max=5)
+
+       # print(x_agent_recon.max())
 
         fake_state = x_agent_recon*self.normal_scale+self.normal_mean
         agent_batch, lane_batch, batch_size, nonego_type_sorted, ego_embedding=data
@@ -301,7 +305,9 @@ class LDM(nn.Module):
                                                                    fake_state[:, 4], fake_state[:, 5],
                                                                    agent_batch)
 
-        #
+
+        #print(collision_loss)
+
         # tokenized_agent={
         #     "nonego_batch":agent_batch,
         #     "nonego_type":nonego_type_sorted,
