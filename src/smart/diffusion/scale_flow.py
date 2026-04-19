@@ -332,7 +332,7 @@ class ScaleFlow(nn.Module):
 
                     x_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
 
-                denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)
+                denom = (1 - t).clamp_min(self.t_eps)/t.clamp_min(self.t_eps)
 
                 # if use_match:
                 match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
