@@ -9,7 +9,7 @@ from src.smart.diffusion.dit.autoencoder_utils import ResidualMLP, AttentionLaye
 from .dit import DiT
 
 from src.smart.layers import MLPLayer
-from src.smart.loss.earth_match import get_matching_loss
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
 
 class LDM(nn.Module):
     def __init__(self):
@@ -291,9 +291,16 @@ class LDM(nn.Module):
 
         agent_noise_pred = self.model(x_agent_noisy, x_lane, data, t_agent,t_lane)
 
-        # x_agent_recon = self.predict_start_from_noise(x_agent_noisy, t=t_agent, noise=agent_noise_pred)
-        #
-        # agent_batch, lane_batch, batch_size, nonego_type_sorted, ego_embedding=data
+        x_agent_recon = self.predict_start_from_noise(x_agent_noisy, t=t_agent, noise=agent_noise_pred)
+
+        fake_state = x_agent_recon[:, 0]*self.normal_scale+self.normal_mean
+        agent_batch, lane_batch, batch_size, nonego_type_sorted, ego_embedding=data
+
+        collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
+                                                                   torch.atan2(fake_state[:, 3], fake_state[:, 2]),
+                                                                   fake_state[:, 4], fake_state[:, 5],
+                                                                   agent_batch)
+
         #
         # tokenized_agent={
         #     "nonego_batch":agent_batch,
@@ -304,7 +311,7 @@ class LDM(nn.Module):
         #
 
         agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
-        agent_loss=(agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss)
+        agent_loss=(agent_loss,collision_loss,agent_loss,agent_loss,agent_loss,agent_loss)
 
 
         return agent_loss,agent_noise_pred ,x_agent_noisy,t_agent
