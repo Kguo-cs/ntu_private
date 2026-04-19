@@ -130,7 +130,8 @@ def compute_vehicle_circles_torch(
 def multi_circle_collision_loss_mem_efficient(
     pos, heading, length, width, batch,
     num_circles=5,
-    reduction="mean"
+    reduction="mean",
+    use_edge=True
 ):
     device = pos.device
     N = pos.shape[0]
@@ -139,31 +140,59 @@ def multi_circle_collision_loss_mem_efficient(
         pos, heading, length, width, num_circles
     )  # (N, C, 2)
 
-    # 初始化为 +inf
-    min_dist = torch.full((N, N), float("inf"), device=device)
+    same_batch = batch[:, None] == batch[None, :]
+    not_self = ~torch.eye(N, dtype=torch.bool, device=device)
+    edge_mask = same_batch & not_self
 
-    for i in range(num_circles):
-        ci = centers[:, i]           # (N, 2)
-        for j in range(num_circles):
-            cj = centers[:, j]       # (N, 2)
-            d = torch.cdist(ci, cj)  # (N, N)
-            min_dist = torch.minimum(min_dist, d)
-        # diff = ci[:, None, None, :] - centers[None, :, :, :]
-        # dist = torch.norm(diff, dim=-1)   # (N, N, C)
-        #
-        # # min over j circles
-        # min_dist = torch.minimum(min_dist, dist.amin(dim=-1))
+    if use_edge:
 
-    thresh = (width[:, None] + width[None, :]) / torch.sqrt(
-        torch.tensor(3.8, device=device)
-    )
+        start_idx, end_idx = edge_mask.nonzero(as_tuple=True)
+
+        mask = start_idx < end_idx
+        start_idx = start_idx[mask]
+        end_idx = end_idx[mask]
+
+        # Gather centers for edges
+        ci = centers[start_idx]  # (E, C, 2)
+        cj = centers[end_idx]  # (E, C, 2)
+
+        # Compute pairwise circle distances per edge
+        # (E, C, C, 2)
+        diff = ci[:, :, None, :] - cj[:, None, :, :]
+        dist = torch.norm(diff, dim=-1)  # (E, C, C)
+
+        # min over all circle pairs
+        min_dist = dist.amin(dim=(1, 2))  # (E,)
+
+        # collision threshold per edge
+        thresh = (width[start_idx] + width[end_idx]) / torch.sqrt(
+            torch.tensor(3.8, device=device)
+        )  # (E,)
+    else:
+
+        # 初始化为 +inf
+        min_dist = torch.full((N, N), float("inf"), device=device)
+
+        for i in range(num_circles):
+            ci = centers[:, i]           # (N, 2)
+            for j in range(num_circles):
+                cj = centers[:, j]       # (N, 2)
+                d = torch.cdist(ci, cj)  # (N, N)
+                min_dist = torch.minimum(min_dist, d)
+            # diff = ci[:, None, None, :] - centers[None, :, :, :]
+            # dist = torch.norm(diff, dim=-1)   # (N, N, C)
+            #
+            # # min over j circles
+            # min_dist = torch.minimum(min_dist, dist.amin(dim=-1))
+        min_dist=min_dist[edge_mask]
+
+        thresh = (width[:, None] + width[None, :]) / torch.sqrt(
+            torch.tensor(3.8, device=device)
+        )[edge_mask]
 
     penetration = thresh - min_dist
 
-    same_batch = batch[:, None] == batch[None, :]
-    not_self = ~torch.eye(N, dtype=torch.bool, device=device)
-
-    loss = torch.relu(penetration)[same_batch & not_self]
+    loss = torch.relu(penetration).expm1()*10
 
     if loss.numel() == 0:
         return torch.tensor(0.0, device=device)
