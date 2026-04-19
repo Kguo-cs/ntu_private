@@ -53,7 +53,7 @@ from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 from src.smart.layers import MLPLayer
 
-from src.smart.loss.earth_match import get_matching_loss
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
 from ..loss.earth_match import gaussian_nll
 
 
@@ -354,7 +354,14 @@ class ScaleFlow(nn.Module):
 
                 v_pred = (x_pred - z) /denom
 
-                match_loss=F.l1_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+                match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+
+                fake_state=x_pred[:,0]
+
+                collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
+                                                                     torch.atan2(fake_state[:, 3], fake_state[:, 2]),
+                                                                     fake_state[:, 4], fake_state[:, 5],
+                                                                     tokenized_agent["nonego_batch"])
 
             else:
                 v_target =x - e
