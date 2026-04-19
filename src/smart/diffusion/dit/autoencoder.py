@@ -19,6 +19,7 @@ from src.smart.utils import (
     weight_init
 )
 from src.smart.layers import MLPLayer
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
 
 
 def _scene_mean(values: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
@@ -388,7 +389,7 @@ class AutoEncoder(nn.Module):
             l2l_edge_index,
             l2a_edge_index)
 
-        scale=torch.tensor([[32.000/5, 32.000/5,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
+        scale=torch.tensor([[32.000, 32.000,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
 
         # pred_static=agent_states_pred/scale
         # gt_static=x_agent/scale
@@ -414,17 +415,22 @@ class AutoEncoder(nn.Module):
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        pos_agent=agent_states_pred[:,:2]
+        # pos_agent=agent_states_pred[:,:2]
+        #
+        # a2a_dist=torch.norm(pos_agent[a2a_edge_index1[0]]-pos_agent[a2a_edge_index1[1]],dim=-1)
+        #
+        # radius=agent_states_pred[:,4:6].amin(1)/2#torch.norm(x_agent[:,4:6],dim=-1)/2
+        #
+        # rad_sum =radius[a2a_edge_index1[0]]+radius[a2a_edge_index1[1]]  # (M,M)
+        #
+        # collision_loss = torch.relu(rad_sum  - a2a_dist).sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
 
-        a2a_dist=torch.norm(pos_agent[a2a_edge_index1[0]]-pos_agent[a2a_edge_index1[1]],dim=-1)
+        collision_loss = multi_circle_collision_loss_mem_efficient(agent_states_pred[:, :2],
+                                                                   torch.atan2(agent_states_pred[:, 3], agent_states_pred[:, 2]),
+                                                                   agent_states_pred[:, 4], agent_states_pred[:, 5],
+                                                                   tokenized_agent["nonego_batch"])
 
-        radius=agent_states_pred[:,4:6].amin(1)/2#torch.norm(x_agent[:,4:6],dim=-1)/2
-
-        rad_sum =radius[a2a_edge_index1[0]]+radius[a2a_edge_index1[1]]  # (M,M)
-
-        collision_loss = torch.relu(rad_sum  - a2a_dist).sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
-
-        loss = agent_loss +1e-2 * kl_loss+0.1*collision_loss
+        loss = agent_loss +1e-2 * kl_loss+collision_loss
 
 
         # agent_states_pred=agent_states_pred* scale
