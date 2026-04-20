@@ -302,20 +302,20 @@ class ScaleFlow(nn.Module):
                     else:
                         x_pred = x_pred_all[:len(z_sampled)]
                         #
-                        # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        #     tokenized_agent,
-                        #     x_pred[:, 0],
-                        #     x_sampled[:, 0],
-                        #     denom[:, 0],
-                        #     scale=self.model.normal_scale,
-                        #     all_state=False,
-                        #     use_col=False,
-                        #     use_all_type=False,
-                        #     use_match=False
-                        # )
-                        scale=(denom*self.model.normal_scale)
-
-                        match_loss = F.mse_loss(x_pred / scale, x_sampled / scale, reduction="none").mean(-1)[:, 0]
+                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                            tokenized_agent,
+                            x_pred[:, 0],
+                            x_sampled[:, 0],
+                            denom[:, 0],
+                            scale=self.model.normal_scale,
+                            all_state=False,
+                            use_col=False,
+                            use_all_type=False,
+                            use_match=False
+                        )
+                        # scale=(denom*self.model.normal_scale)
+                        #
+                        # match_loss = F.mse_loss(x_pred / scale, x_sampled / scale, reduction="none").mean(-1)[:, 0]
 
                         log_prob=torch.exp(match_loss.detach()-match_loss )
                         #log_prob = - match_loss
