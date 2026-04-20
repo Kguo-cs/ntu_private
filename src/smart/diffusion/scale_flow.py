@@ -325,10 +325,9 @@ class ScaleFlow(nn.Module):
                     per_sample_policy_loss = - log_prob * advantages#*std_dev_t[:,0,0]*1.73
 
                     if self.rationorm:
-                        #sqrt_dt=torch.sqrt(t_next_sampled- t_n_sampled)
                         sigma_t = std_dev_t.mean()
 
-                        per_sample_policy_loss=per_sample_policy_loss * sigma_t #/sqrt_dt.mean()
+                        per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
                     policy_loss = per_sample_policy_loss.mean()
 
