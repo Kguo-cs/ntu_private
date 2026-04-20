@@ -54,7 +54,7 @@ trainer:
   check_val_every_n_epoch: 16
   #val_check_interval: 0.1
  # val_check_interval: 0.0000002
-  max_epochs: 64
+  max_epochs: 128
   #gradient_clip_val: 0.0
 
 model_checkpoint:
