@@ -321,7 +321,7 @@ class ScaleFlow(nn.Module):
 
                     per_sample_policy_loss = - log_prob * advantages
 
-                    print(log_prob.max(),log_prob.min(),per_sample_policy_loss.max(),per_sample_policy_loss.min())
+                   # print(log_prob.max(),log_prob.min(),per_sample_policy_loss.max(),per_sample_policy_loss.min())
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
