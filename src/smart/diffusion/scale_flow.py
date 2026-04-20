@@ -321,7 +321,9 @@ class ScaleFlow(nn.Module):
 
                     per_sample_policy_loss = - log_prob * advantages
 
-                   # print(log_prob.max(),log_prob.min(),per_sample_policy_loss.max(),per_sample_policy_loss.min())
+                    per_sample_policy_loss =per_sample_policy_loss - per_sample_policy_loss.mean()
+
+                   # print(log_prob.mean())
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
@@ -372,7 +374,7 @@ class ScaleFlow(nn.Module):
 
                 x_pred =e+v_pred
 
-        loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, log_prob)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
