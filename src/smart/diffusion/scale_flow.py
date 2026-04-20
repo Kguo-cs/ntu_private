@@ -128,10 +128,20 @@ class ScaleFlow(nn.Module):
         self.use_cluster=False
 
         self.use_vp=False
+        if self.use_vp:
+            self.sde = VPSDE_linear()
 
         self.use_dpm_solver=False
 
         self.use_flow_ode=False
+
+        self.use_flux=False
+
+        self.use_sde=False
+
+        self.noise_level=0.7
+
+        self.rationorm=False
 
         if self.use_flow_ode:
             from .flow_planner.flow_ode import FlowODE
@@ -142,16 +152,6 @@ class ScaleFlow(nn.Module):
             time_sampler=TimeSampler(device='cuda',eps=1e-3,alpha=1.0,beta=1.5)
             self.flow_ode=FlowODE(path,time_sampler,cfg_weight=1.8,sample_steps=self.steps+1,sample_method='midpoint',sample_temperature=1)
 
-        if self.use_vp:
-            self.sde = VPSDE_linear()
-
-        self.use_flux=False
-
-        self.use_sde=True
-
-        self.noise_level=0.7
-
-        self.rationorm=False
 
         self.apply(weight_init)
 
@@ -347,7 +347,7 @@ class ScaleFlow(nn.Module):
                         denom[:,0],
                         scale=self.model.normal_scale,
                         all_state=False,
-                        use_col=False,
+                        use_col=True,
                         use_all_type=False,
                         use_match=False
                     )
