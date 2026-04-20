@@ -79,7 +79,9 @@ class ScaleFlow(nn.Module):
 
         self.mean_flow=False
 
-        self.model = InitDenoiser(
+        self.hidden_dim=args.hidden_dim
+
+        self.net = InitDenoiser(
             token_processor,
             dataset=args.dataset,
             input_dim=args.input_dim,
@@ -97,7 +99,7 @@ class ScaleFlow(nn.Module):
             mean_flow=self.mean_flow
         )
 
-        if not self.model.use_rel_ego:
+        if not self.net.use_rel_ego:
             self.ego_embedding1 = MLPLayer(16 + 3, args.hidden_dim, args.hidden_dim)
 
         # self.var_sched = VarianceSchedule(
@@ -113,9 +115,9 @@ class ScaleFlow(nn.Module):
 
         self.x_pred=True
 
-        self.use_scale=self.model.use_scale
+        self.use_scale=self.net.use_scale
 
-        self.use_all_type=self.model.use_all_type
+        self.use_all_type=self.net.use_all_type
 
         self.t_eps=0.05
 
@@ -171,7 +173,7 @@ class ScaleFlow(nn.Module):
 
         e = torch.randn_like(x)  # base distribution N(0, I)
 
-        e=self.model.denormalize(e,nonego_type)
+        e=self.net.denormalize(e,nonego_type)
 
         if "step_idx" in tokenized_agent.keys():
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
@@ -204,7 +206,7 @@ class ScaleFlow(nn.Module):
             def net_call(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask):
                 beta=torch.cat([t_arg,r_arg],dim=-1)
                 
-                return functional_call(self.model,params_and_buffers, (z_arg, beta, tokenized_agent, scene_enc,eval_mask))
+                return functional_call(self.net,params_and_buffers, (z_arg, beta, tokenized_agent, scene_enc,eval_mask))
 
             def u_fn(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask):
                 x_pred_arg = net_call(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask)
@@ -292,13 +294,13 @@ class ScaleFlow(nn.Module):
 
                     tokenized_agent["num_graphs"] = num_graphs * n_step
 
-                    if self.model.use_rel_ego:
+                    if self.net.use_rel_ego:
                         tokenized_agent["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(n_step, 1,1).flatten(0, 1)
                     else:
                         tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1,
                                                                                                          1).flatten(0, 1)
 
-                    x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
+                    x_pred_all = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
                     denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
@@ -312,7 +314,7 @@ class ScaleFlow(nn.Module):
                         noise_level=self.noise_level,
                         prev_sample=prev_sample
                     )
-                    # scale = self.model.normal_scale[None] * self.noise_level
+                    # scale = self.net.normal_scale[None] * self.noise_level
                     #
                     # z_mean = z_sampled + (t_next_sampled - t_n_sampled) * v_pred  # + noise_level * torch.randn_like(v_pred) * scale
                     #
@@ -333,7 +335,7 @@ class ScaleFlow(nn.Module):
                     x_pred=x_pred_all[len(z_sampled):]
                 else:
                     policy_loss=0
-                    x_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
+                    x_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
 
                 denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)
 
@@ -343,7 +345,7 @@ class ScaleFlow(nn.Module):
                         x_pred[:,0],
                         x[:,0],
                         denom[:,0],
-                        scale=self.model.normal_scale,
+                        scale=self.net.normal_scale,
                         all_state=False,
                         use_col=False,
                         use_all_type=False,
@@ -356,7 +358,7 @@ class ScaleFlow(nn.Module):
 
                     v_pred = (x_pred - z) /denom
 
-                    match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+                    match_loss=F.mse_loss(v_pred/self.net.normal_scale, v_target/self.net.normal_scale, reduction="none").mean(-1)[:,0]
 
                     fake_state=x_pred[:,0]
 
@@ -368,7 +370,7 @@ class ScaleFlow(nn.Module):
             else:
                 v_target =x - e
 
-                v_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
+                v_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
 
                 x_pred =e+v_pred
 
@@ -402,11 +404,11 @@ class ScaleFlow(nn.Module):
             generator (`torch.Generator`, *optional*):
                 A random number generator.
         """
-        model_output = model_output/self.model.normal_scale[None]
-        sample=self.model.normalize(sample)
+        model_output = model_output/self.net.normal_scale[None]
+        sample=self.net.normalize(sample)
 
         if prev_sample is not None:
-            prev_sample=self.model.normalize(prev_sample)
+            prev_sample=self.net.normalize(prev_sample)
 
         dt = sigma_prev - sigma
 
@@ -446,7 +448,7 @@ class ScaleFlow(nn.Module):
         # mean along all but batch dimension
         log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
 
-        prev_sample=self.model.denormalize(prev_sample)
+        prev_sample=self.net.denormalize(prev_sample)
 
         if return_sqrt_dt:
             return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
@@ -515,7 +517,7 @@ class ScaleFlow(nn.Module):
             t_n[padding_mask]=0
 
         # conditional
-        x_cond = self.model(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)#[...,:z.shape[-1]]
+        x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)#[...,:z.shape[-1]]
 
         if x_cond.shape[-1]!=z.shape[-1]:
             x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
@@ -524,9 +526,9 @@ class ScaleFlow(nn.Module):
 
         v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
-        if self.model.label_drop_prob>0:
+        if self.net.label_drop_prob>0:
             # unconditional
-            x_uncond = self.model(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=0)
+            x_uncond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=0)
             v_uncond = (x_uncond - z) / (1.0 - t_n).clamp_min(self.t_eps)
 
             self.cfg_interval = (0.1, 1.0)
@@ -551,11 +553,11 @@ class ScaleFlow(nn.Module):
 
         #tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
 
-        z = torch.randn(num_agents, num_samples, self.model.output_dim, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
+        z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
 
         t_list=[]
 
-        z=self.model.denormalize(z,nonego_type)
+        z=self.net.denormalize(z,nonego_type)
 
         z_list=[z]
         x_list=[]
@@ -597,7 +599,7 @@ class ScaleFlow(nn.Module):
             r = torch.zeros(num_agents, device=agent_batch.device)[:,None]
             beta = torch.cat([t, r], dim=-1)
 
-            z = self.model(z, beta, tokenized_agent, scene_enc,eval_mask)
+            z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
 
         elif self.use_flow_ode:
             other_model_params = {
@@ -605,7 +607,7 @@ class ScaleFlow(nn.Module):
                 "tokenized_agent": tokenized_agent,
             }
 
-            z = self.flow_ode.generate(z, self.model, 'x_start', use_cfg=False, **other_model_params)#cfg_weight=1.8,
+            z = self.flow_ode.generate(z, self.net, 'x_start', use_cfg=False, **other_model_params)#cfg_weight=1.8,
 
         elif self.use_dpm_solver:
             noise_schedule = NoiseScheduleVP(
@@ -620,7 +622,7 @@ class ScaleFlow(nn.Module):
             model_wrapper_params = {}
 
             model_fn = model_wrapper(
-                self.model,  # use your noise prediction model here
+                self.net,  # use your noise prediction model here
                 noise_schedule,
                 model_type="x_start",  # or "x_start" or "v" or "score"
                 model_kwargs=other_model_params,
@@ -776,13 +778,13 @@ class ScaleFlow(nn.Module):
 
                 tokenized_agent["ego_embedding"] = ego_embedding
 
-                x_pred = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
+                x_pred = self.net(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
                 denom = (1.0 - t_n).clamp_min(self.t_eps)
 
                 v_pred = (x_pred - z) / denom
 
-                scale = self.model.normal_scale[None]*self.noise_level
+                scale = self.net.normal_scale[None]*self.noise_level
 
                 z_mean = z + (t_next - t_n) * v_pred #+ noise_level * torch.randn_like(v_pred) * scale
 

@@ -87,7 +87,7 @@ class InitDiffusion(nn.Module):
             tokenized_agent['nonego_type'] = nonego_type
 
             if "local_ego_traj" in tokenized_agent.keys():
-                if self.G.model.use_rel_ego:
+                if self.G.net.use_rel_ego:
                     ego_pos2=tokenized_agent["ego_pos2"]
                     ego_heading2=tokenized_agent["ego_heading2"]
 
@@ -119,7 +119,7 @@ class InitDiffusion(nn.Module):
             ego_feat = tokenized_agent["ego_feat"]
             nonego_batch=tokenized_agent["nonego_batch"]
 
-        if not self.G.model.use_rel_ego and not self.learn_autoencoder:
+        if not self.G.net.use_rel_ego and not self.learn_autoencoder:
             ego_embedding=self.G.ego_embedding1(ego_feat)
             ego_embedding = ego_embedding[nonego_batch]
 
@@ -167,7 +167,7 @@ class InitDiffusion(nn.Module):
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
         if self.training:
-            diff_input,m_init=self.G.model.get_input(tokenized_agent)
+            diff_input,m_init=self.G.net.get_input(tokenized_agent)
 
             if self.learn_autoencoder:
                 return self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
@@ -188,7 +188,7 @@ class InitDiffusion(nn.Module):
             return loss
         else:
             if self.learn_autoencoder:
-                diff_input, m_init = self.G.model.get_input(tokenized_agent)
+                diff_input, m_init = self.G.net.get_input(tokenized_agent)
 
                 pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
@@ -197,7 +197,7 @@ class InitDiffusion(nn.Module):
                 if self.latent_diffusion:
                     pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)
 
-            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.model.get_output(
+            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent
             )
 
@@ -208,7 +208,7 @@ class InitDiffusion(nn.Module):
         parser = parent_parser.add_argument_group('QCNet')
         parser.add_argument('--dataset', type=str, default='argoverse_v2')
         parser.add_argument('--input_dim', type=int, default=2)
-        parser.add_argument('--hidden_dim', type=int, default=256)
+        parser.add_argument('--hidden_dim', type=int, default=128)
         parser.add_argument('--output_dim', type=int, default=2)
         parser.add_argument('--output_head', action='store_true')
         parser.add_argument('--init_timestep', type=int, default=50)

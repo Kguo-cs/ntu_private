@@ -237,7 +237,7 @@ class InitDenoiser(nn.Module):
         self.use_noise=False
 
 
-        self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
+       # self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
 
         if self.use_noise:
             self.denoising_steps= 20
@@ -608,7 +608,7 @@ class InitDenoiser(nn.Module):
                         orient_pl = map_feature["orientation"]
                         feat_map = map_feature["pt_token"]
 
-                        feat_map = self.lane_embed(feat_map)
+                       # feat_map = self.lane_embed(feat_map)
 
                         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
