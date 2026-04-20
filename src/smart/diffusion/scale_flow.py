@@ -145,7 +145,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.noise_level=0.7
 
@@ -345,9 +345,9 @@ class ScaleFlow(nn.Module):
                         denom[:,0],
                         scale=self.model.normal_scale,
                         all_state=False,
-                        use_col=False,
+                        use_col=True,
                         use_all_type=False,
-                        use_match=True
+                        use_match=False
                     )
                 else:
                     pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
