@@ -117,7 +117,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type=self.model.use_all_type
 
-        self.t_eps=0.05
+        self.t_eps=0.01
 
         self.P_std=1
 
