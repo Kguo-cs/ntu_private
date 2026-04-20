@@ -316,9 +316,12 @@ class ScaleFlow(nn.Module):
 
                         log_prob = - match_loss
 
-                    advantages = torch.clamp(advantages, -5, 5)
+                    #advantages = torch.clamp(advantages, -5, 5)
+                    advantages=(advantages-advantages.mean())/advantages.std()
 
                     per_sample_policy_loss = - log_prob * advantages
+
+                    print(log_prob.max(),log_prob.min(),per_sample_policy_loss.max(),per_sample_policy_loss.min())
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
