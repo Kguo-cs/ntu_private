@@ -339,6 +339,8 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_agent["advantages"]=advantages
 
+            self.log('train/advantages0', advantages, on_step=True, batch_size=1)
+
             # z_list=tokenized_agent["z_list"]
             # t_list=tokenized_agent["t_list"]
             #

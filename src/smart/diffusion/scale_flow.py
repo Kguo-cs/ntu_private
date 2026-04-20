@@ -270,11 +270,11 @@ class ScaleFlow(nn.Module):
                         z_sampled, prev_sample, log = z_list
                         t_n_sampled, t_next_sampled = t_list
                     else:
-                        x_sampled=tokenized_agent["z_list"].repeat(2,1,1)
-                        e_sampled=torch.randn_like(e.repeat(2,1,1))
-                        t_n_sampled=torch.cat([torch.rand_like(t_batch)[agent_batch],torch.rand_like(t_batch)[agent_batch]])
+                        x_sampled=tokenized_agent["z_list"]#.repeat(2,1,1)
+                        e_sampled=torch.randn_like(e)
+                        t_n_sampled=torch.rand_like(t_batch)[agent_batch]#torch.cat([torch.rand_like(t_batch)[agent_batch],torch.rand_like(t_batch)[agent_batch]])
 
-                        advantages=advantages.repeat(2)
+                        #advantages=advantages.repeat(2)
 
                         z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
