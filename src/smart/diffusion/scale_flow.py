@@ -152,7 +152,6 @@ class ScaleFlow(nn.Module):
             time_sampler=TimeSampler(device='cuda',eps=1e-3,alpha=1.0,beta=1.5)
             self.flow_ode=FlowODE(path,time_sampler,cfg_weight=1.8,sample_steps=self.steps+1,sample_method='midpoint',sample_temperature=1)
 
-
         self.apply(weight_init)
 
     def get_loss(self,
@@ -262,12 +261,20 @@ class ScaleFlow(nn.Module):
                 if "advantages" in tokenized_agent.keys():
                     advantages=tokenized_agent["advantages"]
 
-                    z_list=tokenized_agent["z_list"]
+                    if self.use_sde:
 
-                    t_list=tokenized_agent["t_list"]
+                        z_list=tokenized_agent["z_list"]
 
-                    z_sampled, prev_sample, log = z_list
-                    t_n_sampled, t_next_sampled = t_list
+                        t_list=tokenized_agent["t_list"]
+
+                        z_sampled, prev_sample, log = z_list
+                        t_n_sampled, t_next_sampled = t_list
+                    else:
+                        x_sampled=tokenized_agent["z_list"]
+                        e_sampled=torch.randn_like(e)
+                        t_n_sampled=torch.rand_like(t)
+
+                        z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
                     t_n=torch.cat((t_n_sampled,t),dim=0)
 
@@ -304,21 +311,33 @@ class ScaleFlow(nn.Module):
 
                     denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
-                    v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
+                    if self.use_sde:
+                        v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
 
-                    prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                        1 - t_n_sampled,
-                        1 - t_next_sampled,
-                        -v_pred,
-                        z_sampled,
-                        noise_level=self.noise_level,
-                        prev_sample=prev_sample
-                    )
-                    # scale = self.model.normal_scale[None] * self.noise_level
-                    #
-                    # z_mean = z_sampled + (t_next_sampled - t_n_sampled) * v_pred  # + noise_level * torch.randn_like(v_pred) * scale
-                    #
-                    # log_prob = -gaussian_nll(z_mean, scale, prev_sample)
+                        prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                            1 - t_n_sampled,
+                            1 - t_next_sampled,
+                            -v_pred,
+                            z_sampled,
+                            noise_level=self.noise_level,
+                            prev_sample=prev_sample
+                        )
+                    else:
+                        x_pred = x_pred_all[:len(z_sampled)]
+
+                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                            tokenized_agent,
+                            x_pred[:, 0],
+                            x_sampled[:, 0],
+                            denom[:, 0],
+                            scale=self.model.normal_scale,
+                            all_state=False,
+                            use_col=False,
+                            use_all_type=False,
+                            use_match=False
+                        )
+
+                        log_prob = - match_loss
 
                     advantages = torch.clamp(advantages, -5, 5)
 
@@ -346,7 +365,7 @@ class ScaleFlow(nn.Module):
                         denom[:,0],
                         scale=self.model.normal_scale,
                         all_state=False,
-                        use_col=True,
+                        use_col=False,
                         use_all_type=False,
                         use_match=False
                     )
@@ -653,7 +672,6 @@ class ScaleFlow(nn.Module):
 
                 t_batch=1-timesteps[:,None]
 
-                #timesteps = timesteps ** mu / (timesteps ** mu + (1 - timesteps) ** mu)
                 sigma = mu * t_batch / (1 + (mu - 1) * t_batch)
 
                 timesteps=1-sigma
@@ -717,7 +735,7 @@ class ScaleFlow(nn.Module):
             # log_prob_list=log_prob_list[noise_mask]
             #
             z_list=torch.stack(z_list,dim=1)
-            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)#
+            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
             t_list=torch.stack(t_list,dim=1)
             t_list=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
 
@@ -725,6 +743,9 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["z_list"]=z_list
             tokenized_agent["t_list"]=t_list
+        else:
+            tokenized_agent["z_list"]=z
+
 
         return z[:, 0], x_list
 
