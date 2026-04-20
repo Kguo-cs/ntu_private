@@ -235,91 +235,13 @@ class InitDenoiser(nn.Module):
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
         self.use_noise=False
+        self.hidden_dim=hidden_dim
 
-
-       # self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
-
-        if self.use_noise:
-            self.denoising_steps= 20
-            self.ft_denoising_steps= 10
-
-            self.learn_explore_noise_from: int = self.denoising_steps-self.ft_denoising_steps
-            self.initial_noise_scheduler_type: str = 'learn_decay'
-            self.min_logprob_denoising_std: float = 0.08
-            self.max_logprob_denoising_std: float = 0.16
-            self.learn_explore_time_embedding: bool  = False
-            self.device='cuda' if torch.cuda.is_available() else 'cpu'
-
-            self.set_logprob_noise_levels()
-
-            self.use_time_independent_noise = False
-
-            self.init_exploration_noise_net()
+        if self.hidden_dim>128:
+            self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
 
         self.apply(weight_init)
 
-    @torch.no_grad()
-    def stochastic_interpolate(self, t):
-        valid_noise_schedulers = ['vp', 'lin', 'const', 'const_schedule_itr', 'learn_decay']
-        if self.initial_noise_scheduler_type == 'vp':
-            a = 0.2  # 2.0
-            std = torch.sqrt(a * t * (1 - t))
-        elif self.initial_noise_scheduler_type == 'lin':
-            k = 0.1
-            b = 0.0
-            std = k * t + b
-        elif self.initial_noise_scheduler_type == 'const' or 'const_schedule_itr':
-            std = torch.ones_like(t) * self.min_logprob_denoising_std
-        else:
-            raise ValueError(
-                f"Invalid noise scheduler type {self.initial_noise_scheduler_type}, must be in the following: {valid_noise_schedulers}")
-        return std
-
-    @torch.no_grad()
-    def set_logprob_noise_levels(self, force_level=None, verbose=False):
-        '''
-        create noise std for logrporbability calcualion.
-        generate a tensor `self.logprob_noise_levels` of shape `[1, self.denoising_steps,  self.policy.horizion_steps x self.policy.act_dim]`
-        '''
-        self.logprob_noise_levels = torch.zeros(self.denoising_steps, device=self.device, requires_grad=False)
-
-        steps = torch.linspace(0, 1 - 1 / self.denoising_steps, self.denoising_steps, device=self.device)
-        for i, t in enumerate(steps):
-            if force_level:
-                self.logprob_noise_levels[i] = torch.tensor(force_level, device=self.device)
-            else:
-                self.logprob_noise_levels[i] = self.stochastic_interpolate(t)
-
-        self.logprob_noise_levels = self.logprob_noise_levels.clamp(min=self.min_logprob_denoising_std,
-                                                                    max=self.max_logprob_denoising_std)
-
-        self.logprob_noise_levels = self.logprob_noise_levels.unsqueeze(0).unsqueeze(-1).repeat(1, 1,8)
-
-    def init_exploration_noise_net(self):
-        if self.use_time_independent_noise:
-            noise_input_dim = self.policy.cond_enc_dim
-            if not self.noise_hidden_dims:
-                self.noise_hidden_dims = [16]
-        else:
-            if self.learn_explore_time_embedding:
-                noise_input_dim = self.time_dim_explore + self.policy.cond_enc_dim
-                self.time_embedding_explore = nn.Embedding(num_embeddings=self.denoising_steps,
-                                                           embedding_dim=self.time_dim_explore,
-                                                           device=self.device)
-            else:
-                noise_input_dim = self.hidden_dim
-                # if not self.noise_hidden_dims:
-                #     self.noise_hidden_dims = [int(np.sqrt(noise_input_dim ** 2 + self.policy.act_dim_total ** 2))]
-
-        self.explore_noise_net=MLPLayer(self.hidden_dim,self.hidden_dim,self.output_dim)
-
-        # self.explore_noise_net = ExploreNoiseNet(in_dim=noise_input_dim,
-        #                                          out_dim=self.output_dim,
-        #                                          logprob_denoising_std_range=[self.min_logprob_denoising_std,
-        #                                                                       self.max_logprob_denoising_std],
-        #                                          device=self.device,
-        #                                          hidden_dims=self.hidden_dim,
-        #                                          activation_type='Tanh')
 
     def normalize(self,input):
         return (input - self.normal_mean[None]) / self.normal_scale[None]
@@ -436,17 +358,6 @@ class InitDenoiser(nn.Module):
             diff_input = m_init
 
         if torch.all(self.normal_mean==0):
-
-            # valid = ~torch.isnan(m_init)
-            # count = valid.sum(0, keepdim=True).clamp_min(1)
-            #
-            # mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
-            # std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
-            #     1e-8)
-            # self.normal_mean.copy_(mean)
-            # self.normal_scale.copy_(std)
-
-
             self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
             self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
 
@@ -608,7 +519,8 @@ class InitDenoiser(nn.Module):
                         orient_pl = map_feature["orientation"]
                         feat_map = map_feature["pt_token"]
 
-                       # feat_map = self.lane_embed(feat_map)
+                        if self.hidden_dim > 128:
+                            feat_map = self.lane_embed(feat_map)
 
                         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
