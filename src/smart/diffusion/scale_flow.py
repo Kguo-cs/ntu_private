@@ -282,7 +282,7 @@ class ScaleFlow(nn.Module):
 
                     z=torch.cat((z_sampled,z),dim=0)
 
-                    tokenized_agent=self.repeat_input(tokenized_agent,3)
+                    tokenized_agent=self.repeat_input(tokenized_agent,2)
 
                     x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
