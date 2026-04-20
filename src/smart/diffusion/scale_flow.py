@@ -272,40 +272,15 @@ class ScaleFlow(nn.Module):
                     else:
                         x_sampled=tokenized_agent["z_list"]
                         e_sampled=torch.randn_like(e)
-                        t_n_sampled=torch.rand_like(t)
+                        t_n_sampled=torch.rand_like(t_batch)[agent_batch]
 
-                        z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled  # large t, low noise        target velocity e-x = (z-x)/(1-t)
+                        z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
                     t_n=torch.cat((t_n_sampled,t),dim=0)
 
                     z=torch.cat((z_sampled,z),dim=0)
 
-                    n_step=2
-
-                    batch = tokenized_agent["nonego_batch"]
-
-                    tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
-
-                    batch = torch.stack(
-                        [
-                            batch + num_graphs * t
-                            for t in range(n_step)
-                        ],
-                        dim=1,
-                    ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
-
-                    tokenized_agent["nonego_batch"] = batch
-
-                    tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0,
-                                                                                                                    1)
-
-                    tokenized_agent["num_graphs"] = num_graphs * n_step
-
-                    if self.model.use_rel_ego:
-                        tokenized_agent["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(n_step, 1,1).flatten(0, 1)
-                    else:
-                        tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1,
-                                                                                                         1).flatten(0, 1)
+                    tokenized_agent=self.repeat_input(tokenized_agent,2)
 
                     x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
 
@@ -341,7 +316,7 @@ class ScaleFlow(nn.Module):
 
                     advantages = torch.clamp(advantages, -5, 5)
 
-                    per_sample_policy_loss = - log_prob * advantages#*std_dev_t[:,0,0]*1.73
+                    per_sample_policy_loss = - log_prob * advantages
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
@@ -920,3 +895,33 @@ class ScaleFlow(nn.Module):
         opt_G.step()
 
         return loss
+
+    def repeat_input(self,tokenized_agent,n_step):
+        num_graphs=tokenized_agent["num_graphs"]
+
+        batch = tokenized_agent["nonego_batch"]
+
+        tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
+
+        batch = torch.stack(
+            [
+                batch + num_graphs * t
+                for t in range(n_step)
+            ],
+            dim=1,
+        ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
+
+        tokenized_agent["nonego_batch"] = batch
+
+        tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0,
+                                                                                                        1)
+
+        tokenized_agent["num_graphs"] = num_graphs * n_step
+
+        if self.model.use_rel_ego:
+            tokenized_agent["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(n_step, 1, 1).flatten(0, 1)
+        else:
+            tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1,
+                                                                                             1).flatten(0, 1)
+
+        return tokenized_agent
