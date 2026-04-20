@@ -6,10 +6,9 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz /home/ke/code/sim/src/waymo_data/autoenc_map80_6040_pos3_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/autoenc256_map100_lane2_col_epoch=47-step=91344.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/autoenc256_map100_lane2_pos3_col_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/autoenc_map80_6040_pos3_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
-
 
 rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo ke@10.87.114.128:~/keguo/sim/sd/checkpoints/
 
@@ -29,7 +28,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 
 rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  zs@10.87.225.106:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/autoenc256_map100_lane2_col/2026-04-19_22-35-18/bc/dremxtzr/checkpoints/epoch=47-step=91344.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/autoenc256_map100_lane2_pos3_col/2026-04-18_11-27-16/bc/211fp6eq/checkpoints/epoch=63-step=121792.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow256_map100_rellane_t/2026-04-19_05-16-20/bc/prrg9sfg/checkpoints/epoch=15-step=30448.ckpt ./
