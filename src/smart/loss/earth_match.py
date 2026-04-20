@@ -56,7 +56,7 @@ def matching_loss(
         # else:
         shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean(-1)
 
-        vel_loss = F.mse_loss(fake_vel, real_vel, reduction="none").mean(-1)
+        vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean(-1)
 
     else:
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]

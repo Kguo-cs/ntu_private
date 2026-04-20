@@ -137,7 +137,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=False
+        self.use_sde=True
 
         self.noise_level=0.7
 
@@ -462,9 +462,9 @@ class ScaleFlow(nn.Module):
     def _euler_step(self, z, t, t_next, labels,noise_level):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
         log_prob=None
+        tokenized_agent, scene_enc, eval_mask = labels
 
         if self.use_cluster:
-            tokenized_agent, scene_enc, eval_mask = labels
             increasing=tokenized_agent["increasing"]
             non_increasing=~increasing
             z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
@@ -488,7 +488,7 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        elif self.use_sde and torch.any(noise_level>0):
+        elif self.use_sde and torch.any(noise_level>0) and "gt_z_raw" not in tokenized_agent.keys():
             z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                 1-t_n,
                 1-t_next,
