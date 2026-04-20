@@ -41,7 +41,7 @@ class InitDiffusion(nn.Module):
 
         self.learn_autoencoder = False
         self.latent_diffusion = False
-        #
+
         if self.learn_autoencoder or self.latent_diffusion:
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
