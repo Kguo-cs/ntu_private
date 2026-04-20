@@ -571,7 +571,7 @@ class InitDenoiser(nn.Module):
                             pos_s=pos_b.transpose(0,1)
                             theta=theta_b.transpose(0,1)
 
-                            head_vector_s=-torch.stack([theta.cos(), theta.sin()], dim=-1)
+                            head_vector_s=torch.stack([theta.cos(), theta.sin()], dim=-1)
 
                         else:
                             mask=None
