@@ -358,10 +358,10 @@ class AutoEncoder(nn.Module):
             ego_embedding = self.ego_embed(tokenized_agent["ego_feat"])
             ego_embedding = ego_embedding[batch]
 
-        batch_pl = initial_map_feature["batch"]#[::2]
-        pos_pl = initial_map_feature["position"]#[::2]
-        orient_pl = initial_map_feature["orientation"]#[::2]
-        feat_map = initial_map_feature["pt_token"]#[::2]
+        batch_pl = initial_map_feature["batch"][::2]
+        pos_pl = initial_map_feature["position"][::2]
+        orient_pl = initial_map_feature["orientation"][::2]
+        feat_map = initial_map_feature["pt_token"][::2]
 
         lane_embeddings=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
 
@@ -448,7 +448,7 @@ class AutoEncoder(nn.Module):
 
         lane_embeddings, ego_embedding, a2a_edge_index, l2a_edge_index, l2l_edge_index, pos_idx=self.process_input(tokenized_agent,initial_map_feature)
 
-        pos_pl=initial_map_feature["position"]#[::2]
+        pos_pl=initial_map_feature["position"][::2]
         agent_types=tokenized_agent["nonego_type"]
 
         lane_conn_embeddings =None

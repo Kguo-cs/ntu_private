@@ -45,12 +45,12 @@ model:
 #ckpt_path: 'logs/autoenc256_map100_lane2_pos5_col/2026-04-18_08-10-34/bc/yqmrmzhy/checkpoints/last.ckpt'
 #ckpt_path: 'logs/autoenc256_map100_lane2_pos3_realcol/2026-04-18_04-43-27/bc/kmgl4fcj/checkpoints/last.ckpt'
 #ckpt_path: 'logs/autoenc256_map100_lane2_pos3_col01/2026-04-18_03-35-49/bc/aooeav5i/checkpoints/last.ckpt'
-ckpt_path: 'logs/autoenc256_map100_lane2_pos3_colw/2026-04-18_06-39-27/bc/q7hr6u01/checkpoints/last.ckpt'
+ckpt_path: 'logs/autoenc256_map100_lane2_col/2026-04-19_22-35-18/bc/dremxtzr/checkpoints/last.ckpt'
 
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
 
-task_name: dit128_map100_lane2_pos3_colw #dit128_map80_pos3_matchsq
+task_name: dit128_map100_lane2_col #dit128_map80_pos3_matchsq
 
 
 trainer:
