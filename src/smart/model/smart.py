@@ -101,7 +101,7 @@ class SMART(LightningModule):
                     for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
                         p.requires_grad = True
                 else:
-                    for p in self.encoder.agent_encoder.init_decoder.G1.parameters():
+                    for p in self.encoder.agent_encoder.init_decoder.G.parameters():
                         p.requires_grad = True
 
             # if self.encoder.sep_map:
