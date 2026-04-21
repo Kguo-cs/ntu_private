@@ -432,8 +432,8 @@ class LDM(nn.Module):
         ego_embedding = tokenized_agent["ego_embedding"]
 
         # batch of random timesteps
-        t=torch.rand((batch_size,), device=x_agent.device)*self.n_timesteps
-       #t = torch.randint(0, self.n_timesteps, (batch_size,), device=x_agent.device).long()
+      #  t=torch.rand((batch_size,), device=x_agent.device)*self.n_timesteps
+        t = torch.randint(0, self.n_timesteps, (batch_size,), device=x_agent.device).long()
         t_agent = t[agent_batch]
         t_lane = t[lane_batch]
 
