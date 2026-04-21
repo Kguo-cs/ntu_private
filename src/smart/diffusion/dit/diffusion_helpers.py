@@ -540,7 +540,7 @@ class FactorizedDiTBlock(nn.Module):
             num_l2l_blocks=1):
 
         super().__init__()
-        self.num_l2l_blocks = 1
+        self.num_l2l_blocks = 0
 
         if self.num_l2l_blocks >0:
 
