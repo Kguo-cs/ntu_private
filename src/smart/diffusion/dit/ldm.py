@@ -372,7 +372,7 @@ class LDM(nn.Module):
             denom,
             scale=1,
             all_state=False,
-            use_col=False,
+            use_col=True,
             use_all_type=False,
             use_match=False
         )
@@ -404,7 +404,7 @@ class LDM(nn.Module):
         #
         # agent_loss=w_pos*pos_loss+w_heading*heading_loss+w_shape*shape_loss+w_vel*vel_loss
 
-        agent_loss=(match_loss,torch.zeros_like(match_loss),pos_loss,heading_loss,shape_loss,vel_loss)
+        agent_loss=(match_loss,collision_loss,pos_loss,heading_loss,shape_loss,vel_loss)
 
 
         return agent_loss,agent_noise_pred ,x_agent_noisy,t_agent
