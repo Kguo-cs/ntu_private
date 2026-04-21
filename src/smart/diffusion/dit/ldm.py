@@ -413,10 +413,10 @@ class LDM(nn.Module):
         """ Sample diffusion timesteps for training and compute the loss for the diffusion model."""
         # batch of agent and lane latents
 
-        lane_batch = initial_map_feature["batch"][::2]
-        pos_pl = initial_map_feature["position"][::2]
-        orient_pl = initial_map_feature["orientation"][::2]
-        feat_map = initial_map_feature["pt_token"][::2]
+        lane_batch = initial_map_feature["batch"]#[::2]
+        pos_pl = initial_map_feature["position"]#[::2]
+        orient_pl = initial_map_feature["orientation"]#[::2]
+        feat_map = initial_map_feature["pt_token"]#[::2]
 
         if torch.all(self.normal_mean==0):
             self.normal_mean.copy_(torch.mean(x_agent, dim=0, keepdim=True))
