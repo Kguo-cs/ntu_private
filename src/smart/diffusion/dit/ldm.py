@@ -7,6 +7,7 @@ from .diffusion_helpers import (
 )
 from src.smart.diffusion.dit.autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock,GeometricLosses,reparameterize
 from .dit import DiT
+import torch.nn.functional as F
 
 from src.smart.layers import MLPLayer
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
@@ -65,9 +66,9 @@ class LDM(nn.Module):
         if self.flow_matching:
             self.n_timesteps=20
 
-        self.v_pred=False
+        self.v_pred=True
 
-        self.x_pred=True
+        self.x_pred=False
 
     def predict_start_from_noise(self, x_t, t, noise):
         """ Predict the start of the diffusion chain from the noised sample x_t and noise."""
@@ -354,8 +355,34 @@ class LDM(nn.Module):
         elif self.x_pred:
             agent_noise=x_agent
 
-        agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
-        agent_loss=(agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss)
+        agent_noise_pred=agent_noise_pred*self.normal_scale
+        agent_noise=agent_noise*self.normal_scale
+
+
+        #agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
+        pos_loss=torch.norm(agent_noise_pred[:,:2]- agent_noise[:,:2],dim=-1)#, reduction="none").mean(-1)
+
+        #cluster_valid_mask=~torch.isnan(real_vel)
+
+        heading_loss = F.l1_loss(agent_noise_pred[:,2:4], agent_noise[:,2:4], reduction="none").mean(-1)
+
+        # if fake_state.shape[1]==44:
+        #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
+        #     shape_loss =torch.zeros_like(vel_loss)
+        #
+        # else:
+        shape_loss = F.mse_loss(agent_noise_pred[:,4:6], agent_noise[:,4:6], reduction="none").mean(-1)
+
+        vel_loss = F.mse_loss(agent_noise_pred[:,6:8], agent_noise[:,6:8], reduction="none").mean(-1)
+
+        w_pos = 0.1
+        w_heading = 0.5
+        w_shape = 0.2
+        w_vel = 0.2
+
+        agent_loss=w_pos*pos_loss+w_heading*heading_loss+w_shape*shape_loss+w_vel*vel_loss
+
+        agent_loss=(agent_loss,torch.zeros_like(agent_loss),pos_loss,heading_loss,shape_loss,vel_loss)
 
 
         return agent_loss,agent_noise_pred ,x_agent_noisy,t_agent
