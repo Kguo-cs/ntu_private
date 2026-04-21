@@ -540,7 +540,7 @@ class FactorizedDiTBlock(nn.Module):
             num_l2l_blocks=1):
 
         super().__init__()
-        self.num_l2l_blocks = 0
+        self.num_l2l_blocks = 1
 
         if self.num_l2l_blocks >0:
 
@@ -552,9 +552,9 @@ class FactorizedDiTBlock(nn.Module):
             self.l2l_blocks = nn.ModuleList(self.l2l_blocks)
 
             # a2l
-            self.upsample_x_agent = nn.Linear(hidden_dim_agent, hidden_dim)
+           # self.upsample_x_agent = nn.Linear(hidden_dim_agent, hidden_dim)
             self.a2l_block = DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio)
-            self.downsample_x_lane = nn.Linear(hidden_dim, hidden_dim_agent)
+          #  self.downsample_x_lane = nn.Linear(hidden_dim, hidden_dim_agent)
         # a2a
         self.a2a_block = DiTBlock(hidden_dim_agent, num_heads_agent, dropout, mlp_ratio)
 
@@ -576,7 +576,8 @@ class FactorizedDiTBlock(nn.Module):
         if self.num_l2l_blocks >0:
 
             # a2l
-            x_lane_agent = torch.cat([x_lane, self.upsample_x_agent(x_agent)], dim=0)
+            #x_lane_agent = torch.cat([x_lane, self.upsample_x_agent(x_agent)], dim=0)
+            x_lane_agent = torch.cat([x_lane, x_agent], dim=0)
             x_lane_agent = self.a2l_block(x_lane_agent, c, l2a_edge_index[[1, 0], :])
             x_lane = x_lane_agent[:x_lane.shape[0]]
 
@@ -584,7 +585,7 @@ class FactorizedDiTBlock(nn.Module):
             for i in range(self.num_l2l_blocks):
                 x_lane = self.l2l_blocks[i](x_lane, c[:x_lane.shape[0]], l2l_edge_index)
 
-            x_lane=self.downsample_x_lane(x_lane)
+            #x_lane=self.downsample_x_lane(x_lane)
 
         # l2a
         x_lane_agent = torch.cat([x_lane, x_agent], dim=0)
