@@ -369,7 +369,7 @@ class ScaleFlow(nn.Module):
                         all_state=False,
                         use_col=False,
                         use_all_type=False,
-                        use_match=False
+                        use_match=True
                     )
                 else:
                     pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
