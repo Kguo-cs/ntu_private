@@ -65,9 +65,9 @@ class LDM(nn.Module):
         if self.flow_matching:
             self.n_timesteps=20
 
-        self.v_pred=True
+        self.v_pred=False
 
-        self.x_pred=False
+        self.x_pred=True
 
     def predict_start_from_noise(self, x_t, t, noise):
         """ Predict the start of the diffusion chain from the noised sample x_t and noise."""
@@ -111,7 +111,7 @@ class LDM(nn.Module):
             if self.v_pred:
                 v=conditional_epsilon_agent
             elif self.x_pred:
-                v= x_agent
+                v=(x_agent-conditional_epsilon_agent) / (1-t).clamp_min(min=0.05)
             else:
 
                # x_start=   (x_agent - (1-t)*conditional_epsilon_agent ) / t
