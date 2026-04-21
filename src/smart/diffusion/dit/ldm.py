@@ -353,10 +353,16 @@ class LDM(nn.Module):
         if self.v_pred:
             agent_noise=agent_noise-x_agent
         elif self.x_pred:
-            agent_noise=x_agent
+            agent_noise=agent_noise-x_agent
 
-        agent_noise_pred=agent_noise_pred*self.normal_scale
-        agent_noise=agent_noise*self.normal_scale
+            t =t_agent[:, None] / self.n_timesteps
+
+            agent_noise_pred=(x_agent_noisy-agent_noise_pred) / (1-t).clamp_min(min=0.05)
+
+
+
+       # agent_noise_pred=agent_noise_pred*self.normal_scale
+    #    agent_noise=agent_noise*self.normal_scale
 
 
         #agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
@@ -375,10 +381,10 @@ class LDM(nn.Module):
 
         vel_loss = F.mse_loss(agent_noise_pred[:,6:8], agent_noise[:,6:8], reduction="none").mean(-1)
 
-        w_pos = 0.1
-        w_heading = 0.5
-        w_shape = 0.2
-        w_vel = 0.2
+        w_pos =1 #0.1
+        w_heading =1# 0.5
+        w_shape =1# 0.2
+        w_vel = 1#0.2
 
         agent_loss=w_pos*pos_loss+w_heading*heading_loss+w_shape*shape_loss+w_vel*vel_loss
 
