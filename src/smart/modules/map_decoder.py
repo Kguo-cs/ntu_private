@@ -72,21 +72,22 @@ class SMARTMapDecoder(nn.Module):
                 self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
             #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
-            self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,use_pl2a=True)
+            if num_layers>0:
+                self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,use_pl2a=True)
 
-            self.pt2pt_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(num_layers)
-                ]
-            )
+                self.pt2pt_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=False,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
 
             self.pred_offroad=False
 
@@ -170,12 +171,6 @@ class SMARTMapDecoder(nn.Module):
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
-
-        # x_pt=x_pt[~mask]
-        # pos_pt=pos_pt[~mask]
-        # orient_pt=orient_pt[~mask]
-        # batch=batch[~mask]
-
         if self.num_layers>1:
             head_vector = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
 
@@ -200,8 +195,7 @@ class SMARTMapDecoder(nn.Module):
             orient_pt=orient_pt[mask]
             batch=batch[mask]
 
-        else:
-
+        elif self.num_layers>0:
             edge_pt=x_pt[mask]#[::2]
             pos_edge=pos_pt[mask]#[::2]
             orient_edge=orient_pt[mask]#[::2]

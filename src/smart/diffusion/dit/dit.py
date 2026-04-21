@@ -42,7 +42,7 @@ class DiT(nn.Module):
 
         # Condition on number of agents and lanes
         self.num_agents_embedder = LabelEmbedder(350, hidden_dim, 0)
-        self.num_lanes_embedder = LabelEmbedder(450, hidden_dim, 0)
+        self.num_lanes_embedder =nn.Linear(1, hidden_dim) #LabelEmbedder(450, hidden_dim, 0)
 
         # Diffusion timestep embedding
         self.t_embedder = TimestepEmbedder(hidden_dim)
@@ -136,7 +136,7 @@ class DiT(nn.Module):
 
         # Initialize num lane and num agent embedding tables:
         nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
-        nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
+       # nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
 
         # Initialize timestep embedding MLP:
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
@@ -205,7 +205,7 @@ class DiT(nn.Module):
         # num_agents = data['num_agents'].long()
         # num_lanes = data['num_lanes'].long()
         num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
-        num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
+        num_lanes_emb =self.num_lanes_embedder(num_lanes[:,None].to(torch.float32))[lane_batch] #self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
 
         # embedding of timestep
         t =self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))

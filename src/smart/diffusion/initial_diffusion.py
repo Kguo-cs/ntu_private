@@ -31,8 +31,6 @@ class InitDiffusion(nn.Module):
         ) -> None:
         super(InitDiffusion, self).__init__()
 
-        self.use_gan = False
-        self.sep_map=False
         self.use_all_pos=token_processor.use_all_pos
 
         parser = ArgumentParser()
@@ -41,6 +39,7 @@ class InitDiffusion(nn.Module):
 
         self.learn_autoencoder = False
         self.latent_diffusion = False
+        self.sep_map=True
 
         if self.learn_autoencoder or self.latent_diffusion:
 
@@ -59,6 +58,7 @@ class InitDiffusion(nn.Module):
             self.G1 = ScaleFlow(args,token_processor)
 
         self.use_gail=False
+        self.use_gan = False
 
         if self.use_gail or self.use_gan:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))

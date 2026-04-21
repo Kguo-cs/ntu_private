@@ -104,10 +104,10 @@ class SMART(LightningModule):
                     for p in self.encoder.agent_encoder.init_decoder.G1.parameters():
                         p.requires_grad = True
 
-            # if self.encoder.sep_map:
-            #     for p in self.encoder.map_encoder1.parameters():
-            #         p.requires_grad = True
-            #
+                if self.encoder.sep_map:
+                    for p in self.encoder.map_encoder1.parameters():
+                        p.requires_grad = True
+
             # if self.token_processor.traj_diffusion:
             #     for p in self.encoder.traj_diffuser.parameters():
             #         p.requires_grad = True
@@ -204,6 +204,10 @@ class SMART(LightningModule):
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
             pred_traj, pred_z, pred_head,pred_sizes,pred_vels = [], [], [],[],[]
+            if self.encoder.sep_map:
+                map_feature = self.encoder.map_encoder1(tokenized_map)
+                tokenized_agent["initial_map_feature"] = map_feature
+
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"]=map_feature
 
