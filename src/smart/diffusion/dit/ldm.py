@@ -428,8 +428,8 @@ class LDM(nn.Module):
 
         batch_size=tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]
-        nonego_type_sorted = tokenized_agent["nonego_type"]
-        ego_embedding = tokenized_agent["ego_embedding"]
+        # nonego_type_sorted = tokenized_agent["nonego_type"]
+        # ego_embedding = tokenized_agent["ego_embedding"]
 
         # batch of random timesteps
       #  t=torch.rand((batch_size,), device=x_agent.device)*self.n_timesteps
@@ -437,7 +437,7 @@ class LDM(nn.Module):
         t_agent = t[agent_batch]
         t_lane = t[lane_batch]
 
-        data=(agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding)
+        data=tokenized_agent#(agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding)
 
         loss = self.p_losses(x_agent, x_lane, data,t_agent,t_lane)
 
