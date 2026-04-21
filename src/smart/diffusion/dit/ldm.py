@@ -276,7 +276,7 @@ class LDM(nn.Module):
 
             x_agent = self.p_sample(x_agent, x_lane,data, t_agent, t_lane)
 
-            x_agent = torch.clip(x_agent, -5, 5)
+            #x_agent = torch.clip(x_agent, -5, 5)
 
         x_agent=x_agent*self.normal_scale+self.normal_mean
 
