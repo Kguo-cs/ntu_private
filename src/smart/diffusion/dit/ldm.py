@@ -21,7 +21,7 @@ class LDM(nn.Module):
         self.ego_embedding1= MLPLayer(19, hidden_dim, hidden_dim)
         self.lane_embed1= nn.Linear(128+4, hidden_dim)
 
-        n_timesteps = 100
+        n_timesteps = 20
         betas = cosine_beta_schedule(n_timesteps)
         alphas = 1. - betas
         alphas_cumprod = torch.cumprod(alphas, axis=0)
@@ -348,40 +348,45 @@ class LDM(nn.Module):
         #     "nonego_batch":agent_batch,
         #     "nonego_type":nonego_type_sorted,
         # }
-        #
-        # agent_loss=get_matching_loss(tokenized_agent,x_agent_recon,x_agent,1,all_state=True,w_pos=1, w_heading=1, w_shape=1,w_vel=1)
-        if self.v_pred:
-            agent_noise=agent_noise-x_agent
-        elif self.x_pred:
-            #agent_noise=agent_noise-x_agent
+        if self.flow_matching:
+            if self.v_pred:
+                agent_noise = agent_noise - x_agent
+            elif self.x_pred:
+                # agent_noise=agent_noise-x_agent
 
-            t =t_agent[:, None] / self.n_timesteps
+                t = t_agent[:, None] / self.n_timesteps
 
-            #agent_noise_pred=(x_agent_noisy-agent_noise_pred) / (1-t).clamp_min(min=0.05)
+                # agent_noise_pred=(x_agent_noisy-agent_noise_pred) / (1-t).clamp_min(min=0.05)
 
-            x_pred=agent_noise_pred*self.normal_scale
+                x_pred = agent_noise_pred * self.normal_scale
 
-            denom=(1-t).clamp_min(min=0.05)
+                denom = (1 - t).clamp_min(min=0.05)
 
-            x=x_agent*self.normal_scale
+                x = x_agent * self.normal_scale
 
-        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-            None,
-            x_pred,
-            x,
-            denom,
-            scale=1,
-            all_state=False,
-            use_col=False,
-            use_all_type=False,
-            use_match=False
-        )
+            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                None,
+                x_pred,
+                x,
+                denom,
+                scale=1,
+                all_state=False,
+                use_col=False,
+                use_all_type=False,
+                use_match=False
+            )
+
+        else:
+            agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
+
+            match_loss=pos_loss=heading_loss=shape_loss= vel_loss=agent_loss
+
+            collision_loss=torch.zeros_like(agent_loss)
 
         # agent_noise_pred=agent_noise_pred*self.normal_scale
     #    agent_noise=agent_noise*self.normal_scale
 
 
-        #agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
         # pos_loss=torch.norm(agent_noise_pred[:,:2]- agent_noise[:,:2],dim=-1)#, reduction="none").mean(-1)
         #
         # #cluster_valid_mask=~torch.isnan(real_vel)

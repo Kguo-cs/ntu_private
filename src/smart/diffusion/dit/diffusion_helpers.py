@@ -504,7 +504,7 @@ class DiTBlock(nn.Module):
     def __init__(self, hidden_size, num_heads, dropout, mlp_ratio=4.0, **block_kwargs):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.attn = AttentionLayerDiT1(hidden_size, num_heads=num_heads, qkv_bias=True, attn_drop=dropout,
+        self.attn = AttentionLayerDiT(hidden_size, num_heads=num_heads, qkv_bias=True, attn_drop=dropout,
                                       proj_drop=dropout, **block_kwargs)
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)
