@@ -51,7 +51,7 @@ class InitDiffusion(nn.Module):
         else:
             self.ldm=False
 
-        self.ldm=False
+        self.ldm=True
 
         if self.ldm:
             self.G1=LDM()
