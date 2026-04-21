@@ -60,6 +60,11 @@ class LDM(nn.Module):
         self.register_buffer("normal_mean", torch.zeros(1, 8))
         self.register_buffer("normal_scale", torch.ones(1, 8))
 
+        self.flow_matching=True
+
+        if self.flow_matching:
+            self.n_timesteps=20
+
 
     def predict_start_from_noise(self, x_t, t, noise):
         """ Predict the start of the diffusion chain from the noised sample x_t and noise."""
@@ -94,13 +99,22 @@ class LDM(nn.Module):
         t_agent = t_agent.detach().to(torch.int64)
         #t_lane = t_lane.detach().to(torch.int64)
 
-        # given the noise and timestep, predict the start of the diffusion chain
-        x_agent_recon = self.predict_start_from_noise(x_agent, t=t_agent, noise=epsilon_agent)
-        #x_lane_recon = self.predict_start_from_noise(x_lane, t=t_lane, noise=epsilon_lane)
+        if self.flow_matching:
+            t=(self.n_timesteps-1-t_agent)[:,None]/self.n_timesteps
 
-        # mean, log_var of the posterior distribution q(x_t-1 | x_t, x_0)
-        model_mean_agent, posterior_log_variance_agent = self.q_posterior(x_start=x_agent_recon, x_t=x_agent, t=t_agent)
-        #model_mean_lane, posterior_log_variance_lane = self.q_posterior(x_start=x_lane_recon, x_t=x_lane, t=t_lane)
+           # x_start=   (x_agent - (1-t)*conditional_epsilon_agent ) / t
+
+            v= (conditional_epsilon_agent-x_agent) / t.clamp_min(min=0.05) #v= (noise-x)
+
+            model_mean_agent=posterior_log_variance_agent=v
+        else:
+            # given the noise and timestep, predict the start of the diffusion chain
+            x_agent_recon = self.predict_start_from_noise(x_agent, t=t_agent, noise=epsilon_agent)
+            #x_lane_recon = self.predict_start_from_noise(x_lane, t=t_lane, noise=epsilon_lane)
+
+            # mean, log_var of the posterior distribution q(x_t-1 | x_t, x_0)
+            model_mean_agent, posterior_log_variance_agent = self.q_posterior(x_start=x_agent_recon, x_t=x_agent, t=t_agent)
+            #model_mean_lane, posterior_log_variance_lane = self.q_posterior(x_start=x_lane_recon, x_t=x_lane, t=t_lane)
 
         return model_mean_agent, posterior_log_variance_agent#, model_mean_lane, posterior_log_variance_lane
 
@@ -117,18 +131,22 @@ class LDM(nn.Module):
             t_agent,
             t_lane)
 
-        noise_agent = torch.randn_like(x_agent)
-        #noise_lane = torch.randn_like(x_lane)
+        if self.flow_matching:
 
-        # no noise when t == 0
-        nonzero_mask_agent = (1 - (t_agent == 0).float()).reshape(b_agent, *((1,) * (len(x_agent.shape) - 1)))
-        # nonzero_mask_lane = (1 - (t_lane == 0).float()).reshape(b_lane, *((1,) * (len(x_lane.shape) - 1)))
+            next_x_agent = x_agent - 1/self.n_timesteps * model_mean_agent
+        else:
+            noise_agent = torch.randn_like(x_agent)
+            #noise_lane = torch.randn_like(x_lane)
 
-        # sample from the posterior distribution using reparametrization trick
-        next_x_agent = model_mean_agent + nonzero_mask_agent * (model_log_variance_agent).exp().sqrt() * noise_agent
-        # next_x_lane = model_mean_lane + nonzero_mask_lane * (
-        #     model_log_variance_lane).exp().sqrt() * noise_lane * self.lane_sampling_temperature
-        #
+            # no noise when t == 0
+            nonzero_mask_agent = (1 - (t_agent == 0).float()).reshape(b_agent, *((1,) * (len(x_agent.shape) - 1)))
+            # nonzero_mask_lane = (1 - (t_lane == 0).float()).reshape(b_lane, *((1,) * (len(x_lane.shape) - 1)))
+
+            # sample from the posterior distribution using reparametrization trick
+            next_x_agent = model_mean_agent + nonzero_mask_agent * (model_log_variance_agent).exp().sqrt() * noise_agent
+            # next_x_lane = model_mean_lane + nonzero_mask_lane * (
+            #     model_log_variance_lane).exp().sqrt() * noise_lane * self.lane_sampling_temperature
+            #
         return next_x_agent#, next_x_lane
     #
     # @torch.no_grad()
@@ -268,10 +286,15 @@ class LDM(nn.Module):
 
     def q_sample(self, x_start, t, noise=None):
         """generate noised sample for training"""
-        sample = (
-                extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
-                extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
-        )
+        if self.flow_matching:
+            t=t[:,None]/self.n_timesteps
+
+            sample= t*x_start + (1-t)*noise
+        else:
+            sample = (
+                    extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
+                    extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
+            )
 
         return sample
 

@@ -254,7 +254,7 @@ class ScaleFlow(nn.Module):
                 z=path_sample.x_t
 
             else:
-                z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
+                z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)            
 
             if self.x_pred:
 
