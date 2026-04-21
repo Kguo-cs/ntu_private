@@ -15,7 +15,7 @@ from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_
 class LDM(nn.Module):
     def __init__(self):
         super(LDM, self).__init__()
-        hidden_dim=256
+        hidden_dim=128
 
         self.model = DiT(hidden_dim)
         self.ego_embedding1= MLPLayer(19, hidden_dim, hidden_dim)
