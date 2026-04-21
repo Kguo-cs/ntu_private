@@ -67,6 +67,7 @@ class LDM(nn.Module):
 
         self.v_pred=True
 
+        self.x_pred=False
 
     def predict_start_from_noise(self, x_t, t, noise):
         """ Predict the start of the diffusion chain from the noised sample x_t and noise."""
@@ -86,6 +87,9 @@ class LDM(nn.Module):
 
     def p_mean_variance(self, x_agent, x_lane, data, t_agent, t_lane):
         """ Predict the mean and log variance of the posterior distribution p(x_{t-1} | x_t, x_0)."""
+        if self.flow_matching:
+            t_agent=self.n_timesteps-1-t_agent
+
         # noise prediction
         conditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
                                                                          unconditional=False)
@@ -102,11 +106,13 @@ class LDM(nn.Module):
         #t_lane = t_lane.detach().to(torch.int64)
 
         if self.flow_matching:
+            t =t_agent[:, None] / self.n_timesteps
 
             if self.v_pred:
                 v=conditional_epsilon_agent
+            elif self.x_pred:
+                v= x_agent
             else:
-                t=(self.n_timesteps-1-t_agent)[:,None]/self.n_timesteps
 
                # x_start=   (x_agent - (1-t)*conditional_epsilon_agent ) / t
 
@@ -345,6 +351,8 @@ class LDM(nn.Module):
         # agent_loss=get_matching_loss(tokenized_agent,x_agent_recon,x_agent,1,all_state=True,w_pos=1, w_heading=1, w_shape=1,w_vel=1)
         if self.v_pred:
             agent_noise=agent_noise-x_agent
+        elif self.x_pred:
+            agent_noise=x_agent
 
         agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
         agent_loss=(agent_loss,agent_loss,agent_loss,agent_loss,agent_loss,agent_loss)
