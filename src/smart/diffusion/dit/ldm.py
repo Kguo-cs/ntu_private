@@ -93,7 +93,7 @@ class LDM(nn.Module):
 
         # noise prediction
         conditional_epsilon_agent = self.model(x_agent,t_agent, data, x_lane,  None,
-                                                                         unconditional=False)
+                                                                         unconditional=False)[:,0]
         # unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
         #                                                                      unconditional=True)
         # # # classifier-free guidance
@@ -323,7 +323,7 @@ class LDM(nn.Module):
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
 
-        agent_noise_pred = self.model(x_agent_noisy,t_agent,data, x_lane)
+        agent_noise_pred = self.model(x_agent_noisy,t_agent,data, x_lane)[:,0]
 
        # x_agent_recon = self.predict_start_from_noise(x_agent_noisy, t=t_agent, noise=agent_noise_pred).clamp_(min=-5,max=5)
 
