@@ -48,7 +48,7 @@ def matching_loss(
 
         #cluster_valid_mask=~torch.isnan(real_vel)
 
-        heading_loss = F.mse_loss(fake_heading, real_heading, reduction="none").mean(-1)
+        heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean(-1)
 
         # if fake_state.shape[1]==44:
         #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
