@@ -370,7 +370,6 @@ class InitDenoiser(nn.Module):
                 map_feature: Mapping[str, torch.Tensor],
                 eval_mask=None,
                 num_samples=1,
-                mode=0
                 ) -> Dict[str, torch.Tensor]:
 
         device = m_delta.device

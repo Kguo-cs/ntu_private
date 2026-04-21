@@ -24,6 +24,8 @@ class DiT(nn.Module):
         # self.cfg_dataset = self.cfg.dataset
 
         self.use_rel_ego=False
+        self.use_scale=False
+        self.use_all_type=False
 
         self.agent_hidden_dim=hidden_dim
         self.dropout=0
@@ -71,6 +73,8 @@ class DiT(nn.Module):
                 num_l2l_blocks=self.num_l2l_blocks
             ) for _ in range(self.num_factorized_dit_blocks)
         ])
+        self.register_buffer("normal_mean", torch.zeros(1, 8))
+        self.register_buffer("normal_scale", torch.ones(1, 8))
 
         # noise prediction heads
         self.pred_agent_noise = FinalLayer(self.agent_hidden_dim, self.agent_latent_dim)
@@ -108,7 +112,19 @@ class DiT(nn.Module):
 
         diff_input = m_init
 
+        if torch.all(self.normal_mean==0):
+            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+
         return diff_input,m_init
+
+    def normalize(self,input):
+        return (input - self.normal_mean[None]) / self.normal_scale[None]
+
+    def denormalize(self,input,nonego_type=None):
+        input=input* self.normal_scale[None]+self.normal_mean[None]
+
+        return input#[:,None]
 
     def initialize_weights(self):
         """ Custom initialization for DiT model"""
@@ -165,16 +181,24 @@ class DiT(nn.Module):
         # nn.init.constant_(self.pred_lane_noise.linear.weight, 0)
         # nn.init.constant_(self.pred_lane_noise.linear.bias, 0)
 
-    def forward(self,
+    def forward(self,#z, t, tokenized_agent, scene_enc
                 x_agent,
-                x_lane,
-                data,
                 agent_timestep,
-                lane_timestep,
+                data,
+                x_lane,
+                lane_timestep=None,
                 unconditional=False):
         """ Forward pass of the DiT model."""
+        agent_batch = data["nonego_batch"]
+        nonego_type=data["nonego_type"]
+        batch_size=data["num_graphs"]
+        ego_embedding=data["ego_embedding"]
+        lane_batch=data["lane_batch"]
 
-        agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding=data
+        agent_timestep=agent_timestep[:,0,0]
+        x_agent=x_agent[:,0]
+
+        #agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding=data
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False,hidden_dim=self.agent_hidden_dim)
 
         # lane_idx_batch = get_indices_within_scene(lane_batch)
@@ -191,8 +215,8 @@ class DiT(nn.Module):
         # scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
         # scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training,
         #                                       force_drop_ids=torch.ones_like(scene_idx) if unconditional else None)
-        agent_scene_type = self.scene_type_embedder(nonego_type_sorted, train=self.training,
-                                              force_drop_ids=torch.ones_like(nonego_type_sorted) if unconditional else None)
+        agent_scene_type = self.scene_type_embedder(nonego_type, train=self.training,
+                                              force_drop_ids=torch.ones_like(nonego_type) if unconditional else None)
         # agent_batch = data['agent'].batch
         # lane_batch = data['lane'].batch
         # agent_scene_type = scene_type[agent_batch]
@@ -206,6 +230,9 @@ class DiT(nn.Module):
         # num_lanes = data['num_lanes'].long()
         num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
         num_lanes_emb =self.num_lanes_embedder(num_lanes[:,None].to(torch.float32))[lane_batch] #self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
+
+        if lane_timestep is  None:
+            lane_timestep=torch.ones_like(lane_batch)
 
         # embedding of timestep
         t =self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
@@ -246,7 +273,7 @@ class DiT(nn.Module):
         #x_lane = self.pred_lane_noise(x_lane, c_lane).unsqueeze(1)
         x_agent = self.pred_agent_noise(x_agent, c_agent)#.unsqueeze(1)
 
-        return x_agent
+        return x_agent[:,None]
 
 
     def get_output(self, pred_init, tokenized_agent):

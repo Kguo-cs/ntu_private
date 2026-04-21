@@ -55,6 +55,7 @@ from src.smart.layers import MLPLayer
 
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
 from ..loss.earth_match import gaussian_nll
+from src.smart.diffusion.dit.dit import DiT
 
 
 def calculate_shift(
@@ -81,23 +82,29 @@ class ScaleFlow(nn.Module):
 
         self.hidden_dim=args.hidden_dim
 
-        self.model = InitDenoiser(
-            token_processor,
-            dataset=args.dataset,
-            input_dim=args.input_dim,
-            hidden_dim=args.hidden_dim,
-            output_dim=args.output_dim,
-            output_head=args.output_head,
-            init_timestep=args.init_timestep,
-            num_freq_bands=args.num_freq_bands,
-            num_layers=args.num_denoiser_layers,
-            num_heads=args.num_heads,
-            head_dim=args.head_dim,
-            dropout=args.dropout,
-            diff_type=args.diff_type,
-            m_dim=args.m_dim,
-            mean_flow=self.mean_flow
-        )
+        self.use_dit=True
+
+        if self.use_dit:
+            self.model = DiT(self.hidden_dim)
+            self.lane_embed1 = nn.Linear(128 + 4, self.hidden_dim)
+        else:
+            self.model = InitDenoiser(
+                token_processor,
+                dataset=args.dataset,
+                input_dim=args.input_dim,
+                hidden_dim=args.hidden_dim,
+                output_dim=args.output_dim,
+                output_head=args.output_head,
+                init_timestep=args.init_timestep,
+                num_freq_bands=args.num_freq_bands,
+                num_layers=args.num_denoiser_layers,
+                num_heads=args.num_heads,
+                head_dim=args.head_dim,
+                dropout=args.dropout,
+                diff_type=args.diff_type,
+                m_dim=args.m_dim,
+                mean_flow=self.mean_flow
+            )
 
         if not self.model.use_rel_ego:
             self.ego_embedding1 = MLPLayer(16 + 3, args.hidden_dim, args.hidden_dim)
@@ -157,7 +164,7 @@ class ScaleFlow(nn.Module):
     def get_loss(self,
                  x,
                  tokenized_agent: HeteroData,
-                 scene_enc: Mapping[str, torch.Tensor],
+                 initial_map_feature: Mapping[str, torch.Tensor],
                  eval_mask,
                  num_samples=1,
                  use_match=True) :
@@ -166,7 +173,16 @@ class ScaleFlow(nn.Module):
         num_graphs = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]
         nonego_type=tokenized_agent["nonego_type"]
+        
+        if self.use_dit:
+            lane_batch = initial_map_feature["batch"][::2]
+            pos_pl = initial_map_feature["position"][::2]
+            orient_pl = initial_map_feature["orientation"][::2]
+            feat_map = initial_map_feature["pt_token"][::2]
+            initial_map_feature = self.lane_embed1(
+                torch.cat([feat_map, pos_pl, orient_pl.cos()[:, None], orient_pl.sin()[:, None]], dim=-1))
 
+            tokenized_agent["lane_batch"]=lane_batch
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
@@ -202,17 +218,17 @@ class ScaleFlow(nn.Module):
             buffers = dict()
             params_and_buffers = {**params, **buffers}
 
-            def net_call(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask):
+            def net_call(z_arg, r_arg, t_arg, tokenized_agent, initial_map_feature,eval_mask):
                 beta=torch.cat([t_arg,r_arg],dim=-1)
                 
-                return functional_call(self.model,params_and_buffers, (z_arg, beta, tokenized_agent, scene_enc,eval_mask))
+                return functional_call(self.model,params_and_buffers, (z_arg, beta, tokenized_agent, initial_map_feature,eval_mask))
 
-            def u_fn(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask):
-                x_pred_arg = net_call(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask)
+            def u_fn(z_arg, r_arg, t_arg, tokenized_agent, initial_map_feature,eval_mask):
+                x_pred_arg = net_call(z_arg, r_arg, t_arg, tokenized_agent, initial_map_feature,eval_mask)
                 return (z_arg - x_pred_arg) / t_arg[:,:,None]
 
-            v = u_fn(z, t, t, tokenized_agent, scene_enc,eval_mask)
-            func = lambda z_, r_, t_: u_fn(z_, r_, t_, tokenized_agent, scene_enc,eval_mask)
+            v = u_fn(z, t, t, tokenized_agent, initial_map_feature,eval_mask)
+            func = lambda z_, r_, t_: u_fn(z_, r_, t_, tokenized_agent, initial_map_feature,eval_mask)
             primals = (z, r, t)
             tangents = (v, torch.zeros_like(r), torch.ones_like(t))
             u_out, dudt_out = jvp(func, primals, tangents)
@@ -339,7 +355,7 @@ class ScaleFlow(nn.Module):
                     x_pred=x_pred_all[len(z_sampled):]
                 else:
                     policy_loss=0
-                    x_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
+                    x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
                 denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)
 
@@ -374,7 +390,7 @@ class ScaleFlow(nn.Module):
             else:
                 v_target =x - e
 
-                v_pred = self.model(z, t, tokenized_agent, scene_enc,mode=1)
+                v_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
                 x_pred =e+v_pred
 
@@ -462,7 +478,7 @@ class ScaleFlow(nn.Module):
     def _euler_step(self, z, t, t_next, labels,noise_level):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
         log_prob=None
-        tokenized_agent, scene_enc, eval_mask = labels
+        tokenized_agent, initial_map_feature, eval_mask = labels
 
         if self.use_cluster:
             increasing=tokenized_agent["increasing"]
@@ -505,7 +521,7 @@ class ScaleFlow(nn.Module):
     @torch.no_grad()
     def _forward_sample(self, z, t_n, labels):
 
-        tokenized_agent, scene_enc, eval_mask=labels
+        tokenized_agent, initial_map_feature, eval_mask=labels
         num_agents = len(z)
 
         if self.use_cluster:
@@ -521,7 +537,7 @@ class ScaleFlow(nn.Module):
             t_n[padding_mask]=0
 
         # conditional
-        x_cond = self.model(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)#[...,:z.shape[-1]]
+        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature)#[...,:z.shape[-1]]
 
         if x_cond.shape[-1]!=z.shape[-1]:
             x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
@@ -530,34 +546,42 @@ class ScaleFlow(nn.Module):
 
         v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
-        if self.model.label_drop_prob>0:
-            # unconditional
-            x_uncond = self.model(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=0)
-            v_uncond = (x_uncond - z) / (1.0 - t_n).clamp_min(self.t_eps)
-
-            self.cfg_interval = (0.1, 1.0)
-            self.cfg_scale=3
-
-            # cfg interval
-            low, high = self.cfg_interval
-            interval_mask = (t_n < high) & ((low == 0) | (t_n > low))
-            cfg_scale_interval = torch.where(interval_mask, self.cfg_scale, 1.0)
-
-            v_cond=v_uncond + cfg_scale_interval * (v_cond - v_uncond)
+        # if self.model.label_drop_prob>0:
+        #     # unconditional
+        #     x_uncond = self.model(z, t_n, tokenized_agent, initial_map_feature, num_samples=1, eval_mask=eval_mask,mode=0)
+        #     v_uncond = (x_uncond - z) / (1.0 - t_n).clamp_min(self.t_eps)
+        #
+        #     self.cfg_interval = (0.1, 1.0)
+        #     self.cfg_scale=3
+        #
+        #     # cfg interval
+        #     low, high = self.cfg_interval
+        #     interval_mask = (t_n < high) & ((low == 0) | (t_n > low))
+        #     cfg_scale_interval = torch.where(interval_mask, self.cfg_scale, 1.0)
+        #
+        #     v_cond=v_uncond + cfg_scale_interval * (v_cond - v_uncond)
 
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample(self,tokenized_agent,scene_enc,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
+    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
 
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
         nonego_type=tokenized_agent["nonego_type"]
         num_agents = len(agent_batch)
 
-        #tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_graphs).tolist()
+        if self.use_dit:
+            lane_batch = initial_map_feature["batch"][::2]
+            pos_pl = initial_map_feature["position"][::2]
+            orient_pl = initial_map_feature["orientation"][::2]
+            feat_map = initial_map_feature["pt_token"][::2]
+            initial_map_feature = self.lane_embed1(
+                torch.cat([feat_map, pos_pl, orient_pl.cos()[:, None], orient_pl.sin()[:, None]], dim=-1))
 
-        z = torch.randn(num_agents, num_samples, self.model.output_dim, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
+            tokenized_agent["lane_batch"] = lane_batch
+
+        z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device)#*0.9 #.clamp(min=-3,max=3)
 
         t_list=[]
 
@@ -603,11 +627,11 @@ class ScaleFlow(nn.Module):
             r = torch.zeros(num_agents, device=agent_batch.device)[:,None]
             beta = torch.cat([t, r], dim=-1)
 
-            z = self.model(z, beta, tokenized_agent, scene_enc,eval_mask)
+            z = self.model(z, beta, tokenized_agent, initial_map_feature,eval_mask)
 
         elif self.use_flow_ode:
             other_model_params = {
-                "scene_enc": scene_enc,
+                "initial_map_feature": initial_map_feature,
                 "tokenized_agent": tokenized_agent,
             }
 
@@ -619,7 +643,7 @@ class ScaleFlow(nn.Module):
             )
 
             other_model_params = {
-                "scene_enc": scene_enc,
+                "initial_map_feature": initial_map_feature,
                 "tokenized_agent": tokenized_agent,
             }
             dpm_solver_params = {}
@@ -702,10 +726,10 @@ class ScaleFlow(nn.Module):
                         t=noise_scedule[:,i][agent_batch][eval_mask]
                         t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
 
-                    z[eval_mask],x_cond,t_n=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
+                    z[eval_mask],x_cond,t_n=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, initial_map_feature,eval_mask))
 
                 else:
-                    z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask),noise_level[:,i])
+                    z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
 
                 x_list.append(x_cond)
                 z_list.append(z)

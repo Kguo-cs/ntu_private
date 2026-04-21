@@ -39,7 +39,7 @@ class InitDiffusion(nn.Module):
 
         self.learn_autoencoder = False
         self.latent_diffusion = False
-        self.sep_map=True
+        self.sep_map=False
 
         if self.learn_autoencoder or self.latent_diffusion:
 
