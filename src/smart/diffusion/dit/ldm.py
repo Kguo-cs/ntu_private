@@ -361,9 +361,9 @@ class LDM(nn.Module):
 
             x_pred=agent_noise_pred*self.normal_scale
 
-            x=x_agent*self.normal_scale
-
             denom=(1-t).clamp_min(min=0.05)
+
+            x=x_agent*self.normal_scale
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             None,
@@ -372,7 +372,7 @@ class LDM(nn.Module):
             denom,
             scale=1,
             all_state=False,
-            use_col=True,
+            use_col=False,
             use_all_type=False,
             use_match=False
         )
@@ -432,7 +432,8 @@ class LDM(nn.Module):
         ego_embedding = tokenized_agent["ego_embedding"]
 
         # batch of random timesteps
-        t = torch.randint(0, self.n_timesteps, (batch_size,), device=x_agent.device).long()
+        t=torch.rand((batch_size,), device=x_agent.device)*self.n_timesteps
+       #t = torch.randint(0, self.n_timesteps, (batch_size,), device=x_agent.device).long()
         t_agent = t[agent_batch]
         t_lane = t[lane_batch]
 
