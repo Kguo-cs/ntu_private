@@ -92,7 +92,7 @@ class LDM(nn.Module):
             t_agent=self.n_timesteps-1-t_agent
 
         # noise prediction
-        conditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
+        conditional_epsilon_agent = self.model(x_agent,t_agent, data, x_lane,  None,
                                                                          unconditional=False)
         # unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
         #                                                                      unconditional=True)
@@ -264,10 +264,7 @@ class LDM(nn.Module):
 
         x_agent = torch.randn([num_agents,  5+3]).to(device)
 
-        nonego_type_sorted = tokenized_agent["nonego_type"]
-        ego_embedding = tokenized_agent["ego_embedding"]
-
-        data=(agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding)
+        data=tokenized_agent
 
         for i in reversed(range(0, self.n_timesteps)):
             timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
@@ -325,9 +322,7 @@ class LDM(nn.Module):
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
 
-        agent_noise_pred = self.model(x_agent_noisy, x_lane, data, t_agent,t_lane)
-
-       # print(agent_noise_pred.max())
+        agent_noise_pred = self.model(x_agent_noisy,t_agent,data, x_lane)
 
        # x_agent_recon = self.predict_start_from_noise(x_agent_noisy, t=t_agent, noise=agent_noise_pred).clamp_(min=-5,max=5)
 

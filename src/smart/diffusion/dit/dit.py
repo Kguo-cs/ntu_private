@@ -195,8 +195,10 @@ class DiT(nn.Module):
         ego_embedding=data["ego_embedding"]
         lane_batch=data["lane_batch"]
 
-        agent_timestep=agent_timestep[:,0,0]
-        x_agent=x_agent[:,0]
+        if len(x_agent.shape)==3:
+
+            agent_timestep=agent_timestep[:,0,0]
+            x_agent=x_agent[:,0]
 
         #agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding=data
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False,hidden_dim=self.agent_hidden_dim)
