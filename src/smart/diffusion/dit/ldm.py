@@ -353,42 +353,58 @@ class LDM(nn.Module):
         if self.v_pred:
             agent_noise=agent_noise-x_agent
         elif self.x_pred:
-            agent_noise=agent_noise-x_agent
+            #agent_noise=agent_noise-x_agent
 
             t =t_agent[:, None] / self.n_timesteps
 
-            agent_noise_pred=(x_agent_noisy-agent_noise_pred) / (1-t).clamp_min(min=0.05)
+            #agent_noise_pred=(x_agent_noisy-agent_noise_pred) / (1-t).clamp_min(min=0.05)
 
+            x_pred=agent_noise_pred*self.normal_scale
 
+            x=x_agent*self.normal_scale
 
-       # agent_noise_pred=agent_noise_pred*self.normal_scale
+            denom=(1-t).clamp_min(min=0.05)
+
+        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+            None,
+            x_pred,
+            x,
+            denom,
+            scale=1,
+            all_state=False,
+            use_col=False,
+            use_all_type=False,
+            use_match=False
+        )
+
+        # agent_noise_pred=agent_noise_pred*self.normal_scale
     #    agent_noise=agent_noise*self.normal_scale
 
 
         #agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
-        pos_loss=torch.norm(agent_noise_pred[:,:2]- agent_noise[:,:2],dim=-1)#, reduction="none").mean(-1)
-
-        #cluster_valid_mask=~torch.isnan(real_vel)
-
-        heading_loss = F.l1_loss(agent_noise_pred[:,2:4], agent_noise[:,2:4], reduction="none").mean(-1)
-
-        # if fake_state.shape[1]==44:
-        #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
-        #     shape_loss =torch.zeros_like(vel_loss)
+        # pos_loss=torch.norm(agent_noise_pred[:,:2]- agent_noise[:,:2],dim=-1)#, reduction="none").mean(-1)
         #
-        # else:
-        shape_loss = F.mse_loss(agent_noise_pred[:,4:6], agent_noise[:,4:6], reduction="none").mean(-1)
+        # #cluster_valid_mask=~torch.isnan(real_vel)
+        #
+        # heading_loss = F.l1_loss(agent_noise_pred[:,2:4], agent_noise[:,2:4], reduction="none").mean(-1)
+        #
+        # # if fake_state.shape[1]==44:
+        # #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
+        # #     shape_loss =torch.zeros_like(vel_loss)
+        # #
+        # # else:
+        # shape_loss = F.mse_loss(agent_noise_pred[:,4:6], agent_noise[:,4:6], reduction="none").mean(-1)
+        #
+        # vel_loss = F.mse_loss(agent_noise_pred[:,6:8], agent_noise[:,6:8], reduction="none").mean(-1)
+        #
+        # w_pos =1 #0.1
+        # w_heading =1# 0.5
+        # w_shape =1# 0.2
+        # w_vel = 1#0.2
+        #
+        # agent_loss=w_pos*pos_loss+w_heading*heading_loss+w_shape*shape_loss+w_vel*vel_loss
 
-        vel_loss = F.mse_loss(agent_noise_pred[:,6:8], agent_noise[:,6:8], reduction="none").mean(-1)
-
-        w_pos =1 #0.1
-        w_heading =1# 0.5
-        w_shape =1# 0.2
-        w_vel = 1#0.2
-
-        agent_loss=w_pos*pos_loss+w_heading*heading_loss+w_shape*shape_loss+w_vel*vel_loss
-
-        agent_loss=(agent_loss,torch.zeros_like(agent_loss),pos_loss,heading_loss,shape_loss,vel_loss)
+        agent_loss=(match_loss,torch.zeros_like(match_loss),pos_loss,heading_loss,shape_loss,vel_loss)
 
 
         return agent_loss,agent_noise_pred ,x_agent_noisy,t_agent
