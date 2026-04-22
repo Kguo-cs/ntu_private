@@ -82,7 +82,7 @@ class ScaleFlow(nn.Module):
 
         self.hidden_dim=args.hidden_dim
 
-        self.use_dit=False
+        self.use_dit=True
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)
@@ -367,9 +367,9 @@ class ScaleFlow(nn.Module):
                         denom[:,0],
                         scale=self.model.normal_scale,
                         all_state=False,
-                        use_col=True,
+                        use_col=False,
                         use_all_type=False,
-                        use_match=False
+                        use_match=True
                     )
                 else:
                     pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
