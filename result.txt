@@ -838,7 +838,9 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 0.6417
 
 
+/home/ke/code/sim/src/waymo_data/dit128_map100_lane2_pos3_col_epoch=63-step=121792.ckpt
 
+0.6442
 
 
 take all position for generation
