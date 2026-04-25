@@ -324,7 +324,7 @@ class ScaleFlow(nn.Module):
                             x_sampled[:, 0],
                             denom[:, 0],
                             scale=self.model.normal_scale,
-                            all_state=False,
+                            all_state=True,
                             use_col=False,
                             use_all_type=False,
                             use_match=False
