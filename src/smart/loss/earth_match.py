@@ -40,7 +40,7 @@ def matching_loss(
     # pos_loss = dist.mean()
 
     if fake_state.shape[1]!=16:
-        pos_loss=F.l1_loss(fake_pos, real_pos, reduction="none").mean(-1)
+        pos_loss=F.mse_loss(fake_pos, real_pos, reduction="none").mean(-1)
         #pos_loss=torch.tensor(0.0).to(real_state.device)
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
         #real_vel=torch.cat([real_pos,real_vel],dim=-1)
@@ -228,7 +228,7 @@ def get_closest_sum_idx(
         if len(idx) == 0:
             continue
 
-        dist = torch.cdist(real_feat[idx], fake_feat[idx]).square()
+        dist = torch.cdist(real_feat[idx], fake_feat[idx])#.square()
 
         row, col = linear_sum_assignment(dist.detach().cpu().numpy())
 
