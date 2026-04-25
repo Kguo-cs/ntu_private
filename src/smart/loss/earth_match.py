@@ -228,7 +228,7 @@ def get_closest_sum_idx(
         if len(idx) == 0:
             continue
 
-        dist = torch.abs(real_feat[idx][:,None]-fake_feat[idx][:,:,None]).sum(dim=-1)
+        dist = torch.abs(real_feat[idx][None]-fake_feat[idx][:,None]).sum(dim=-1)
 
         row, col = linear_sum_assignment(dist.detach().cpu().numpy())
 
