@@ -45,7 +45,7 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
 
-task_name: xflow256_eps005_vmse_match_head1 #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
+task_name: xflow256_eps005_vheadmse_match #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
 
 
 trainer:
@@ -77,7 +77,7 @@ data:
   train_batch_size: 256
   val_batch_size: 256
   test_batch_size: 10
-  num_workers: 1
+  num_workers: 8
   #train_raw_dir: ${paths.cache_root}/training_map2_init0_light #init0_light #all_light #init10_inter
   #train_raw_dir: ${paths.cache_root}/training_map2_init0_idx #init10_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
   #val_raw_dir: ${paths.cache_root}/validation_lane #44097

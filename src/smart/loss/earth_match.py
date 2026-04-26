@@ -48,7 +48,7 @@ def matching_loss(
 
         #cluster_valid_mask=~torch.isnan(real_vel)
 
-        heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean(-1)
+        heading_loss = F.mse_loss(fake_heading, real_heading, reduction="none").mean(-1)
 
         # if fake_state.shape[1]==44:
         #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
@@ -243,7 +243,7 @@ def get_closest_sum_idx(
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,
     denom,scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=True,
-    w_pos=0.1, w_heading=1, w_shape=0.2,w_vel=0.2
+    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
     ):
 
     if use_match:
