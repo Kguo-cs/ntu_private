@@ -280,7 +280,27 @@ def get_matching_loss(
     #col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )#[00:28<19:45,  3.13it/s, v_num=oc9q]
     #col_loss=torch.zeros_like(match_loss)#
     if use_col:
-        col_loss=multi_circle_collision_loss_mem_efficient(fake_state[:,:2], torch.atan2(fake_state[:,3],fake_state[:,2]), fake_state[:,4],fake_state[:,5],tokenized_agent["nonego_batch"] )
+
+        batch=tokenized_agent["nonego_batch"]
+        N=len(batch)
+
+        same_batch = batch[:, None] == batch[None, :]
+        not_self = ~torch.eye(N, dtype=torch.bool, device=batch.device)
+        edge_mask = same_batch & not_self
+
+        start_idx, end_idx = edge_mask.nonzero(as_tuple=True)
+
+        pos_agent=fake_state[:,:2]
+
+        a2a_dist=torch.norm(pos_agent[start_idx]-pos_agent[end_idx],dim=-1)
+
+        radius=torch.norm(fake_state[:,4:6],dim=-1)/2
+
+        rad_sum =radius[start_idx]+radius[end_idx]  # (M,M)
+
+        col_loss = torch.relu(rad_sum  - a2a_dist).sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
+
+        #col_loss=multi_circle_collision_loss_mem_efficient(fake_state[:,:2], torch.atan2(fake_state[:,3],fake_state[:,2]), fake_state[:,4],fake_state[:,5],tokenized_agent["nonego_batch"] )
     else:
         col_loss = torch.zeros_like(match_loss.mean())  #
 
