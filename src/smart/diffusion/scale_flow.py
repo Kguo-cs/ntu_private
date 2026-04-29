@@ -380,7 +380,7 @@ class ScaleFlow(nn.Module):
                     #
                     # match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
 
-                    match_loss=get_scale(x,x_pred)
+                    match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
 
 
                     # fake_state=x_pred[:,0]
