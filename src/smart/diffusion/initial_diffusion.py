@@ -53,9 +53,9 @@ class InitDiffusion(nn.Module):
         self.ldm=False
 
         if self.ldm:
-            self.G1=LDM()
+            self.G=LDM()
         else:
-            self.G1 = ScaleFlow(args,token_processor)
+            self.G = ScaleFlow(args,token_processor)
 
         self.use_gail=False
         self.use_gan = False
@@ -89,7 +89,7 @@ class InitDiffusion(nn.Module):
             tokenized_agent['nonego_type'] = nonego_type
 
             if "local_ego_traj" in tokenized_agent.keys():
-                if self.G1.model.use_rel_ego:
+                if self.G.model.use_rel_ego:
                     ego_pos2=tokenized_agent["ego_pos2"]
                     ego_heading2=tokenized_agent["ego_heading2"]
 
@@ -121,8 +121,8 @@ class InitDiffusion(nn.Module):
             ego_feat = tokenized_agent["ego_feat"]
             nonego_batch=tokenized_agent["nonego_batch"]
 
-        if not self.G1.model.use_rel_ego and not self.learn_autoencoder:
-            ego_embedding=self.G1.ego_embedding1(ego_feat)
+        if not self.G.model.use_rel_ego and not self.learn_autoencoder:
+            ego_embedding=self.G.ego_embedding1(ego_feat)
             ego_embedding = ego_embedding[nonego_batch]
 
             tokenized_agent["ego_embedding"] = ego_embedding
@@ -169,7 +169,7 @@ class InitDiffusion(nn.Module):
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
         if self.training:
-            diff_input,m_init=self.G1.model.get_input(tokenized_agent)
+            diff_input,m_init=self.G.model.get_input(tokenized_agent)
 
             if self.learn_autoencoder:
                 return self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
@@ -178,7 +178,7 @@ class InitDiffusion(nn.Module):
                     with torch.no_grad():
                         diff_input = self.autoencoder.forward_encoder(diff_input,tokenized_agent,initial_map_feature)[0]
 
-                loss,x_pred ,expert_state,t = self.G1.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
+                loss,x_pred ,expert_state,t = self.G.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
@@ -190,16 +190,16 @@ class InitDiffusion(nn.Module):
             return loss
         else:
             if self.learn_autoencoder:
-                diff_input, m_init = self.G1.model.get_input(tokenized_agent)
+                diff_input, m_init = self.G.model.get_input(tokenized_agent)
 
                 pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
-                pred_init, x_list = self.G1.sample( tokenized_agent, initial_map_feature,None)
+                pred_init, x_list = self.G.sample( tokenized_agent, initial_map_feature,None)
 
                 if self.latent_diffusion:
                     pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)
 
-            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G1.model.get_output(
+            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.model.get_output(
                 pred_init, tokenized_agent
             )
 
