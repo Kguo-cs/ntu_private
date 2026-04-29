@@ -53,7 +53,7 @@ from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 from src.smart.layers import MLPLayer
 
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale
 from ..loss.earth_match import gaussian_nll
 from src.smart.diffusion.dit.dit import DiT
 
@@ -167,7 +167,7 @@ class ScaleFlow(nn.Module):
                  initial_map_feature: Mapping[str, torch.Tensor],
                  eval_mask,
                  num_samples=1,
-                 use_match=True) :
+                 use_match=False) :
 
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
@@ -373,19 +373,22 @@ class ScaleFlow(nn.Module):
                     )
                 else:
                     pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
+                    #
+                    # v_target = (x - z) /denom
+                    #
+                    # v_pred = (x_pred - z) /denom
+                    #
+                    # match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
 
-                    v_target = (x - z) /denom
+                    match_loss=get_scale(x,x_pred)
 
-                    v_pred = (x_pred - z) /denom
 
-                    match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
-
-                    fake_state=x_pred[:,0]
-
-                    collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
-                                                                         torch.atan2(fake_state[:, 3], fake_state[:, 2]),
-                                                                         fake_state[:, 4], fake_state[:, 5],
-                                                                         tokenized_agent["nonego_batch"])
+                    # fake_state=x_pred[:,0]
+                    #
+                    # collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
+                    #                                                      torch.atan2(fake_state[:, 3], fake_state[:, 2]),
+                    #                                                      fake_state[:, 4], fake_state[:, 5],
+                    #                                                      tokenized_agent["nonego_batch"])
 
             else:
                 v_target =x - e
