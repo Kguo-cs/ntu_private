@@ -357,7 +357,7 @@ class ScaleFlow(nn.Module):
                     policy_loss=0
                     x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
-                denom = torch.ones_like(t) #(1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)
+                denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)torch.ones_like(t) #
 
                 if use_match:
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
@@ -373,14 +373,14 @@ class ScaleFlow(nn.Module):
                     )
                 else:
                     pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
-                    #
-                    # v_target = (x - z) /denom
-                    #
-                    # v_pred = (x_pred - z) /denom
-                    #
-                    # match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
 
-                    match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
+                    v_target = (x - z) /denom
+
+                    v_pred = (x_pred - z) /denom
+
+                    match_loss=F.mse_loss(v_pred/self.model.normal_scale, v_target/self.model.normal_scale, reduction="none").mean(-1)[:,0]
+
+                    #match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
 
 
                     # fake_state=x_pred[:,0]
