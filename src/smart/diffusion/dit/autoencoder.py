@@ -423,14 +423,14 @@ class AutoEncoder(nn.Module):
 
         rad_sum =radius[a2a_edge_index1[0]]+radius[a2a_edge_index1[1]]  # (M,M)
 
-        collision_loss = torch.relu(rad_sum  - a2a_dist).mean() #sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
+        collision_loss = torch.relu(rad_sum  - a2a_dist).sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
 
         # collision_loss = multi_circle_collision_loss_mem_efficient(agent_states_pred[:, :2],
         #                                                            torch.atan2(agent_states_pred[:, 3], agent_states_pred[:, 2]),
         #                                                            agent_states_pred[:, 4], agent_states_pred[:, 5],
         #                                                            tokenized_agent["nonego_batch"])
 
-        loss = agent_loss +1e-2 * kl_loss+collision_loss
+        loss = agent_loss +1e-2 * kl_loss+0.1*collision_loss
 
 
         # agent_states_pred=agent_states_pred* scale
