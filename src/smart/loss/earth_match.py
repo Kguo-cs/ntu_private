@@ -22,6 +22,11 @@ def gaussian_nll(mu, sigma, target):
 
     return loss
 
+def get_scale(x0_prediction,x0):
+    weight_factor=torch.abs(x0_prediction.double() - x0.double()) .mean(dim=tuple(range(1, x0.ndim)), keepdim=True) .clip(min=0.00001)
+
+    return  ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
+
 def matching_loss(
     fake_state,
     real_state,
@@ -40,7 +45,7 @@ def matching_loss(
     # pos_loss = dist.mean()
 
     if fake_state.shape[1]!=16:
-        pos_loss=F.mse_loss(fake_pos, real_pos, reduction="none").mean(-1)
+        #pos_loss=F.mse_loss(fake_pos, real_pos, reduction="none").mean(-1)
         #pos_loss=torch.tensor(0.0).to(real_state.device)
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
         #real_vel=torch.cat([real_pos,real_vel],dim=-1)
@@ -48,16 +53,21 @@ def matching_loss(
 
         #cluster_valid_mask=~torch.isnan(real_vel)
 
-        heading_loss = F.mse_loss(fake_heading, real_heading, reduction="none").mean(-1)
+       # heading_loss = F.mse_loss(fake_heading, real_heading, reduction="none").mean(-1)
 
         # if fake_state.shape[1]==44:
         #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
         #     shape_loss =torch.zeros_like(vel_loss)
         #
         # else:
-        shape_loss = F.mse_loss(fake_shape, real_shape, reduction="none").mean(-1)
+       # shape_loss = F.mse_loss(fake_shape, real_shape, reduction="none").mean(-1)
 
-        vel_loss = F.mse_loss(fake_vel, real_vel, reduction="none").mean(-1)
+        #vel_loss = F.mse_loss(fake_vel, real_vel, reduction="none").mean(-1)
+
+        pos_loss=get_scale(fake_pos,real_pos)
+        heading_loss=get_scale(fake_heading, real_heading)
+        shape_loss=get_scale(fake_shape, real_shape)
+        vel_loss=get_scale(fake_vel, real_vel)
 
     else:
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]
