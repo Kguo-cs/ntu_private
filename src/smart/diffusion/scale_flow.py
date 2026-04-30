@@ -170,7 +170,7 @@ class ScaleFlow(nn.Module):
                  initial_map_feature: Mapping[str, torch.Tensor],
                  eval_mask,
                  num_samples=1,
-                 use_match=False) :
+                 use_match=True) :
 
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
@@ -359,7 +359,20 @@ class ScaleFlow(nn.Module):
                 policy_loss=0
                 x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
-            denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)torch.ones_like(t) #
+            if self.x_pred:
+                denom = (1 - t).clamp_min(self.t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+
+                v_target = (x - z) /denom
+
+                v_pred = (x_pred - z) /denom
+            else:
+                v_target = x - e
+
+                v_pred=x_pred
+
+                denom = torch.ones_like(t) #
+
+                x=v_target
 
             if use_match:
                 match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
@@ -376,15 +389,6 @@ class ScaleFlow(nn.Module):
             else:
                 pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
 
-                if self.x_pred:
-
-                    v_target = (x - z) /denom
-
-                    v_pred = (x_pred - z) /denom
-                else:
-                    v_target = x - e
-
-                    v_pred=x_pred
 
                 # scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
                 #                      device=v_pred.device)
