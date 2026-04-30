@@ -567,7 +567,7 @@ class ScaleFlow(nn.Module):
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
+    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=100,num_samples=1,noise_level=None):
 
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
