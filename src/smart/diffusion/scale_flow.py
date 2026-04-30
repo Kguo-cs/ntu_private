@@ -120,7 +120,7 @@ class ScaleFlow(nn.Module):
         probs = torch.tensor([0.5])
         self.B_dist = Bernoulli(probs=probs)
 
-        self.x_pred=True
+        self.x_pred=False
 
         self.use_scale=self.model.use_scale
 
@@ -381,7 +381,7 @@ class ScaleFlow(nn.Module):
                 else:
                     v_target = x - e
 
-                    v_pred=x
+                    v_pred=x_pred
 
                 # scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
                 #                      device=v_pred.device)
@@ -542,15 +542,19 @@ class ScaleFlow(nn.Module):
 
             t_n[padding_mask]=0
 
-        # conditional
         x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature)#[...,:z.shape[-1]]
 
-        if x_cond.shape[-1]!=z.shape[-1]:
-            x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
-        else:
-            x_cond=x_cond[...,:z.shape[-1]]
+        # conditional
+        if self.x_pred:
 
-        v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
+            if x_cond.shape[-1]!=z.shape[-1]:
+                x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
+            else:
+                x_cond=x_cond[...,:z.shape[-1]]
+
+            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
+        else:
+            v_cond=x_cond
 
         # if self.model.label_drop_prob>0:
         #     # unconditional
