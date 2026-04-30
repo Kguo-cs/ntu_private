@@ -272,135 +272,133 @@ class ScaleFlow(nn.Module):
             else:
                 z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-            if self.x_pred:
 
-                if "advantages" in tokenized_agent.keys():
-                    advantages=tokenized_agent["advantages"]
+            if "advantages" in tokenized_agent.keys():
+                advantages=tokenized_agent["advantages"]
 
-                    if self.use_sde:
+                if self.use_sde:
 
-                        z_list=tokenized_agent["z_list"]
+                    z_list=tokenized_agent["z_list"]
 
-                        t_list=tokenized_agent["t_list"]
+                    t_list=tokenized_agent["t_list"]
 
-                        z_sampled, prev_sample, log = z_list
-                        t_n_sampled, t_next_sampled = t_list
-                    else:
-                        x_sampled=tokenized_agent["z_list"]#.repeat(2,1,1)
-                        e_sampled=torch.randn_like(e)
-                        t_n_sampled=torch.rand_like(t_batch)[agent_batch]#torch.cat([torch.rand_like(t_batch)[agent_batch],torch.rand_like(t_batch)[agent_batch]])
-
-                        #advantages=advantages.repeat(2)
-
-                        z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
-
-                    t_n=torch.cat((t_n_sampled,t),dim=0)
-
-                    z=torch.cat((z_sampled,z),dim=0)
-
-                    tokenized_agent=self.repeat_input(tokenized_agent,2)
-
-                    x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
-
-                    denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
-
-                    if self.use_sde:
-                        v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
-
-                        prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                            1 - t_n_sampled,
-                            1 - t_next_sampled,
-                            -v_pred,
-                            z_sampled,
-                            noise_level=self.noise_level,
-                            prev_sample=prev_sample
-                        )
-                    else:
-                        x_pred = x_pred_all[:len(z_sampled)]
-                        #
-                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                            tokenized_agent,
-                            x_pred[:, 0],
-                            x_sampled[:, 0],
-                            denom[:, 0],
-                            scale=self.model.normal_scale,
-                            all_state=False,
-                            use_col=False,
-                            use_all_type=False,
-                            use_match=False
-                        )
-                        # scale=(denom*self.model.normal_scale)
-                        #
-                        # match_loss = F.mse_loss(x_pred / scale, x_sampled / scale, reduction="none").mean(-1)[:, 0]
-
-                        log_prob=torch.exp(match_loss.detach()-match_loss )
-                        #log_prob = - match_loss
-
-                    #advantages = torch.clamp(advantages, -5, 5)
-                    advantages=(advantages-advantages.mean())/advantages.std()
-
-                    per_sample_policy_loss = - log_prob * advantages
-
-                   # per_sample_policy_loss =per_sample_policy_loss - per_sample_policy_loss.mean()
-
-                   # print(log_prob.mean())
-
-                    if self.rationorm:
-                        sigma_t = std_dev_t.mean()
-
-                        per_sample_policy_loss=per_sample_policy_loss * sigma_t
-
-                    policy_loss = per_sample_policy_loss.mean()
-
-                    x_pred=x_pred_all[len(z_sampled):]
+                    z_sampled, prev_sample, log = z_list
+                    t_n_sampled, t_next_sampled = t_list
                 else:
-                    policy_loss=0
-                    x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+                    x_sampled=tokenized_agent["z_list"]#.repeat(2,1,1)
+                    e_sampled=torch.randn_like(e)
+                    t_n_sampled=torch.rand_like(t_batch)[agent_batch]#torch.cat([torch.rand_like(t_batch)[agent_batch],torch.rand_like(t_batch)[agent_batch]])
 
-                denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)torch.ones_like(t) #
+                    #advantages=advantages.repeat(2)
 
-                if use_match:
+                    z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
+
+                t_n=torch.cat((t_n_sampled,t),dim=0)
+
+                z=torch.cat((z_sampled,z),dim=0)
+
+                tokenized_agent=self.repeat_input(tokenized_agent,2)
+
+                x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
+
+                denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
+
+                if self.use_sde:
+                    v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
+
+                    prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                        1 - t_n_sampled,
+                        1 - t_next_sampled,
+                        -v_pred,
+                        z_sampled,
+                        noise_level=self.noise_level,
+                        prev_sample=prev_sample
+                    )
+                else:
+                    x_pred = x_pred_all[:len(z_sampled)]
+                    #
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                         tokenized_agent,
-                        x_pred[:,0],
-                        x[:,0],
-                        denom[:,0],
+                        x_pred[:, 0],
+                        x_sampled[:, 0],
+                        denom[:, 0],
                         scale=self.model.normal_scale,
                         all_state=False,
                         use_col=False,
                         use_all_type=False,
                         use_match=False
                     )
-                else:
-                    pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
+                    # scale=(denom*self.model.normal_scale)
+                    #
+                    # match_loss = F.mse_loss(x_pred / scale, x_sampled / scale, reduction="none").mean(-1)[:, 0]
+
+                    log_prob=torch.exp(match_loss.detach()-match_loss )
+                    #log_prob = - match_loss
+
+                #advantages = torch.clamp(advantages, -5, 5)
+                advantages=(advantages-advantages.mean())/advantages.std()
+
+                per_sample_policy_loss = - log_prob * advantages
+
+               # per_sample_policy_loss =per_sample_policy_loss - per_sample_policy_loss.mean()
+
+               # print(log_prob.mean())
+
+                if self.rationorm:
+                    sigma_t = std_dev_t.mean()
+
+                    per_sample_policy_loss=per_sample_policy_loss * sigma_t
+
+                policy_loss = per_sample_policy_loss.mean()
+
+                x_pred=x_pred_all[len(z_sampled):]
+            else:
+                policy_loss=0
+                x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+
+            denom = (1 - t).clamp_min(self.t_eps)#/t.clamp_min(self.t_eps)torch.ones_like(t) #
+
+            if use_match:
+                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    tokenized_agent,
+                    x_pred[:,0],
+                    x[:,0],
+                    denom[:,0],
+                    scale=self.model.normal_scale,
+                    all_state=False,
+                    use_col=False,
+                    use_all_type=False,
+                    use_match=False
+                )
+            else:
+                pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
+
+                if self.x_pred:
 
                     v_target = (x - z) /denom
 
                     v_pred = (x_pred - z) /denom
+                else:
+                    v_target = x - e
 
-                    scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
-                                         device=v_pred.device)
+                    v_pred=x
 
-                    #scale=self.model.normal_scale[None]
+                # scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
+                #                      device=v_pred.device)
+                #
+                scale=self.model.normal_scale[None]
 
-                    match_loss=F.mse_loss(v_pred/scale, v_target/scale, reduction="none").mean(-1)[:,0]
+                match_loss=F.mse_loss(v_pred/scale, v_target/scale, reduction="none").mean(-1)[:,0]
 
-                    #match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
+                #match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
 
 
-                    # fake_state=x_pred[:,0]
-                    #
-                    # collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
-                    #                                                      torch.atan2(fake_state[:, 3], fake_state[:, 2]),
-                    #                                                      fake_state[:, 4], fake_state[:, 5],
-                    #                                                      tokenized_agent["nonego_batch"])
-
-            else:
-                v_target =x - e
-
-                v_pred = self.model(z, t, tokenized_agent, initial_map_feature)
-
-                x_pred =e+v_pred
+                # fake_state=x_pred[:,0]
+                #
+                # collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
+                #                                                      torch.atan2(fake_state[:, 3], fake_state[:, 2]),
+                #                                                      fake_state[:, 4], fake_state[:, 5],
+                #                                                      tokenized_agent["nonego_batch"])
 
         loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
