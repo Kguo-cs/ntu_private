@@ -37,7 +37,7 @@ class InitDiffusion(nn.Module):
         self.add_model_specific_args(parser)
         args = parser.parse_args()
 
-        self.learn_autoencoder = False
+        self.learn_autoencoder = True
         self.latent_diffusion = False
         self.sep_map=False
 

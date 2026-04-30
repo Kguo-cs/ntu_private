@@ -389,7 +389,9 @@ class AutoEncoder(nn.Module):
             l2l_edge_index,
             l2a_edge_index)
 
-        scale=torch.tensor([[32.000/3, 32.000/3,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
+        # scale=torch.tensor([[32.000/3, 32.000/3,  0.500,  0.500, 11.514,  6.312, 57.044,57.044]],device=x_agent.device)
+        
+        scale=torch.tensor([[10, 10,  2,  2, 5,  5, 5,5]],device=x_agent.device)
 
         # pred_static=agent_states_pred/scale
         # gt_static=x_agent/scale
@@ -409,28 +411,28 @@ class AutoEncoder(nn.Module):
         # agent_loss = static_err_weighted.mean()#_scene_mean(static_err_weighted, batch)
 
         # agent vector regression loss
-        agent_loss = F.l1_loss(agent_states_pred/scale,x_agent/scale)#self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#=
+        agent_loss =self.agent_loss_fn(agent_states_pred/scale, x_agent/scale, batch)#= F.l1_loss(agent_states_pred/scale,x_agent/scale)#
 
         #agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        pos_agent=agent_states_pred[:,:2]
+        # pos_agent=agent_states_pred[:,:2]
 
-        a2a_dist=torch.norm(pos_agent[a2a_edge_index1[0]]-pos_agent[a2a_edge_index1[1]],dim=-1)
+        # a2a_dist=torch.norm(pos_agent[a2a_edge_index1[0]]-pos_agent[a2a_edge_index1[1]],dim=-1)
 
-        radius=torch.norm(agent_states_pred[:,4:6],dim=-1)/2
+        # radius=torch.norm(agent_states_pred[:,4:6],dim=-1)/2
 
-        rad_sum =radius[a2a_edge_index1[0]]+radius[a2a_edge_index1[1]]  # (M,M)
+        # rad_sum =radius[a2a_edge_index1[0]]+radius[a2a_edge_index1[1]]  # (M,M)
 
-        collision_loss = torch.relu(rad_sum  - a2a_dist).mean() #sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
+        # collision_loss = torch.relu(rad_sum  - a2a_dist).mean() #sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
 
         # collision_loss = multi_circle_collision_loss_mem_efficient(agent_states_pred[:, :2],
         #                                                            torch.atan2(agent_states_pred[:, 3], agent_states_pred[:, 2]),
         #                                                            agent_states_pred[:, 4], agent_states_pred[:, 5],
         #                                                            tokenized_agent["nonego_batch"])
 
-        loss = agent_loss +1e-2 * kl_loss+collision_loss
+        loss = agent_loss +1e-2 * kl_loss#+collision_loss
 
 
         # agent_states_pred=agent_states_pred* scale
