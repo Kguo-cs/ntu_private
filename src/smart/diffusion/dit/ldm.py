@@ -61,7 +61,7 @@ class LDM(nn.Module):
         self.register_buffer("normal_mean", torch.zeros(1, 8))
         self.register_buffer("normal_scale", torch.ones(1, 8))
 
-        self.flow_matching=True
+        self.flow_matching=False
 
         if self.flow_matching:
             self.n_timesteps=20
