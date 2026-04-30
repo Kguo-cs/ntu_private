@@ -121,7 +121,7 @@ class ScaleFlow(nn.Module):
         self.B_dist = Bernoulli(probs=probs)
 
         if self.use_dit:
-            self.x_pred=False
+            self.x_pred=True
         else:
             self.x_pred=True
 
@@ -390,10 +390,10 @@ class ScaleFlow(nn.Module):
                 pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
 
 
-                # scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
-                #                      device=v_pred.device)
+                scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
+                                     device=v_pred.device)
                 #
-                scale=self.model.normal_scale[None]
+               # scale=self.model.normal_scale[None]
                 # scale = torch.tensor([[10, 10, 2, 2, 5, 5, 5, 5]],
                 #                      device=v_pred.device)
 
