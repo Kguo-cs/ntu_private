@@ -378,7 +378,12 @@ class ScaleFlow(nn.Module):
 
                     v_pred = (x_pred - z) /denom
 
-                    match_loss=F.mse_loss(v_pred/self.model.normal_scale[None], v_target/self.model.normal_scale[None], reduction="none").mean(-1)[:,0]
+                    scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
+                                         device=v_pred.device)
+
+                    #scale=self.model.normal_scale[None]
+
+                    match_loss=F.mse_loss(v_pred/scale, v_target/scale, reduction="none").mean(-1)[:,0]
 
                     #match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
 
@@ -567,7 +572,7 @@ class ScaleFlow(nn.Module):
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
-    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=100,num_samples=1,noise_level=None):
+    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
 
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
