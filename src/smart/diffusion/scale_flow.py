@@ -121,7 +121,7 @@ class ScaleFlow(nn.Module):
         self.B_dist = Bernoulli(probs=probs)
 
         if self.use_dit:
-            self.x_pred=True
+            self.x_pred=False
         else:
             self.x_pred=True
 
