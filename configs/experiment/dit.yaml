@@ -47,12 +47,12 @@ model:
 #ckpt_path: 'logs/autoenc256_map100_lane2_pos3_col01/2026-04-18_03-35-49/bc/aooeav5i/checkpoints/last.ckpt'
 #ckpt_path: 'logs/autoenc256_map100_lane2_col/2026-04-19_22-35-18/bc/dremxtzr/checkpoints/last.ckpt'
 #ckpt_path: 'logs/autoenc256_map100_lane2_pos3_col/2026-04-20_22-32-09/bc/ixwrwm9y/checkpoints/last.ckpt'
-ckpt_path: 'logs/autoenc256_map100_lane2_pos3_meancol/2026-04-29_09-02-04/bc/iwg6ahth/checkpoints/last.ckpt'
+ckpt_path: 'logs/autoenc256_map100_lane2_pos3_01col/2026-04-29_09-01-05/bc/9fdgmdz8/checkpoints/last.ckpt'
 
 #ckpt_path: './waymo_data/autoenc256_map100_lane2_pos3_col_epoch=63-step=121792.ckpt'
 
 
-task_name: dit256_step100_pos3_meancol #dit128_map80_pos3_matchsq
+task_name: dit256_step20_pos3_01col #dit128_map80_pos3_matchsq
 
 
 trainer:
