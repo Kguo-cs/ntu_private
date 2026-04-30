@@ -373,7 +373,7 @@ class LDM(nn.Module):
             )
 
         else:
-            agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
+            agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data["nonego_batch"])
 
             match_loss=pos_loss=heading_loss=shape_loss= vel_loss=agent_loss
 

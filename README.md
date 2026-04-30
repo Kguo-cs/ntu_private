@@ -8,7 +8,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/autoenc256_map100_lane2_pos3_col_epo
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_map100_rellane_epoch=11-step=22836.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_03_light zs@10.87.225.106:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/sim/src/waymo_data/autoenc256_map100_lane2_pos3_col_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/sd/checkpoints/scenario_dreamer_autoencoder_latents_waymo ke@10.87.114.128:~/keguo/sim/sd/checkpoints/
 
