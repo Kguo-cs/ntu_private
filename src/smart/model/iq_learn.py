@@ -350,6 +350,12 @@ class IQ_SoftQ(LightningModule):
             # g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
             #
             # self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
+            if self.global_step==2:
+                for src_param, tgt_param in zip(
+                        self.encoder.agent_encoder.init_decoder.G1.model.parameters(),
+                        self.encoder.agent_encoder.init_decoder.G1.old_model.parameters(), strict=True
+                ):
+                    tgt_param.data.copy_( src_param.detach().clone().data )
 
             match_loss, g_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent)
 
@@ -367,6 +373,16 @@ class IQ_SoftQ(LightningModule):
             init_loss.backward()
 
             init_optimizer.step()
+
+            if self.encoder.agent_encoder.init_decoder.G1.use_nft:
+                with torch.no_grad():
+                    decay = return_decay(self.global_step//3, 2)
+                    print(decay,self.global_step)
+                    for src_param, tgt_param in zip(
+                            self.encoder.agent_encoder.init_decoder.G1.model.parameters(), self.encoder.agent_encoder.init_decoder.G1.old_model.parameters(), strict=True
+                    ):
+                        tgt_param.data.copy_(
+                            tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
         loss = critic_loss + policy_loss
 
@@ -394,3 +410,25 @@ class IQ_SoftQ(LightningModule):
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
         return loss
+
+def return_decay(step, decay_type):
+    if decay_type == 0:
+        flat = 0
+        uprate = 0.0
+        uphold = 0.0
+    elif decay_type == 1:
+        flat = 0
+        uprate = 0.001
+        uphold = 0.5
+    elif decay_type == 2:
+        flat = 75
+        uprate = 0.0075
+        uphold = 0.999
+    else:
+        assert False
+
+    if step < flat:
+        return 0.0
+    else:
+        decay = (step - flat) * uprate
+        return min(decay, uphold)

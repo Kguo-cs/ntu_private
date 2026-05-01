@@ -154,6 +154,12 @@ class ScaleFlow(nn.Module):
 
         self.rationorm=False
 
+        self.use_nft=True
+
+        if self.use_nft:
+            self.old_model = copy.deepcopy(self.model)
+            self.use_sde=False
+
         if self.use_flow_ode:
             from .flow_planner.flow_ode import FlowODE
             from flow_matching.path.affine import  AffineProbPath
@@ -292,6 +298,17 @@ class ScaleFlow(nn.Module):
 
                     z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
+                denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
+
+                if self.use_nft:
+                    with torch.no_grad():
+                        self.old_model.eval()
+                        old_prediction = self.old_model(z_sampled, t_n_sampled, tokenized_agent, tokenized_agent["initial_map_feature"])
+                    if self.x_pred:
+                        old_v_pred = (old_prediction - z_sampled) / denom
+                    else:
+                        old_v_pred = old_prediction
+
                 t_n=torch.cat((t_n_sampled,t),dim=0)
 
                 z_all=torch.cat((z_sampled,z),dim=0)
@@ -300,52 +317,89 @@ class ScaleFlow(nn.Module):
 
                 x_pred_all = self.model(z_all, t_n, tokenized_agent, tokenized_agent["initial_map_feature"])
 
-                denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
-
-                if self.use_sde:
-                    if self.x_pred:
-                        v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
-                    else:
-                        v_pred = x_pred_all[:len(z_sampled)]
-
-                    prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                        1 - t_n_sampled,
-                        1 - t_next_sampled,
-                        -v_pred,
-                        z_sampled,
-                        noise_level=self.noise_level,
-                        prev_sample=prev_sample
-                    )
+                if self.x_pred:
+                    v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
                 else:
-                    x_pred = x_pred_all[:len(z_sampled)]
+                    v_pred = x_pred_all[:len(z_sampled)]
 
-                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        tokenized_agent,
-                        x_pred[:, 0],
-                        x_sampled[:, 0],
-                        z_sampled[:, 0],
-                        e_sampled[:, 0],
-                        t_n_sampled[:, 0],
-                        x_pred=self.x_pred
+                adv_clip_max=5
+
+                advantages_clip = torch.clamp(advantages, -adv_clip_max, adv_clip_max)
+
+                if self.use_nft:
+                    beta=1
+                    forward_prediction=v_pred   # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
+                    x0=x_sampled
+                    xt=z_sampled
+                    t_expanded=t_n_sampled-1            #  x0_pred=    (1-t) *v+ z
+                    old_prediction=old_v_pred
+
+                    normalized_advantages_clip = (advantages_clip / adv_clip_max) / 2.0 + 0.5
+                    r = torch.clamp(normalized_advantages_clip, 0, 1)
+                    positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
+                    implicit_negative_prediction = (
+                        1.0 + beta
+                    ) * old_prediction.detach() - beta * forward_prediction
+                    x0_prediction = xt - t_expanded * positive_prediction
+                    with torch.no_grad():
+                        weight_factor = (
+                            torch.abs(x0_prediction.double() - x0.double())
+                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                            .clip(min=0.00001)
+                        )
+                    positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
+                    negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
+                    with torch.no_grad():
+                        negative_weight_factor = (
+                            torch.abs(negative_x0_prediction.double() - x0.double())
+                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                            .clip(min=0.00001)
+                        )
+                    negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
+                        dim=tuple(range(1, x0.ndim))
                     )
-                    # scale=(denom*self.model.normal_scale)
-                    #
-                    # match_loss = F.mse_loss(x_pred / scale, x_sampled / scale, reduction="none").mean(-1)[:, 0]
 
-                    log_prob=torch.exp(match_loss.detach()-match_loss )
-                    #log_prob = - match_loss
+                    ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
+                    policy_loss = (ori_policy_loss * adv_clip_max).mean()
+                else:
+                    if self.use_sde:
+                        prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                            1 - t_n_sampled,
+                            1 - t_next_sampled,
+                            -v_pred,
+                            z_sampled,
+                            noise_level=self.noise_level,
+                            prev_sample=prev_sample
+                        )
+                    else:
+                        x_pred = x_pred_all[:len(z_sampled)]
 
-                advantages = torch.clamp(advantages, -5, 5)
-                # advantages=(advantages-advantages.mean())/advantages.std()
+                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                            tokenized_agent,
+                            x_pred[:, 0],
+                            x_sampled[:, 0],
+                            z_sampled[:, 0],
+                            e_sampled[:, 0],
+                            t_n_sampled[:, 0],
+                            x_pred=self.x_pred
+                        )
+                        # scale=(denom*self.model.normal_scale)
+                        #
+                        # match_loss = F.mse_loss(x_pred / scale, x_sampled / scale, reduction="none").mean(-1)[:, 0]
 
-                per_sample_policy_loss = - log_prob * advantages
+                        log_prob=torch.exp(match_loss.detach()-match_loss )
+                        #log_prob = - match_loss
 
-                if self.rationorm:
-                    sigma_t = std_dev_t.mean()
+                    # advantages=(advantages-advantages.mean())/advantages.std()
 
-                    per_sample_policy_loss=per_sample_policy_loss * sigma_t
+                    per_sample_policy_loss = - log_prob * advantages_clip
 
-                policy_loss = per_sample_policy_loss.mean()
+                    if self.rationorm:
+                        sigma_t = std_dev_t.mean()
+
+                        per_sample_policy_loss=per_sample_policy_loss * sigma_t
+
+                    policy_loss = per_sample_policy_loss.mean()
 
                 x_pred=x_pred_all[len(z_sampled):]
             else:
