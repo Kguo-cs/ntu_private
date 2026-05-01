@@ -347,6 +347,10 @@ class LDM(nn.Module):
         if self.flow_matching:
             if self.v_pred:
                 agent_noise = agent_noise - x_agent
+                
+                x=agent_noise * self.normal_scale
+                x_pred = agent_noise_pred * self.normal_scale
+                denom= torch.ones_like(t)
             elif self.x_pred:
                 # agent_noise=agent_noise-x_agent
 
