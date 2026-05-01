@@ -170,8 +170,7 @@ class ScaleFlow(nn.Module):
                  initial_map_feature: Mapping[str, torch.Tensor],
                  eval_mask,
                  num_samples=1,
-                 use_match=False) :
-
+                 use_match=True) :
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]
@@ -275,7 +274,6 @@ class ScaleFlow(nn.Module):
             else:
                 z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-
             if "advantages" in tokenized_agent.keys():
                 advantages=tokenized_agent["advantages"]
 
@@ -290,9 +288,7 @@ class ScaleFlow(nn.Module):
                 else:
                     x_sampled=tokenized_agent["z_list"]#.repeat(2,1,1)
                     e_sampled=torch.randn_like(e)
-                    t_n_sampled=torch.rand_like(t_batch)[agent_batch]#torch.cat([torch.rand_like(t_batch)[agent_batch],torch.rand_like(t_batch)[agent_batch]])
-
-                    #advantages=advantages.repeat(2)
+                    t_n_sampled=torch.rand_like(t_batch)[agent_batch]
 
                     z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
@@ -302,7 +298,7 @@ class ScaleFlow(nn.Module):
 
                 tokenized_agent=self.repeat_input(tokenized_agent,2)
 
-                x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
+                x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"])
 
                 denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
@@ -393,9 +389,9 @@ class ScaleFlow(nn.Module):
                 # scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
                 #                      device=v_pred.device)
                 #
-               # scale=self.model.normal_scale[None]
-                scale = torch.tensor([[10, 10, 2, 2, 5, 5, 5, 5]],
-                                     device=v_pred.device)
+                scale=self.model.normal_scale[None]
+               #  scale = torch.tensor([[10, 10, 2, 2, 5, 5, 5, 5]],
+               #                       device=v_pred.device)
 
                 match_loss=F.mse_loss(v_pred/scale, v_target/scale, reduction="none").mean(-1)[:,0]
 

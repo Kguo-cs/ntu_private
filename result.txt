@@ -654,6 +654,7 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 
+854b5c5062e68554edbe4b9ab5ce5655d56186b1
 
 0.7881
 

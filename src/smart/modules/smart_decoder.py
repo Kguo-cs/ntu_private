@@ -188,7 +188,7 @@ class SMARTDecoder(nn.Module):
                     self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
 
             if token_processor.learn_init:
-                self.init_value_network =MLPLayer(self.agent_encoder.init_decoder.G1.hidden_dim,hidden_dim*2,1)
+                self.init_value_network =MLPLayer(self.agent_encoder.init_decoder.G.hidden_dim,hidden_dim*2,1)
 
             self.agent_encoder.interative_decoder.gail=self.gail
 
