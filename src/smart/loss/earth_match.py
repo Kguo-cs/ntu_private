@@ -251,9 +251,9 @@ def get_closest_sum_idx(
     return torch.cat(fake_idx_all), torch.cat(real_idx_all)
 
 def get_matching_loss(
-    tokenized_agent, fake_state,real_state,z,e,
-    t,scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,t_eps=0.05,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
+    tokenized_agent, fake_state,real_state,z,e,t,
+    scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
+    t_eps=0.05,w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
     ):
 
     if use_match:

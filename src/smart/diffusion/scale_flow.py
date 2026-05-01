@@ -85,9 +85,9 @@ class ScaleFlow(nn.Module):
         self.use_dit=False
 
         if self.use_dit:
-            self.x_pred=True
-        else:
             self.x_pred=False
+        else:
+            self.x_pred=True
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)
@@ -294,11 +294,11 @@ class ScaleFlow(nn.Module):
 
                 t_n=torch.cat((t_n_sampled,t),dim=0)
 
-                z=torch.cat((z_sampled,z),dim=0)
+                z_all=torch.cat((z_sampled,z),dim=0)
 
                 tokenized_agent=self.repeat_input(tokenized_agent,2)
 
-                x_pred_all = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"])
+                x_pred_all = self.model(z_all, t_n, tokenized_agent, tokenized_agent["initial_map_feature"])
 
                 denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
