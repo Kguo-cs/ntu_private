@@ -200,7 +200,10 @@ class SMARTAgentDecoder(nn.Module):
                 return out_dict
 
             current_step=1
-            max_step = gt_valid.shape[1]-current_step
+            if self.training:
+                max_step = gt_valid.shape[1]-current_step
+            else:
+                max_step=17
             mask = torch.ones_like(gt_valid[:, :current_step])
             token_mask = torch.ones_like(tokenized_agent["token_mask"][:, :current_step])
         else:

@@ -40,19 +40,19 @@ ckpt_path: './waymo_data/xflow256_map100_rellane_epoch=11-step=22836.ckpt'
 #ckpt_path: './logs/flow_mse_vpred_rotateout/2026-05-01_05-42-29/bc/mogymknr/checkpoints/last.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/logs/flow_normscale_vpred_nomatch_rotateout/2026-05-01_14-14-27/bc/ww97393s/checkpoints/last.ckpt'
 
-task_name: AIRL19_map100_rellane_sde_dis1e2 #10 #_flow_sde_eval #mean  #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
+task_name: AIRL19_map100_rellane_sde_dis1e2_clip #10 #_flow_sde_eval #mean  #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
 
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   #check_val_every_n_epoch: 1
-  val_check_interval: 0.1
- # val_check_interval: 0.000002
+ # val_check_interval: 0.1
+  val_check_interval: 0.000002
   max_epochs: 5
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 19
+  train_batch_size: 12
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
