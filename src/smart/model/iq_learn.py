@@ -377,7 +377,7 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.init_decoder.G1.use_nft:
                 with torch.no_grad():
                     decay = return_decay(self.global_step//3, 2)
-                    print(decay,self.global_step)
+                   # print(decay,self.global_step)
                     for src_param, tgt_param in zip(
                             self.encoder.agent_encoder.init_decoder.G1.model.parameters(), self.encoder.agent_encoder.init_decoder.G1.old_model.parameters(), strict=True
                     ):
