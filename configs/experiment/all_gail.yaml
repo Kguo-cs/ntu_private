@@ -37,7 +37,7 @@ model:
       reward_decay: 2.5
 
 #ckpt_path: './waymo_data/xflow256_map100_rellane_epoch=11-step=22836.ckpt'
-ckpt_path: './logs/xflow256_mse_epoch=31-step=60896.ckpt'
+ckpt_path: './waymo_data/xflow256_mse_epoch=31-step=60896.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/logs/flow_normscale_vpred_nomatch_rotateout/2026-05-01_14-14-27/bc/ww97393s/checkpoints/last.ckpt'
 
 task_name: AIRL19_xflow256_mse_sde_dis1e2_clip #10 #_flow_sde_eval #mean  #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
