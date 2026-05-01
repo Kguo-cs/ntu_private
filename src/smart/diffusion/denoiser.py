@@ -654,12 +654,12 @@ class InitDenoiser(nn.Module):
                                         rel_heading_sin.transpose(0,1).reshape(n_agent, -1).sin(),
                                         mean_shape], dim=-1)[:, None]
 
-                # else:
-                #     local_vel=res[:,6:]
+                else:
+                    local_vel=res[:,6:]
 
-                #     res = torch.cat(
-                #         [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
-                #          local_vel], dim=-1)[:, None]
+                    res = torch.cat(
+                        [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
+                         local_vel], dim=-1)[:, None]
         else:
             beta_emb = self.noise_emb(beta)
             # num_agents x 128
