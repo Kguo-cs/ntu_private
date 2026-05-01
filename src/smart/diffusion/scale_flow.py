@@ -87,7 +87,7 @@ class ScaleFlow(nn.Module):
         if self.use_dit:
             self.x_pred=False
         else:
-            self.x_pred=True
+            self.x_pred=False
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)

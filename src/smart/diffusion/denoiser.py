@@ -250,22 +250,6 @@ class InitDenoiser(nn.Module):
         return (input - self.normal_mean[None]) / self.normal_scale[None]
 
     def denormalize(self,input,nonego_type=None):
-
-        # D, K = self.init_probs.shape
-        #
-        # idx = torch.multinomial(self.init_probs, len(input),replacement=True).transpose(0,1)#.squeeze(-1)
-        # u = torch.rand((len(input),D), device=input.device)
-        #
-        # width = (self.init_max - self.init_min) / K
-        #
-        # x = self.init_min[None] + (idx.float() + u) * width[None]
-
-        # for type_idx in range(3):
-        #     mask=nonego_type == type_idx
-        #     input[mask]=self.return_meanstd[type_idx].denormalize(input[mask])
-
-        # x=self.return_meanstd.denormalize(input)
-
         input=input* self.normal_scale[None]+self.normal_mean[None]
 
         return input#[:,None]
