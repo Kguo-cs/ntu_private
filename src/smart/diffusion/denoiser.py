@@ -61,7 +61,8 @@ class InitDenoiser(nn.Module):
                  dropout: float,
                  diff_type: str,
                  m_dim: int,
-                 mean_flow=False
+                 mean_flow=False,
+                 x_pred=True
                  ) -> None:
         super(InitDenoiser, self).__init__()
         self.dataset = dataset
@@ -79,6 +80,8 @@ class InitDenoiser(nn.Module):
         self.use_roformer=True
         self.use_padding=True
         self.use_all_type=False
+
+        self.x_pred=x_pred
 
         self.num_classes=3
 
@@ -121,7 +124,7 @@ class InitDenoiser(nn.Module):
         if self.use_all_pos:
             m_delta_dim=6+4*4
 
-        self.use_rel_ego=False
+        self.use_rel_ego=True
 
         if self.use_rel_ego:
             self.ego_embed = MLPLayer(9 + 3, hidden_dim, hidden_dim)
@@ -616,7 +619,10 @@ class InitDenoiser(nn.Module):
                 res_theta=torch.atan2(res[:,3],res[:,2])
 
                 if "non_ego_valid" not in tokenized_agent.keys():
-                    pos_s = torch.zeros_like(m_delta[:, :2])
+                    if self.x_pred:
+                        pos_s = m_delta[:, :2]
+                    else:
+                        pos_s = torch.zeros_like(m_delta[:, :2])
                     theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
 
                 local_pos,local_theta = transform_to_global(

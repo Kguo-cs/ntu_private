@@ -85,6 +85,11 @@ class ScaleFlow(nn.Module):
         self.use_dit=False
 
         if self.use_dit:
+            self.x_pred=True
+        else:
+            self.x_pred=False
+
+        if self.use_dit:
             self.model = DiT(self.hidden_dim)
             self.lane_embed1 = nn.Linear(128 + 4, self.hidden_dim)
         else:
@@ -103,7 +108,8 @@ class ScaleFlow(nn.Module):
                 dropout=args.dropout,
                 diff_type=args.diff_type,
                 m_dim=args.m_dim,
-                mean_flow=self.mean_flow
+                mean_flow=self.mean_flow,
+                x_pred=self.x_pred
             )
 
         if not self.model.use_rel_ego:
@@ -119,11 +125,6 @@ class ScaleFlow(nn.Module):
         self.GPU_incre_memory = []
         probs = torch.tensor([0.5])
         self.B_dist = Bernoulli(probs=probs)
-
-        if self.use_dit:
-            self.x_pred=False
-        else:
-            self.x_pred=False
 
         self.use_scale=self.model.use_scale
 
