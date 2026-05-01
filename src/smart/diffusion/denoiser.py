@@ -613,53 +613,53 @@ class InitDenoiser(nn.Module):
 
                         feat_a = feat_a_b[mask_a_b]
 
-                res_theta=torch.atan2(res[:,3],res[:,2])
+                # res_theta=torch.atan2(res[:,3],res[:,2])
 
-                if "non_ego_valid" not in tokenized_agent.keys():
-                    pos_s = m_delta[:, :2]
-                    theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
+                # if "non_ego_valid" not in tokenized_agent.keys():
+                #     pos_s = m_delta[:, :2]
+                #     theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
 
-                local_pos,local_theta = transform_to_global(
-                    res[:,:2],
-                    res_theta,
-                    pos_s,
-                    theta,
-                )
+                # local_pos,local_theta = transform_to_global(
+                #     res[:,:2],
+                #     res_theta,
+                #     pos_s,
+                #     theta,
+                # )
 
-                if self.use_all_pos:
-                    new_pos=torch.zeros([n_step,n_agent,2],device=device)
-                    new_shape=torch.zeros_like(new_pos)
-                    new_theta=torch.zeros([n_step,n_agent],device=device)
+                # if self.use_all_pos:
+                #     new_pos=torch.zeros([n_step,n_agent,2],device=device)
+                #     new_shape=torch.zeros_like(new_pos)
+                #     new_theta=torch.zeros([n_step,n_agent],device=device)
 
-                    new_pos[mask_t]=local_pos
-                    new_theta[mask_t]=local_theta
+                #     new_pos[mask_t]=local_pos
+                #     new_theta[mask_t]=local_theta
 
-                    new_shape[mask_t]=res[:,4:6]
+                #     new_shape[mask_t]=res[:,4:6]
 
-                    mean_shape=new_shape.sum(dim=0)/mask_t.sum(dim=0)[:,None]
+                #     mean_shape=new_shape.sum(dim=0)/mask_t.sum(dim=0)[:,None]
 
-                    local_traj=torch.zeros([n_step,n_agent,16],device=device)
+                #     local_traj=torch.zeros([n_step,n_agent,16],device=device)
 
-                    local_traj[mask_t]=res[:,6:]
+                #     local_traj[mask_t]=res[:,6:]
 
-                    rel_pos=local_traj[:,:,:8]
+                #     rel_pos=local_traj[:,:,:8]
 
-                    rel_heading_cos=local_traj[:,:,8:12]
+                #     rel_heading_cos=local_traj[:,:,8:12]
 
-                    rel_heading_sin=local_traj[:,:,12:]
+                #     rel_heading_sin=local_traj[:,:,12:]
 
-                    res = torch.cat([new_pos.transpose(0,1).reshape(n_agent, -1), new_theta.transpose(0,1).reshape(n_agent, -1).cos(),
-                                        new_theta.transpose(0,1).reshape(n_agent, -1).sin(),
-                                        rel_pos.transpose(0,1).reshape(n_agent, -1), rel_heading_cos.transpose(0,1).reshape(n_agent, -1),
-                                        rel_heading_sin.transpose(0,1).reshape(n_agent, -1).sin(),
-                                        mean_shape], dim=-1)[:, None]
+                #     res = torch.cat([new_pos.transpose(0,1).reshape(n_agent, -1), new_theta.transpose(0,1).reshape(n_agent, -1).cos(),
+                #                         new_theta.transpose(0,1).reshape(n_agent, -1).sin(),
+                #                         rel_pos.transpose(0,1).reshape(n_agent, -1), rel_heading_cos.transpose(0,1).reshape(n_agent, -1),
+                #                         rel_heading_sin.transpose(0,1).reshape(n_agent, -1).sin(),
+                #                         mean_shape], dim=-1)[:, None]
 
-                else:
-                    local_vel=res[:,6:]
+                # else:
+                #     local_vel=res[:,6:]
 
-                    res = torch.cat(
-                        [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
-                         local_vel], dim=-1)[:, None]
+                #     res = torch.cat(
+                #         [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
+                #          local_vel], dim=-1)[:, None]
         else:
             beta_emb = self.noise_emb(beta)
             # num_agents x 128
