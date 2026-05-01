@@ -654,6 +654,8 @@ class InitDenoiser(nn.Module):
                 #                         rel_heading_sin.transpose(0,1).reshape(n_agent, -1).sin(),
                 #                         mean_shape], dim=-1)[:, None]
 
+                res=res[:,None]
+
                 # else:
                 #     local_vel=res[:,6:]
 
