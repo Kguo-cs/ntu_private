@@ -303,7 +303,10 @@ class ScaleFlow(nn.Module):
                 denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
                 if self.use_sde:
-                    v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
+                    if self.x_pred:
+                        v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
+                    else:
+                        v_pred = x_pred_all[:len(z_sampled)]
 
                     prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                         1 - t_n_sampled,
@@ -315,7 +318,7 @@ class ScaleFlow(nn.Module):
                     )
                 else:
                     x_pred = x_pred_all[:len(z_sampled)]
-                    #
+
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                         tokenized_agent,
                         x_pred[:, 0],
@@ -774,177 +777,6 @@ class ScaleFlow(nn.Module):
 
         return z[:, 0], x_list
 
-
-    def get_g_loss( self, tokenized_agent,  z_list, t_list, advantages,n_step=1):
-        if self.use_GAIL:
-            if n_step >1:
-
-                num_graphs = tokenized_agent["num_graphs"]
-
-                agent_state = torch.cat(z_list, dim=1)
-
-                t_n = torch.cat(t_list, dim=1)[:, :-1].transpose(0, 1).flatten(0, 1)
-
-                t_next = torch.cat(t_list, dim=1)[:, 1:].transpose(0, 1).flatten(0, 1)
-
-                n_step = agent_state.shape[1] - 1
-                prev_sample = agent_state[:, 1:].transpose(0, 1).flatten(0, 1)  # t,a
-
-                z = agent_state[:, :-1].transpose(0, 1).flatten(0, 1)  # t,a
-
-                batch = tokenized_agent["nonego_batch"]
-
-                tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
-
-                batch = torch.stack(
-                    [
-                        batch + num_graphs * t
-                        for t in range(n_step)
-                    ],
-                    dim=1,
-                ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
-
-                tokenized_agent["nonego_batch"] = batch
-
-                tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0, 1)
-
-                tokenized_agent["num_graphs"] = num_graphs * n_step
-
-                tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1, 1).flatten(0, 1)
-
-                advantages = advantages[None].repeat(n_step, 1).flatten(0, 1)
-
-            if self.use_sde:
-                z,prev_sample,log=z_list
-                t_n,t_next=t_list
-
-                ego_embedding = self.ego_embedding1(tokenized_agent["ego_feat"])
-                ego_embedding = ego_embedding[tokenized_agent["nonego_batch"]]
-
-                tokenized_agent["ego_embedding"] = ego_embedding
-
-                x_pred = self.model(z, t_n, tokenized_agent, tokenized_agent["initial_map_feature"], mode=1)
-
-                denom = (1.0 - t_n).clamp_min(self.t_eps)
-
-                v_pred = (x_pred - z) / denom
-
-                scale = self.model.normal_scale[None]*self.noise_level
-
-                z_mean = z + (t_next - t_n) * v_pred #+ noise_level * torch.randn_like(v_pred) * scale
-
-                # prev_sample1, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                #     1 - t_n,
-                #     1 - t_next,
-                #     -v_pred,
-                #     z,
-                #     noise_level=self.noise_level,
-                #     prev_sample=prev_sample
-                # )
-
-                # log_prob=gaussian_nll(z_mean,prev_sample,scale)
-                #
-                #
-                #
-                # fpo_ratio = log_prob
-
-            else:
-                x = z_list[-1][:, 0]
-
-                x = x[None].repeat(n_step, 1, 1).flatten(0, 1)
-                #
-                # v_target = (x - z) / denom
-                #
-                # new_loss = F.l1_loss(v_pred, v_target, reduction="none").mean(-1)
-
-                new_loss = self.get_loss(x, tokenized_agent, tokenized_agent["initial_map_feature"], None, use_match=True)[0][0]
-
-                loss_diff = new_loss.detach() - new_loss
-
-                fpo_ratio = torch.exp(loss_diff)
-                # clipped_advantages = torch.clamp(advantages, -5, 5)
-                # per_sample_policy_loss=new_loss*torch.exp(clipped_advantages)
-
-            advantages = torch.clamp(advantages, -5, 5)
-
-            per_sample_policy_loss = - fpo_ratio * advantages
-
-            g_loss = per_sample_policy_loss.mean()
-
-        else:
-            x = z_list[-1][:, 0]
-
-            e = z_list[0][:, 0]
-
-            device = x.device
-            num_graphs = tokenized_agent["num_graphs"]
-            agent_batch = tokenized_agent["nonego_batch"]
-
-            t_batch = torch.rand(num_graphs, device=device)[:, None]  # t ~ U[0,1]
-
-            t = t_batch[agent_batch]
-
-            z = (1 - t) * e + t * x  # large t, low noise
-
-            x_pred = G.net(z[:, None], t[:, None], tokenized_agent, map_feature, mode=1)[:, 0]
-
-            t_expanded = 1 - t
-
-            dt_expanded = 0.01
-
-            t_next = t_expanded + dt_expanded
-            t_next = torch.clamp(t_next, max=0.999)
-
-            velocity_pred = (x_pred - z) / (t_expanded.clamp_min(0.01))  #
-
-            x_t_next_packed = x + dt_expanded * velocity_pred
-
-            FakeSamples = (x_t_next_packed - t_next * e) / (1 - t_next)
-
-            FakeLogits, fake_weight, _ = self.forward(FakeSamples, map_feature, tokenized_agent)
-
-            agent_n = len(FakeSamples)
-
-            if self.use_Rp:
-                RealLogits = self.forward(RealSamples, map_feature, tokenized_agent)
-                RelativisticLogits = FakeLogits - RealLogits
-                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
-                g_loss = AdversarialLoss.mean()
-            else:
-                FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-                fake_bce_loss = FakeLogits
-                g_loss = -fake_bce_loss.mean()
-                if len(fake_interact_logits) > 0:
-                    fake_loss = fake_interact_logits
-
-                    fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
-
-                    g_loss = g_loss - fake_interact_bce_loss
-
-        return g_loss
-
-
-    def update_policy(self, logger, opt_G, G, inputs, z_list, t_list, gen_rewards, expert_rewards):
-        RealSamples, match_loss, map_feature, tokenized_agent = inputs
-
-        g_loss = self.get_g_loss(map_feature, tokenized_agent, G, z_list, t_list, gen_rewards,n_step=2)
-
-        # teacher_initial_noise = G.net.denormalize(torch.randn_like(e)[:,None])[:,0]
-
-        # g_loss1=self.get_g_loss(map_feature, tokenized_agent,G,teacher_initial_noise,RealSamples,expert_rewards)
-
-        loss = g_loss + match_loss  # +g_loss1
-
-        logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
-        logger("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
-        # logger("train/g_loss1", g_loss1.item(), on_step=True, batch_size=1)
-
-        opt_G.zero_grad()
-        loss.backward()  #
-        # torch.nn.utils.clip_grad_norm_( G.parameters(),   max_norm=1   )
-        opt_G.step()
-
-        return loss
 
     def repeat_input(self,tokenized_agent,n_step):
         num_graphs=tokenized_agent["num_graphs"]
