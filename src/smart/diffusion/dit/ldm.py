@@ -66,9 +66,9 @@ class LDM(nn.Module):
         if self.flow_matching:
             self.n_timesteps=20
 
-        self.v_pred=False
+        self.v_pred=True
 
-        self.x_pred=True
+        self.x_pred=False
 
     def predict_start_from_noise(self, x_t, t, noise):
         """ Predict the start of the diffusion chain from the noised sample x_t and noise."""
