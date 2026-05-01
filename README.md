@@ -116,13 +116,6 @@ cd /home/zs/code/sim/src
 conda activate sim
 git pull
 
-ssh ke@10.87.216.98
-source "/home/ke/miniconda3/bin/activate"
-cd /home/ke/code/sim/src
-conda activate sim
-git pull
-
-
 ssh 10.87.114.128
 source "/home/ke/miniconda3/bin/activate"
 cd /home/ke/keguo/sim/src

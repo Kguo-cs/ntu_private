@@ -170,7 +170,7 @@ class ScaleFlow(nn.Module):
                  initial_map_feature: Mapping[str, torch.Tensor],
                  eval_mask,
                  num_samples=1,
-                 use_match=False) :
+                 use_match=True) :
 
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
