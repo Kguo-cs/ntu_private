@@ -169,8 +169,7 @@ class ScaleFlow(nn.Module):
                  tokenized_agent: HeteroData,
                  initial_map_feature: Mapping[str, torch.Tensor],
                  eval_mask,
-                 num_samples=1,
-                 use_match=True) :
+                 num_samples=1) :
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]
@@ -323,12 +322,10 @@ class ScaleFlow(nn.Module):
                         tokenized_agent,
                         x_pred[:, 0],
                         x_sampled[:, 0],
-                        denom[:, 0],
-                        scale=self.model.normal_scale,
-                        all_state=False,
-                        use_col=False,
-                        use_all_type=False,
-                        use_match=False
+                        z_sampled[:, 0],
+                        e_sampled[:, 0],
+                        t_n_sampled[:, 0],
+                        x_pred=self.x_pred
                     )
                     # scale=(denom*self.model.normal_scale)
                     #
@@ -342,10 +339,6 @@ class ScaleFlow(nn.Module):
 
                 per_sample_policy_loss = - log_prob * advantages
 
-               # per_sample_policy_loss =per_sample_policy_loss - per_sample_policy_loss.mean()
-
-               # print(log_prob.mean())
-
                 if self.rationorm:
                     sigma_t = std_dev_t.mean()
 
@@ -358,55 +351,15 @@ class ScaleFlow(nn.Module):
                 policy_loss=0
                 x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
-            if self.x_pred:
-                denom = (1 - t).clamp_min(self.t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
-
-                v_target = (x - z) /denom
-
-                v_pred = (x_pred - z) /denom
-            else:
-                v_target = x - e
-
-                v_pred=x_pred
-
-                denom = torch.ones_like(t) #
-
-                x=v_target
-
-            if use_match:
-                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                    tokenized_agent,
-                    x_pred[:,0],
-                    x[:,0],
-                    denom[:,0],
-                    scale=self.model.normal_scale,
-                    all_state=False,
-                    use_col=False,
-                    use_all_type=False,
-                    use_match=False
-                )
-            else:
-                pos_loss = heading_loss = shape_loss = vel_loss =  torch.tensor(0.0,device=device)
-
-
-                # scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
-                #                      device=v_pred.device)
-                #
-                scale=self.model.normal_scale[None]
-               #  scale = torch.tensor([[10, 10, 2, 2, 5, 5, 5, 5]],
-               #                       device=v_pred.device)
-
-                match_loss=F.mse_loss(v_pred/scale, v_target/scale, reduction="none").mean(-1)[:,0]
-
-                #match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
-
-
-                # fake_state=x_pred[:,0]
-                #
-                # collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
-                #                                                      torch.atan2(fake_state[:, 3], fake_state[:, 2]),
-                #                                                      fake_state[:, 4], fake_state[:, 5],
-                #                                                      tokenized_agent["nonego_batch"])
+            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                tokenized_agent,
+                x_pred[:,0],
+                x[:,0],
+                z[:,0],
+                e[:,0],
+                t[:,0],
+                x_pred=self.x_pred
+            )
 
         loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 

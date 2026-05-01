@@ -251,8 +251,8 @@ def get_closest_sum_idx(
     return torch.cat(fake_idx_all), torch.cat(real_idx_all)
 
 def get_matching_loss(
-    tokenized_agent, fake_state,real_state,
-    denom,scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=True,
+    tokenized_agent, fake_state,real_state,z,e,
+    t,scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,t_eps=0.05,
     w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
     ):
 
@@ -262,13 +262,44 @@ def get_matching_loss(
         fake_state=fake_state[fake_idx]
         real_state=real_state[real_idx]
 
+    if x_pred:
+        denom = (1 - t).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+
+        v_target = (real_state - z) / denom
+
+        v_pred = (fake_state - z) / denom
+    else:
+        v_target = real_state - e
+
+        v_pred = fake_state
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        fake_state/denom, real_state/denom,
+        v_target, v_pred,
         w_pos=w_pos, w_heading=w_heading, w_shape=w_shape, w_vel=w_vel
     )
-
-   # if latent or use_all_type:
+    # if use_match:
+    # else:
+    #     pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0, device=device)
+    #
+    #     # scale = torch.tensor([[32.000 / 3, 32.000 / 3, 0.500, 0.500, 11.514, 6.312, 57.044, 57.044]],
+    #     #                      device=v_pred.device)
+    #     #
+    #     scale = self.model.normal_scale[None]
+    #     #  scale = torch.tensor([[10, 10, 2, 2, 5, 5, 5, 5]],
+    #     #                       device=v_pred.device)
+    #
+    #     match_loss = F.mse_loss(v_pred / scale, v_target / scale, reduction="none").mean(-1)[:, 0]
+    #
+    #     # match_loss=get_scale(x/self.model.normal_scale[None],x_pred/self.model.normal_scale[None])
+    #
+    #     # fake_state=x_pred[:,0]
+    #     #
+    #     # collision_loss = multi_circle_collision_loss_mem_efficient(fake_state[:, :2],
+    #     #                                                      torch.atan2(fake_state[:, 3], fake_state[:, 2]),
+    #     #                                                      fake_state[:, 4], fake_state[:, 5],
+    #     #                                                      tokenized_agent["nonego_batch"])
+    #
+    # if latent or use_all_type:
 
     # match_loss = torch.norm(fake_norm_state[row] - real_norm_state[col],p=1,dim=-1).mean()#.square()
 

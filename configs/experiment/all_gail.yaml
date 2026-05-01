@@ -38,8 +38,9 @@ model:
 
 #ckpt_path: './waymo_data/xflow256_map100_rellane_epoch=11-step=22836.ckpt'
 ckpt_path: './logs/flow_mse_vpred_rotateout/2026-05-01_05-42-29/bc/mogymknr/checkpoints/last.ckpt'
+#ckpt_path: '/home/ke/code/sim/src/logs/flow_normscale_vpred_nomatch_rotateout/2026-05-01_14-14-27/bc/ww97393s/checkpoints/last.ckpt'
 
-task_name: AIRL19_flow_vpred_rotateout_sde_eval #mean  #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
+task_name: AIRL19_flow_vpred_rotateout_sde10 #_sde_eval #mean  #_norm0_weightstd_01match__nodismask_noise #_dismask #nog #_awr_sampledpose5_init_noclip_start0
 
 trainer:
   limit_train_batches: 1.0
