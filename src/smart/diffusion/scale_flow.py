@@ -154,7 +154,7 @@ class ScaleFlow(nn.Module):
 
         self.rationorm=False
 
-        self.use_nft=True
+        self.use_nft=False
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
@@ -360,7 +360,7 @@ class ScaleFlow(nn.Module):
                     )
 
                     ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
-                    policy_loss = (ori_policy_loss * adv_clip_max).mean()
+                    policy_loss = (ori_policy_loss * adv_clip_max).mean()*0.0
                 else:
                     if self.use_sde:
                         prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
