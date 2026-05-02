@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.9
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_mse_epoch=31-step=60896.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" ~/sim/src/logs/flow_xpred_egorel_mse/2026-05-01_12-06-31/bc/gr8fvzdq/checkpoints/epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/flow_xpred_egorel_mse_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_mse_epoch=31-step=60896.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 

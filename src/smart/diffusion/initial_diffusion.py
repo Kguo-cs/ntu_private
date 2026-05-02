@@ -19,7 +19,8 @@ from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_n
 from .scale_flow import ScaleFlow
 from src.smart.diffusion.dit.autoencoder import AutoEncoder
 from src.smart.diffusion.dit.ldm import LDM
-
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale
+from torch_scatter import scatter_sum,scatter_mean
 
 class InitDiffusion(nn.Module):
 
@@ -60,10 +61,13 @@ class InitDiffusion(nn.Module):
         self.use_gail=False
         self.use_gan = False
 
+        self.use_rl=True
+
         if self.use_gail or self.use_gan:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
+
 
     def forward(self, tokenized_agent):
 
@@ -178,6 +182,21 @@ class InitDiffusion(nn.Module):
                     with torch.no_grad():
                         diff_input = self.autoencoder.forward_encoder(diff_input,tokenized_agent,initial_map_feature)[0]
 
+                if self.use_rl:
+                    pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
+
+                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init[:,:2], torch.atan2(pred_init[:,3],pred_init[:,2]), pred_init[:,4],pred_init[:,5],tokenized_agent["nonego_batch"])
+
+                    col_reward_end= scatter_sum(col_reward, end_idx)
+                    col_reward_start= scatter_sum(col_reward, start_idx)
+                    col_reward_start=torch.cat([col_reward_start,torch.zeros_like(col_reward_start[:1])])
+
+                    col_reward_agent=-col_reward_end-col_reward_start
+
+                    advantage=(col_reward_agent-col_reward_agent.mean())/col_reward_agent.std()
+
+                    tokenized_agent["advantages"]=advantage
+
                 loss,x_pred ,expert_state,t = self.G1.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
@@ -192,19 +211,18 @@ class InitDiffusion(nn.Module):
             if self.learn_autoencoder:
                 diff_input, m_init = self.G1.model.get_input(tokenized_agent)
 
-                pred_init =self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
+                pred_init = self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
-                pred_init, x_list = self.G1.sample( tokenized_agent, initial_map_feature,None)
+                pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
 
                 if self.latent_diffusion:
                     pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)
 
-            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G1.model.get_output(
+            gt_initial_pos, gt_initial_heading, shape, gt_initial_vel, gt_initial_idx = self.G1.model.get_output(
                 pred_init, tokenized_agent
             )
+            return gt_initial_pos, gt_initial_heading, gt_initial_idx, shape, gt_initial_vel
 
-            return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel
-        
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('QCNet')
