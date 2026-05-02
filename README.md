@@ -4,14 +4,11 @@ nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
 rsync -avz ~/code/sim/src/waymo_data/full/training_map2_init0_idx ke@10.87.216.98:~/code/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_mse_epoch=31-step=60896.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
+rsync -avz /home/ke/code/sim/src/waymo_data/flow_xpred_egorel_mse_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/flow_xpred_egorel_mse_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_mse_epoch=31-step=60896.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
-
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_mse_epoch=31-step=60896.ckpt ke@10.87.114.128:~/code/sim/src/waymo_data/
-
+rsync -avz /home/ke/code/sim/src/waymo_data/flow_xpred_egorel_mse_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 

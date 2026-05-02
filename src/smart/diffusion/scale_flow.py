@@ -154,7 +154,7 @@ class ScaleFlow(nn.Module):
 
         self.rationorm=False
 
-        self.use_nft=False
+        self.use_nft=True
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
@@ -252,10 +252,10 @@ class ScaleFlow(nn.Module):
                 with torch.no_grad():
                     self.old_model.eval()
                     old_prediction = self.old_model(z_sampled, t_n_sampled, tokenized_agent, tokenized_agent["initial_map_feature"])
-                if self.x_pred:
-                    old_v_pred = (old_prediction - z_sampled) / denom
-                else:
-                    old_v_pred = old_prediction
+                    if self.x_pred:
+                        old_v_pred = (old_prediction - z_sampled) / denom
+                    else:
+                        old_v_pred = old_prediction
 
             t_n=torch.cat((t_n_sampled,t),dim=0)
 
@@ -279,7 +279,7 @@ class ScaleFlow(nn.Module):
                 forward_prediction=v_pred   # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
                 x0=x_sampled
                 xt=z_sampled
-                t_expanded=t_n_sampled-1            #  x0_pred=    (1-t) *v+ z
+                t_expanded=-denom #  x0_pred=    (1-t) *v+ z
                 old_prediction=old_v_pred
 
                 normalized_advantages_clip = (advantages_clip / adv_clip_max) / 2.0 + 0.5
@@ -331,14 +331,7 @@ class ScaleFlow(nn.Module):
                         t_n_sampled[:, 0],
                         x_pred=self.x_pred
                     )
-                    # scale=(denom*self.model.normal_scale)
-                    #
-                    # match_loss = F.mse_loss(x_pred / scale, x_sampled / scale, reduction="none").mean(-1)[:, 0]
-
                     log_prob=torch.exp(match_loss.detach()-match_loss )
-                    #log_prob = - match_loss
-
-                # advantages=(advantages-advantages.mean())/advantages.std()
 
                 per_sample_policy_loss = - log_prob * advantages_clip
 
