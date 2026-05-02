@@ -198,6 +198,8 @@ class InitDiffusion(nn.Module):
 
                     col_reward_agent=-col_reward_end-col_reward_start
 
+                    col_reward_agent=col_reward_agent.clamp_min(-20)
+
                     advantage=(col_reward_agent-col_reward_agent.mean())/col_reward_agent.std()
 
                     tokenized_agent["advantages"]=advantage
