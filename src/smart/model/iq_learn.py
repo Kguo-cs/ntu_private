@@ -350,7 +350,7 @@ class IQ_SoftQ(LightningModule):
             # g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
             #
             # self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
-            if self.global_step==2:
+            if self.encoder.agent_encoder.init_decoder.G1.use_nft and self.global_step==2:
                 for src_param, tgt_param in zip(
                         self.encoder.agent_encoder.init_decoder.G1.model.parameters(),
                         self.encoder.agent_encoder.init_decoder.G1.old_model.parameters(), strict=True
