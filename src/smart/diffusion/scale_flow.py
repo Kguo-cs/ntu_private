@@ -154,7 +154,7 @@ class ScaleFlow(nn.Module):
 
         self.rationorm=False
 
-        self.use_nft=True
+        self.use_nft=False
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
@@ -347,7 +347,7 @@ class ScaleFlow(nn.Module):
 
                     per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                policy_loss = per_sample_policy_loss.mean()*0.0
+                policy_loss = per_sample_policy_loss.mean()
 
             x_pred=x_pred_all[len(z_sampled):]
         else:
