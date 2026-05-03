@@ -87,7 +87,7 @@ class ScaleFlow(nn.Module):
         if self.use_dit:
             self.x_pred=False
         else:
-            self.x_pred=False
+            self.x_pred=True
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)
@@ -115,12 +115,6 @@ class ScaleFlow(nn.Module):
         if not self.model.use_rel_ego:
             self.ego_embedding1 = MLPLayer(16 + 3, args.hidden_dim, args.hidden_dim)
 
-        # self.var_sched = VarianceSchedule(
-        #     num_steps=args.num_diffusion_steps,
-        #     beta_1=args.beta_1,
-        #     beta_T=args.beta_T,
-        #     mode='linear'
-        # )
         self.infer_time_per_step = []
         self.GPU_incre_memory = []
         probs = torch.tensor([0.5])
