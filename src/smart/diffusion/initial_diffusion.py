@@ -200,7 +200,7 @@ class InitDiffusion(nn.Module):
 
                     advantage=(col_reward_agent==0).float() -0.5#col_reward <0 collision 0
 
-                    advantage=(advantage-advantage.mean())/advantage.std()
+                    advantage=advantage-advantage.mean()
 
                   #  col_reward_agent=col_reward_agent.clamp_min(-20)
 
