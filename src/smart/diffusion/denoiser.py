@@ -129,6 +129,11 @@ class InitDenoiser(nn.Module):
         if self.use_rel_ego:
             self.ego_embed = MLPLayer(9 + 3, hidden_dim, hidden_dim)
 
+        self.use_return_conditioned = True
+
+        if self.use_return_conditioned:
+            self.return_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
+
         if self.use_roformer:
             if self.use_dit:
                 self.map_embed= MLPLayer(128+2+2, hidden_dim, hidden_dim)
@@ -497,6 +502,11 @@ class InitDenoiser(nn.Module):
                         ego_embedding=self.ego_embed(all_features)
 
                     feat_a = feat_a + beta_emb_m+ego_embedding
+
+                    if self.use_return_conditioned:
+                        adv_embed=self.return_embed(tokenized_agent["advantages"][:,None])
+
+                        feat_a=feat_a+adv_embed
 
                     if self.use_graph:
 

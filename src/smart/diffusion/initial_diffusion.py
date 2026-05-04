@@ -219,15 +219,15 @@ class InitDiffusion(nn.Module):
                     #
                     # col_reward_agent=torch.all(col_reward,dim=-1)
                     #
-                    advantage=(col_reward_agent==0).float() -0.5#col_reward <0 collision 0
+                    advantage=(col_reward_agent==0).float()# -0.5#col_reward <0 collision 0
 
-                    advantage=advantage-advantage.mean()
+                   # advantage=advantage-advantage.mean()
 
                   #  col_reward_agent=col_reward_agent.clamp_min(-20)
 
                     #advantage=(col_reward_agent-col_reward_agent.mean())/col_reward_agent.std()
 
-                    tokenized_agent["advantages"]=advantage#advantage conditioned 
+                    tokenized_agent["advantages"]=advantage#advantage conditioned
 
                 loss,x_pred ,expert_state,t = self.G1.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 
