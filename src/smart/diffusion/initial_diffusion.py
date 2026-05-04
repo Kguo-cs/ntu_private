@@ -227,7 +227,7 @@ class InitDiffusion(nn.Module):
 
                     #advantage=(col_reward_agent-col_reward_agent.mean())/col_reward_agent.std()
 
-                    tokenized_agent["advantages"]=advantage
+                    tokenized_agent["advantages"]=advantage#advantage conditioned 
 
                 loss,x_pred ,expert_state,t = self.G1.get_loss(diff_input, tokenized_agent, initial_map_feature,None)
 

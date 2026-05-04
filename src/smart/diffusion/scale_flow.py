@@ -465,7 +465,7 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        elif self.use_sde and torch.any(noise_level>0) and "gt_z_raw" not in tokenized_agent.keys():
+        elif self.use_sde and torch.any(noise_level>0) :#and "gt_z_raw" not in tokenized_agent.keys():
             z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                 1-t_n,
                 1-t_next,
@@ -698,15 +698,15 @@ class ScaleFlow(nn.Module):
                 x_list.append(x_cond)
                 z_list.append(z)
                 t_list.append(t_n)
-                #log_prob_list.append(log_prob)
+                log_prob_list.append(log_prob)
 
                 #feat_list.append(tokenized_agent["noise_feat"])
 
         t_list.append(torch.ones_like(t_n))
 
         if self.use_sde:
-            # log_prob_list=torch.stack(log_prob_list,dim=1)
-            # log_prob_list=log_prob_list[noise_mask]
+            log_prob_list=torch.stack(log_prob_list,dim=1)
+            log_prob_list=log_prob_list[noise_mask]
             #
             z_list=torch.stack(z_list,dim=1)
             z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
