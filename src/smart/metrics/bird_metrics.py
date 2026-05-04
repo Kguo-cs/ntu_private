@@ -420,15 +420,6 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,save_path=Non
 
     return heading_likelihoods,polar_likelihoods,distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff,num_entry_diff,num_exit_diff
 
-# tensor(3.864, device='cuda:0') tensor(10.114, device='cuda:0')
-# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Speed_hist.png
-# tensor(-3.408, device='cuda:0') tensor(3.436, device='cuda:0')
-# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Acc_hist.png
-# tensor(-1.044, device='cuda:0') tensor(1.062, device='cuda:0')
-# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Angular speed_hist.png
-# tensor(-2.104, device='cuda:0') tensor(2.118, device='cuda:0')
-# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Angular acc_hist.png
-#tensor(0.548, device='cuda:0') tensor(10.345, device='cuda:0')
 
 class MetricDict:
     """
