@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=False
+        self.use_sde=True
 
         self.noise_level=0.7
 
@@ -448,7 +448,6 @@ class ScaleFlow(nn.Module):
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels,noise_level):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
-        log_prob=None
         tokenized_agent, initial_map_feature, eval_mask = labels
 
         if self.use_cluster:
@@ -485,6 +484,7 @@ class ScaleFlow(nn.Module):
             )
         else:
             z = z + (t_next - t_n) * v_pred
+            log_prob=torch.zeros_like(z)
 
         return z,x,t_n,log_prob
 
