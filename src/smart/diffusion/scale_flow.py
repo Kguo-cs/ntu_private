@@ -360,7 +360,7 @@ class ScaleFlow(nn.Module):
             z[:,0],
             e[:,0],
             t[:,0],
-            use_col=True,
+            use_col=False,
             x_pred=self.x_pred
         )
 
