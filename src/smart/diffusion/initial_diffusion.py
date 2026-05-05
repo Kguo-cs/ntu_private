@@ -219,7 +219,7 @@ class InitDiffusion(nn.Module):
 
                     col_reward_agent=torch.all(col_reward,dim=-1)
                     #
-                    advantage=(col_reward_agent==0).float()# -0.5#col_reward <0 collision 0
+                    advantage=(col_reward_agent==True).float()# -0.5#col_reward <0 collision 0
 
                    # advantage=advantage-advantage.mean()
 
