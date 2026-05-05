@@ -484,7 +484,7 @@ class ScaleFlow(nn.Module):
             )
         else:
             z = z + (t_next - t_n) * v_pred
-            log_prob=torch.zeros_like(z)
+            #log_prob=torch.zeros_like(z)
 
         return z,x,t_n,log_prob
 
@@ -719,8 +719,8 @@ class ScaleFlow(nn.Module):
         t_list.append(torch.ones_like(t_n))
 
         if self.use_sde:
-            log_prob_list=torch.stack(log_prob_list,dim=1)
-            log_prob_list=log_prob_list[noise_mask]
+           # log_prob_list=torch.stack(log_prob_list,dim=1)
+            #log_prob_list=log_prob_list[noise_mask]
 
             z_list=torch.stack(z_list,dim=1)
             z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
