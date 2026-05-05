@@ -185,39 +185,39 @@ class InitDiffusion(nn.Module):
                 if self.use_rl:
                     pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
 
-                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init[:,:2], torch.atan2(pred_init[:,3],pred_init[:,2]), pred_init[:,4],pred_init[:,5],tokenized_agent["nonego_batch"])
+                    # col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init[:,:2], torch.atan2(pred_init[:,3],pred_init[:,2]), pred_init[:,4],pred_init[:,5],tokenized_agent["nonego_batch"])
+                    #
+                    # col_reward_end= scatter_sum(col_reward, end_idx)
+                    # col_reward_start= scatter_sum(col_reward, start_idx)
+                    #
+                    # # if (torch.bincount(tokenized_agent["nonego_batch"])==1).any():
+                    # #     print(len(col_reward_start),len(col_reward_end),len(pred_init))
+                    #
+                    # col_reward_start=torch.cat([col_reward_start,torch.zeros_like(col_reward_start[:len(pred_init)-len(col_reward_start)])])
+                    # col_reward_end=torch.cat([col_reward_end,torch.zeros_like(col_reward_end[:len(pred_init)-len(col_reward_end)])])
+                    #
+                    # col_reward_agent=-col_reward_end-col_reward_start
+                    #
+                    batch=tokenized_agent["nonego_batch"]
 
-                    col_reward_end= scatter_sum(col_reward, end_idx)
-                    col_reward_start= scatter_sum(col_reward, start_idx)
+                    same_batch = batch[:, None] == batch[None, :]
+                    not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
+                    edge_mask = same_batch & not_self
 
-                    # if (torch.bincount(tokenized_agent["nonego_batch"])==1).any():
-                    #     print(len(col_reward_start),len(col_reward_end),len(pred_init))
+                    pos=pred_init[:,:2]
 
-                    col_reward_start=torch.cat([col_reward_start,torch.zeros_like(col_reward_start[:len(pred_init)-len(col_reward_start)])])
-                    col_reward_end=torch.cat([col_reward_end,torch.zeros_like(col_reward_end[:len(pred_init)-len(col_reward_end)])])
+                    shape=pred_init[:, 4:6]
 
-                    col_reward_agent=-col_reward_end-col_reward_start
-                    #
-                    # batch=tokenized_agent["nonego_batch"]
-                    #
-                    # same_batch = batch[:, None] == batch[None, :]
-                    # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
-                    # edge_mask = same_batch & not_self
-                    #
-                    # pos=pred_init[:,:2]
-                    #
-                    # shape=pred_init[:, 4:6]
-                    #
-                    # r=torch.linalg.norm(shape,dim=-1)
-                    #
-                    # d=torch.linalg.norm(pos[:,None]-pos[None],dim=-1)
-                    #
-                    # r2=(r[:,None]+r[None])/2
-                    #
-                    # col_reward=d>r2
-                    # col_reward[~edge_mask]=True
-                    #
-                    # col_reward_agent=torch.all(col_reward,dim=-1)
+                    r=torch.linalg.norm(shape,dim=-1)
+
+                    d=torch.linalg.norm(pos[:,None]-pos[None],dim=-1)
+
+                    r2=(r[:,None]+r[None])/2
+
+                    col_reward=d>r2
+                    col_reward[~edge_mask]=True
+
+                    col_reward_agent=torch.all(col_reward,dim=-1)
                     #
                     advantage=(col_reward_agent==0).float()# -0.5#col_reward <0 collision 0
 
