@@ -143,13 +143,13 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=False
+        self.use_sde=True
 
         self.noise_level=0.7
 
         self.rationorm=False
 
-        self.use_nft=False
+        self.use_nft=True
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
