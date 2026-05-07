@@ -190,9 +190,6 @@ class InitDiffusion(nn.Module):
                     col_reward_end= scatter_sum(col_reward, end_idx)
                     col_reward_start= scatter_sum(col_reward, start_idx)
 
-                    # if (torch.bincount(tokenized_agent["nonego_batch"])==1).any():
-                    #     print(len(col_reward_start),len(col_reward_end),len(pred_init))
-
                     col_reward_start=torch.cat([col_reward_start,torch.zeros_like(col_reward_start[:len(pred_init)-len(col_reward_start)])])
                     col_reward_end=torch.cat([col_reward_end,torch.zeros_like(col_reward_end[:len(pred_init)-len(col_reward_end)])])
 
@@ -219,7 +216,7 @@ class InitDiffusion(nn.Module):
                     #
                     # col_reward_agent=torch.all(col_reward,dim=-1)
                     #
-                    advantage=(col_reward_agent==0).float()# -0.5#col_reward <0 collision 0
+                    advantage=(col_reward_agent==0).float() -0.5#col_reward <0 collision 0
 
                    # advantage=advantage-advantage.mean()
 
