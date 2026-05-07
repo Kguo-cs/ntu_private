@@ -141,7 +141,6 @@ def compute_vehicle_circles_torch(
 def multi_circle_collision_loss_mem_efficient(
     pos, heading, length, width, batch,
     num_circles=5,
-    reduction="mean",
     use_edge=True
 ):
     device = pos.device
