@@ -365,7 +365,7 @@ class ScaleFlow(nn.Module):
         )
 
 
-        loss=(match_loss, collision_loss+policy_loss*100, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss*0.01, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
