@@ -149,6 +149,8 @@ class ScaleFlow(nn.Module):
 
         self.rationorm=False
 
+        self.global_step=0
+
         self.use_nft=True
 
         if self.use_nft:
@@ -245,6 +247,14 @@ class ScaleFlow(nn.Module):
 
             if self.use_nft:
                 with torch.no_grad():
+                    decay = return_decay(self.global_step, 2)
+                    # print(decay,self.global_step)
+                    for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
+                        tgt_param.data.copy_(
+                            tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
+
+                    self.global_step+=1
+
                     self.old_model.eval()
                     old_prediction = self.old_model(z_sampled, t_n_sampled, tokenized_agent, tokenized_agent["initial_map_feature"])
                     if self.x_pred:
@@ -766,3 +776,27 @@ class ScaleFlow(nn.Module):
                                                                                              1).flatten(0, 1)
 
         return tokenized_agent
+
+
+
+def return_decay(step, decay_type):
+    if decay_type == 0:
+        flat = 0
+        uprate = 0.0
+        uphold = 0.0
+    elif decay_type == 1:
+        flat = 0
+        uprate = 0.001
+        uphold = 0.5
+    elif decay_type == 2:
+        flat = 75
+        uprate = 0.0075
+        uphold = 0.999
+    else:
+        assert False
+
+    if step < flat:
+        return 0.0
+    else:
+        decay = (step - flat) * uprate
+        return min(decay, uphold)
