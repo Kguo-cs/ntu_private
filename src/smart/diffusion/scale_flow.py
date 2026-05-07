@@ -305,20 +305,22 @@ class ScaleFlow(nn.Module):
                         1.0 + beta
                     ) * old_prediction.detach() - beta * forward_prediction
                     x0_prediction = xt - t_expanded * positive_prediction
-                    with torch.no_grad():
-                        weight_factor = (
-                            torch.abs(x0_prediction.double() - x0.double())
-                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                            .clip(min=0.00001)
-                        )
+                    # with torch.no_grad():
+                    #     weight_factor = (
+                    #         torch.abs(x0_prediction.double() - x0.double())
+                    #         .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                    #         .clip(min=0.00001)
+                    #     )
+                    weight_factor=1
                     positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
                     negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
-                    with torch.no_grad():
-                        negative_weight_factor = (
-                            torch.abs(negative_x0_prediction.double() - x0.double())
-                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                            .clip(min=0.00001)
-                        )
+                    # with torch.no_grad():
+                    #     negative_weight_factor = (
+                    #         torch.abs(negative_x0_prediction.double() - x0.double())
+                    #         .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                    #         .clip(min=0.00001)
+                    #     )
+                    negative_weight_factor=1
                     negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
                         dim=tuple(range(1, x0.ndim))
                     )
