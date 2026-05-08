@@ -299,11 +299,13 @@ class ScaleFlow(nn.Module):
 
                     normalized_advantages_clip = (advantages_clip / adv_clip_max) / 2.0 + 0.5 #(advantages_clip-advantages_clip.min())/(advantages_clip.max()-advantages_clip.min())#
                     r = torch.clamp(normalized_advantages_clip, 0, 1)
-                    positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
+                    #positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
                     implicit_negative_prediction = (
                         1.0 + beta
                     ) * old_prediction.detach() - beta * forward_prediction
-                    x0_prediction = xt - t_expanded * positive_prediction
+                   # x0_prediction = xt - t_expanded * positive_prediction
+                    x0_prediction=x_pred_all[:len(z_sampled)]
+
                     with torch.no_grad():
                         weight_factor = (
                             torch.abs(x0_prediction.double() - x0.double())
