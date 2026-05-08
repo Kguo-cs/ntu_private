@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=False
+        self.use_sde=True
 
         self.noise_level=0.7
 
@@ -151,7 +151,7 @@ class ScaleFlow(nn.Module):
 
         self.global_step=0
 
-        self.use_nft=False
+        self.use_nft=True
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
@@ -248,7 +248,6 @@ class ScaleFlow(nn.Module):
             if self.use_nft:
                 with torch.no_grad():
                     decay = return_decay(self.global_step, 2)
-                    # print(decay,self.global_step)
                     for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
                         tgt_param.data.copy_(
                             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
@@ -793,7 +792,7 @@ def return_decay(step, decay_type):
     elif decay_type == 2:
         flat = 75
         uprate = 0.0075
-        uphold = 0.99 #9
+        uphold = 0.999
     else:
         assert False
 
