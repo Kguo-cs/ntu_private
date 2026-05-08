@@ -62,7 +62,7 @@ class InitDiffusion(nn.Module):
         self.use_gail=False
         self.use_gan = False
 
-        self.use_rl=True
+        self.use_rl=False
 
         if self.use_gail or self.use_gan:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
