@@ -85,7 +85,7 @@ class ScaleFlow(nn.Module):
         if self.use_dit:
             self.x_pred=False
         else:
-            self.x_pred=True
+            self.x_pred=False
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)
@@ -357,7 +357,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*10
+                    policy_loss = per_sample_policy_loss.mean()
 
                 x_pred=x_pred_all[len(z_sampled):]
         else:
