@@ -292,7 +292,7 @@ class ScaleFlow(nn.Module):
                 if self.use_nft:
                     beta=1
                     forward_prediction=v_pred   # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
-                   # x0=x_sampled
+                    x0=x_sampled
                     xt=z_sampled
                     t_expanded=-denom #  x0_pred=    (1-t) *v+ z
                     old_prediction=old_v_pred
@@ -305,48 +305,47 @@ class ScaleFlow(nn.Module):
                     ) * old_prediction.detach() - beta * forward_prediction
                    # x0_prediction = xt - t_expanded * positive_prediction
                     x0_prediction=x_pred_all[:len(z_sampled)]
-                    positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        tokenized_agent,
-                        x0_prediction[:, 0],
-                        x_sampled[:, 0],
-                        z_sampled[:, 0],
-                        e_sampled[:, 0],
-                        t_n_sampled[:, 0],
-                        use_col=False,
-                        x_pred=self.x_pred
-                    )
+                    # positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    #     tokenized_agent,
+                    #     x0_prediction[:, 0],
+                    #     x_sampled[:, 0],
+                    #     z_sampled[:, 0],
+                    #     e_sampled[:, 0],
+                    #     t_n_sampled[:, 0],
+                    #     use_col=False,
+                    #     x_pred=self.x_pred
+                    # )
 
-                    #  with torch.no_grad():
-                   #      weight_factor = (
-                   #          torch.abs(x0_prediction.double() - x0.double())
-                   #          .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                   #          .clip(min=0.00001)
-                   #      )
-                   # # weight_factor=1
-                   #  positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
+                    with torch.no_grad():
+                        weight_factor = (
+                            torch.abs(x0_prediction.double() - x0.double())
+                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                            .clip(min=0.00001)
+                        )
+                    # weight_factor=1
+                    positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
                     negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
-                  #   with torch.no_grad():
-                  #       negative_weight_factor = (
-                  #           torch.abs(negative_x0_prediction.double() - x0.double())
-                  #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                  #           .clip(min=0.00001)
-                  #       )
-                  # #  negative_weight_factor=1
-                  #   negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
-                  #       dim=tuple(range(1, x0.ndim))
-                  #   )
-                    negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        tokenized_agent,
-                        negative_x0_prediction[:, 0],
-                        x_sampled[:, 0],
-                        z_sampled[:, 0],
-                        e_sampled[:, 0],
-                        t_n_sampled[:, 0],
-                        use_col=False,
-                        x_pred=self.x_pred
+                    with torch.no_grad():
+                        negative_weight_factor = (
+                            torch.abs(negative_x0_prediction.double() - x0.double())
+                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                            .clip(min=0.00001)
+                        )
+                  #  negative_weight_factor=1
+                    negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
+                        dim=tuple(range(1, x0.ndim))
                     )
-
-
+                  #   negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                  #       tokenized_agent,
+                  #       negative_x0_prediction[:, 0],
+                  #       x_sampled[:, 0],
+                  #       z_sampled[:, 0],
+                  #       e_sampled[:, 0],
+                  #       t_n_sampled[:, 0],
+                  #       use_col=False,
+                  #       x_pred=self.x_pred
+                  #   )
+                  #
                     ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
                     policy_loss = (ori_policy_loss * adv_clip_max).mean()#*10
                 else:
@@ -387,7 +386,7 @@ class ScaleFlow(nn.Module):
             policy_loss=0
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
-        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+        match_loss1, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
             x_pred[:,0],
             x[:,0],
@@ -397,7 +396,16 @@ class ScaleFlow(nn.Module):
             use_col=False,
             x_pred=self.x_pred
         )
+        with torch.no_grad():
+            weight_factor = (
+                torch.abs(x_pred.double() - x.double())
+                .mean(dim=tuple(range(1, x.ndim)), keepdim=True)
+                .clip(min=0.00001)
+            )
+        # weight_factor=1
+        match_loss = ((x_pred - x) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
 
+        # print(policy_loss)
 
         loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
