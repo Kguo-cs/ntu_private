@@ -272,12 +272,12 @@ class ScaleFlow(nn.Module):
                         old_v_pred = old_prediction
 
             if self.use_kl:
-                t_n = t_n_sampled
+                t_all = t_n_sampled
 
                 z_all = z_sampled
 
             else:
-                t_n=torch.cat((t_n_sampled,t),dim=0)
+                t_all=torch.cat((t_n_sampled,t),dim=0)
 
                 z_all=torch.cat((z_sampled,z),dim=0)
 
@@ -286,14 +286,14 @@ class ScaleFlow(nn.Module):
             if self.model.use_return_conditioned:
                 tokenized_agent["advantages"]=torch.cat((advantages,torch.ones_like(advantages)),dim=0)
 
-            x_pred_all = self.model(z_all, t_n, tokenized_agent, tokenized_agent["initial_map_feature"])
+            x_pred_all = self.model(z_all, t_all, tokenized_agent, tokenized_agent["initial_map_feature"])
 
             if self.model.use_return_conditioned:
                 x_pred=x_pred_all
                 x=torch.cat((x_sampled,x),dim=0)
                 z=z_all
                 e=torch.cat((e_sampled,e),dim=0)
-                t=t_n
+                t=t_all
                 policy_loss = 0
             else:
                 if self.x_pred:
@@ -404,6 +404,9 @@ class ScaleFlow(nn.Module):
 
         if self.use_kl:
             x=old_prediction
+            z = z_all
+            e = e_sampled
+            t = t_all
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
