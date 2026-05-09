@@ -397,7 +397,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()
+                    policy_loss = per_sample_policy_loss.mean()*0.01
 
                 x_pred=x_pred_all[-len(z_sampled):]
         else:
@@ -431,7 +431,7 @@ class ScaleFlow(nn.Module):
 
         # print(policy_loss)
 
-        loss=(match_loss*100, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
