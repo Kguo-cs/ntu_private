@@ -153,8 +153,12 @@ class ScaleFlow(nn.Module):
 
         self.use_nft=False
 
-        if self.use_nft:
+        self.use_kl=True
+
+        if self.use_nft or self.use_kl:
             self.old_model = copy.deepcopy(self.model)
+
+        if self.use_nft:
             self.use_sde=False
 
         if self.use_flow_ode:
@@ -245,12 +249,18 @@ class ScaleFlow(nn.Module):
 
             denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
-            if self.use_nft:
+            if self.use_nft or self.use_kl:
                 with torch.no_grad():
-                    decay = return_decay(self.global_step, 2)
-                    for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
-                        tgt_param.data.copy_(
-                            tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
+                    if self.use_kl and self.global_step==0:
+                        decay = 0
+                        for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
+                            tgt_param.data.copy_(
+                                tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
+                    else:
+                        decay = return_decay(self.global_step, 2)
+                        for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
+                            tgt_param.data.copy_(
+                                tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
                     self.global_step+=1
 
@@ -261,11 +271,17 @@ class ScaleFlow(nn.Module):
                     else:
                         old_v_pred = old_prediction
 
-            t_n=torch.cat((t_n_sampled,t),dim=0)
+            if self.use_kl:
+                t_n = t_n_sampled
 
-            z_all=torch.cat((z_sampled,z),dim=0)
+                z_all = z_sampled
 
-            tokenized_agent=self.repeat_input(tokenized_agent,2)
+            else:
+                t_n=torch.cat((t_n_sampled,t),dim=0)
+
+                z_all=torch.cat((z_sampled,z),dim=0)
+
+                tokenized_agent=self.repeat_input(tokenized_agent,2)
 
             if self.model.use_return_conditioned:
                 tokenized_agent["advantages"]=torch.cat((advantages,torch.ones_like(advantages)),dim=0)
@@ -379,12 +395,15 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*0.01
+                    policy_loss = per_sample_policy_loss.mean()
 
-                x_pred=x_pred_all[len(z_sampled):]
+                x_pred=x_pred_all[-len(z_sampled):]
         else:
             policy_loss=0
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+
+        if self.use_kl:
+            x=old_prediction
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
