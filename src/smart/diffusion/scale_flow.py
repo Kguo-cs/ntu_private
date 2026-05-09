@@ -406,9 +406,9 @@ class ScaleFlow(nn.Module):
 
         if self.use_kl:
             x=old_prediction
-            z = z_all
+            z = z_sampled
             e = e_sampled
-            t = t_all
+            t = t_n_sampled
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
