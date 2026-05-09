@@ -241,7 +241,7 @@ class ScaleFlow(nn.Module):
                 z_sampled, prev_sample, log = z_list
                 t_n_sampled, t_next_sampled = t_list
             else:
-                x_sampled=tokenized_agent["z_list"]#.repeat(2,1,1)
+                x_sampled=tokenized_agent["z_list"]
                 e_sampled=torch.randn_like(e)
                 t_n_sampled=torch.rand_like(t_batch)[agent_batch]
 
@@ -407,8 +407,9 @@ class ScaleFlow(nn.Module):
         if self.use_kl:
             x=old_prediction
             z = z_sampled
-            e = e_sampled
             t = t_n_sampled
+            denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+            e =x-(x - z) / denom #e_sampled
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
