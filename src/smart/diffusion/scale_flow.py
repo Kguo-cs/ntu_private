@@ -388,6 +388,8 @@ class ScaleFlow(nn.Module):
                         )
                         log_prob=-match_loss#torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
+                    print(advantages_clip.max(),advantages_clip.min(),advantages_clip.mean())
+
                     per_sample_policy_loss = - log_prob * advantages_clip
 
                     if self.rationorm:
