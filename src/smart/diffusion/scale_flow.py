@@ -305,46 +305,46 @@ class ScaleFlow(nn.Module):
                     ) * old_prediction.detach() - beta * forward_prediction
                    # x0_prediction = xt - t_expanded * positive_prediction
                     x0_prediction=x_pred_all[:len(z_sampled)]
-                    # positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                    #     tokenized_agent,
-                    #     x0_prediction[:, 0],
-                    #     x_sampled[:, 0],
-                    #     z_sampled[:, 0],
-                    #     e_sampled[:, 0],
-                    #     t_n_sampled[:, 0],
-                    #     use_col=False,
-                    #     x_pred=self.x_pred
-                    # )
-
-                    with torch.no_grad():
-                        weight_factor = (
-                            torch.abs(x0_prediction.double() - x0.double())
-                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                            .clip(min=0.00001)
-                        )
-                    # weight_factor=1
-                    positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
-                    negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
-                    with torch.no_grad():
-                        negative_weight_factor = (
-                            torch.abs(negative_x0_prediction.double() - x0.double())
-                            .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                            .clip(min=0.00001)
-                        )
-                  #  negative_weight_factor=1
-                    negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
-                        dim=tuple(range(1, x0.ndim))
+                    positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                        tokenized_agent,
+                        x0_prediction[:, 0],
+                        x_sampled[:, 0],
+                        z_sampled[:, 0],
+                        e_sampled[:, 0],
+                        t_n_sampled[:, 0],
+                        use_col=False,
+                        x_pred=self.x_pred
                     )
-                  #   negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                  #       tokenized_agent,
-                  #       negative_x0_prediction[:, 0],
-                  #       x_sampled[:, 0],
-                  #       z_sampled[:, 0],
-                  #       e_sampled[:, 0],
-                  #       t_n_sampled[:, 0],
-                  #       use_col=False,
-                  #       x_pred=self.x_pred
+
+                  #   with torch.no_grad():
+                  #       weight_factor = (
+                  #           torch.abs(x0_prediction.double() - x0.double())
+                  #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                  #           .clip(min=0.00001)
+                  #       )
+                  #   # weight_factor=1
+                  #   positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
+                    negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
+                  #   with torch.no_grad():
+                  #       negative_weight_factor = (
+                  #           torch.abs(negative_x0_prediction.double() - x0.double())
+                  #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                  #           .clip(min=0.00001)
+                  #       )
+                  # #  negative_weight_factor=1
+                  #   negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
+                  #       dim=tuple(range(1, x0.ndim))
                   #   )
+                    negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                        tokenized_agent,
+                        negative_x0_prediction[:, 0],
+                        x_sampled[:, 0],
+                        z_sampled[:, 0],
+                        e_sampled[:, 0],
+                        t_n_sampled[:, 0],
+                        use_col=False,
+                        x_pred=self.x_pred
+                    )
                   #
                     ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
                     policy_loss = (ori_policy_loss * adv_clip_max).mean()#*10
