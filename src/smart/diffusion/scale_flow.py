@@ -153,7 +153,7 @@ class ScaleFlow(nn.Module):
 
         self.use_nft=False
 
-        self.use_kl=False
+        self.use_kl=True
 
         if self.use_nft or self.use_kl:
             self.old_model = copy.deepcopy(self.model)
@@ -176,7 +176,6 @@ class ScaleFlow(nn.Module):
                  x,
                  tokenized_agent: HeteroData,
                  initial_map_feature: Mapping[str, torch.Tensor],
-                 eval_mask,
                  num_samples=1) :
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
@@ -265,7 +264,7 @@ class ScaleFlow(nn.Module):
                     self.global_step+=1
 
                     self.old_model.eval()
-                    old_prediction = self.old_model(z_sampled, t_n_sampled, tokenized_agent, tokenized_agent["initial_map_feature"])
+                    old_prediction = self.old_model(z_sampled, t_n_sampled, tokenized_agent, initial_map_feature)
                     if self.x_pred:
                         old_v_pred = (old_prediction - z_sampled) / denom
                     else:
@@ -286,7 +285,7 @@ class ScaleFlow(nn.Module):
             if self.model.use_return_conditioned:
                 tokenized_agent["advantages"]=torch.cat((advantages,torch.ones_like(advantages)),dim=0)
 
-            x_pred_all = self.model(z_all, t_all, tokenized_agent, tokenized_agent["initial_map_feature"])
+            x_pred_all = self.model(z_all, t_all, tokenized_agent, initial_map_feature)
 
             if self.model.use_return_conditioned:
                 x_pred=x_pred_all
@@ -397,7 +396,9 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()
+                    policy_loss = per_sample_policy_loss.mean()*0.1
+
+                #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
                 x_pred=x_pred_all[-len(z_sampled):]
         else:
