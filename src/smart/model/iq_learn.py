@@ -140,8 +140,8 @@ class IQ_SoftQ(LightningModule):
                 self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
                 self.log('train/collision_loss', collision_loss, on_step=True, batch_size=1)
 
-                if "advantages" in tokenized_agent.keys():
-                    self.log('train/advantages', tokenized_agent["advantages"].mean(), on_step=True, batch_size=1)
+                if "noncol_rate" in tokenized_agent.keys():
+                    self.log('train/noncol_rate', tokenized_agent["noncol_rate"].mean(), on_step=True, batch_size=1)
 
                 loss = match_loss + collision_loss
 
