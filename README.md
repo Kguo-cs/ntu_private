@@ -15,7 +15,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/autoenc_map80_6040_l1_pos3/2026-04-16_14-55-34/bc/h771hil6/checkpoints/epoch=63-step=121792.ckpt ./
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow256_map100_rellane/2026-04-19_10-03-19/bc/3gebsglj/checkpoints/epoch=11-step=22836.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/pg256_noexp_mean_kl01/2026-05-09_19-52-16/bc/yrvzy7pm/checkpoints/epoch=21-step=41866.ckpt ./
 
 rsync -avz -e "ssh -p 32884" /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  guoke@sprl-server9.dynip.ntu.edu.sg:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 

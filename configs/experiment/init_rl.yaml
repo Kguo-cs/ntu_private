@@ -40,7 +40,7 @@ model:
 #ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 
 #ckpt_path: './waymo_data/flow_vpred_egorel_mse_epoch=61-step=117986.ckpt'
-#ckpt_path: './logs/autoenc_map80_6040_lane2_pos3/2026-04-16_15-06-32/bc/68plmaqb/checkpoints/epoch=63-step=121792.ckpt'
+#ckpt_path: '/home/ke/code/sim/src/waymo_data/epoch=21-step=41866.ckpt'
 
 ckpt_path: './waymo_data/flow_xpred_egorel_mse_epoch=63-step=121792.ckpt'
 
