@@ -396,7 +396,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()
+                    policy_loss = per_sample_policy_loss.mean()*0.1
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
