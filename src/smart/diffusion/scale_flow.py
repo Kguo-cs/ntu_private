@@ -451,12 +451,13 @@ class ScaleFlow(nn.Module):
             # )
 
 
-            with torch.no_grad():
-                weight_factor = (
-                    torch.abs(x_pred.double() - x.double())
-                    .mean(dim=tuple(range(1, x.ndim)), keepdim=True)
-                    .clip(min=0.00001)
-                )
+            # with torch.no_grad():
+            #     weight_factor = (
+            #         torch.abs(x_pred.double() - x.double())
+            #         .mean(dim=tuple(range(1, x.ndim)), keepdim=True)
+            #         .clip(min=0.00001)
+            #     )
+            weight_factor=1
             match_loss = ((x_pred - x) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
 
             collision_loss=pos_loss=heading_loss=shape_loss=vel_loss = torch.zeros_like(match_loss)
