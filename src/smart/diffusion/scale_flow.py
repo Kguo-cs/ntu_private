@@ -255,7 +255,7 @@ class ScaleFlow(nn.Module):
                         for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
                             tgt_param.data.copy_(
                                 tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
-                    else:
+                    elif self.use_nft:
                         decay = return_decay(self.global_step, 2)
                         for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
                             tgt_param.data.copy_(
