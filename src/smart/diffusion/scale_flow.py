@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.noise_level=0.7
 
@@ -151,7 +151,7 @@ class ScaleFlow(nn.Module):
 
         self.global_step=0
 
-        self.use_nft=True
+        self.use_nft=False
 
         self.use_kl=True
 
@@ -390,7 +390,7 @@ class ScaleFlow(nn.Module):
                             t_n_sampled[:, 0],
                             x_pred=self.x_pred
                         )
-                        log_prob=-match_loss#torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
+                        log_prob=torch.exp(match_loss.detach()-match_loss )#-match_loss#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
                    # print(advantages_clip.max(),advantages_clip.min(),advantages_clip.mean())
 
