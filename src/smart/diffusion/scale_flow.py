@@ -151,15 +151,16 @@ class ScaleFlow(nn.Module):
 
         self.global_step=0
 
-        self.use_nft=False
+        self.use_nft=True
 
         self.use_kl=True
 
-        if self.use_nft or self.use_kl:
-            self.old_model = copy.deepcopy(self.model)
-
         if self.use_nft:
+            self.old_model = copy.deepcopy(self.model)
             self.use_sde=False
+
+        if self.use_kl:
+            self.ref_model = copy.deepcopy(self.model)
 
         if self.use_flow_ode:
             from .flow_planner.flow_ode import FlowODE
@@ -248,20 +249,22 @@ class ScaleFlow(nn.Module):
 
             denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
-            if self.use_nft or self.use_kl:
-                with torch.no_grad():
-                    if self.use_kl and self.global_step==0:
+            with torch.no_grad():
+                if self.use_kl:
+                    if self.global_step==0:
                         decay = 0
-                        for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
-                            tgt_param.data.copy_(
-                                tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
-                    elif self.use_nft:
-                        decay = return_decay(self.global_step, 2)
-                        for src_param, tgt_param in zip(  self.model.parameters(),   self.old_model.parameters(), strict=True    ):
+                        for src_param, tgt_param in zip(  self.model.parameters(),   self.ref_model.parameters(), strict=True    ):
                             tgt_param.data.copy_(
                                 tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
-                    self.global_step+=1
+                        self.ref_model.eval()
+                    ref_prediction = self.ref_model(z_sampled, t_n_sampled, tokenized_agent, initial_map_feature)
+
+                if self.use_nft:
+                    decay = return_decay(self.global_step, 2)
+                    for src_param, tgt_param in zip(self.model.parameters(), self.old_model.parameters(), strict=True):
+                        tgt_param.data.copy_(
+                            tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
                     self.old_model.eval()
                     old_prediction = self.old_model(z_sampled, t_n_sampled, tokenized_agent, initial_map_feature)
@@ -269,6 +272,8 @@ class ScaleFlow(nn.Module):
                         old_v_pred = (old_prediction - z_sampled) / denom
                     else:
                         old_v_pred = old_prediction
+
+                self.global_step+=1
 
             if self.use_kl:
                 t_all = t_n_sampled
@@ -406,7 +411,7 @@ class ScaleFlow(nn.Module):
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
         if self.use_kl:
-            x=old_prediction
+            x=ref_prediction
             z = z_sampled
             t = t_n_sampled
             denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
