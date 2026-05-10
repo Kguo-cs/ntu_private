@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.noise_level=0.7
 
@@ -306,8 +306,21 @@ class ScaleFlow(nn.Module):
                     v_pred = x_pred_all[:len(z_sampled)]
 
                 adv_clip_max=5
+                adv_soft_clip=True
 
-                advantages_clip = torch.clamp(advantages, -adv_clip_max, adv_clip_max)
+                if adv_soft_clip:
+                    advantages[advantages < 0] = (
+                                                         advantages[advantages < 0] / adv_clip_max
+                                                 ).tanh() * adv_clip_max
+                    advantages[advantages > 0] = (
+                                                         advantages[advantages > 0] / adv_clip_max
+                                                 ).tanh() * adv_clip_max
+                else:
+                    advantages = torch.clamp(
+                        advantages,
+                        -adv_clip_max,
+                        adv_clip_max,
+                    )
 
                 if self.use_nft:
                     beta=1
@@ -317,7 +330,7 @@ class ScaleFlow(nn.Module):
                     t_expanded=-denom #  x0_pred=    (1-t) *v+ z
                     old_prediction=old_v_pred
 
-                    normalized_advantages_clip = (advantages_clip / adv_clip_max) / 2.0 + 0.5 #(advantages_clip-advantages_clip.min())/(advantages_clip.max()-advantages_clip.min())#
+                    normalized_advantages_clip = (advantages / adv_clip_max) / 2.0 + 0.5 #(advantages_clip-advantages_clip.min())/(advantages_clip.max()-advantages_clip.min())#
                     r = torch.clamp(normalized_advantages_clip, 0, 1)
                     #positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
                     implicit_negative_prediction = (
@@ -394,14 +407,14 @@ class ScaleFlow(nn.Module):
 
                    # print(advantages_clip.max(),advantages_clip.min(),advantages_clip.mean())
 
-                    per_sample_policy_loss = - log_prob * advantages_clip
+                    per_sample_policy_loss = - log_prob * advantages
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()# *0.1
+                    policy_loss = per_sample_policy_loss.mean()*0.2
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
