@@ -390,7 +390,7 @@ class ScaleFlow(nn.Module):
                             t_n_sampled[:, 0],
                             x_pred=self.x_pred
                         )
-                        log_prob=torch.exp(match_loss.detach()-match_loss )#-match_loss#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
+                        log_prob=-match_loss#torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
                    # print(advantages_clip.max(),advantages_clip.min(),advantages_clip.mean())
 
@@ -401,7 +401,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean() #*0.1
+                    policy_loss = per_sample_policy_loss.mean() *0.2
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
