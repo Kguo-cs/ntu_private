@@ -306,15 +306,17 @@ class ScaleFlow(nn.Module):
                     v_pred = x_pred_all[:len(z_sampled)]
 
                 adv_clip_max=5
-                adv_soft_clip=False
+                adv_soft_clip=True
 
                 if adv_soft_clip:
-                    advantages[advantages < 0] = (
-                                                         advantages[advantages < 0] / adv_clip_max
-                                                 ).tanh() * adv_clip_max
-                    advantages[advantages > 0] = (
-                                                         advantages[advantages > 0] / adv_clip_max
-                                                 ).tanh() * adv_clip_max
+                    # advantages[advantages < 0] = (
+                    #                                      advantages[advantages < 0] / adv_clip_max
+                    #                              ).tanh() * adv_clip_max
+                    # advantages[advantages > 0] = (
+                    #                                      advantages[advantages > 0] / adv_clip_max
+                    #                              ).tanh() * adv_clip_max
+                    advantages[advantages < 0] = -0.5
+                    advantages[advantages > 0] = 1
                 else:
                     advantages = torch.clamp(
                         advantages,
@@ -431,7 +433,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*0.3
+                    policy_loss = per_sample_policy_loss.mean()#*0.3
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
