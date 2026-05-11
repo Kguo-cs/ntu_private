@@ -380,7 +380,7 @@ class ScaleFlow(nn.Module):
                     )
                   #
                     ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
-                    policy_loss = (ori_policy_loss * adv_clip_max).mean()*0.1
+                    policy_loss = (ori_policy_loss * adv_clip_max).mean()*0.2
                 else:
                     if self.use_sde:
                         prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
@@ -431,7 +431,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*0.02
+                    policy_loss = per_sample_policy_loss.mean()*0.1
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
