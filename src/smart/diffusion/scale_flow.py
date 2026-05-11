@@ -431,7 +431,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*0.4
+                    policy_loss = per_sample_policy_loss.mean()*0.3
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
@@ -494,20 +494,6 @@ class ScaleFlow(nn.Module):
             return_sqrt_dt: Optional[bool] = False,
 
     ):
-        """
-        Predict the sample from the previous timestep by reversing the SDE. This function propagates the flow
-        process from the learned model outputs (most often the predicted velocity).
-
-        Args:
-            model_output (`torch.FloatTensor`):
-                The direct output from learned flow model.
-            timestep (`float`):
-                The current discrete timestep in the diffusion chain.
-            sample (`torch.FloatTensor`):
-                A current instance of a sample created by the diffusion process.
-            generator (`torch.Generator`, *optional*):
-                A random number generator.
-        """
         model_output = model_output/self.model.normal_scale[None]
         sample=self.model.normalize(sample)
 
