@@ -402,16 +402,16 @@ class ScaleFlow(nn.Module):
                             ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
                             dim=1,
                         )
-                        # self_normalize=True
-                        # if self_normalize:
-                        #     match_loss = match_loss / torch.mean(
-                        #         torch.abs(
-                        #             (x_pred.detach()/scale - x_sampled/scale  ).reshape(
-                        #                 x_sampled.shape[0], -1
-                        #             )
-                        #         ),
-                        #         dim=1,
-                        #     )
+                        self_normalize=True
+                        if self_normalize:
+                            match_loss = match_loss / torch.mean(
+                                torch.abs(
+                                    (x_pred.detach()/scale - x_sampled/scale  ).reshape(
+                                        x_sampled.shape[0], -1
+                                    )
+                                ),
+                                dim=1,
+                            )
 
                         # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                         #     tokenized_agent,
@@ -433,7 +433,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*0.1
+                    policy_loss = per_sample_policy_loss.mean()*0.2
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
