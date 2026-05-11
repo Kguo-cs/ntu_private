@@ -398,7 +398,7 @@ class ScaleFlow(nn.Module):
                     else:
                         x_pred = x_pred_all[:len(z_sampled)]
 
-                        scale=self.model.normal_scale[:,None]
+                        scale=1#self.model.normal_scale[:,None]
                         #
                         match_loss = torch.mean(
                             ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
@@ -435,7 +435,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*0.1
+                    policy_loss = per_sample_policy_loss.mean() #*0.1
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
