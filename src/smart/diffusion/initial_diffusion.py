@@ -231,7 +231,7 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent["noncol_rate"]=advantage
 
-                    advantages=(advantage-advantage.mean())/advantage.std()#(advantage-0.771)/0.42
+                    advantages=(advantage-advantage.mean())/(advantage.std()+1e-5)#(advantage-0.771)/0.42
 
                     tokenized_agent["advantages"]=advantages#advantage conditioned
 
