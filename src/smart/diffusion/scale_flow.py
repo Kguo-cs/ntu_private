@@ -431,7 +431,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()*10
+                    policy_loss = per_sample_policy_loss.mean()*0.1
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
@@ -439,6 +439,18 @@ class ScaleFlow(nn.Module):
         else:
             policy_loss=0
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+
+        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+            tokenized_agent,
+            x_pred[:,0],
+            x[:,0],
+            z[:,0],
+            e[:,0],
+            t[:,0],
+            use_col=False,
+            x_pred=self.x_pred
+        )
+
 
         if self.use_kl:
             x=ref_prediction
@@ -461,20 +473,6 @@ class ScaleFlow(nn.Module):
             #     )
             weight_factor=1
             match_loss = ((x_pred /scale- x/scale) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
-
-            collision_loss=pos_loss=heading_loss=shape_loss=vel_loss = torch.zeros_like(match_loss)
-        else:
-
-            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                tokenized_agent,
-                x_pred[:,0],
-                x[:,0],
-                z[:,0],
-                e[:,0],
-                t[:,0],
-                use_col=False,
-                x_pred=self.x_pred
-            )
 
         # print(policy_loss)
 
