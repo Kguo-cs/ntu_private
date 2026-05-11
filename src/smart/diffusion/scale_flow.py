@@ -308,21 +308,21 @@ class ScaleFlow(nn.Module):
                 adv_clip_max=5
                 adv_soft_clip=False
 
-                if adv_soft_clip:
-                    # advantages[advantages < 0] = (
-                    #                                      advantages[advantages < 0] / adv_clip_max
-                    #                              ).tanh() * adv_clip_max
-                    # advantages[advantages > 0] = (
-                    #                                      advantages[advantages > 0] / adv_clip_max
-                    #                              ).tanh() * adv_clip_max
-                    advantages[advantages < 0] = -0.5
-                    advantages[advantages > 0] = 1
-                else:
-                    advantages = torch.clamp(
-                        advantages,
-                        -adv_clip_max,
-                        adv_clip_max,
-                    )
+                # if adv_soft_clip:
+                #     # advantages[advantages < 0] = (
+                #     #                                      advantages[advantages < 0] / adv_clip_max
+                #     #                              ).tanh() * adv_clip_max
+                #     # advantages[advantages > 0] = (
+                #     #                                      advantages[advantages > 0] / adv_clip_max
+                #     #                              ).tanh() * adv_clip_max
+                #     advantages[advantages < 0] = -0.5
+                #     advantages[advantages > 0] = 1
+                # else:
+                #     advantages = torch.clamp(
+                #         advantages,
+                #         -adv_clip_max,
+                #         adv_clip_max,
+                #     )
 
                 if self.use_nft:
                     beta=1
