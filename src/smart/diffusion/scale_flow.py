@@ -440,6 +440,13 @@ class ScaleFlow(nn.Module):
             policy_loss=0
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
+        if self.use_kl:
+            x=ref_prediction
+            z = z_sampled
+            t = t_n_sampled
+            denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+            e =x-(x - z) / denom #e_sampled
+
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
             x_pred[:,0],
@@ -453,11 +460,6 @@ class ScaleFlow(nn.Module):
 
 
         if self.use_kl:
-            x=ref_prediction
-            z = z_sampled
-            t = t_n_sampled
-            denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
-            e =x-(x - z) / denom #e_sampled
 
             # kl_loss = (
             #     torch.mean((pred.float() - sample["preds"].detach().float()) ** 2)
