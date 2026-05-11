@@ -394,11 +394,13 @@ class ScaleFlow(nn.Module):
                     else:
                         x_pred = x_pred_all[:len(z_sampled)]
 
+                        scale=self.model.normal_scale[:,None]
+
                         match_loss = -torch.mean(
-                            ((x_pred.float() - x_sampled.float()) ** 2).reshape(x_sampled.shape[0], -1),
+                            ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
                             dim=1,
                         )
-                        self_normalize=True
+                        self_normalize=False
                         if self_normalize:
                             match_loss = match_loss / torch.mean(
                                 torch.abs(
@@ -458,7 +460,7 @@ class ScaleFlow(nn.Module):
             #         .clip(min=0.00001)
             #     )
             weight_factor=1
-            match_loss = ((x_pred - x) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
+            match_loss = ((x_pred /scale- x/scale) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
 
             collision_loss=pos_loss=heading_loss=shape_loss=vel_loss = torch.zeros_like(match_loss)
         else:
