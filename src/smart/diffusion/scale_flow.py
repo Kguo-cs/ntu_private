@@ -400,7 +400,7 @@ class ScaleFlow(nn.Module):
                             ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
                             dim=1,
                         )
-                        self_normalize=False
+                        self_normalize=True
                         if self_normalize:
                             match_loss = match_loss / torch.mean(
                                 torch.abs(
