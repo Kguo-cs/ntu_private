@@ -459,22 +459,22 @@ class ScaleFlow(nn.Module):
         )
 
 
-        # if self.use_kl:
-        #
-        #     # kl_loss = (
-        #     #     torch.mean((pred.float() - sample["preds"].detach().float()) ** 2)
-        #     #     / args.gradient_accumulation_steps
-        #     # )
-        #
-        #
-        #     # with torch.no_grad():
-        #     #     weight_factor = (
-        #     #         torch.abs(x_pred.double() - x.double())
-        #     #         .mean(dim=tuple(range(1, x.ndim)), keepdim=True)
-        #     #         .clip(min=0.00001)
-        #     #     )
-        #     weight_factor=1
-        #     match_loss = ((x_pred /scale- x/scale) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
+        if self.use_kl:
+
+            # kl_loss = (
+            #     torch.mean((pred.float() - sample["preds"].detach().float()) ** 2)
+            #     / args.gradient_accumulation_steps
+            # )
+
+
+            # with torch.no_grad():
+            #     weight_factor = (
+            #         torch.abs(x_pred.double() - x.double())
+            #         .mean(dim=tuple(range(1, x.ndim)), keepdim=True)
+            #         .clip(min=0.00001)
+            #     )
+            weight_factor=1
+            match_loss = ((x_pred /scale- x/scale) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
 
         # print(policy_loss)
 
