@@ -428,7 +428,7 @@ class ScaleFlow(nn.Module):
 
                    # print(advantages_clip.max(),advantages_clip.min(),advantages_clip.mean())
 
-                    per_sample_policy_loss = - log_prob * advantages
+                    per_sample_policy_loss = - log_prob * advantages*0.1
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
