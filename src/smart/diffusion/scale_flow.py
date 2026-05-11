@@ -398,7 +398,7 @@ class ScaleFlow(nn.Module):
                     else:
                         x_pred = x_pred_all[:len(z_sampled)]
 
-                        scale=1#self.model.normal_scale[:,None]
+                        scale=self.model.normal_scale[:,None]
                         #
                         match_loss = torch.mean(
                             ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
@@ -428,7 +428,7 @@ class ScaleFlow(nn.Module):
 
                    # print(advantages_clip.max(),advantages_clip.min(),advantages_clip.mean())
 
-                    per_sample_policy_loss = - log_prob * advantages*0.1
+                    per_sample_policy_loss = - log_prob * advantages
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
