@@ -306,7 +306,7 @@ class ScaleFlow(nn.Module):
                     v_pred = x_pred_all[:len(z_sampled)]
 
                 adv_clip_max=5
-                adv_soft_clip=True
+                adv_soft_clip=False
 
                 if adv_soft_clip:
                     advantages[advantages < 0] = (
@@ -431,7 +431,7 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean()
+                    policy_loss = per_sample_policy_loss.mean()*0.2
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
