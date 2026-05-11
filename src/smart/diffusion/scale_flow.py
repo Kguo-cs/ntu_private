@@ -308,6 +308,8 @@ class ScaleFlow(nn.Module):
                 adv_clip_max=5
                 adv_soft_clip=False
 
+                advantages[advantages < 0] = 0
+
                 # if adv_soft_clip:
                 #     # advantages[advantages < 0] = (
                 #     #                                      advantages[advantages < 0] / adv_clip_max
