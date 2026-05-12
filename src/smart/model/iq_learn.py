@@ -341,11 +341,11 @@ class IQ_SoftQ(LightningModule):
 
         if self.token_processor.learn_init:
 
-            advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
+            init_advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
 
-            tokenized_agent["advantages"]=advantages
+            tokenized_agent["advantages"]=init_advantages
 
-            self.log('train/advantages', advantages.mean(), on_step=True, batch_size=1)
+            self.log('train/init_advantages', init_advantages.mean(), on_step=True, batch_size=1)
 
             # z_list=tokenized_agent["z_list"]
             # t_list=tokenized_agent["t_list"]
@@ -363,7 +363,7 @@ class IQ_SoftQ(LightningModule):
             self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
             self.log('train/g_loss', g_loss, on_step=True, batch_size=1)
 
-            init_loss=match_loss.mean()+g_loss
+            init_loss=match_loss+g_loss
 
             init_optimizer.zero_grad()
 
