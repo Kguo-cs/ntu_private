@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.noise_level=0.7
 
@@ -154,6 +154,8 @@ class ScaleFlow(nn.Module):
         self.use_nft=False
 
         self.use_kl=False
+
+        self.mc_num=2
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
@@ -241,9 +243,20 @@ class ScaleFlow(nn.Module):
                 z_sampled, prev_sample, log = z_list
                 t_n_sampled, t_next_sampled = t_list
             else:
-                x_sampled=tokenized_agent["z_list"]
-                e_sampled=torch.randn_like(e)
-                t_n_sampled=torch.rand_like(t_batch)[agent_batch]
+                x_sampled=tokenized_agent["z_list"][None].repeat(self.mc_num, 1,1,1).flatten(0,1)
+                e_sampled=torch.randn_like(e[None].repeat(self.mc_num, 1,1,1).flatten(0,1))
+
+                agent_batch = torch.stack(
+                    [
+                        agent_batch + num_graphs * t0
+                        for t0 in range(self.mc_num)
+                    ],
+                    dim=1,
+                ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
+
+                t_n_sampled=torch.rand_like(t_batch[None].repeat(self.mc_num, 1,1,1).flatten(0,1))[agent_batch]
+
+                advantages=advantages[None].repeat(self.mc_num, 1).flatten(0,1)
 
                 z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
@@ -285,7 +298,7 @@ class ScaleFlow(nn.Module):
 
                 z_all=torch.cat((z_sampled,z),dim=0)
 
-                tokenized_agent=self.repeat_input(tokenized_agent,2)
+                tokenized_agent=self.repeat_input(tokenized_agent,self.mc_num+1)
 
             if self.model.use_return_conditioned:
                 tokenized_agent["advantages"]=torch.cat((advantages,torch.ones_like(advantages)),dim=0)
@@ -435,11 +448,10 @@ class ScaleFlow(nn.Module):
 
                         per_sample_policy_loss=per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean() *10
+                    policy_loss = per_sample_policy_loss.mean() *0.1
 
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
-
-                x_pred=x_pred_all[-len(z_sampled):]
+            x_pred = x_pred_all[len(z_sampled):]
         else:
             policy_loss=0
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
@@ -450,6 +462,7 @@ class ScaleFlow(nn.Module):
             t = t_n_sampled
             denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
             e =x-(x - z) / denom #e_sampled
+            x_pred = x_pred_all
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
