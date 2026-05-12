@@ -318,7 +318,7 @@ class ScaleFlow(nn.Module):
                 else:
                     v_pred = x_pred_all[:len(z_sampled)]
 
-                adv_clip_max=5
+                adv_clip_max=3
                 adv_soft_clip=False
 
                 #advantages[advantages < 0] = 0
