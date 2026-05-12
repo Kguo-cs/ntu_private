@@ -155,7 +155,7 @@ class ScaleFlow(nn.Module):
 
         self.use_kl=False
 
-        self.mc_num=2
+        self.mc_num=3
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
