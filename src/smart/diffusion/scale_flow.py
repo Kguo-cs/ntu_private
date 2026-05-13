@@ -830,6 +830,7 @@ class ScaleFlow(nn.Module):
               #  feat_list.append(tokenized_agent["noise_feat"])
 
         t_list.append(torch.ones_like(t_n))
+        tokenized_agent["pred_init"] = z[:, 0]
 
         if self.use_sde:
            # log_prob_list=torch.stack(log_prob_list,dim=1)
@@ -844,7 +845,6 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["z_list"]=z_list
             tokenized_agent["t_list"]=t_list
-            tokenized_agent["pred_init"]=z[:, 0]
         else:
             tokenized_agent["z_list"]=z
 
