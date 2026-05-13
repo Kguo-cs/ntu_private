@@ -374,9 +374,11 @@ class IQ_SoftQ(LightningModule):
 
             init_advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
 
-            tokenized_agent["advantages"]=init_advantages
-
             self.log('train/init_advantages', init_advantages.mean(), on_step=True, batch_size=1)
+
+            init_advantages=(init_advantages-init_advantages.mean())/init_advantages.std()
+
+            tokenized_agent["advantages"]=init_advantages
 
             # z_list=tokenized_agent["z_list"]
             # t_list=tokenized_agent["t_list"]
