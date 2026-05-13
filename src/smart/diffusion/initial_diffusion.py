@@ -21,7 +21,6 @@ from src.smart.diffusion.dit.autoencoder import AutoEncoder
 from src.smart.diffusion.dit.ldm import LDM
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale
 from torch_scatter import scatter_sum,scatter_mean
-from src.smart.metrics.gen_metrics import compute_gen_samples
 
 class InitDiffusion(nn.Module):
 

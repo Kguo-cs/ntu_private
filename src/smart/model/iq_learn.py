@@ -10,6 +10,8 @@ import random
 import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
 from src.smart.loss.gp_penalty import compute_gp
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale
+from torch_scatter import scatter_sum,scatter_mean
 
 
 class IQ_SoftQ(LightningModule):
@@ -340,6 +342,35 @@ class IQ_SoftQ(LightningModule):
         actor_optimizer.step()
 
         if self.token_processor.learn_init:
+            pred_init=tokenized_agent["pred_init"]
+
+            col_reward, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(pred_init[:, :2],
+                                                                                       torch.atan2(pred_init[:, 3],
+                                                                                                   pred_init[:, 2]),
+                                                                                       pred_init[:, 4], pred_init[:, 5],
+                                                                                       tokenized_agent["nonego_batch"])
+
+            N = len(pred_init)
+
+            col_reward_end = scatter_sum(
+                col_reward,
+                end_idx,
+                dim=0,
+                dim_size=N
+            )
+
+            col_reward_start = scatter_sum(
+                col_reward,
+                start_idx,
+                dim=0,
+                dim_size=N
+            )
+
+            col_reward_agent = -col_reward_end - col_reward_start
+
+            noncol_rate = (col_reward_agent == 0).float()  # -0.5#col_reward <0 collision 0
+
+            self.log('train/noncol_rate', noncol_rate.mean(), on_step=True, batch_size=1)
 
             init_advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
 

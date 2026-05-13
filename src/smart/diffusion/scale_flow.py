@@ -844,6 +844,7 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["z_list"]=z_list
             tokenized_agent["t_list"]=t_list
+            tokenized_agent["pred_init"]=z[:, 0]
         else:
             tokenized_agent["z_list"]=z
 
