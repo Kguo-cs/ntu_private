@@ -492,7 +492,7 @@ class ScaleFlow(nn.Module):
 
         # print(policy_loss)
 
-        loss=(match_loss*0.001, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss*0.01, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
@@ -587,7 +587,7 @@ class ScaleFlow(nn.Module):
             noise = torch.randn_like(x)
 
             z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
-        elif self.use_sde and torch.any(noise_level>0) and "gt_z_raw" not in tokenized_agent.keys():
+        elif self.use_sde and torch.any(noise_level>0) :#and "gt_z_raw" not in tokenized_agent.keys():
             z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                 1-t_n,
                 1-t_next,
