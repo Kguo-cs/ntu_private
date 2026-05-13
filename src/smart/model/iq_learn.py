@@ -252,7 +252,7 @@ class IQ_SoftQ(LightningModule):
             return expert_nll
 
         for key in ["sampled_pos", "sampled_heading","sampled_idx","valid_mask","token_mask"]:
-            tokenized_agent[key]=tokenized_agent[key][:,:10]
+            tokenized_agent[key]=tokenized_agent[key][:,:5]
 
        # if self.pred_init:
         tokenized_agent["train_mask"] = None
