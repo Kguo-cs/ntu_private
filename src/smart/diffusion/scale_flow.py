@@ -153,7 +153,7 @@ class ScaleFlow(nn.Module):
 
         self.use_nft=False
 
-        self.use_kl=False
+        self.use_kl=True
 
         self.mc_num=1
 

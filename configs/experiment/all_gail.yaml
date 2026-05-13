@@ -40,7 +40,7 @@ model:
 ckpt_path: './waymo_data/flow_xpred_egorel_mse_epoch=63-step=121792.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/logs/flow_normscale_vpred_nomatch_rotateout/2026-05-01_14-14-27/bc/ww97393s/checkpoints/last.ckpt'
 
-task_name: AIRL22_pg01_meanstd_01nll #_eval #_noisepre #_first5 #_dis1e2_clip_policy0 #10 #_flow_sde_eval #mean
+task_name: AIRL22_pg01_kl_meanstd_01nll #_eval #_noisepre #_first5 #_dis1e2_clip_policy0 #10 #_flow_sde_eval #mean
 
 trainer:
   limit_train_batches: 1.0
