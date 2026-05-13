@@ -827,7 +827,7 @@ class ScaleFlow(nn.Module):
                 t_list.append(t_n)
                 log_prob_list.append(log_prob)
 
-                feat_list.append(tokenized_agent["noise_feat"])
+              #  feat_list.append(tokenized_agent["noise_feat"])
 
         t_list.append(torch.ones_like(t_n))
 
@@ -840,7 +840,7 @@ class ScaleFlow(nn.Module):
             t_list=torch.stack(t_list,dim=1)
             t_list=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
 
-            tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
+           # tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
 
             tokenized_agent["z_list"]=z_list
             tokenized_agent["t_list"]=t_list
