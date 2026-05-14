@@ -686,7 +686,7 @@ class ScaleFlow(nn.Module):
         if self.use_scale:
             # agent_type = tokenized_agent["nonego_type"]
             #
-            # type_counts=tokenized_agent["type_counts"]
+            type_counts=tokenized_agent["type_counts"]
             #
             # num_types=3
             #
@@ -705,7 +705,6 @@ class ScaleFlow(nn.Module):
             # rank[mask] = cumsum[mask] - offsets[idx[mask]]
             #
             agent_type = tokenized_agent["nonego_type"]
-            type_counts = tokenized_agent["type_counts"]
 
             num_types = 3
 
@@ -713,31 +712,26 @@ class ScaleFlow(nn.Module):
 
             mask = agent_type >= 0
 
-            # initialize output
             rank = torch.full_like(agent_batch, -1)
 
-            # only valid entries
             valid_idx = idx[mask]
 
-            # sort by group id
+            # sort group ids
             sorted_idx, perm = torch.sort(valid_idx)
 
-            # count occurrences inside each group
+            # detect new groups
             group_change = torch.ones_like(sorted_idx, dtype=torch.bool)
             group_change[1:] = sorted_idx[1:] != sorted_idx[:-1]
 
-            # starting positions of each group
-            group_start = torch.cumsum(group_change.long(), dim=0) - 1
+            # position inside sorted array
+            pos = torch.arange(sorted_idx.numel(), device=sorted_idx.device)
 
-            # first occurrence index of each group
-            first_pos = torch.zeros_like(group_start)
-            first_pos[group_change] = torch.nonzero(group_change, as_tuple=False).squeeze(-1)
+            # first position of each group
+            group_start = torch.where(group_change, pos, 0)
+            group_start = torch.cummax(group_start, dim=0)[0]
 
-            # propagate first positions
-            first_pos = torch.cummax(first_pos, dim=0)[0]
-
-            # rank inside each group
-            sorted_rank = torch.arange(len(sorted_idx), device=sorted_idx.device) - first_pos
+            # rank within group
+            sorted_rank = pos - group_start
 
             # unsort back
             unsorted_rank = torch.empty_like(sorted_rank)
