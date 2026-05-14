@@ -9,6 +9,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+from torch_scatter import scatter_sum,scatter_mean
 
 def gaussian_nll(mu, sigma, target):
     dx = target - mu
@@ -206,7 +207,35 @@ def multi_circle_collision_loss_mem_efficient(
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
+def get_col_rate(tokenized_agent,pred_init):
 
+    col_reward, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(pred_init[:, :2],
+                                                                               torch.atan2(pred_init[:, 3],
+                                                                                           pred_init[:, 2]),
+                                                                               pred_init[:, 4], pred_init[:, 5],
+                                                                               tokenized_agent["nonego_batch"])
+
+    N = len(pred_init)
+
+    col_reward_end = scatter_sum(
+        col_reward,
+        end_idx,
+        dim=0,
+        dim_size=N
+    )
+
+    col_reward_start = scatter_sum(
+        col_reward,
+        start_idx,
+        dim=0,
+        dim_size=N
+    )
+
+    col_reward_agent = -col_reward_end - col_reward_start
+
+    noncol_rate = (col_reward_agent == 0).float()  # -0.5#col_reward <0 collision 0
+
+    return noncol_rate
 
 def get_closest_sum_idx(
     fake_state,

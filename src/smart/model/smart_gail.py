@@ -119,7 +119,7 @@ class SMART_IQ(IQ_SoftQ, SMART):
                     actor_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())  +list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
 
             else:
-                actor_optimizer=torch.optim.AdamW(self.encoder.agent_encoder.init_decoder.G.parameters(), lr=self.lr)#,betas=(0.0,0.0)
+                actor_optimizer=torch.optim.AdamW(self.encoder.agent_encoder.init_decoder.G1.parameters(), lr=self.lr)#,betas=(0.0,0.0)
                 discriminator_optimizer=torch.optim.AdamW(self.encoder.agent_encoder.init_decoder.D.parameters(), lr=self.lr)#,weight_decay=10
 
             return [actor_optimizer, discriminator_optimizer]

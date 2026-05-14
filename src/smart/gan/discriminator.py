@@ -189,7 +189,7 @@ class InitDiscriminator(nn.Module):
 
     def update_dis(self,logger,opt_D,inputs,FakeSamples):
 
-        RealSamples, _, map_feature, tokenized_agent= inputs
+        RealSamples, _,_, map_feature, tokenized_agent= inputs
 
         dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent)
         expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1,map_feature, tokenized_agent)
@@ -216,7 +216,28 @@ class InitDiscriminator(nn.Module):
 
         return gen_rewards,expert_rewards
 
-    def update(self,logger,optimizer,G,inputs):
+    def gan_update(self,logger,optimizer,G,inputs):
+        RealSamples,fake_samples, match_loss, map_feature, tokenized_agent= inputs
+
+        opt_G, opt_D = optimizer
+
+        gen_rewards,expert_rewards=self.update_dis(logger,opt_D,inputs,fake_samples.detach())
+
+        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,map_feature, tokenized_agent)
+
+
+        loss=match_loss-dis_loss
+
+
+        opt_G.zero_grad()
+        loss.backward()#retain_graph=True
+        torch.nn.utils.clip_grad_norm_( G.parameters(),   max_norm=1   )
+        opt_G.step()
+
+
+        return loss
+
+    def gail_update(self,logger,optimizer,G,inputs):
         RealSamples, match_loss, map_feature, tokenized_agent= inputs
 
         with torch.no_grad():
@@ -302,22 +323,14 @@ class InitDiscriminator(nn.Module):
     def forward(self,inputs, map_feature,  tokenized_agent):
 
         #inputs=inputs+torch.randn_like(inputs)*1e-2
-
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
-
         shape=inputs[...,4:]
-
-        #if self.discriminator:
-        # pos_a=pos_a+torch.randn_like(pos_a)*1e-2
-        # head_a=head_a+torch.randn_like(head_a)*1e-2
-        # shape[:,:-1]=shape[:,:-1]+torch.randn_like(shape[:,:-1])*1e-2
-
 
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type"]
         num_graphs = tokenized_agent["num_graphs"]
-        ego_embedding = tokenized_agent["ego_embedding"].detach()
+       # ego_embedding = tokenized_agent["ego_embedding"].detach()
 
         if self.use_entry_former:
             head_a = wrap_angle(head_a)
@@ -413,7 +426,7 @@ class InitDiscriminator(nn.Module):
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
-            feat_a = type_embedding + shape_embedding+ego_embedding
+            feat_a = type_embedding + shape_embedding#+ego_embedding
 
             if self.use_decompose:
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
