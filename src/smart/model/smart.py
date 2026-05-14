@@ -104,6 +104,11 @@ class SMART(LightningModule):
                     for p in self.encoder.agent_encoder.init_decoder.G1.parameters():
                         p.requires_grad = True
 
+                if self.encoder.agent_encoder.init_decoder.use_gan:
+                    for p in self.encoder.agent_encoder.init_decoder.D.parameters():
+                        p.requires_grad = True
+
+
                 if self.encoder.sep_map:
                     for p in self.encoder.map_encoder1.parameters():
                         p.requires_grad = True
