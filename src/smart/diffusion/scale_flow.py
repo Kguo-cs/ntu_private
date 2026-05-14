@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.noise_level=0.7
 
@@ -153,7 +153,7 @@ class ScaleFlow(nn.Module):
 
         self.use_nft=False
 
-        self.use_kl=False
+        self.use_kl=True
 
         self.mc_num=1
 
@@ -411,31 +411,31 @@ class ScaleFlow(nn.Module):
                     else:
                         x_pred = x_pred_all[:len(z_sampled)]
 
-                        scale=self.model.normal_scale[:,None]
-
-                        match_loss = torch.mean(
-                            ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
-                            dim=1,
-                        )
-                        self_normalize=True
-                        if self_normalize:
-                            match_loss = match_loss / torch.mean(
-                                torch.abs(
-                                    (x_pred.detach()/scale - x_sampled/scale  ).reshape(
-                                        x_sampled.shape[0], -1
-                                    )
-                                ),
-                                dim=1,
-                            )
-                        # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        #     tokenized_agent,
-                        #     x_pred[:, 0],
-                        #     x_sampled[:, 0],
-                        #     z_sampled[:, 0],
-                        #     e_sampled[:, 0],
-                        #     t_n_sampled[:, 0],
-                        #     x_pred=self.x_pred
+                        #scale=self.model.normal_scale[:,None]
+                        #
+                        # match_loss = torch.mean(
+                        #     ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
+                        #     dim=1,
                         # )
+                        # self_normalize=True
+                        # if self_normalize:
+                        #     match_loss = match_loss / torch.mean(
+                        #         torch.abs(
+                        #             (x_pred.detach()/scale - x_sampled/scale  ).reshape(
+                        #                 x_sampled.shape[0], -1
+                        #             )
+                        #         ),
+                        #         dim=1,
+                        #     )
+                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                            tokenized_agent,
+                            x_pred[:, 0],
+                            x_sampled[:, 0],
+                            z_sampled[:, 0],
+                            e_sampled[:, 0],
+                            t_n_sampled[:, 0],
+                            x_pred=self.x_pred
+                        )
                         log_prob=-match_loss#torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
                     per_sample_policy_loss = - log_prob * advantages
@@ -492,7 +492,7 @@ class ScaleFlow(nn.Module):
 
         # print(policy_loss)
 
-        loss=(match_loss*0.001, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss, collision_loss+policy_loss*1, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
