@@ -153,7 +153,7 @@ class ScaleFlow(nn.Module):
 
         self.use_nft=False
 
-        self.use_kl=True
+        self.use_kl=False
 
         self.mc_num=1
 
@@ -492,7 +492,7 @@ class ScaleFlow(nn.Module):
 
         # print(policy_loss)
 
-        loss=(match_loss*0.01, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss*0, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
