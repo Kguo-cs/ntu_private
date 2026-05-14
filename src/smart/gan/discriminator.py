@@ -160,19 +160,24 @@ class InitDiscriminator(nn.Module):
         else:
             FakeLogits1, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
 
-            dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
+            if gamma>0:
+                dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
                                                                reduction='mean')
-
-            #dis_loss = torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
+            else:
+                dis_loss =  FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
 
             gen_rewards = FakeLogits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if self.use_decompose:
-                fake_loss = F.binary_cross_entropy_with_logits(
-                    fake_interact_logits,
-                    torch.zeros_like(fake_interact_logits)+target,
-                    reduction='none'
-                )
+                if gamma > 0:
+                    fake_loss = F.binary_cross_entropy_with_logits(
+                        fake_interact_logits,
+                        torch.zeros_like(fake_interact_logits)+target,
+                        reduction='none'
+                    )
+                else:
+                    fake_loss=fake_interact_logits
+
                 #fake_loss = torch.mean(F.relu(1.0 + (1 - 2 * target) * fake_interact_logits))  # 0->1
 
                 fake_interact_bce_loss = (fake_loss * fake_weight).mean()
