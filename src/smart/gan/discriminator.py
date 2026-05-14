@@ -42,7 +42,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = False
+        self.use_decompose = True
 
         self.dis_weight=20
         self.dist_decay=3
@@ -160,33 +160,33 @@ class InitDiscriminator(nn.Module):
         else:
             FakeLogits1, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
 
-           #if gamma>0:
-            dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
+            if gamma>0:
+                dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
                                                            reduction='mean')
-            # else:
-            #     dis_loss =  FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
+            else:
+                dis_loss =  FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
 
             gen_rewards = FakeLogits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if self.use_decompose:
-               # if gamma > 0:
-                fake_interact_bce_loss = F.binary_cross_entropy_with_logits(
-                    fake_interact_logits,
-                    torch.zeros_like(fake_interact_logits)+target,
-                   # weight=fake_weight.detach(),
-                    reduction='none'
-                )
-                fake_interact_bce_loss= (fake_interact_bce_loss * fake_weight).mean()
-                # else:
-                #     weight_logit = fake_interact_logits[:, 0]* fake_weight[:,0]
-                #
-                #     valid_interact_reward = scatter_sum(weight_logit, end_index, dim=0, dim_size=agent_n)#[:, 0]
-                #
-                #     fake_interact_bce_loss=valid_interact_reward.mean()
-                #
-                #     #fake_loss = torch.mean(F.relu(1.0 + (1 - 2 * target) * fake_interact_logits))  # 0->1
-                #
-                #     gen_rewards = gen_rewards.detach() + valid_interact_reward.detach()
+                if gamma > 0:
+                    fake_interact_bce_loss = F.binary_cross_entropy_with_logits(
+                        fake_interact_logits,
+                        torch.zeros_like(fake_interact_logits)+target,
+                       # weight=fake_weight.detach(),
+                        reduction='none'
+                    )
+                    fake_interact_bce_loss= (fake_interact_bce_loss * fake_weight).mean()
+                else:
+                    weight_logit = fake_interact_logits[:, 0]* fake_weight[:,0]
+
+                    valid_interact_reward = scatter_sum(weight_logit, end_index, dim=0, dim_size=agent_n)#[:, 0]
+
+                    fake_interact_bce_loss=valid_interact_reward.mean()
+
+                    #fake_loss = torch.mean(F.relu(1.0 + (1 - 2 * target) * fake_interact_logits))  # 0->1
+
+                    gen_rewards = gen_rewards.detach() + valid_interact_reward.detach()
 
                 dis_loss = dis_loss + fake_interact_bce_loss
 
