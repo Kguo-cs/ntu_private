@@ -241,26 +241,25 @@ def allocate_k_per_type(k_total, type_counts):
 
 def cluster_point_per_type(
     pos,
-    batch,
     tokenized_agent
 ):
-    type = tokenized_agent["nonego_type_sorted"]
+    type = tokenized_agent["nonego_type"]
 
     type_counts = tokenized_agent["type_counts"]
 
-    valid_mask=tokenized_agent["nonego_valid"]
+    valid_mask=None#tokenized_agent["nonego_valid"]
+
+    batch=tokenized_agent["nonego_batch"]
 
     num_graphs,num_types=type_counts.shape
 
     counts = type_counts.sum(-1)
 
-    schedules,noise_schedule = batch_increasing_schedule(counts)
+    step_number=20
 
-    step_number=schedules.shape[1]-1
+    schedules,noise_schedule = batch_increasing_schedule(counts,step_number=step_number)
 
     step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
-
-    step_idx[0]=0
 
     step1_idx = step_idx + 1
 
@@ -308,7 +307,7 @@ def cluster_point_per_type(
     more_batch=torch.arange(num_graphs, device=counts.device)[:,None].repeat(1,centroids1_all.shape[1])[valid_mask]
     more_type=type_list[valid_mask]
 
-    tokenized_agent['nonego_type_sorted'] = more_type
+    tokenized_agent['nonego_type'] = more_type
     tokenized_agent["step_idx"] = step_idx
     tokenized_agent["step_number"] = step_number#7057 ,7056
 
@@ -330,7 +329,7 @@ def cluster_point_per_type(
 # plt.show()
 
 
-def batch_increasing_schedule(count, S=50+1, gamma=1):
+def batch_increasing_schedule(count, gamma=1,step_number=20):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
@@ -339,6 +338,9 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
     Returns:
         schedule: (B, S) integer tensor
     """
+
+    S=step_number//2+1
+
     s = torch.arange(S, device=count.device) # (S,)
     ratio = (s / S).pow(gamma)  # (S,)
 
@@ -351,7 +353,7 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
     #
     # schedule2=torch.minimum(count[:,None],schedule1)
     #
-    schedule3 =torch.cat([schedule2,count[:,None].repeat(1,50)],dim=-1)
+    schedule3 =torch.cat([schedule2,count[:,None].repeat(1,step_number//2)],dim=-1)
 
     noise_schedule=None
     # prev = torch.cat([schedule3[:, :1], schedule3[:, :-1]], dim=1)

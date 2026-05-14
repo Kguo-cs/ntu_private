@@ -45,7 +45,7 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 
 
-task_name: flow_xpred_egorel_msepv1 #_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
+task_name: flow_xpred_egorel_scale #_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
 
 
 trainer:
@@ -53,7 +53,7 @@ trainer:
   limit_val_batches: 1
   #check_val_every_n_epoch: 8
   #val_check_interval: 0.1
-  #val_check_interval: 0.0000002
+ # val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 

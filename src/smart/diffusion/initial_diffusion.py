@@ -173,7 +173,7 @@ class InitDiffusion(nn.Module):
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
         if self.training:
-            diff_input,m_init=self.G1.model.get_input(tokenized_agent)
+            diff_input,diff_output=self.G1.model.get_input(tokenized_agent)
 
             if self.learn_autoencoder:
                 return self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)
@@ -234,19 +234,19 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent["advantages"]=advantages#advantage conditioned
 
-                loss,x_pred ,expert_state,t = self.G1.get_loss(diff_input, tokenized_agent, initial_map_feature)
+                loss,x_pred ,expert_state,t = self.G1.get_loss(diff_input, diff_output,tokenized_agent, initial_map_feature)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
             if self.use_gan:
-                return  (m_init,match_loss.mean(),initial_map_feature, tokenized_agent)
+                return  (diff_output,match_loss.mean(),initial_map_feature, tokenized_agent)
 
             loss = (match_loss.mean(), collision_loss.mean(), pos_loss.mean(), heading_loss.mean(), shape_loss.mean(), vel_loss.mean())
 
             return loss
         else:
             if self.learn_autoencoder:
-                diff_input, m_init = self.G1.model.get_input(tokenized_agent)
+                diff_input, diff_output = self.G1.model.get_input(tokenized_agent)
 
                 pred_init = self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:

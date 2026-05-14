@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_flux=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         self.noise_level=0.7
 
@@ -177,6 +177,7 @@ class ScaleFlow(nn.Module):
 
     def get_loss(self,
                  x,
+                 out,
                  tokenized_agent: HeteroData,
                  initial_map_feature: Mapping[str, torch.Tensor],
                  num_samples=1) :
@@ -461,6 +462,9 @@ class ScaleFlow(nn.Module):
             e =x-(x - z) / denom #e_sampled
             x_pred = x_pred_all
 
+        if self.use_scale:
+            x=out[:,None]
+
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
             x_pred[:,0],
@@ -492,7 +496,7 @@ class ScaleFlow(nn.Module):
 
         # print(policy_loss)
 
-        loss=(match_loss*0, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
@@ -506,7 +510,6 @@ class ScaleFlow(nn.Module):
             prev_sample=None,
             sde_type: Optional[str] = 'sde',
             return_sqrt_dt: Optional[bool] = False,
-
     ):
         model_output = model_output/self.model.normal_scale[None]
         sample=self.model.normalize(sample)
@@ -604,8 +607,6 @@ class ScaleFlow(nn.Module):
 
     @torch.no_grad()
     def _forward_sample(self, z, t_n, labels):
-
-
         tokenized_agent, initial_map_feature, eval_mask=labels
         num_agents = len(z)
 
@@ -624,9 +625,8 @@ class ScaleFlow(nn.Module):
 
             t_n[padding_mask]=0
 
-        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature)#[...,:z.shape[-1]]
+        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask)#[...,:z.shape[-1]]
 
-        # conditional
         if self.x_pred:
 
             if x_cond.shape[-1]!=z.shape[-1]:
@@ -684,29 +684,70 @@ class ScaleFlow(nn.Module):
         t_list=[]
 
         if self.use_scale:
-            agent_type = tokenized_agent["nonego_type_sorted"]
+            # agent_type = tokenized_agent["nonego_type"]
+            #
+            # type_counts=tokenized_agent["type_counts"]
+            #
+            # num_types=3
+            #
+            # idx = agent_batch * num_types + agent_type
+            #
+            # mask = agent_type >= 0  # or specific valid condition
+            #
+            # cumsum = torch.cumsum(mask.long(), dim=0)
+            #
+            # per_group = torch.bincount(idx[mask], minlength=num_graphs * num_types)
+            #
+            # offsets = torch.cumsum(per_group, dim=0)
+            # offsets = torch.cat([torch.zeros(1, device=offsets.device).to(torch.long), offsets[:-1]])
+            #
+            # rank = torch.full_like(agent_batch, -1)
+            # rank[mask] = cumsum[mask] - offsets[idx[mask]]
+            #
+            agent_type = tokenized_agent["nonego_type"]
+            type_counts = tokenized_agent["type_counts"]
 
-            type_counts=tokenized_agent["type_counts"]
-
-            num_types=3
+            num_types = 3
 
             idx = agent_batch * num_types + agent_type
 
-            mask = agent_type >= 0  # or specific valid condition
+            mask = agent_type >= 0
 
-            cumsum = torch.cumsum(mask.long(), dim=0)
-
-            per_group = torch.bincount(idx[mask], minlength=num_graphs * num_types)
-
-            offsets = torch.cumsum(per_group, dim=0)
-            offsets = torch.cat([torch.zeros(1, device=offsets.device).to(torch.long), offsets[:-1]])
-
+            # initialize output
             rank = torch.full_like(agent_batch, -1)
-            rank[mask] = cumsum[mask] - offsets[idx[mask]]
 
+            # only valid entries
+            valid_idx = idx[mask]
+
+            # sort by group id
+            sorted_idx, perm = torch.sort(valid_idx)
+
+            # count occurrences inside each group
+            group_change = torch.ones_like(sorted_idx, dtype=torch.bool)
+            group_change[1:] = sorted_idx[1:] != sorted_idx[:-1]
+
+            # starting positions of each group
+            group_start = torch.cumsum(group_change.long(), dim=0) - 1
+
+            # first occurrence index of each group
+            first_pos = torch.zeros_like(group_start)
+            first_pos[group_change] = torch.nonzero(group_change, as_tuple=False).squeeze(-1)
+
+            # propagate first positions
+            first_pos = torch.cummax(first_pos, dim=0)[0]
+
+            # rank inside each group
+            sorted_rank = torch.arange(len(sorted_idx), device=sorted_idx.device) - first_pos
+
+            # unsort back
+            unsorted_rank = torch.empty_like(sorted_rank)
+            unsorted_rank[perm] = sorted_rank
+
+            rank[mask] = unsorted_rank
+            
             counts=type_counts.sum(-1)
 
-            schedule,noise_scedule=batch_increasing_schedule(counts)#[agent_batch]
+            schedule,noise_scedule=batch_increasing_schedule(counts,step_number=infer_steps)#[agent_batch]
 
             steps=schedule.shape[1]-1
 
@@ -817,7 +858,7 @@ class ScaleFlow(nn.Module):
                         t=noise_scedule[:,i][agent_batch][eval_mask]
                         t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
 
-                    z[eval_mask],x_cond,t_n=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, initial_map_feature,eval_mask))
+                    z[eval_mask],x_cond,t_n,log_prob=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
 
                 else:
                     z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])

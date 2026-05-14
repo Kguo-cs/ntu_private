@@ -93,7 +93,7 @@ class InitDenoiser(nn.Module):
 
         self.use_graph=True
         self.ego_rel = True
-        self.use_scale=False
+        self.use_scale=True
         self.use_dit=False
 
         noise_dim = 1
@@ -345,15 +345,16 @@ class InitDenoiser(nn.Module):
             m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
 
         if self.use_scale:
-            diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
+            diff_input, diff_output , nonego_batch= cluster_point_per_type(m_init,  tokenized_agent)
+            tokenized_agent["nonego_batch"] = nonego_batch
         else:
-            diff_input = m_init
+            diff_input =diff_output= m_init
 
         if torch.all(self.normal_mean==0):
-            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
-            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+            self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
 
-        return diff_input,m_init
+        return diff_input,diff_output
 
     def forward(self,
                 m_delta,
@@ -371,11 +372,14 @@ class InitDenoiser(nn.Module):
 
         if not self.use_rel_ego:
             ego_embedding = tokenized_agent["ego_embedding"]
+        else:
+            ego_feat=tokenized_agent["ego_feat"]
 
         if eval_mask is not None:
             batch=batch[eval_mask]
             type=type[eval_mask]
-            ego_embedding=ego_embedding[eval_mask]
+            if not self.use_rel_ego:
+                ego_embedding=ego_embedding[eval_mask]
 
         #type,ego_embedding = self.drop_labels(type,ego_embedding,mode) if self.training else (type,ego_embedding)
 
@@ -484,8 +488,8 @@ class InitDenoiser(nn.Module):
                         feat_a=self.proj_in_m_delta(m_delta)
 
                     if self.use_rel_ego:
-                        ego_pose= tokenized_agent["ego_feat"][:,:-3].reshape(-1,3,3)
-                        type_count=tokenized_agent["ego_feat"][:,-3:][batch]
+                        ego_pose= ego_feat[:,:-3].reshape(-1,3,3)
+                        type_count=ego_feat[:,-3:][batch]
 
                         all_pos=ego_pose[:,:,:2][batch]
                         all_head=ego_pose[:,:,2][batch]
