@@ -44,7 +44,7 @@ class InitDiscriminator(nn.Module):
         self.use_transformer=False
         self.use_decompose = True
 
-        self.dis_weight=10
+        self.dis_weight=20
         self.dist_decay=3
 
         if self.use_entry_former:
@@ -140,17 +140,17 @@ class InitDiscriminator(nn.Module):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
 
-    def get_d_loss(self,FakeSamples,target,map_feature, tokenized_agent):
+    def get_d_loss(self,FakeSamples,target,map_feature, tokenized_agent,gamma=0):
         agent_n = len(FakeSamples)
 
-        if self.Gamma>0:
+        if gamma>0:
 
             FakeSamples = FakeSamples.detach().requires_grad_(True)
 
         FakeLogits, fake_weight, end_index = self.forward(FakeSamples, map_feature, tokenized_agent)
 
-        if self.Gamma>0:
-            Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits).mean()
+        if gamma>0:
+            Penalty = (gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits).mean()
         else:
             Penalty=torch.tensor(0.0,device=FakeSamples.device)
 
@@ -160,20 +160,20 @@ class InitDiscriminator(nn.Module):
         else:
             FakeLogits1, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
 
-            # dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
-            #                                                    reduction='mean')
+            dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
+                                                               reduction='mean')
 
-            dis_loss = torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
+            #dis_loss = torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
 
             gen_rewards = FakeLogits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if self.use_decompose:
-                # fake_loss = F.binary_cross_entropy_with_logits(
-                #     fake_interact_logits,
-                #     torch.zeros_like(fake_interact_logits)+target,
-                #     reduction='none'
-                # )
-                fake_loss = torch.mean(F.relu(1.0 + (1 - 2 * target) * fake_interact_logits))  # 0->1
+                fake_loss = F.binary_cross_entropy_with_logits(
+                    fake_interact_logits,
+                    torch.zeros_like(fake_interact_logits)+target,
+                    reduction='none'
+                )
+                #fake_loss = torch.mean(F.relu(1.0 + (1 - 2 * target) * fake_interact_logits))  # 0->1
 
                 fake_interact_bce_loss = (fake_loss * fake_weight).mean()
 
@@ -191,8 +191,8 @@ class InitDiscriminator(nn.Module):
 
         RealSamples, _,_, map_feature, tokenized_agent= inputs
 
-        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent)
-        expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1,map_feature, tokenized_agent)
+        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent,self.Gamma)
+        expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1,map_feature, tokenized_agent,self.Gamma)
 
         loss = expert_dis_loss+dis_loss + r1 + r2
 
@@ -223,10 +223,12 @@ class InitDiscriminator(nn.Module):
 
         gen_rewards,expert_rewards=self.update_dis(logger,opt_D,inputs,fake_samples.detach())
 
-        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,map_feature, tokenized_agent)
+        g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,map_feature, tokenized_agent)
 
 
-        loss=match_loss-dis_loss
+        loss=match_loss-g_loss
+
+        logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
 
 
         opt_G.zero_grad()
