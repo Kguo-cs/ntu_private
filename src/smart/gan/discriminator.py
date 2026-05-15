@@ -44,7 +44,7 @@ class InitDiscriminator(nn.Module):
         self.use_transformer=False
         self.use_decompose = True
 
-        self.dis_weight=20
+        self.dis_weight=1
         self.dist_decay=3
 
         if self.use_entry_former:
@@ -129,7 +129,7 @@ class InitDiscriminator(nn.Module):
         if self.use_GAIL:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
-        self.Gamma=0.1
+        self.Gamma=1
 
         self.use_sde=False
 
