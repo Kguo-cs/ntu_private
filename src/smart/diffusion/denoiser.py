@@ -351,13 +351,13 @@ class InitDenoiser(nn.Module):
             diff_input =diff_output= m_init
 
         if torch.all(self.normal_mean==0):
-            min_v=torch.amin(diff_output, dim=0, keepdim=True)
-            max_v=torch.amax(diff_output, dim=0, keepdim=True)
-            self.normal_mean.copy_((min_v+max_v)/2)
-            self.normal_scale.copy_((max_v-min_v)/2)
+            # min_v=torch.amin(diff_output, dim=0, keepdim=True)
+            # max_v=torch.amax(diff_output, dim=0, keepdim=True)
+            # self.normal_mean.copy_((min_v+max_v)/2)
+            # self.normal_scale.copy_((max_v-min_v)/2)
 
-            # self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
-            # self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
+            self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
 
         return diff_input,diff_output
 
