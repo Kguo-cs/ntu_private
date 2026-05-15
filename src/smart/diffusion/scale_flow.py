@@ -129,7 +129,7 @@ class ScaleFlow(nn.Module):
         else:
             self.t_eps=0
 
-        self.lognorm_t=True
+        self.lognorm_t=False
 
         self.P_std=-0.8#1#
 
