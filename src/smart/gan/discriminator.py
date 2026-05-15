@@ -129,7 +129,7 @@ class InitDiscriminator(nn.Module):
         if self.use_GAIL:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
-        self.Gamma=1
+        self.Gamma=0.1
 
         self.use_sde=False
 
