@@ -59,7 +59,7 @@ class InitDiffusion(nn.Module):
             self.G1 = ScaleFlow(args,token_processor)
 
         self.use_gail=False
-        self.use_gan = False
+        self.use_gan = True
 
         self.use_rl=False
 

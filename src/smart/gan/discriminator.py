@@ -129,7 +129,7 @@ class InitDiscriminator(nn.Module):
         if self.use_GAIL:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
-        self.Gamma=0.1
+        self.Gamma=1
 
         self.use_sde=False
 
@@ -253,7 +253,7 @@ class InitDiscriminator(nn.Module):
         g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent)
 
 
-        loss=match_loss-g_loss
+        loss=match_loss*0.1-g_loss
 
         logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
 
