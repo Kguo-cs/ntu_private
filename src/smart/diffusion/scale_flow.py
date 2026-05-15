@@ -129,11 +129,11 @@ class ScaleFlow(nn.Module):
         else:
             self.t_eps=0
 
-        self.lognorm_t=False
+        self.lognorm_t=True
 
-        self.P_std=1#-0.8
+        self.P_std=-0.8#1#
 
-        self.P_mean=2#0.8
+        self.P_mean=0.8#2#
 
         self.use_cluster=False
 
