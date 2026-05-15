@@ -357,7 +357,7 @@ class InitDenoiser(nn.Module):
             # self.normal_scale.copy_((max_v-min_v)/2)
 
             self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
-            self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True)*0.5)
 
         return diff_input,diff_output
 
