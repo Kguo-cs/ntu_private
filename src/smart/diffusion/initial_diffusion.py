@@ -234,7 +234,7 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent["advantages"]=advantages#advantage conditioned
 
-                loss,x_pred ,expert_state,t = self.G1.get_loss(diff_input, diff_output,tokenized_agent, initial_map_feature)
+                loss,x_pred ,z,t = self.G1.get_loss(diff_input, diff_output,tokenized_agent, initial_map_feature)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 

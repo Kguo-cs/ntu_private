@@ -213,6 +213,8 @@ class ScaleFlow(nn.Module):
 
         t=t_batch[agent_batch]
 
+        tokenized_agent["t_batch"]=t_batch
+
         if self.use_scale:
             nan_mask=torch.isnan(x)
 
@@ -476,6 +478,8 @@ class ScaleFlow(nn.Module):
             use_col=False,
             x_pred=self.x_pred
         )
+
+
 
 
         # if self.use_kl:

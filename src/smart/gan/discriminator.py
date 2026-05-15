@@ -198,8 +198,28 @@ class InitDiscriminator(nn.Module):
 
         RealSamples, _,_, map_feature, tokenized_agent= inputs
 
-        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent,self.Gamma)
         expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1,map_feature, tokenized_agent,self.Gamma)
+
+        t_batch=tokenized_agent["t_batch"][:,0,0]
+        batch=tokenized_agent["nonego_batch"]
+        t=t_batch[batch]
+
+        mask=t>0.5
+
+        FakeSamples=FakeSamples[mask]
+        for key in ["nonego_batch",'nonego_type']:
+            tokenized_agent[key]=tokenized_agent[key][mask]
+
+       # tokenized_agent["ego_feat"]=tokenized_agent["ego_feat"][t_batch>0.5]
+
+        #tokenized_agent["num_graphs"]=mask.sum()
+
+        # pt_mask=t_batch[map_feature["batch"]]>0.5
+        #
+        # for key in map_feature.keys():
+        #     map_feature[key]=map_feature[key][pt_mask]
+
+        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent,self.Gamma)
 
         loss = expert_dis_loss+dis_loss + r1 + r2
 
@@ -221,16 +241,16 @@ class InitDiscriminator(nn.Module):
         torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
-        return gen_rewards,expert_rewards
+        return gen_rewards,expert_rewards,FakeSamples
 
     def gan_update(self,logger,optimizer,G,inputs):
         RealSamples,fake_samples, match_loss, map_feature, tokenized_agent= inputs
 
         opt_G, opt_D = optimizer
 
-        gen_rewards,expert_rewards=self.update_dis(logger,opt_D,inputs,fake_samples.detach())
+        gen_rewards,expert_rewards,FakeSamples=self.update_dis(logger,opt_D,inputs,fake_samples.detach())
 
-        g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,map_feature, tokenized_agent)
+        g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent)
 
 
         loss=match_loss-g_loss
