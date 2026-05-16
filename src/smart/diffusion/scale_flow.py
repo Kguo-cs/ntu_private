@@ -159,6 +159,8 @@ class ScaleFlow(nn.Module):
 
         self.use_kl=False
 
+        self.use_uniform=True
+
         self.mc_num=1
 
         if self.use_nft:
@@ -202,7 +204,10 @@ class ScaleFlow(nn.Module):
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
-        e = torch.randn_like(x)  # base distribution N(0, I)
+        if self.use_uniform:
+            e = torch.rand_like(x)*2-1  # base distribution N(0, I)
+        else:
+            e = torch.randn_like(x)  # base distribution N(0, I)
 
         e=self.model.denormalize(e,nonego_type)
 
@@ -686,7 +691,10 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["lane_batch"] = lane_batch
 
-        z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device)#*0.5#*0.9 #.clamp(min=-3,max=3)
+        if self.use_uniform:
+            z = torch.rand(num_agents, num_samples, 8, device=agent_batch.device)*2-1
+        else:
+            z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device)#*0.5#*0.9 #.clamp(min=-3,max=3)
 
         z=self.model.denormalize(z,nonego_type)
 
