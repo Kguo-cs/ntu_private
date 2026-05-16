@@ -595,7 +595,7 @@ class InitDenoiser(nn.Module):
                             mask=mask,  # [n_agent, n_step]
                             batch_s=batch,  # [n_agent,n_step]
                             batch_pl=batch_pl,  # [n_pl*n_step]
-                            pl2a_radius=40,
+                            pl2a_radius=200,
                             max_num_neighbors=20,
                             agent_train_mask=None,
                             layer_num=self.num_layers
