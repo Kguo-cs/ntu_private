@@ -362,7 +362,7 @@ class InitDenoiser(nn.Module):
             #
             #self.normal_scale[:,2:4]=self.normal_scale[:,2:4]*2
            ## self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*2
-            self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.2
+            self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
 
         return diff_input,diff_output
 
@@ -540,8 +540,8 @@ class InitDenoiser(nn.Module):
                             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
                             batch_s=batch,  # [n_agent*n_step]
                             mask=None,  # [n_agent, n_step]
-                            max_radius=60,
-                            max_num_neighbors=20,
+                            max_radius=200,
+                            max_num_neighbors=99,
                             agent_train_mask=None,
                             layer_num=self.num_layers,
                             counter_feat_a=None,
