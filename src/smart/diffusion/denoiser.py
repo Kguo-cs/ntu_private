@@ -37,7 +37,7 @@ from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_typ
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges,project_to_local_frame
 from src.smart.layers.relative_transformer import padding
-from src.smart.utils.cluster import cluster_point_per_type
+from src.smart.utils.cluster import cluster_point_per_type,batch_histogram_categorical
 from torch_scatter import scatter_sum
 from .diffusion_planner.decoder import  DiT
 from src.smart.modules.interative_decoder import InterativeDecoder
@@ -118,8 +118,17 @@ class InitDenoiser(nn.Module):
         self.output_dim=m_delta_dim
         self.label_drop_prob=0
 
-        self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
-        self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
+        self.use_bin=True
+
+        if self.use_bin:
+            self.bin_num=100
+            self.register_buffer("normal_mean", torch.zeros(m_delta_dim, self.bin_num))
+            self.register_buffer("init_min", torch.zeros(m_delta_dim))
+            self.register_buffer("init_max", torch.zeros(m_delta_dim))
+
+        else:
+            self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
+            self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
 
         if self.use_all_pos:
             m_delta_dim=6+4*4
@@ -251,11 +260,26 @@ class InitDenoiser(nn.Module):
         self.apply(weight_init)
 
 
-    def normalize(self,input):
-        return (input - self.normal_mean[None]) / self.normal_scale[None]
+    # def normalize(self,input):
+    #     return (input - self.normal_mean[None]) / self.normal_scale[None]
 
     def denormalize(self,input,nonego_type=None):
-        input=input* self.normal_scale[None]+self.normal_mean[None]
+        # input=input* self.normal_scale[None]+self.normal_mean[None]
+
+        if self.use_bin:
+
+            D, K = self.normal_mean.shape
+
+            idx = torch.multinomial(self.normal_mean, len(input),replacement=True).transpose(0,1)#.squeeze(-1)
+            u = torch.rand((len(input),D), device=input.device)
+
+            width = (self.init_max - self.init_min) / K
+
+            input = self.init_min[None] + (idx.float() + u) * width[None]
+
+            input=input[:,None]
+        else:
+            input = input * self.normal_scale[None] + self.normal_mean[None]
 
         return input#[:,None]
 
@@ -356,14 +380,20 @@ class InitDenoiser(nn.Module):
             # self.normal_mean.copy_((min_v+max_v)/2)
             # self.normal_scale.copy_((max_v-min_v)/2)
 
+            if self.use_bin :
 
-            self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
-            self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
-            #
-            self.normal_scale[:,2:4]=self.normal_scale[:,2:4]*4
-            self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*16
-            self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
-            #self.normal_scale[:,6:]=self.normal_scale[:,6:]*0.5
+                probs=batch_histogram_categorical(m_init,bins=self.bin_num)
+                self.normal_mean.copy_(probs)
+                self.init_min.copy_(m_init.amin(0))
+                self.init_max.copy_(m_init.amax(0))
+            else:
+                self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
+                self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
+                #
+                self.normal_scale[:,2:4]=self.normal_scale[:,2:4]*4
+                self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*16
+                self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
+                # self.normal_scale[:,6:]=self.normal_scale[:,6:]*0.5
 
         return diff_input,diff_output
 

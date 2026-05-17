@@ -377,3 +377,30 @@ def batch_increasing_schedule(count, gamma=1,step_number=20):
     # )
 
     return schedule3,noise_schedule
+
+
+def batch_histogram_categorical(m_init, bins=8, value_range=None):
+    # m_init: (B, 8)
+    B, D = m_init.shape
+    assert D == 8  # your case
+
+    hist_list = []
+
+    for d in range(D):
+        col = m_init[:, d]
+
+        hist = torch.histc(
+            col,
+            bins=bins,
+            min=value_range[0] if value_range else col.min(),
+            max=value_range[1] if value_range else col.max()
+        )
+
+        hist_list.append(hist)
+
+    hist = torch.stack(hist_list, dim=0)  # (8, bins)
+
+    # normalize → categorical distribution
+    probs = hist / (hist.sum(dim=-1, keepdim=True) + 1e-8)
+
+    return probs  # (8, bins)
