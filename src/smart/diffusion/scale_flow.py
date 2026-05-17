@@ -822,6 +822,8 @@ class ScaleFlow(nn.Module):
             else:
                 timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
 
+            timesteps = time_shift_fn(timesteps, timeshift=0.5)
+
             if self.use_flux:
                 count=tokenized_agent["type_counts"].sum(-1)
 
