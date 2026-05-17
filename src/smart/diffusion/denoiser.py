@@ -118,7 +118,7 @@ class InitDenoiser(nn.Module):
         self.output_dim=m_delta_dim
         self.label_drop_prob=0
 
-        self.use_bin=True
+        self.use_bin=False
 
         if self.use_bin:
             self.bin_num=100
@@ -390,7 +390,7 @@ class InitDenoiser(nn.Module):
                 self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
                 self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
                 #
-                self.normal_scale[:,2:4]=self.normal_scale[:,2:4]*4
+                self.normal_scale[:,2:4]=self.normal_scale[:,2:4]*2
                 self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*16
                 self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
                 # self.normal_scale[:,6:]=self.normal_scale[:,6:]*0.5
