@@ -136,7 +136,9 @@ class InitDenoiser(nn.Module):
         self.use_rel_ego=True
 
         if self.use_rel_ego:
-            self.ego_embed = MLPLayer(9 + 3, hidden_dim, hidden_dim)
+            self.ego_dim=20 #9
+
+            self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
 
         self.use_return_conditioned = False
 
@@ -529,11 +531,19 @@ class InitDenoiser(nn.Module):
                         feat_a=self.proj_in_m_delta(m_delta)
 
                     if self.use_rel_ego:
-                        ego_pose= ego_feat[:,:-3].reshape(-1,3,3)
+                        ego_pose= ego_feat[:,:-3]
                         type_count=ego_feat[:,-3:][batch]
 
+                        if ego_pose.shape[-1]==9:
+
+                            ego_pose= ego_pose.reshape(-1,3,3)
+
+                            all_head=ego_pose[:,:,2][batch]
+                        else:
+                            ego_pose= ego_pose.reshape(-1,10,2)
+                            all_head=None
+
                         all_pos=ego_pose[:,:,:2][batch]
-                        all_head=ego_pose[:,:,2][batch]
 
                         local_ego_pos,local_ego_head=transform_to_local(
                             all_pos,
@@ -542,7 +552,10 @@ class InitDenoiser(nn.Module):
                             theta
                         )
 
-                        all_features=torch.cat([local_ego_pos.flatten(1,2),local_ego_head,type_count],dim=-1)
+                        if local_ego_head is None:
+                            all_features=torch.cat([local_ego_pos.flatten(1,2),type_count],dim=-1)
+                        else:
+                            all_features=torch.cat([local_ego_pos.flatten(1,2),local_ego_head,type_count],dim=-1)
 
                         ego_embedding=self.ego_embed(all_features)
 
