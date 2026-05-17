@@ -45,8 +45,9 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 #flow in flow
 
-task_name: flow_xpred_pos05shape16head2_init0_eval5 #bin_init0 #pos05shape16head4 #_r200a40 #uniuniformstdPos2 #pos05shapev2 #eval05 #scale_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
+task_name: flow_xpred_pos05shape16head2_time2 #_init0_eval0 #bin_init0 #pos05shape16head4 #_r200a40 #uniuniformstdPos2 #pos05shapev2 #eval05 #scale_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
 
+#set shape to 100, t scale
 
 trainer:
   limit_train_batches: 1.0
@@ -78,7 +79,7 @@ data:
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
-  train_raw_dir: ${paths.cache_root}/training_map2_init0_light #init0_light #all_light #init10_inter
+#  train_raw_dir: ${paths.cache_root}/training_map2_init0_light #init0_light #all_light #init10_inter
   #train_raw_dir: ${paths.cache_root}/training_map2_init0_idx #init10_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
   #val_raw_dir: ${paths.cache_root}/validation_lane #44097
 

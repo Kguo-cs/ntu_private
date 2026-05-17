@@ -136,7 +136,7 @@ class InitDenoiser(nn.Module):
         self.use_rel_ego=True
 
         if self.use_rel_ego:
-            self.ego_dim=20 #9
+            self.ego_dim=9 #9
 
             self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
 
