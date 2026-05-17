@@ -68,7 +68,7 @@ def calculate_shift(
     mu = image_seq_len * m + b
     return mu
 
-def time_shift_fn(t, timeshift=1.0):
+def time_shift_fn(t, timeshift=0.2):
     return t/(t+(1-t)*timeshift)
 
 class ScaleFlow(nn.Module):
@@ -222,7 +222,7 @@ class ScaleFlow(nn.Module):
                 base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
                 base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32)
-            t_batch = time_shift_fn(base_t, timeshift=0.5)[:, None,None] #.to(x.dtype)
+            t_batch = time_shift_fn(base_t)[:, None,None] #.to(x.dtype)
 
         t=t_batch[agent_batch]
 
@@ -822,7 +822,7 @@ class ScaleFlow(nn.Module):
             else:
                 timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
 
-            timesteps = time_shift_fn(timesteps, timeshift=0.5)
+            timesteps = time_shift_fn(timesteps)
 
             if self.use_flux:
                 count=tokenized_agent["type_counts"].sum(-1)
