@@ -492,16 +492,16 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred
         )
 
-        if self.model.use_prev_condition:
-            tokenized_agent["prev_x"]=x_pred[:,0].detach().clone()
+        if self.model.use_prev_condition and np.random.random() < 0.5:
+            tokenized_agent["prev_x"]=x_pred[:,0].detach()#.clone()
 
-            mask=torch.rand(len(x_pred))<0.5
-
-            tokenized_agent["prev_x"][mask]=0
+            # mask=torch.rand(len(x_pred))<0.5
+            #
+            # tokenized_agent["prev_x"][mask]=0
 
             x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
 
-            collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+            match_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
                 tokenized_agent,
                 x_pred_con[:,0],
                 x[:,0],
