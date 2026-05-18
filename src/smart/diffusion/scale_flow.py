@@ -660,8 +660,20 @@ class ScaleFlow(nn.Module):
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     @torch.no_grad()
-    def _euler_step(self, z, t, t_next, labels,noise_level):
-        v_pred,t_n,x = self._forward_sample(z, t, labels)
+    def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=True):
+
+        if sde_inspired:
+            gamma=1
+            e = torch.randn_like(z)
+            alpha = 1 - gamma * (t_next-t)
+            t_back = alpha * t
+            z_back = alpha * z + (1 - alpha) * e
+
+            v_pred,t_n,x = self._forward_sample(z_back, t_back, labels)
+
+            v_pred = (x - z) / (1 - t)
+        else:
+            v_pred,t_n,x = self._forward_sample(z, t, labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
 
         if self.use_cluster:
