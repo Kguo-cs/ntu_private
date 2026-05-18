@@ -664,14 +664,24 @@ class ScaleFlow(nn.Module):
 
         if sde_inspired:
             gamma=1
+            h = t_next - t
+
+            alpha = torch.clamp(
+                1.0 - gamma * h,
+                min=0.0,
+                max=1.0,
+            )
+
             e = torch.randn_like(z)
-            alpha = 1 - gamma * (t_next-t)
+
+            e=self.model.denormalize(e)
+
             t_back = alpha * t
             z_back = alpha * z + (1 - alpha) * e
 
             v_pred,t_n,x = self._forward_sample(z_back, t_back, labels)
 
-            v_pred = (x - z) / (1 - t)
+            v_pred = (x - z) / (1 - t).clamp_min(self.t_eps)
         else:
             v_pred,t_n,x = self._forward_sample(z, t, labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
