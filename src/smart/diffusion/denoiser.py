@@ -586,12 +586,12 @@ class InitDenoiser(nn.Module):
 
                         feat_a=feat_a+prev_x_embed
 
-                    # if self.use_cfg_cond:
-                    #     cfg=tokenized_agent["cfg"]
-                    #
-                    #     cfg_embed =self.cfg_embed(cfg[:,None])[batch]
-                    #
-                    #     feat_a=feat_a+cfg_embed
+                    if self.use_cfg_cond:
+                        cfg=tokenized_agent["cfg"]
+
+                        cfg_embed =self.cfg_embed(cfg[:,None])[batch]
+
+                        feat_a=feat_a+cfg_embed
 
                     # if self.use_return_conditioned:
                     #     adv_embed=self.return_embed(cfg[:,None])
