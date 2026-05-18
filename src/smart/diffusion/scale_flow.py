@@ -736,21 +736,6 @@ class ScaleFlow(nn.Module):
         else:
             v_cond=x_cond
 
-        # if self.model.label_drop_prob>0:
-        #     # unconditional
-        #     x_uncond = self.model(z, t_n, tokenized_agent, initial_map_feature, num_samples=1, eval_mask=eval_mask,mode=0)
-        #     v_uncond = (x_uncond - z) / (1.0 - t_n).clamp_min(self.t_eps)
-        #
-        #     self.cfg_interval = (0.1, 1.0)
-        #     self.cfg_scale=3
-        #
-        #     # cfg interval
-        #     low, high = self.cfg_interval
-        #     interval_mask = (t_n < high) & ((low == 0) | (t_n > low))
-        #     cfg_scale_interval = torch.where(interval_mask, self.cfg_scale, 1.0)
-        #
-        #     v_cond=v_uncond + cfg_scale_interval * (v_cond - v_uncond)
-
         return v_cond,t_n,x_cond
 
     @torch.no_grad()
@@ -785,29 +770,11 @@ class ScaleFlow(nn.Module):
         t_list=[]
 
         if self.model.use_cfg_cond:
-            tokenized_agent["cfg"]=torch.ones(num_graphs,device=agent_batch.device)
+            tokenized_agent["cfg"]=torch.ones(num_graphs,device=agent_batch.device)*2
 
         if self.use_scale:
-            # agent_type = tokenized_agent["nonego_type"]
-            #
             type_counts=tokenized_agent["type_counts"]
-            #
-            # num_types=3
-            #
-            # idx = agent_batch * num_types + agent_type
-            #
-            # mask = agent_type >= 0  # or specific valid condition
-            #
-            # cumsum = torch.cumsum(mask.long(), dim=0)
-            #
-            # per_group = torch.bincount(idx[mask], minlength=num_graphs * num_types)
-            #
-            # offsets = torch.cumsum(per_group, dim=0)
-            # offsets = torch.cat([torch.zeros(1, device=offsets.device).to(torch.long), offsets[:-1]])
-            #
-            # rank = torch.full_like(agent_batch, -1)
-            # rank[mask] = cumsum[mask] - offsets[idx[mask]]
-            #
+
             agent_type = tokenized_agent["nonego_type"]
 
             num_types = 3
