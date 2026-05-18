@@ -663,7 +663,7 @@ class ScaleFlow(nn.Module):
     def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=True):
 
         if sde_inspired:
-            gamma=0.2
+            gamma=0.5
             h = t_next - t
 
             alpha = torch.clamp(
