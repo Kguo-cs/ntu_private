@@ -169,7 +169,7 @@ class ScaleFlow(nn.Module):
 
         self.P_std=0.8#1#
 
-        self.P_mean=0.8#2#
+        self.P_mean=2#2#
 
         self.use_cluster=False
 
@@ -663,11 +663,11 @@ class ScaleFlow(nn.Module):
     def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=False):
 
         if sde_inspired:
-            gamma=0.5
+            gamma=1
             h = t_next - t
 
             alpha = torch.clamp(
-                1.0 - gamma * h,
+                1.0 - gamma * h*(1-t_next), #t=0  alpha=1
                 min=0.0,
                 max=1.0,
             )
