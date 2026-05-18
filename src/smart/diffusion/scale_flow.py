@@ -284,7 +284,7 @@ class ScaleFlow(nn.Module):
             z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
 
         if self.model.use_cfg_cond:
-            tokenized_agent["cfg"]= sample_cfg_scale(num_graphs,device=z.device)#torch.ones(num_graphs,device=agent_batch.device)*2#
+            tokenized_agent["cfg"]= torch.ones(num_graphs,device=agent_batch.device)*2#sample_cfg_scale(num_graphs,device=z.device)#t
 
         if "advantages" in tokenized_agent.keys():
             advantages=tokenized_agent["advantages"]
@@ -782,7 +782,7 @@ class ScaleFlow(nn.Module):
         t_list=[]
 
         if self.model.use_cfg_cond:
-            tokenized_agent["cfg"]=torch.ones(num_graphs,device=agent_batch.device)#*2
+            tokenized_agent["cfg"]=torch.ones(num_graphs,device=agent_batch.device)*2
 
         if self.use_scale:
             type_counts=tokenized_agent["type_counts"]
