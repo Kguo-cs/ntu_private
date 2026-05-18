@@ -145,6 +145,11 @@ class InitDenoiser(nn.Module):
         if self.use_return_conditioned:
             self.return_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
+        self.use_prev_condition=True
+
+        if self.use_prev_condition:
+            self.condition_embed = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
+
         if self.use_roformer:
             if self.use_dit:
                 self.map_embed= MLPLayer(128+2+2, hidden_dim, hidden_dim)
@@ -561,6 +566,21 @@ class InitDenoiser(nn.Module):
 
                     feat_a = feat_a + beta_emb_m+ego_embedding
 
+                    if self.use_prev_condition and "prev_x" in tokenized_agent.keys():
+                        prev_x = tokenized_agent["prev_x"]
+
+                        local_prev_pos,local_prev_head = transform_to_local(
+                            prev_x[:,:2],
+                            torch.atan2(prev_x[:, 3], prev_x[:, 2]),
+                            pos_s,
+                            theta
+                        )
+
+                        prev_x_embed =self.condition_embed(torch.cat([local_prev_pos,local_prev_head.cos()[:,None],local_prev_head.sin()[:,None] , prev_x[:,4:]],dim=-1))
+
+                        feat_a=feat_a+prev_x_embed
+
+
                     if self.use_return_conditioned:
                         adv_embed=self.return_embed(tokenized_agent["advantages"][:,None])
 
@@ -684,10 +704,13 @@ class InitDenoiser(nn.Module):
                     theta,
                 )
 
+
+
+
                 if self.use_all_pos:
-                    new_pos=torch.zeros([n_step,n_agent,2],device=device)
-                    new_shape=torch.zeros_like(new_pos)
-                    new_theta=torch.zeros([n_step,n_agent],device=device)
+                    new_pos = torch.zeros([n_step, n_agent, 2], device=device)
+                    new_shape = torch.zeros_like(new_pos)
+                    new_theta = torch.zeros([n_step, n_agent], device=device)
 
                     new_pos[mask_t]=local_pos
                     new_theta[mask_t]=local_theta

@@ -68,7 +68,7 @@ def calculate_shift(
     mu = image_seq_len * m + b
     return mu
 
-def time_shift_fn(t, timeshift=2):
+def time_shift_fn(t, timeshift=1):
     return t/(t+(1-t)*timeshift)
 
 class ScaleFlow(nn.Module):
@@ -492,6 +492,23 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred
         )
 
+        if self.model.use_prev_condition:
+            tokenized_agent["prev_x"]=x_pred[:,0].detach()
+
+            x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
+
+            collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+                tokenized_agent,
+                x_pred_con[:,0],
+                x[:,0],
+                z[:,0],
+                e[:,0],
+                t[:,0],
+             #   use_match=True,
+                use_col=False,
+                x_pred=self.x_pred
+            )
+
 
 
 
@@ -884,6 +901,8 @@ class ScaleFlow(nn.Module):
                 z_list.append(z)
                 t_list.append(t_n)
                 log_prob_list.append(log_prob)
+
+                tokenized_agent["prev_x"]=x_cond[:,0]
 
               #  feat_list.append(tokenized_agent["noise_feat"])
 
