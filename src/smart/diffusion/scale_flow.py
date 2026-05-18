@@ -676,14 +676,14 @@ class ScaleFlow(nn.Module):
 
             e=self.model.denormalize(e)
 
-            t_back = alpha * t
-            z_back = alpha * z + (1 - alpha) * e
+            t = alpha * t
+            z = alpha * z + (1 - alpha) * e
 
-            v_pred,t_n,x = self._forward_sample(z_back, t_back, labels)
-
-            v_pred = (x - z) / (1 - t).clamp_min(self.t_eps)
-        else:
-            v_pred,t_n,x = self._forward_sample(z, t, labels)
+        #     v_pred,t_n,x = self._forward_sample(z, t_back, labels)
+        #
+        #     v_pred = (x - z) / (1 - t).clamp_min(self.t_eps)
+        # else:
+        v_pred,t_n,x = self._forward_sample(z, t, labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
 
         if self.use_cluster:
