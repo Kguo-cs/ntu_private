@@ -145,15 +145,15 @@ class InitDenoiser(nn.Module):
         if self.use_return_conditioned:
             self.return_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
-        self.use_prev_condition=False
+        self.use_prev_condition=True
 
         if self.use_prev_condition:
             self.condition_embed = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
 
-        self.use_cfg_cond=False
+        self.use_cfg_cond=True
 
-        if self.use_cfg_cond:
-            self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
+        # if self.use_cfg_cond:
+        #     self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
 
         if self.use_roformer:
@@ -586,12 +586,12 @@ class InitDenoiser(nn.Module):
 
                         feat_a=feat_a+prev_x_embed
 
-                    if self.use_cfg_cond:
-                        cfg=tokenized_agent["cfg"]
-
-                        cfg_embed =self.cfg_embed(cfg[:,None])[batch]
-
-                        feat_a=feat_a+cfg_embed
+                    # if self.use_cfg_cond:
+                    #     cfg=tokenized_agent["cfg"]
+                    #
+                    #     cfg_embed =self.cfg_embed(cfg[:,None])[batch]
+                    #
+                    #     feat_a=feat_a+cfg_embed
 
                     # if self.use_return_conditioned:
                     #     adv_embed=self.return_embed(cfg[:,None])

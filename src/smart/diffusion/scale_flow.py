@@ -167,7 +167,7 @@ class ScaleFlow(nn.Module):
 
         self.lognorm_t=True
 
-        self.P_std=1#1#
+        self.P_std=2#1#
 
         self.P_mean=2#2#
 
