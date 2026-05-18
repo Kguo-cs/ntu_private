@@ -71,6 +71,42 @@ def calculate_shift(
 def time_shift_fn(t, timeshift=1):
     return t/(t+(1-t)*timeshift)
 
+def sample_cfg_scale(
+    batch_size,
+    cfg_min=0.5,
+    cfg_max=5.0,
+    device=None,
+    dtype=torch.float32,
+):
+    """
+    Sample CFG scale from log-uniform distribution
+    in [cfg_min, cfg_max].
+
+    Equivalent to the JAX version.
+    """
+
+    u = torch.rand(
+        batch_size,
+        device=device,
+        dtype=dtype,
+    )
+
+    a = torch.tensor(
+        1.0 + cfg_min,
+        device=device,
+        dtype=dtype,
+    )
+
+    b = torch.tensor(
+        1.0 + cfg_max,
+        device=device,
+        dtype=dtype,
+    )
+
+    return a * torch.exp(
+        u * torch.log(b / a)
+    ) - 1.0
+
 class ScaleFlow(nn.Module):
 
     def __init__(self, args,token_processor):
@@ -246,6 +282,9 @@ class ScaleFlow(nn.Module):
             z=path_sample.x_t
         else:
             z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
+
+        if self.model.use_cfg_cond:
+            tokenized_agent["cfg"]= sample_cfg_scale(num_graphs,device=z.device)
 
         if "advantages" in tokenized_agent.keys():
             advantages=tokenized_agent["advantages"]
@@ -492,7 +531,7 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred
         )
 
-        if self.model.use_prev_condition and np.random.random() < 0.5:
+        if self.model.use_prev_condition :
             tokenized_agent["prev_x"]=x_pred[:,0].detach()#.clone()
 
             # mask=torch.rand(len(x_pred))<0.5
@@ -501,20 +540,40 @@ class ScaleFlow(nn.Module):
 
             x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
 
-            match_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
-                tokenized_agent,
-                x_pred_con[:,0],
-                x[:,0],
-                z[:,0],
-                e[:,0],
-                t[:,0],
-             #   use_match=True,
-                use_col=False,
-                x_pred=self.x_pred
-            )
 
+            if self.model.use_cfg_cond:
+                denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
+                v_no_sc = (x_pred - z) /denom
+                v_sc = (x_pred_con - z) / denom
 
+                v_target = (x-z)/denom
+
+                v_target_guidance =v_target+ (1 - 1 / tokenized_agent["cfg"][agent_batch][:,None,None]) * (v_sc - v_no_sc)
+
+                collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+                    tokenized_agent,
+                    v_sc[:,0],
+                    v_target_guidance[:,0].detach(),
+                    z[:,0],
+                    e[:,0],
+                    t[:,0],
+                    #   use_match=True,
+                    use_col=False,
+                    x_pred=False
+                )
+            else:
+                collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+                    tokenized_agent,
+                    x_pred_con[:,0],
+                    x[:,0],
+                    z[:,0],
+                    e[:,0],
+                    t[:,0],
+                    #   use_match=True,
+                    use_col=False,
+                    x_pred=self.x_pred
+                )
 
         # if self.use_kl:
         #
@@ -724,6 +783,9 @@ class ScaleFlow(nn.Module):
         log_prob_list=[]
         feat_list=[]
         t_list=[]
+
+        if self.model.use_cfg_cond:
+            tokenized_agent["cfg"]=1
 
         if self.use_scale:
             # agent_type = tokenized_agent["nonego_type"]

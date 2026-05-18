@@ -297,7 +297,7 @@ def get_matching_loss(
 
         v_pred = (fake_state - z) / denom
     else:
-        v_target = real_state - e
+        v_target = real_state #- e
 
         v_pred = fake_state
 
