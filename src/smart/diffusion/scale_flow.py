@@ -785,7 +785,7 @@ class ScaleFlow(nn.Module):
         t_list=[]
 
         if self.model.use_cfg_cond:
-            tokenized_agent["cfg"]=1
+            tokenized_agent["cfg"]=torch.ones(num_graphs,device=agent_batch.device)
 
         if self.use_scale:
             # agent_type = tokenized_agent["nonego_type"]
