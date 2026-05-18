@@ -165,9 +165,9 @@ class ScaleFlow(nn.Module):
         else:
             self.t_eps=0
 
-        self.lognorm_t=False
+        self.lognorm_t=True
 
-        self.P_std=-0.8#1#
+        self.P_std=0.8#1#
 
         self.P_mean=0.8#2#
 
@@ -660,7 +660,7 @@ class ScaleFlow(nn.Module):
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     @torch.no_grad()
-    def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=True):
+    def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=False):
 
         if sde_inspired:
             gamma=0.5
