@@ -493,7 +493,11 @@ class ScaleFlow(nn.Module):
         )
 
         if self.model.use_prev_condition:
-            tokenized_agent["prev_x"]=x_pred[:,0].detach()
+            tokenized_agent["prev_x"]=x_pred[:,0].detach().clone()
+
+            mask=torch.rand(len(x_pred))<0.5
+
+            tokenized_agent["prev_x"][mask]=0
 
             x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
 
