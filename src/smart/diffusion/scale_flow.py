@@ -68,7 +68,7 @@ def calculate_shift(
     mu = image_seq_len * m + b
     return mu
 
-def time_shift_fn(t, timeshift=0.5):
+def time_shift_fn(t, timeshift=2):
     return t/(t+(1-t)*timeshift)
 
 class ScaleFlow(nn.Module):
