@@ -33,36 +33,12 @@ rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
-ssh ke.guo@aspire2antu.nscc.sg140286
 
 Gk@1402862912
 
 source ~/miniconda3/bin/activate
 cd ~/scratch/sim/src
 conda activate catk
-
-qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-zhangshu
-
-ssh zhangshu@aspire2antu.nscc.sg
-Gk@140286
-
-ssh lyuchen@aspire2pntu.nscc.sg
-automan2018!!
-
-
-qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
-
-export CUDA_HOME=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda-12.2
-export PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/bin:$PATH
-export LD_LIBRARY_PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/lib64:$LD_LIBRARY_PATH
-export PROJECT_ROOT="$HOME/sim/sd"
-cd /home/users/ntu/lyuchen/scratch/keguo_projects/sim/src
-conda activate sim
-git pull
-python run.py
-
-echo 'export PROJECT_ROOT="$HOME/code/sim/sd"' >> ~/.bashrc
-
 
 conda create -y -n catk python=3.11.9
 conda activate catk
