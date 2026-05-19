@@ -203,9 +203,9 @@ class ScaleFlow(nn.Module):
             t_batch = self.flow_ode.time_sampler.sample(num_graphs).to(device)[:, None,None]
         else:
             if self.lognorm_t:
-                #base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
+                base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
 
-                base_t=sample_linear_t(num_graphs,a=3,device=x.device)
+                #base_t=sample_linear_t(num_graphs,a=1,device=x.device)
 
                 # base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
@@ -550,67 +550,6 @@ class ScaleFlow(nn.Module):
 
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
-    def sde_step_with_logprob(
-            self,
-            sigma,
-            sigma_prev,
-            model_output: torch.FloatTensor,
-            sample: torch.FloatTensor,
-            noise_level = 0.7,
-            prev_sample=None,
-            sde_type: Optional[str] = 'sde',
-            return_sqrt_dt: Optional[bool] = False,
-    ):
-        model_output = model_output/self.model.normal_scale[None]
-        sample=self.model.normalize(sample)
-
-        if prev_sample is not None:
-            prev_sample=self.model.normalize(prev_sample)
-
-        dt = sigma_prev - sigma
-
-        if sde_type == 'sde':
-            std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))) * noise_level
-
-            # our sde
-            prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
-                    1 + std_dev_t ** 2 * (1 - sigma) / (2 * sigma)) * dt
-
-            if prev_sample is None:
-                variance_noise = torch.randn_like(model_output)
-
-                prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1 * dt) * variance_noise
-
-            log_prob = (
-                    -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1 * dt)) ** 2))
-                    - torch.log(std_dev_t * torch.sqrt(-1 * dt))
-                    - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
-            )
-
-        elif sde_type == 'cps':
-            std_dev_t = sigma_prev * torch.sin(noise_level * math.pi / 2)  # sigma_t in paper
-            pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
-            noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
-            prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
-                sigma_prev ** 2 - std_dev_t ** 2)
-
-            if prev_sample is None:
-                variance_noise = torch.randn_like(model_output)
-
-                prev_sample = prev_sample_mean + std_dev_t * variance_noise
-
-            # remove all constants
-            log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)/( 2*std_dev_t.clamp_min(0.05) ** 2)
-
-        # mean along all but batch dimension
-        log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
-
-        prev_sample=self.model.denormalize(prev_sample)
-
-        if return_sqrt_dt:
-            return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
-        return prev_sample, log_prob, prev_sample_mean, std_dev_t
-
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=False):
 
@@ -844,7 +783,7 @@ class ScaleFlow(nn.Module):
             if self.use_vp:
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
-                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
+                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device).sqrt()
 
             timesteps = time_shift_fn(timesteps)
 
@@ -934,6 +873,67 @@ class ScaleFlow(nn.Module):
 
         return z[:, 0], x_list
 
+
+    def sde_step_with_logprob(
+            self,
+            sigma,
+            sigma_prev,
+            model_output: torch.FloatTensor,
+            sample: torch.FloatTensor,
+            noise_level = 0.7,
+            prev_sample=None,
+            sde_type: Optional[str] = 'sde',
+            return_sqrt_dt: Optional[bool] = False,
+    ):
+        model_output = model_output/self.model.normal_scale[None]
+        sample=self.model.normalize(sample)
+
+        if prev_sample is not None:
+            prev_sample=self.model.normalize(prev_sample)
+
+        dt = sigma_prev - sigma
+
+        if sde_type == 'sde':
+            std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))) * noise_level
+
+            # our sde
+            prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
+                    1 + std_dev_t ** 2 * (1 - sigma) / (2 * sigma)) * dt
+
+            if prev_sample is None:
+                variance_noise = torch.randn_like(model_output)
+
+                prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1 * dt) * variance_noise
+
+            log_prob = (
+                    -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1 * dt)) ** 2))
+                    - torch.log(std_dev_t * torch.sqrt(-1 * dt))
+                    - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
+            )
+
+        elif sde_type == 'cps':
+            std_dev_t = sigma_prev * torch.sin(noise_level * math.pi / 2)  # sigma_t in paper
+            pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
+            noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
+            prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
+                sigma_prev ** 2 - std_dev_t ** 2)
+
+            if prev_sample is None:
+                variance_noise = torch.randn_like(model_output)
+
+                prev_sample = prev_sample_mean + std_dev_t * variance_noise
+
+            # remove all constants
+            log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)/( 2*std_dev_t.clamp_min(0.05) ** 2)
+
+        # mean along all but batch dimension
+        log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
+
+        prev_sample=self.model.denormalize(prev_sample)
+
+        if return_sqrt_dt:
+            return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
+        return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     def repeat_input(self,tokenized_agent,n_step):
         num_graphs=tokenized_agent["num_graphs"]
