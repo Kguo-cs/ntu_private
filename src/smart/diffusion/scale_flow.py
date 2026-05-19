@@ -203,11 +203,11 @@ class ScaleFlow(nn.Module):
             t_batch = self.flow_ode.time_sampler.sample(num_graphs).to(device)[:, None,None]
         else:
             if self.lognorm_t:
-                base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
+               # base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
 
                 #base_t=sample_linear_t(num_graphs,a=1,device=x.device)
 
-                # base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
+                base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
                 base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32)
             t_batch = time_shift_fn(base_t)[:, None,None] #.to(x.dtype)
@@ -783,7 +783,13 @@ class ScaleFlow(nn.Module):
             if self.use_vp:
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
-                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device).sqrt()
+                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
+
+                if self.lognorm_t:
+                    # logistic-normal inverse CDF
+                    timesteps = torch.sigmoid(
+                        self.P_mean + self.P_std * torch.special.ndtri(timesteps)
+                    )
 
             timesteps = time_shift_fn(timesteps)
 
