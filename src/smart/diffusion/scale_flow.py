@@ -145,6 +145,8 @@ class ScaleFlow(nn.Module):
 
         self.use_uniform=False
 
+        self.learn_noise=True
+
         self.mc_num=1
 
         if self.use_nft:
@@ -194,6 +196,30 @@ class ScaleFlow(nn.Module):
             e = torch.randn_like(x)  # base distribution N(0, I)
 
         e=self.model.denormalize(e,nonego_type)
+
+        if self.learn_noise:
+            t = torch.zeros((len(agent_batch)), device=x.device, dtype=torch.float32)[:,None,None]
+
+            x_pred_old = self.model(e, t, tokenized_agent, initial_map_feature)
+
+            policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                tokenized_agent,
+                x_pred_old[:, 0],
+                x[:, 0],
+                e[:, 0],
+                e[:, 0],
+                t[:, 0],
+                #   use_match=True,
+                use_col=False,
+                x_pred=self.x_pred
+            )
+
+            e=x_pred_old.detach()
+        else:
+            policy_loss=0
+
+
+
 
         if "step_idx" in tokenized_agent.keys():
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
@@ -457,7 +483,6 @@ class ScaleFlow(nn.Module):
                 #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
             x_pred = x_pred_all[len(z_sampled):]
         else:
-            policy_loss=0
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
         if self.use_kl:
@@ -675,6 +700,11 @@ class ScaleFlow(nn.Module):
             z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device)#*0.5#*0.9 #.clamp(min=-3,max=3)
 
         z=self.model.denormalize(z,nonego_type)
+
+        if self.learn_noise:
+            t = torch.zeros((len(agent_batch)), device=z.device, dtype=torch.float32)[:,None,None]
+
+            z = self.model(z, t, tokenized_agent, initial_map_feature)
 
         z_list=[z]
         x_list=[]
