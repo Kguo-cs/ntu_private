@@ -813,7 +813,7 @@ class ScaleFlow(nn.Module):
             if self.use_vp:
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
-                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
+                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device).pow(2/3)
 
                 # if self.lognorm_t:
                 #     # logistic-normal inverse CDF
