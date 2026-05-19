@@ -255,7 +255,9 @@ class ScaleFlow(nn.Module):
             t_batch = self.flow_ode.time_sampler.sample(num_graphs).to(device)[:, None,None]
         else:
             if self.lognorm_t:
-                base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
+                base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
+
+                # base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
                 base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32)
             t_batch = time_shift_fn(base_t)[:, None,None] #.to(x.dtype)
