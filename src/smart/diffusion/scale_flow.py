@@ -697,7 +697,7 @@ class ScaleFlow(nn.Module):
         if self.use_uniform:
             z = torch.rand(num_agents, num_samples, 8, device=agent_batch.device)*2-1
         else:
-            z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device)#*0.5#*0.9 #.clamp(min=-3,max=3)
+            z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device).clamp(min=-3,max=3)#*0.5#*0.9 #
 
         z=self.model.denormalize(z,nonego_type)
 
