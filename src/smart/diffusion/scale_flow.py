@@ -229,7 +229,7 @@ class ScaleFlow(nn.Module):
             t_batch = self.flow_ode.time_sampler.sample(num_graphs).to(device)[:, None,None]
         else:
             if self.lognorm_t:
-                base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32)** (2.0 / 3)#.sqrt()
+                base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt() #** (2.0 / 3)#.sqrt()
 
                 #base_t=sample_linear_t(num_graphs,a=1,device=x.device)
 
@@ -813,7 +813,7 @@ class ScaleFlow(nn.Module):
             if self.use_vp:
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
-                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device).pow(0.8)
+                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)#.pow(2/3)
 
                 # if self.lognorm_t:
                 #     # logistic-normal inverse CDF
