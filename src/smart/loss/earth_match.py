@@ -377,3 +377,84 @@ def get_matching_loss(
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
+
+def sample_linear_t(
+    num_samples,
+    a,
+    device=None,
+    dtype=torch.float32,
+):
+
+    if abs(a) < 1e-8:
+        return torch.rand(
+            num_samples,
+            device=device,
+            dtype=dtype,
+        )
+
+    assert 0 <= a <= 2
+
+    b = 1.0 - a / 2.0
+
+    u = torch.rand(
+        num_samples,
+        device=device,
+        dtype=dtype,
+    )
+
+    return (
+        -b
+        + torch.sqrt(b * b + 2 * a * u)
+    ) / a
+
+
+def calculate_shift(
+    image_seq_len,
+    base_seq_len: int =32, #256,
+    max_seq_len: int = 256,#4096,
+    base_shift: float = 0.5,
+    max_shift: float = 1.15,
+):
+    m = (max_shift - base_shift) / (max_seq_len - base_seq_len)
+    b = base_shift - m * base_seq_len
+    mu = image_seq_len * m + b
+    return mu
+
+def time_shift_fn(t, timeshift=1):
+    return t/(t+(1-t)*timeshift)
+
+def sample_cfg_scale(
+    batch_size,
+    cfg_min=0.3,
+    cfg_max=3.0,
+    device=None,
+    dtype=torch.float32,
+):
+    """
+    Sample CFG scale from log-uniform distribution
+    in [cfg_min, cfg_max].
+
+    Equivalent to the JAX version.
+    """
+
+    u = torch.rand(
+        batch_size,
+        device=device,
+        dtype=dtype,
+    )
+
+    a = torch.tensor(
+        1.0 + cfg_min,
+        device=device,
+        dtype=dtype,
+    )
+
+    b = torch.tensor(
+        1.0 + cfg_max,
+        device=device,
+        dtype=dtype,
+    )
+
+    return a * torch.exp(
+        u * torch.log(b / a)
+    ) - 1.0

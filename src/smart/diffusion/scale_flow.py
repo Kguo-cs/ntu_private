@@ -51,61 +51,9 @@ from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 from src.smart.layers import MLPLayer
 
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale
-from ..loss.earth_match import gaussian_nll
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t
 from src.smart.diffusion.dit.dit import DiT
 
-
-def calculate_shift(
-    image_seq_len,
-    base_seq_len: int =32, #256,
-    max_seq_len: int = 256,#4096,
-    base_shift: float = 0.5,
-    max_shift: float = 1.15,
-):
-    m = (max_shift - base_shift) / (max_seq_len - base_seq_len)
-    b = base_shift - m * base_seq_len
-    mu = image_seq_len * m + b
-    return mu
-
-def time_shift_fn(t, timeshift=1):
-    return t/(t+(1-t)*timeshift)
-
-def sample_cfg_scale(
-    batch_size,
-    cfg_min=0.3,
-    cfg_max=3.0,
-    device=None,
-    dtype=torch.float32,
-):
-    """
-    Sample CFG scale from log-uniform distribution
-    in [cfg_min, cfg_max].
-
-    Equivalent to the JAX version.
-    """
-
-    u = torch.rand(
-        batch_size,
-        device=device,
-        dtype=dtype,
-    )
-
-    a = torch.tensor(
-        1.0 + cfg_min,
-        device=device,
-        dtype=dtype,
-    )
-
-    b = torch.tensor(
-        1.0 + cfg_max,
-        device=device,
-        dtype=dtype,
-    )
-
-    return a * torch.exp(
-        u * torch.log(b / a)
-    ) - 1.0
 
 class ScaleFlow(nn.Module):
 
@@ -255,7 +203,9 @@ class ScaleFlow(nn.Module):
             t_batch = self.flow_ode.time_sampler.sample(num_graphs).to(device)[:, None,None]
         else:
             if self.lognorm_t:
-                base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
+                #base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
+
+                base_t=sample_linear_t(num_samples,a=1,device=x.device)
 
                 # base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
