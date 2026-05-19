@@ -145,12 +145,12 @@ class InitDenoiser(nn.Module):
         if self.use_return_conditioned:
             self.return_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
-        self.use_prev_condition=True
+        self.use_prev_condition=False
 
         if self.use_prev_condition:
             self.condition_embed = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
 
-        self.use_cfg_cond=True
+        self.use_cfg_cond=False
 
         # if self.use_cfg_cond:
         #     self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
@@ -267,8 +267,8 @@ class InitDenoiser(nn.Module):
         self.use_noise=False
         self.hidden_dim=hidden_dim
 
-        if self.hidden_dim>128:
-            self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
+        #if self.hidden_dim>128:
+        self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
 
         self.apply(weight_init)
 
