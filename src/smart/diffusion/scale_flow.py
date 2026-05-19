@@ -205,7 +205,7 @@ class ScaleFlow(nn.Module):
             if self.lognorm_t:
                 #base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt()
 
-                base_t=sample_linear_t(num_graphs,a=1,device=x.device)
+                base_t=sample_linear_t(num_graphs,a=3,device=x.device)
 
                 # base_t = (torch.randn(num_graphs, device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
