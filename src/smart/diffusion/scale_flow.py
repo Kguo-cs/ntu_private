@@ -143,7 +143,7 @@ class ScaleFlow(nn.Module):
 
         self.use_kl=False
 
-        self.use_uniform=False
+        self.use_uniform=True
 
         self.learn_noise=False
 
