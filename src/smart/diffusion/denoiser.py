@@ -267,7 +267,7 @@ class InitDenoiser(nn.Module):
         self.use_noise=False
         self.hidden_dim=hidden_dim
 
-        self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
+       # self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
 
         self.apply(weight_init)
 
@@ -409,7 +409,7 @@ class InitDenoiser(nn.Module):
                 self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
                 #
                 self.normal_scale[:,2:4]=1#self.normal_scale[:,2:4]*2
-                self.normal_scale[:,4:6]=self.normal_mean[:,4:6]#self.normal_scale[:,4:6]*2#
+                self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*2#self.normal_mean[:,4:6]#
                 #self.normal_scale[:,:2]=40#self.normal_scale[:,:2]*1
                 # self.normal_scale[:,6:]=self.normal_scale[:,6:]*0.5
 
@@ -610,7 +610,7 @@ class InitDenoiser(nn.Module):
                         orient_pl = map_feature["orientation"]
                         feat_map = map_feature["pt_token"]
 
-                        feat_map = self.lane_embed(feat_map)
+                       # feat_map = self.lane_embed(feat_map)
 
                         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 

@@ -60,9 +60,6 @@ class SMARTMapDecoder(nn.Module):
             # if not self.token_processor.pred_light:
             self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
-
-            self.head_dim=head_dim
-
             # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
             self.my_map=False
 
