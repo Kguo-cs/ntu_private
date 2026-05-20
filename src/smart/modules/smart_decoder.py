@@ -143,7 +143,7 @@ class SMARTDecoder(nn.Module):
             if self.sep_map:
 
                 self.map_encoder1 = SMARTMapDecoder(
-                    hidden_dim=256,
+                    hidden_dim=hidden_dim,
                     pl2pl_radius=pl2pl_radius,
                     num_freq_bands=num_freq_bands,
                     num_layers=1,

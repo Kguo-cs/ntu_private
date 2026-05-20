@@ -267,8 +267,7 @@ class InitDenoiser(nn.Module):
         self.use_noise=False
         self.hidden_dim=hidden_dim
 
-        #if self.hidden_dim>128:
-        #self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
+        self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
 
         self.apply(weight_init)
 
@@ -609,8 +608,7 @@ class InitDenoiser(nn.Module):
                         orient_pl = map_feature["orientation"]
                         feat_map = map_feature["pt_token"]
 
-                        # if self.hidden_dim > 128:
-                        #     feat_map = self.lane_embed(feat_map)
+                        feat_map = self.lane_embed(feat_map)
 
                         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
