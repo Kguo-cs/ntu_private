@@ -40,9 +40,7 @@ os.environ["WANDB__SERVICE_WAIT"] = "3000"
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
-sys.path.append('/home/ke/code/catk')
-sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
-sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
+sys.path.append('/home/zs/code/sim')
 sys.path.append('/mnt/d/code/sim')
 sys.path.append('/home/ke/keguo/sim')
 sys.path.append('/home/guoke/sim')
@@ -131,6 +129,8 @@ def run(cfg: DictConfig) -> None:
                 model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
                 if model.bc_map_net is not None:
                     model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
+            if model.encoder.sep_map:
+                model.encoder.map_encoder1.load_state_dict(model.encoder.map_encoder.state_dict())
         trainer.fit(model=model, datamodule=datamodule)#
     elif cfg.action == "validate":
         log.info("Starting validating!")
