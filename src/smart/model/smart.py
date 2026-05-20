@@ -108,15 +108,9 @@ class SMART(LightningModule):
                     for p in self.encoder.agent_encoder.init_decoder.D.parameters():
                         p.requires_grad = True
 
-
                 if self.encoder.sep_map:
                     for p in self.encoder.map_encoder1.parameters():
                         p.requires_grad = True
-
-            # if self.token_processor.traj_diffusion:
-            #     for p in self.encoder.traj_diffuser.parameters():
-            #         p.requires_grad = True
-
 
         self.n_rollout_closed_val = model_config.n_rollout_closed_val
         self.n_vis_batch = model_config.n_vis_batch
