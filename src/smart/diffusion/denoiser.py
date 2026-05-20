@@ -268,7 +268,7 @@ class InitDenoiser(nn.Module):
         self.hidden_dim=hidden_dim
 
         #if self.hidden_dim>128:
-        self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
+        #self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
 
         self.apply(weight_init)
 
@@ -400,11 +400,11 @@ class InitDenoiser(nn.Module):
                 self.init_min.copy_(m_init.amin(0))
                 self.init_max.copy_(m_init.amax(0))
             else:
-                # min_v=torch.amin(diff_output, dim=0, keepdim=True)
-                # max_v=torch.amax(diff_output, dim=0, keepdim=True)
-                # self.normal_mean.copy_((min_v+max_v)/2)
+                min_v=torch.amin(diff_output, dim=0, keepdim=True)
+                max_v=torch.amax(diff_output, dim=0, keepdim=True)
+                self.normal_mean.copy_((min_v+max_v)/2)
 
-                self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
+                #self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
                 self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
                 #
                 self.normal_scale[:,2:4]=self.normal_scale[:,2:4]*2
@@ -609,8 +609,8 @@ class InitDenoiser(nn.Module):
                         orient_pl = map_feature["orientation"]
                         feat_map = map_feature["pt_token"]
 
-                        if self.hidden_dim > 128:
-                            feat_map = self.lane_embed(feat_map)
+                        # if self.hidden_dim > 128:
+                        #     feat_map = self.lane_embed(feat_map)
 
                         head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
