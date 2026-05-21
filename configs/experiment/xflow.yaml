@@ -45,7 +45,7 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 #flow in flow
 
-task_name: xflow256_meanhead0_0522_head1 #head1_pos30 #_sepmap256 # #_sepmap #uni122midmean__sepcopy #midmean_power2lane122 #pos #_bothclip3 #_eval32 #_learn #_cfg2 #mean1std2eval_mean1std2sde1tback #_cfg2 #_cond033cfg1_pos05shape2head2 #evaltime2 #_init0_eval0 #bin_init0 #pos05shape16head4 #_r200a40 #uniuniformstdPos2 #pos05shapev2 #eval05 #scale_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
+task_name: xflow256_meanhead0_0522_head1pos1 #head1_pos30 #_sepmap256 # #_sepmap #uni122midmean__sepcopy #midmean_power2lane122 #pos #_bothclip3 #_eval32 #_learn #_cfg2 #mean1std2eval_mean1std2sde1tback #_cfg2 #_cond033cfg1_pos05shape2head2 #evaltime2 #_init0_eval0 #bin_init0 #pos05shape16head4 #_r200a40 #uniuniformstdPos2 #pos05shapev2 #eval05 #scale_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
 
 #set shape to 100, t scale
 
@@ -78,7 +78,7 @@ data:
   train_batch_size: 256
   val_batch_size: 256
   test_batch_size: 10
-  num_workers: 8
+  num_workers: 1
 #  train_raw_dir: ${paths.cache_root}/training_map2_init0_light #init0_light #all_light #init10_inter
   #train_raw_dir: ${paths.cache_root}/training_map2_init0_idx #init10_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
   #val_raw_dir: ${paths.cache_root}/validation_lane #44097
