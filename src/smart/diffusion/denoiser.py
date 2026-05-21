@@ -411,7 +411,7 @@ class InitDenoiser(nn.Module):
                 # self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*2#self.normal_mean[:,4:6]#
                 # self.normal_scale[:,:2]=30#self.normal_scale[:,:2]*1
                 # self.normal_scale[:,6:]=self.normal_scale[:,6:]*0.5
-                self.normal_mean[:,:2]=0
+                self.normal_mean[:,2:4]=0
 
                 self.normal_scale[:,2:6]=self.normal_scale[:,2:6]*2
                 # self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
