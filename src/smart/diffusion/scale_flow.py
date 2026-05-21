@@ -195,7 +195,7 @@ class ScaleFlow(nn.Module):
         else:
             e = torch.randn_like(x) #.clamp(min=-3,max=3) # base distribution N(0, I)
 
-            e[:,2:]=torch.rand_like(x[:,2:])*2-1
+            e[:,:,2:]=torch.rand_like(x[:,:,2:])*2-1
 
         e=self.model.denormalize(e,nonego_type)
 
