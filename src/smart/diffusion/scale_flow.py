@@ -170,7 +170,8 @@ class ScaleFlow(nn.Module):
                 diff_type=args.diff_type,
                 m_dim=args.m_dim,
                 mean_flow=self.mean_flow,
-                x_pred=self.x_pred
+                x_pred=self.x_pred,
+                learn_noise=self.learn_noise
             )
 
         if self.use_kl:
@@ -233,10 +234,12 @@ class ScaleFlow(nn.Module):
                 t[:, 0],
                 #   use_match=True,
                 use_col=False,
-                x_pred=self.x_pred
+                x_pred=False
             )
 
-            e=x_pred_old.detach()
+            std = torch.clamp(x_pred_old[:, :,8:].detach().exp(), min=1e-5)
+
+            e=std*torch.randn_like(x)+x_pred_old[:, :,:8].detach()
         else:
             policy_loss=0
 
@@ -728,7 +731,11 @@ class ScaleFlow(nn.Module):
         if self.learn_noise:
             t = torch.zeros((len(agent_batch)), device=z.device, dtype=torch.float32)[:,None,None]
 
-            z = self.noise_model(z, t, tokenized_agent, initial_map_feature)
+            pred_noise = self.noise_model(z, t, tokenized_agent, initial_map_feature)
+
+            std = torch.clamp(pred_noise[:, :,8:].detach().exp(), min=1e-5)
+
+            z=std*torch.randn_like(z)+pred_noise[:, :,:8].detach()
 
         z_list=[z]
         x_list=[]

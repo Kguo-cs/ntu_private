@@ -11,9 +11,9 @@ from src.smart.utils import (
 )
 from torch_scatter import scatter_sum,scatter_mean
 
-def gaussian_nll(mu, sigma, target):
+def gaussian_nll_2d(mu, sigma, target):
     dx = target - mu
-    sigma = torch.clamp(sigma, min=1e-5)
+    sigma = torch.clamp(sigma.exp(), min=1e-5)
 
     n = target.shape[-1]
 
@@ -29,13 +29,13 @@ def get_scale(x0_prediction,x0):
     return  ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
 
 def matching_loss(
-    fake_state,
     real_state,
+    fake_state,
     w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
 ):
 
-    fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
-    real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:]
+    fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:8]
+    real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:8]
 
 
 
@@ -45,7 +45,7 @@ def matching_loss(
     #
     # pos_loss = dist.mean()
 
-    if fake_state.shape[1]!=16:
+    if fake_state.shape[-1]==8:
         pos_loss=F.mse_loss(fake_pos, real_pos, reduction="none").mean(-1)
         #pos_loss=torch.tensor(0.0).to(real_state.device)
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)

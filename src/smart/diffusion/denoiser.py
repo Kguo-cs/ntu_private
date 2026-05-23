@@ -62,7 +62,8 @@ class InitDenoiser(nn.Module):
                  diff_type: str,
                  m_dim: int,
                  mean_flow=False,
-                 x_pred=True
+                 x_pred=True,
+                 learn_noise=False,
                  ) -> None:
         super(InitDenoiser, self).__init__()
         self.dataset = dataset
@@ -115,7 +116,12 @@ class InitDenoiser(nn.Module):
         if self.use_all_pos:
             m_delta_dim=m_delta_dim+94*4-2
 
-        self.output_dim=m_delta_dim
+        if learn_noise:
+            self.output_dim=m_delta_dim*2
+        else:
+            self.output_dim=m_delta_dim
+
+
         self.label_drop_prob=0
 
         self.use_bin=False
@@ -200,7 +206,7 @@ class InitDenoiser(nn.Module):
                                                         use_a2a=True,
                                                         use_pl2a=True
                                                         )
-                        self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
+                        self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
 
                         self.pt2a_attn_layers = nn.ModuleList(
                             [
