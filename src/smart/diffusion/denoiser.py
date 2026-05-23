@@ -116,6 +116,8 @@ class InitDenoiser(nn.Module):
         if self.use_all_pos:
             m_delta_dim=m_delta_dim+94*4-2
 
+        self.learn_noise=learn_noise
+
         if learn_noise:
             self.output_dim=m_delta_dim*2
         else:
@@ -604,7 +606,7 @@ class InitDenoiser(nn.Module):
 
                         feat_a=feat_a+prev_x_embed
 
-                    if "x_pred_noise" in tokenized_agent.keys():
+                    if  not self.learn_noise:
                         x_pred_noise=tokenized_agent["x_pred_noise"][:,0]
 
                         feat_a=feat_a+self.noise_embed(x_pred_noise)

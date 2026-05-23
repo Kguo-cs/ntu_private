@@ -733,6 +733,7 @@ class ScaleFlow(nn.Module):
             t = torch.zeros((len(agent_batch)), device=z.device, dtype=torch.float32)[:,None,None]
 
             x_pred_noise = self.noise_model(z, t, tokenized_agent, initial_map_feature)
+
             tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
             std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)
