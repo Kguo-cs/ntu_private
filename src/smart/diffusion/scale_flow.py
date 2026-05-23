@@ -237,7 +237,7 @@ class ScaleFlow(nn.Module):
                 x_pred=False
             )
 
-            policy_loss=policy_loss*10
+            #policy_loss=policy_loss*10
 
             std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)
 
