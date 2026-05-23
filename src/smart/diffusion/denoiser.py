@@ -122,7 +122,7 @@ class InitDenoiser(nn.Module):
             self.output_dim=m_delta_dim*2
         else:
             self.output_dim=m_delta_dim
-            self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
+            #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
 
         self.label_drop_prob=0
@@ -606,10 +606,10 @@ class InitDenoiser(nn.Module):
 
                         feat_a=feat_a+prev_x_embed
 
-                    if  not self.learn_noise:
-                        x_pred_noise=tokenized_agent["x_pred_noise"][:,0]
-
-                        feat_a=feat_a+self.noise_embed(x_pred_noise)
+                    # if  not self.learn_noise:
+                    #     x_pred_noise=tokenized_agent["x_pred_noise"][:,0]
+                    #
+                    #     feat_a=feat_a+self.noise_embed(x_pred_noise)
 
 
                     # if self.use_cfg_cond:
