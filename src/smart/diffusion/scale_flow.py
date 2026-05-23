@@ -239,7 +239,9 @@ class ScaleFlow(nn.Module):
 
             policy_loss=policy_loss*10
 
-            std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)*0.5
+            std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)
+
+            std[:, :,:2] = std[:, :,:2] * 0.5
 
             e=std*torch.randn_like(x)+x_pred_noise[:, :,:8].detach()
 
@@ -736,7 +738,10 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
-            std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)*0.5
+            std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)
+
+            # std[:, 2:6] = std[:, 2:6] * 2
+            std[:, :,:2] = std[:, :,:2] * 0.5
 
             z=std*torch.randn_like(z)+x_pred_noise[:, :,:8].detach()
 
