@@ -223,11 +223,11 @@ class ScaleFlow(nn.Module):
         if self.learn_noise:
             t = torch.zeros((len(agent_batch)), device=x.device, dtype=torch.float32)[:,None,None]
 
-            x_pred_old = self.noise_model(e, t, tokenized_agent, initial_map_feature)
+            x_pred_noise = self.noise_model(e, t, tokenized_agent, initial_map_feature)
 
             policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,
-                x_pred_old[:, 0],
+                x_pred_noise[:, 0],
                 x[:, 0],
                 e[:, 0],
                 e[:, 0],
@@ -237,16 +237,15 @@ class ScaleFlow(nn.Module):
                 x_pred=False
             )
 
-            policy_loss=policy_loss*10
+            #policy_loss=policy_loss*10
 
-            std = torch.clamp(x_pred_old[:, :,8:].detach().exp(), min=1e-5)
+            std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)
 
-            e=std*torch.randn_like(x)+x_pred_old[:, :,:8].detach()
+            e=std*torch.randn_like(x)+x_pred_noise[:, :,:8].detach()
+
+            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
         else:
             policy_loss=0
-
-
-
 
         if "step_idx" in tokenized_agent.keys():
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
@@ -733,11 +732,12 @@ class ScaleFlow(nn.Module):
         if self.learn_noise:
             t = torch.zeros((len(agent_batch)), device=z.device, dtype=torch.float32)[:,None,None]
 
-            pred_noise = self.noise_model(z, t, tokenized_agent, initial_map_feature)
+            x_pred_noise = self.noise_model(z, t, tokenized_agent, initial_map_feature)
+            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
-            std = torch.clamp(pred_noise[:, :,8:].detach().exp(), min=1e-5)
+            std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)
 
-            z=std*torch.randn_like(z)+pred_noise[:, :,:8].detach()
+            z=std*torch.randn_like(z)+x_pred_noise[:, :,:8].detach()
 
         z_list=[z]
         x_list=[]
