@@ -145,13 +145,33 @@ class ScaleFlow(nn.Module):
 
         self.use_uniform=False
 
-        self.learn_noise=False
+        self.learn_noise=True
 
         self.mc_num=1
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
             self.use_sde=False
+
+        if self.learn_noise:
+            self.noise_model = InitDenoiser(
+                token_processor,
+                dataset=args.dataset,
+                input_dim=args.input_dim,
+                hidden_dim=args.hidden_dim,
+                output_dim=args.output_dim,
+                output_head=args.output_head,
+                init_timestep=args.init_timestep,
+                num_freq_bands=args.num_freq_bands,
+                num_layers=args.num_denoiser_layers,
+                num_heads=args.num_heads,
+                head_dim=args.head_dim,
+                dropout=args.dropout,
+                diff_type=args.diff_type,
+                m_dim=args.m_dim,
+                mean_flow=self.mean_flow,
+                x_pred=self.x_pred
+            )
 
         if self.use_kl:
             self.ref_model = copy.deepcopy(self.model)
@@ -195,14 +215,14 @@ class ScaleFlow(nn.Module):
         else:
             e = torch.randn_like(x) #.clamp(min=-3,max=3) # base distribution N(0, I)
 
-            e[:,:,:6]=torch.rand_like(x[:,:,:6])*2-1
+            #e[:,:,:6]=torch.rand_like(x[:,:,:6])*2-1
 
         e=self.model.denormalize(e,nonego_type)
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch)), device=x.device, dtype=torch.float32)[:,None,None]
 
-            x_pred_old = self.model(e, t, tokenized_agent, initial_map_feature)
+            x_pred_old = self.noise_model(e, t, tokenized_agent, initial_map_feature)
 
             policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,
@@ -701,14 +721,14 @@ class ScaleFlow(nn.Module):
         else:
             z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
 
-            z[:,:,:6]=torch.rand(num_agents, num_samples, 6, device=agent_batch.device)*2-1
+            #z[:,:,:6]=torch.rand(num_agents, num_samples, 6, device=agent_batch.device)*2-1
 
         z=self.model.denormalize(z,nonego_type)
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch)), device=z.device, dtype=torch.float32)[:,None,None]
 
-            z = self.model(z, t, tokenized_agent, initial_map_feature)
+            z = self.noise_model(z, t, tokenized_agent, initial_map_feature)
 
         z_list=[z]
         x_list=[]

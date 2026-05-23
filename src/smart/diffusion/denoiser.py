@@ -399,13 +399,13 @@ class InitDenoiser(nn.Module):
                 self.init_min.copy_(m_init.amin(0))
                 self.init_max.copy_(m_init.amax(0))
             else:
-                min_v=torch.amin(diff_output, dim=0, keepdim=True)
-                max_v=torch.amax(diff_output, dim=0, keepdim=True)
-                self.normal_mean.copy_((min_v+max_v)/2)
+                # min_v=torch.amin(diff_output, dim=0, keepdim=True)
+                # max_v=torch.amax(diff_output, dim=0, keepdim=True)
+                # self.normal_mean.copy_((min_v+max_v)/2)
+                #
+                # self.normal_mean[:,:2]=0
 
-                self.normal_mean[:,:2]=0
-
-                #self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
+                self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
                 self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
                 #
                 # self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*2#self.normal_mean[:,4:6]#
@@ -415,8 +415,8 @@ class InitDenoiser(nn.Module):
                 #self.normal_scale[:,6:8]=self.normal_scale[:,6:8]*2
 
                 self.normal_scale[:,2:6]=self.normal_scale[:,2:6]*2
-                # self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
-                self.normal_scale[:,2:4]=1#self.normal_scale[:,2:4]*2
+                self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
+                #self.normal_scale[:,2:4]=1#self.normal_scale[:,2:4]*2
 
 
         return diff_input,diff_output
