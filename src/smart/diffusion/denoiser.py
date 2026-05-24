@@ -634,10 +634,32 @@ class InitDenoiser(nn.Module):
 
                     if self.use_pos:
 
-                        counts = torch.bincount(batch, minlength=num_graphs)
+                        valid_idx = batch * 3 + type
 
-                        pos_idx = torch.arange(batch.size(0), device=batch.device) - torch.repeat_interleave(
-                            torch.cumsum(counts, 0) - counts, counts)
+                        # sort group ids
+                        sorted_idx, perm = torch.sort(valid_idx)
+
+                        # detect new groups
+                        group_change = torch.ones_like(sorted_idx, dtype=torch.bool)
+                        group_change[1:] = sorted_idx[1:] != sorted_idx[:-1]
+
+                        # position inside sorted array
+                        pos = torch.arange(sorted_idx.numel(), device=sorted_idx.device)
+
+                        # first position of each group
+                        group_start = torch.where(group_change, pos, 0)
+                        group_start = torch.cummax(group_start, dim=0)[0]
+
+                        # rank within group
+                        sorted_rank = pos - group_start
+
+                        # unsort back
+                        pos_idx = torch.empty_like(sorted_rank)
+                        pos_idx[perm] = sorted_rank
+
+
+                        # pos_idx = torch.arange(batch.size(0), device=batch.device) - torch.repeat_interleave(
+                        #     torch.cumsum(counts, 0) - counts, counts)
 
                         feat_a = feat_a+sinusoidal_embedding(pos_idx[:, None] + 1, self.hidden_dim)
 
