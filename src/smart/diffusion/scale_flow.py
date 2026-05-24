@@ -220,11 +220,15 @@ class ScaleFlow(nn.Module):
 
         e=self.model.denormalize(e,nonego_type)
 
-        fake_idx, real_idx=get_closest_sum_idx(x[:,0], e[:,0], tokenized_agent)
+        # fake_idx, real_idx=get_closest_sum_idx(x[:,0], e[:,0], tokenized_agent)
 
+        fake_idx=torch.argsort(agent_batch*1000+x[:,0,0]+x[:,0,1] ,descending=True)
+
+        real_idx=torch.argsort(agent_batch*1000+e[:,0,0]+e[:,0,1] ,descending=True)
         x=x[fake_idx]
         e=e[real_idx]
         tokenized_agent["nonego_type"]=tokenized_agent["nonego_type"][fake_idx]
+
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch)), device=x.device, dtype=torch.float32)[:,None,None]
