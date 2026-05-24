@@ -51,7 +51,7 @@ from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 from src.smart.layers import MLPLayer
 
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t,get_closest_sum_idx
 from src.smart.diffusion.dit.dit import DiT
 
 
@@ -145,7 +145,7 @@ class ScaleFlow(nn.Module):
 
         self.use_uniform=False
 
-        self.learn_noise=True
+        self.learn_noise=False
 
         self.mc_num=1
 
@@ -219,6 +219,12 @@ class ScaleFlow(nn.Module):
             #e[:,:,:6]=torch.rand_like(x[:,:,:6])*2-1
 
         e=self.model.denormalize(e,nonego_type)
+
+        fake_idx, real_idx=get_closest_sum_idx(x[:,0], e[:,0], tokenized_agent)
+
+        x=x[fake_idx]
+        e=e[real_idx]
+        tokenized_agent["nonego_type"]=tokenized_agent["nonego_type"][fake_idx]
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch)), device=x.device, dtype=torch.float32)[:,None,None]
