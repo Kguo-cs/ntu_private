@@ -54,7 +54,6 @@ from src.smart.layers import MLPLayer
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t,get_closest_sum_idx
 from src.smart.diffusion.dit.dit import DiT
 
-
 class ScaleFlow(nn.Module):
 
     def __init__(self, args,token_processor):
@@ -222,12 +221,12 @@ class ScaleFlow(nn.Module):
 
         # fake_idx, real_idx=get_closest_sum_idx(x[:,0], e[:,0], tokenized_agent)
 
-        fake_idx=torch.argsort(agent_batch*1000+x[:,0,0]+x[:,0,1] ,descending=True)
-
-        real_idx=torch.argsort(agent_batch*1000+e[:,0,0]+e[:,0,1] ,descending=True)
-        x=x[fake_idx]
-        e=e[real_idx]
-        tokenized_agent["nonego_type"]=tokenized_agent["nonego_type"][fake_idx]
+        # fake_idx=torch.argsort(agent_batch*1000+x[:,0,0]+x[:,0,1] ,descending=True)
+        #
+        # real_idx=torch.argsort(agent_batch*1000+e[:,0,0]+e[:,0,1] ,descending=True)
+        # x=x[fake_idx]
+        # e=e[real_idx]
+        # tokenized_agent["nonego_type"]=tokenized_agent["nonego_type"][fake_idx]
 
 
         if self.learn_noise:

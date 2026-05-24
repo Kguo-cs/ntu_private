@@ -44,6 +44,26 @@ from src.smart.modules.interative_decoder import InterativeDecoder
 from src.smart.utils.edge_utils import build_batch
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return
 
+
+def sinusoidal_embedding(position, D):
+    """
+    Create sinusoidal positional embeddings for positions 1 to N
+    Args:
+        N: number of positions (assumes positions 1 to N)
+        D: embedding dimension (must be even)
+    Returns:
+        Tensor of shape [N, D]
+    """
+   # return 0
+    div_term = torch.exp(torch.arange(0, D, 2,device=position.device) * (-math.log(10000.0) / D))  # shape [D/2]
+
+    pe = torch.zeros(len(position), D,device=position.device)
+    pe[:, 0::2] = torch.sin(position * div_term)  # even indices
+    pe[:, 1::2] = torch.cos(position * div_term)  # odd indices
+
+    return pe
+
+
 class InitDenoiser(nn.Module):
 
     def __init__(self,
@@ -163,6 +183,12 @@ class InitDenoiser(nn.Module):
 
         # if self.use_cfg_cond:
         #     self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
+
+        self.use_pos=True
+
+        # if self.use_pos:
+
+
 
 
         if self.use_roformer:
@@ -605,6 +631,15 @@ class InitDenoiser(nn.Module):
                         prev_x_embed =self.condition_embed(torch.cat([local_prev_pos,local_prev_head.cos()[:,None],local_prev_head.sin()[:,None] , prev_x[:,4:]],dim=-1))
 
                         feat_a=feat_a+prev_x_embed
+
+                    if self.use_pos:
+
+                        counts = torch.bincount(batch, minlength=num_graphs)
+
+                        pos_idx = torch.arange(batch.size(0), device=batch.device) - torch.repeat_interleave(
+                            torch.cumsum(counts, 0) - counts, counts)
+
+                        feat_a = feat_a+sinusoidal_embedding(pos_idx[:, None] + 1, self.hidden_dim)
 
                     # if  not self.learn_noise:
                     #     x_pred_noise=tokenized_agent["x_pred_noise"][:,0]
