@@ -369,7 +369,7 @@ def get_matching_loss(
         #
         # col_loss = torch.relu(rad_sum  - a2a_dist).square().mean() #sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
 
-        col_loss=multi_circle_collision_loss_mem_efficient(fake_state[:,:2], torch.atan2(fake_state[:,3],fake_state[:,2]), fake_state[:,4].detach(),fake_state[:,5].detach(),tokenized_agent["nonego_batch"][:len(fake_state)] )[0].mean()
+        col_loss=multi_circle_collision_loss_mem_efficient(fake_state[:,:2], torch.atan2(fake_state[:,3],fake_state[:,2]).detach(), fake_state[:,4].detach(),fake_state[:,5].detach(),tokenized_agent["nonego_batch"][:len(fake_state)] )[0].mean()
     else:
         col_loss = torch.zeros_like(match_loss.mean())  #
 
