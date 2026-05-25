@@ -203,7 +203,7 @@ def multi_circle_collision_loss_mem_efficient(
 
     penetration = thresh - min_dist  #penatration>-0.1
 
-    loss = torch.relu(penetration).expm1()*10
+    loss = torch.relu(penetration).expm1()*100
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
