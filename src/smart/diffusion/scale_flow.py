@@ -227,12 +227,12 @@ class ScaleFlow(nn.Module):
         fake_idx = torch.argsort(fake_pos, stable=True)
         fake_idx = fake_idx[torch.argsort(nonego_type[fake_idx], stable=True)]
         fake_idx = fake_idx[torch.argsort(agent_batch[fake_idx], stable=True)]
-
-        real_pos = e[:, 0, 0] + e[:, 0, 1]
-        real_idx = torch.argsort(real_pos, stable=True)
-        real_idx = real_idx[torch.argsort(nonego_type[real_idx], stable=True)]
-        real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
-        e = e[real_idx]
+        #
+        # real_pos = e[:, 0, 0] + e[:, 0, 1]
+        # real_idx = torch.argsort(real_pos, stable=True)
+        # real_idx = real_idx[torch.argsort(nonego_type[real_idx], stable=True)]
+        # real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
+        # e = e[real_idx]
 
         x = x[fake_idx]
         tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][fake_idx]
@@ -754,7 +754,7 @@ class ScaleFlow(nn.Module):
         real_idx = torch.argsort(real_pos, stable=True)
         real_idx = real_idx[torch.argsort(nonego_type[real_idx], stable=True)]
         real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
-        z = z[real_idx]
+        #z = z[real_idx]
 
         tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][real_idx]
         if self.learn_noise:
