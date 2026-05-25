@@ -1084,7 +1084,7 @@ class InitDenoiser(nn.Module):
             gt_initial_heading[non_ego] = global_heading
 
             if self.token_processor.pred_all_pos:
-                local_allpos, local_allheading = transform_to_local(tokenized_agent["all_pred"][:,:,:2],
+                local_allpos, local_allheading = transform_to_global(tokenized_agent["all_pred"][:,:,:2],
                                                                     tokenized_agent["all_pred"][:,:,2],
                                                                     gt_initial_pos,
                                                                     gt_initial_heading)
