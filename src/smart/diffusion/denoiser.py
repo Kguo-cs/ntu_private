@@ -657,34 +657,34 @@ class InitDenoiser(nn.Module):
                         # pos_idx = torch.empty_like(sorted_rank)
                         # pos_idx[perm] = sorted_rank
 
-                        gid = batch * 3 + type
-                        score = pos_s[:, 0] + pos_s[:, 1]  # key inside each (batch, type) group
-
-                        # stable lexicographic sort by (gid, score):
-                        # 1) sort by secondary key (score)
-                        perm = torch.argsort(score, stable=True)
-                        # 2) stable sort by primary key (gid), preserving score order within gid
-                        perm = perm[torch.argsort(gid[perm], stable=True)]
-
-                        gid_sorted = gid[perm]
-
-                        group_change = torch.ones_like(gid_sorted, dtype=torch.bool)
-                        group_change[1:] = gid_sorted[1:] != gid_sorted[:-1]
-
-                        pos = torch.arange(gid_sorted.numel(), device=gid_sorted.device)
-                        group_start = torch.where(group_change, pos, 0)
-                        group_start = torch.cummax(group_start, dim=0).values
-
-                        sorted_rank = pos - group_start
-
-                        # back to original order
-                        pos_idx = torch.empty_like(sorted_rank)
-                        pos_idx[perm] = sorted_rank
-
-                        # counts = torch.bincount(batch, minlength=num_graphs)
+                        # gid = batch * 3 + type
+                        # score = pos_s[:, 0] + pos_s[:, 1]  # key inside each (batch, type) group
                         #
-                        # pos_idx1 = torch.arange(batch.size(0), device=batch.device) - torch.repeat_interleave(
-                        #     torch.cumsum(counts, 0) - counts, counts)
+                        # # stable lexicographic sort by (gid, score):
+                        # # 1) sort by secondary key (score)
+                        # perm = torch.argsort(score, stable=True)
+                        # # 2) stable sort by primary key (gid), preserving score order within gid
+                        # perm = perm[torch.argsort(gid[perm], stable=True)]
+                        #
+                        # gid_sorted = gid[perm]
+                        #
+                        # group_change = torch.ones_like(gid_sorted, dtype=torch.bool)
+                        # group_change[1:] = gid_sorted[1:] != gid_sorted[:-1]
+                        #
+                        # pos = torch.arange(gid_sorted.numel(), device=gid_sorted.device)
+                        # group_start = torch.where(group_change, pos, 0)
+                        # group_start = torch.cummax(group_start, dim=0).values
+                        #
+                        # sorted_rank = pos - group_start
+                        #
+                        # # back to original order
+                        # pos_idx = torch.empty_like(sorted_rank)
+                        # pos_idx[perm] = sorted_rank
+
+                        counts = torch.bincount(batch, minlength=num_graphs)
+
+                        pos_idx = torch.arange(batch.size(0), device=batch.device) - torch.repeat_interleave(
+                            torch.cumsum(counts, 0) - counts, counts)
 
                         feat_a = feat_a+sinusoidal_embedding(pos_idx[:, None] + 1, self.hidden_dim)
 
