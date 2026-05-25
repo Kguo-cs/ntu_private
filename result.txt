@@ -891,6 +891,8 @@ gt_init+/home/ke/code/sim/src/waymo_data/AIRL28_p5_sde07_eps01_nodismask_nog_epo
 | Distance To Road Edge Likelihood      | 0.35369882 |
 | Offroad Likelihood                    | 0.6269107  |
 
+kinematic: 0.538798605
+
 
 my
 | Metric                                | Value      |

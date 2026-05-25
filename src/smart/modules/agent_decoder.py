@@ -170,24 +170,29 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if self.pred_init:
-            # pos_a=gt_pos[:,:1]
-            # head_a=gt_head[:,:1]
-            # sampled_idx=gt_sampled_idx[:,:1]
-            # shape=tokenized_agent["shape"]
-            # initial_vel=pos_a[:,0]
+            # pos_a=gt_pos[:,:2]
+            # head_a=gt_head[:,:2]
+            # sampled_idx=gt_sampled_idx[:,:2]
+            # shape=tokenized_agent["initial_shape"]
+            # initial_vel =tokenized_agent["local_vel"]
 
             pos_a,head_a, sampled_idx,shape,initial_vel = self.init_decoder(tokenized_agent)
 
             if "gt_z_raw" in tokenized_agent.keys():
                 token_traj_all = tokenized_agent["token_traj_all"]
 
-                pos_recon, head_recon=infer_prev_pose(pos_a,head_a,sampled_idx,token_traj_all)
+                pos_recon, head_recon=infer_prev_pose(pos_a[:,:1],head_a[:,:1],sampled_idx[:,:1],token_traj_all)
 
                 pred_traj_10hz.append(pos_recon)
                 pred_head_10hz.append(head_recon)
 
-                self.get_next(sampled_idx,pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                new_pos,new_head=self.get_next(sampled_idx[:,:1],pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                #new_pos1,new_head1=self.get_next(sampled_idx[:,1:2],pos_a[:,:1], head_a[:,:1],pred_traj_10hz,pred_head_10hz,tokenized_agent)
 
+                # print(torch.max(pos_a[:,1]-new_pos1[:,-1]))
+                #
+                # print(torch.max(pos_a[:,0]-new_pos[:,-1]))
+                #
             if self.token_processor.use_all_pos:
                 out_dict = {
                     "shape": shape,
@@ -199,11 +204,11 @@ class SMARTAgentDecoder(nn.Module):
 
                 return out_dict
 
-            current_step=1
+            current_step=pos_a.shape[1]
             if self.training:
                 max_step = gt_valid.shape[1]-current_step
             else:
-                max_step=17
+                max_step=18-current_step
             mask = torch.ones_like(gt_valid[:, :current_step])
             token_mask = torch.ones_like(tokenized_agent["token_mask"][:, :current_step])
         else:
@@ -262,8 +267,8 @@ class SMARTAgentDecoder(nn.Module):
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-            out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
-            out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
+            out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)#tokenized_agent['gt_head_10hz']#
+            out_dict["pred_traj_10hz"] =torch.cat(pred_traj_10hz, dim=1)#tokenized_agent['gt_traj_10hz'] #
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
             if self.pred_init:
