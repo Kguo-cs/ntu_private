@@ -33,6 +33,7 @@ class InitDiffusion(nn.Module):
         super(InitDiffusion, self).__init__()
 
         self.use_all_pos=token_processor.use_all_pos
+        self.pred_all_pos=token_processor.pred_all_pos
 
         parser = ArgumentParser()
         self.add_model_specific_args(parser)
@@ -77,7 +78,7 @@ class InitDiffusion(nn.Module):
             ego_mask = tokenized_agent["ego_mask"]
             non_ego = ~ego_mask
 
-            if self.use_all_pos:
+            if self.use_all_pos or self.pred_all_pos:
                 non_ego=torch.ones_like(non_ego)
 
             tokenized_agent["non_ego"]=non_ego
@@ -92,7 +93,7 @@ class InitDiffusion(nn.Module):
             nonego_type = tokenized_agent["type"][non_ego]
             tokenized_agent['nonego_type'] = nonego_type
 
-            if "local_ego_traj" in tokenized_agent.keys():
+            if "ego_traj" not in tokenized_agent.keys():
                 if self.G1.model.use_rel_ego:
                     ego_pos2=tokenized_agent["ego_pos2"]
                     ego_heading2=tokenized_agent["ego_heading2"]

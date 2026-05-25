@@ -168,7 +168,6 @@ class SMARTAgentDecoder(nn.Module):
         pred_traj_10hz = []
         pred_head_10hz = []
 
-
         if self.pred_init:
             # pos_a=gt_pos[:,:2]
             # head_a=gt_head[:,:2]
@@ -269,6 +268,14 @@ class SMARTAgentDecoder(nn.Module):
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)#tokenized_agent['gt_head_10hz']#
             out_dict["pred_traj_10hz"] =torch.cat(pred_traj_10hz, dim=1)#tokenized_agent['gt_traj_10hz'] #
+
+            if self.token_processor.pred_all_pos:
+                out_dict["pred_head_10hz"] = tokenized_agent["local_allheading"]
+                out_dict["pred_traj_10hz"] = tokenized_agent["local_allpos"]
+            else:
+                out_dict["pred_head_10hz"] = torch.cat(pred_head_10hz, dim=1)  # tokenized_agent['gt_head_10hz']#
+                out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)  # tokenized_agent['gt_traj_10hz'] #
+
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
             if self.pred_init:

@@ -63,6 +63,8 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal=False
         self.use_all_pos=False
 
+        self.pred_all_pos=True
+
         self.traj_diffusion=False
 
         module_dir = os.path.dirname(__file__)
@@ -573,21 +575,26 @@ class TokenProcessor(torch.nn.Module):
 
                 tokenized_agent["batch_a"]=batch[~ego_mask]
 
-                if self.use_all_pos:
+                if self.use_all_pos or self.pred_all_pos:
                     start_idx = 10
 
                     tokenized_agent["initial_heading"] = heading[:, start_idx]#[valid]
                     tokenized_agent["initial_pos"] = pos[:, start_idx]#[valid]  # [valid]
                     tokenized_agent["initial_shape"] = shape#[valid]
-                    tokenized_agent["initial_type"] = type.long()#[valid]
+                    tokenized_agent["initial_vel"]= vel[:, start_idx]
+                    tokenized_agent["type"] = type.long()#[valid]
                     tokenized_agent["batch"] = batch#[valid]
 
-                    tokenized_agent["all_pos"] = torch.cat((pos,pos[:,:4]),dim=1)#[valid]
-                    tokenized_agent["all_heading"] = torch.cat((heading,heading[:,:4]),dim=1)#[valid]
-                    tokenized_agent["valid_mask"] = torch.cat((valid_mask,torch.zeros_like(valid_mask)[:,:4]),dim=1)#[valid]
-                    ego_traj = pos[ego_mask, :10].contiguous()
+                    tokenized_agent["all_pos"] = pos#torch.cat((pos,pos[:,:4]),dim=1)#[valid]
+                    tokenized_agent["all_heading"] = heading#torch.cat((heading,heading[:,:4]),dim=1)#[valid]
+                    tokenized_agent["valid_mask"] = valid_mask #torch.cat((valid_mask,torch.zeros_like(valid_mask)[:,:4]),dim=1)#[valid]
+                    ego_traj = pos[ego_mask, :11].contiguous()
+                    ego_head = heading[ego_mask, :11].contiguous()
 
-                    tokenized_agent["ego_traj"] = ego_traj
+                    tokenized_agent["ego_pos2"] = ego_traj[:,::5]
+                    tokenized_agent["ego_heading2"] = ego_head[:,::5]
+
+                    #tokenized_agent["ego_traj"] = ego_traj
                     tokenized_agent["all_pos"][~tokenized_agent["valid_mask"]] = torch.nan
                     tokenized_agent["all_heading"][~tokenized_agent["valid_mask"]] = torch.nan
 
@@ -669,10 +676,6 @@ class TokenProcessor(torch.nn.Module):
                                                                  speed,
                                                                     )
                     tokenized_agent.update(token_dict)
-
-                    tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
-                    tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
-                    tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
 
                 else:
                     for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask","token_mask"]:

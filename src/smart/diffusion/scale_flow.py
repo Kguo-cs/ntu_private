@@ -173,6 +173,31 @@ class ScaleFlow(nn.Module):
                 learn_noise=self.learn_noise
             )
 
+        self.pred_all_pos=token_processor.pred_all_pos
+
+        if self.pred_all_pos:
+            self.pred_model = InitDenoiser(
+                token_processor,
+                dataset=args.dataset,
+                input_dim=args.input_dim,
+                hidden_dim=args.hidden_dim,
+                output_dim=args.output_dim,
+                output_head=args.output_head,
+                init_timestep=args.init_timestep,
+                num_freq_bands=args.num_freq_bands,
+                num_layers=args.num_denoiser_layers,
+                num_heads=args.num_heads,
+                head_dim=args.head_dim,
+                dropout=args.dropout,
+                diff_type=args.diff_type,
+                m_dim=args.m_dim,
+                mean_flow=self.mean_flow,
+                x_pred=self.x_pred,
+                learn_noise=self.learn_noise,
+                pred_all_pos=True
+            )
+
+
         if self.use_kl:
             self.ref_model = copy.deepcopy(self.model)
 
@@ -597,6 +622,19 @@ class ScaleFlow(nn.Module):
                     x_pred=self.x_pred
                 )
 
+        if self.pred_all_pos:
+            x_pred = self.pred_model(x, t*0, tokenized_agent, initial_map_feature).reshape(x.shape[0],91,3)
+
+            local_allpos=tokenized_agent["local_allpos"]
+            local_allheading=tokenized_agent["local_allheading"]
+
+            non_nan_mask=~torch.isnan(local_allheading)
+
+            pos_loss=F.l1_loss(local_allpos[non_nan_mask],x_pred[non_nan_mask][:,:2])
+            heading_loss=F.l1_loss(local_allheading[non_nan_mask],x_pred[non_nan_mask][:,2])
+
+            policy_loss=pos_loss+heading_loss
+
         # if self.use_kl:
         #
         #     # kl_loss = (
@@ -975,6 +1013,10 @@ class ScaleFlow(nn.Module):
         inv_real_idx[real_idx] = torch.arange(real_idx.numel(), device=real_idx.device)
         tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][inv_real_idx]
 
+        if self.pred_all_pos:
+            all_pred = self.pred_model(z, t_n*0, tokenized_agent, initial_map_feature).reshape(z.shape[0],91,3)
+
+            tokenized_agent["all_pred"] =all_pred
 
         return z[:, 0][inv_real_idx], x_list
 

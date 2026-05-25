@@ -84,6 +84,7 @@ class InitDenoiser(nn.Module):
                  mean_flow=False,
                  x_pred=True,
                  learn_noise=False,
+                 pred_all_pos=False
                  ) -> None:
         super(InitDenoiser, self).__init__()
         self.dataset = dataset
@@ -123,6 +124,7 @@ class InitDenoiser(nn.Module):
             self.use_padding = True
 
         self.use_all_pos=token_processor.use_all_pos
+        self.token_processor=token_processor
 
         self.use_prev_head=False
         self.use_speed=False
@@ -144,6 +146,8 @@ class InitDenoiser(nn.Module):
             self.output_dim=m_delta_dim
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
+        if pred_all_pos:
+            self.output_dim=91*3
 
         self.label_drop_prob=0
 
@@ -185,11 +189,6 @@ class InitDenoiser(nn.Module):
         #     self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
         self.use_pos=True
-
-        # if self.use_pos:
-
-
-
 
         if self.use_roformer:
             if self.use_dit:
@@ -363,7 +362,7 @@ class InitDenoiser(nn.Module):
         non_ego_pos=tokenized_agent["initial_pos"][non_ego]
         non_ego_head=tokenized_agent["initial_heading"][non_ego]
 
-        if self.use_all_pos:
+        if self.use_all_pos :
             local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"],
                                            tokenized_agent["all_heading"],
                                            batch_ego_pos,
@@ -394,6 +393,15 @@ class InitDenoiser(nn.Module):
                                 rel_pos.reshape(n_agent, -1), rel_heading.reshape(n_agent, -1).cos(),rel_heading.reshape(n_agent, -1).sin(),
                                     initial_shape[:, :2]], dim=-1)
         else:
+            if self.token_processor.pred_all_pos:
+                local_allpos, local_allheading = transform_to_local(tokenized_agent["all_pos"],
+                                                                    tokenized_agent["all_heading"],
+                                                                    non_ego_pos,
+                                                                    non_ego_head)
+
+                tokenized_agent["local_allpos"] = local_allpos
+                tokenized_agent["local_allheading"] = local_allheading
+
             local_pos, local_heading = transform_to_local(non_ego_pos,
                                                           non_ego_head,
                                                           batch_ego_pos,
@@ -1074,6 +1082,17 @@ class InitDenoiser(nn.Module):
 
             gt_initial_pos[non_ego] = global_pos
             gt_initial_heading[non_ego] = global_heading
+
+            if self.token_processor.pred_all_pos:
+                local_allpos, local_allheading = transform_to_local(tokenized_agent["all_pred"][:,:,:2],
+                                                                    tokenized_agent["all_pred"][:,:,2],
+                                                                    gt_initial_pos,
+                                                                    gt_initial_heading)
+
+                tokenized_agent["local_allpos"]=local_allpos
+                tokenized_agent["local_allheading"]=local_allheading
+
+
 
             if "local_vel" in tokenized_agent.keys():
                 rel_vel = tokenized_agent["local_vel"].clone()

@@ -70,6 +70,8 @@ data:
   test_batch_size: 10
   num_workers: 1
 
+#  train_raw_dir: ${paths.cache_root}/training_map2_a_light
+
 #action: validate
 #action: finetune
 # nohup python run.py > 1.txt 2>&1 &
