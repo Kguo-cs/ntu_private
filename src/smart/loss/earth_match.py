@@ -369,7 +369,7 @@ def get_matching_loss(
         #
         # col_loss = torch.relu(rad_sum  - a2a_dist).square().mean() #sum()/tokenized_agent["num_graphs"]#+ 0.1-0.1
 
-        t_mask=t[:,0]>0.5
+        t_mask=t[:,0]>0.8
 
         fake_state=fake_state[t_mask]
 
