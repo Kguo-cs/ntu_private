@@ -303,7 +303,7 @@ class ScaleFlow(nn.Module):
 
                 #base_t=sample_linear_t(num_graphs,a=1,device=x.device)
 
-                base_t = (torch.randn((num_graphs,x.shape[-1]), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
+                base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
                 base_t = torch.rand((len(agent_batch)), device=x.device, dtype=torch.float32)
             t_batch = time_shift_fn(base_t)[:, None] #.to(x.dtype)
