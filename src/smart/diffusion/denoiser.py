@@ -63,7 +63,7 @@ def sinusoidal_embedding(position, D):
 
     return pe
 
-#different dimension take different schedule noise 
+#different dimension take different schedule noise
 
 class InitDenoiser(nn.Module):
 
@@ -209,7 +209,7 @@ class InitDenoiser(nn.Module):
                     future_length=None
                 )
             else:
-                self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+                self.noise_embedding = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
                 if self.ego_rel:
                     self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
                 else:
@@ -520,7 +520,7 @@ class InitDenoiser(nn.Module):
 
             else:
 
-                beta_emb_m = self.noise_embedding(beta.reshape(-1,1)) +self.type_a_emb(type)
+                beta_emb_m = self.noise_embedding(beta[:,0]) +self.type_a_emb(type)
 
                 if self.use_all_pos:
                     shape=m_delta[:,-2:]

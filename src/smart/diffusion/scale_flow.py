@@ -303,10 +303,10 @@ class ScaleFlow(nn.Module):
 
                 #base_t=sample_linear_t(num_graphs,a=1,device=x.device)
 
-                base_t = (torch.randn(len(agent_batch), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
+                base_t = (torch.randn((len(agent_batch),x.shape[-1]), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()
             else:
                 base_t = torch.rand((len(agent_batch)), device=x.device, dtype=torch.float32)
-            t_batch = time_shift_fn(base_t)[:, None,None] #.to(x.dtype)
+            t_batch = time_shift_fn(base_t)[:, None] #.to(x.dtype)
 
         t=t_batch#[agent_batch]
 
@@ -737,7 +737,7 @@ class ScaleFlow(nn.Module):
         elif self.use_flux:
             t_n=t_n
         else:
-            t_n=torch.full((num_agents,1,1), t_n, device=z.device)
+            t_n=torch.full((num_agents,1,z.shape[-1]), t_n, device=z.device)
 
         if self.use_scale:
             padding_mask=tokenized_agent["padding_mask"]
