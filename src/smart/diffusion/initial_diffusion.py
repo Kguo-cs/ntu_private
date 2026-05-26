@@ -78,8 +78,8 @@ class InitDiffusion(nn.Module):
             ego_mask = tokenized_agent["ego_mask"]
             non_ego = ~ego_mask
 
-            if self.use_all_pos or self.pred_all_pos:
-                non_ego=torch.ones_like(non_ego)
+           # if self.use_all_pos or self.pred_all_pos:
+            non_ego=torch.ones_like(non_ego)
 
             tokenized_agent["non_ego"]=non_ego
 
