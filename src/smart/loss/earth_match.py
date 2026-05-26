@@ -375,7 +375,7 @@ def get_matching_loss(
 
         batch = tokenized_agent["nonego_batch"][t_mask]#[-len(fake_state):]
 
-        col_loss=multi_circle_collision_loss_mem_efficient(fake_state[:,:2], torch.atan2(fake_state[:,3],fake_state[:,2]), fake_state[:,4].detach(),fake_state[:,5].detach(),batch)[0].mean()
+        col_loss=multi_circle_collision_loss_mem_efficient(fake_state[:,:2], torch.atan2(fake_state[:,3],fake_state[:,2]).detach(), fake_state[:,4].detach(),fake_state[:,5].detach(),batch)[0].mean()
     else:
         col_loss = torch.zeros_like(match_loss.mean())  #
 
