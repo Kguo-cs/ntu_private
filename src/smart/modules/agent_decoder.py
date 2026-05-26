@@ -197,6 +197,10 @@ class SMARTAgentDecoder(nn.Module):
                     pos_a = token_dict["sampled_pos"]
                     sampled_idx = token_dict["sampled_idx"]
 
+                    pred_traj_10hz.append(all_pos)
+                    pred_head_10hz.append(all_head)
+
+
                 else:
                     token_traj_all = tokenized_agent["token_traj_all"]
 
