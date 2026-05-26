@@ -148,7 +148,7 @@ class InitDenoiser(nn.Module):
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
         if pred_all_pos:
-            self.output_dim=91*3
+            self.output_dim=10*3
 
         self.label_drop_prob=0
 
@@ -394,7 +394,7 @@ class InitDenoiser(nn.Module):
                                 rel_pos.reshape(n_agent, -1), rel_heading.reshape(n_agent, -1).cos(),rel_heading.reshape(n_agent, -1).sin(),
                                     initial_shape[:, :2]], dim=-1)
         else:
-            if self.token_processor.pred_all_pos:
+            if self.token_processor.pred_all_pos and self.training:
                 local_allpos, local_allheading = transform_to_local(tokenized_agent["all_pos"],
                                                                     tokenized_agent["all_heading"],
                                                                     non_ego_pos,

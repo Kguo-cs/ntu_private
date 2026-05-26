@@ -63,7 +63,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal=False
         self.use_all_pos=False
 
-        self.pred_all_pos=False
+        self.pred_all_pos=True
 
         self.traj_diffusion=False
 
@@ -299,7 +299,7 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent]
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
-        batch = data["agent"]["batch"]
+        #batch = data["agent"]["batch"]
 
         token_dict = self._match_agent_token(
             valid=valid,
@@ -307,12 +307,12 @@ class TokenProcessor(torch.nn.Module):
             heading=heading,
             agent_shape=agent_shape,
             token_traj=token_traj,
-            batch=batch,#[:,None],
-            num_graphs=data.num_graphs,
-           # ego_mask=ego_mask,
-            shape=data["agent"]["shape"],
-            type=data["agent"]["type"].long(),
-            data=data,
+           #  batch=batch,#[:,None],
+           #  num_graphs=data.num_graphs,
+           # # ego_mask=ego_mask,
+           #  shape=data["agent"]["shape"],
+           #  type=data["agent"]["type"].long(),
+           #  data=data,
             error_dist=error_dist
         )
         if "route_map_index" in data["agent"].keys():
@@ -331,12 +331,6 @@ class TokenProcessor(torch.nn.Module):
         heading: Tensor,  # [n_agent, n_step]
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
-        batch,
-        num_graphs=None,
-        ego_mask=None,
-        shape=None,
-        type=None,
-        data=None,
         shift=5,
         error_dist=0.3
     ) -> Dict[str, Tensor]:
@@ -585,9 +579,9 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent["type"] = type.long()#[valid]
                     tokenized_agent["batch"] = batch#[valid]
 
-                    tokenized_agent["all_pos"] = pos#torch.cat((pos,pos[:,:4]),dim=1)#[valid]
-                    tokenized_agent["all_heading"] = heading#torch.cat((heading,heading[:,:4]),dim=1)#[valid]
-                    tokenized_agent["valid_mask"] = valid_mask #torch.cat((valid_mask,torch.zeros_like(valid_mask)[:,:4]),dim=1)#[valid]
+                    tokenized_agent["all_pos"] = pos[:,:10]#torch.cat((pos,pos[:,:4]),dim=1)#[valid]
+                    tokenized_agent["all_heading"] = heading[:,:10]#torch.cat((heading,heading[:,:4]),dim=1)#[valid]
+                    tokenized_agent["valid_mask"] = valid_mask[:,:10] #torch.cat((valid_mask,torch.zeros_like(valid_mask)[:,:4]),dim=1)#[valid]
                     ego_traj = pos[ego_mask, :11].contiguous()
                     ego_head = heading[ego_mask, :11].contiguous()
 

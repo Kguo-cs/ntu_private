@@ -629,7 +629,7 @@ class ScaleFlow(nn.Module):
                 )
 
         if self.pred_all_pos:
-            x_pred = self.pred_model(x, t*0, tokenized_agent, initial_map_feature).reshape(x.shape[0],91,3)
+            x_pred = self.pred_model(x, t*0, tokenized_agent, initial_map_feature).reshape(x.shape[0],-1,3)
 
             local_allpos=tokenized_agent["local_allpos"]
             local_allheading=tokenized_agent["local_allheading"]
@@ -1030,7 +1030,7 @@ class ScaleFlow(nn.Module):
         # z=z[inv_real_idx]
 
         if self.pred_all_pos:
-            all_pred = self.pred_model(z, t_n*0, tokenized_agent, initial_map_feature).reshape(z.shape[0],91,3)
+            all_pred = self.pred_model(z, t_n*0, tokenized_agent, initial_map_feature).reshape(z.shape[0],-1,3)
 
             tokenized_agent["all_pred"] =all_pred
 
