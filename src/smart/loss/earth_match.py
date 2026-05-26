@@ -302,7 +302,7 @@ def get_matching_loss(
         v_pred = fake_state
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        v_target, v_pred,
+        v_target[~tokenized_agent["ego_mask"]], v_pred[~tokenized_agent["ego_mask"]],
         w_pos=w_pos, w_heading=w_heading, w_shape=w_shape, w_vel=w_vel
     )
     # if use_match:

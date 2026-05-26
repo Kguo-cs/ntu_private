@@ -312,6 +312,8 @@ class ScaleFlow(nn.Module):
 
         t=t_batch[agent_batch]
 
+        t[tokenized_agent["ego_mask"]]=1
+
         tokenized_agent["t_batch"]=t_batch
 
         if self.use_scale:
@@ -740,6 +742,7 @@ class ScaleFlow(nn.Module):
             t_n=t_n
         else:
             t_n=torch.full((num_agents,1,z.shape[-1]), t_n, device=z.device)
+            t_n[tokenized_agent["ego_mask"]]=1
 
         if self.use_scale:
             padding_mask=tokenized_agent["padding_mask"]
@@ -788,6 +791,11 @@ class ScaleFlow(nn.Module):
 
         z=self.model.denormalize(z,nonego_type)
 
+        diff_input, diff_output = self.model.get_input(tokenized_agent)
+
+        diff_input=diff_input[:,None]
+
+        z[tokenized_agent["ego_mask"]]=diff_input[tokenized_agent["ego_mask"]]
 
         # real_pos = z[:, 0, 0] + z[:, 0, 1]
         # real_idx = torch.argsort(real_pos, stable=True)
@@ -982,6 +990,8 @@ class ScaleFlow(nn.Module):
 
                 else:
                     z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
+
+                z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
                 x_list.append(x_cond)
                 z_list.append(z)
