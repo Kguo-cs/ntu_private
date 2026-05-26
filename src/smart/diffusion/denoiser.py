@@ -63,6 +63,7 @@ def sinusoidal_embedding(position, D):
 
     return pe
 
+#different dimension take different schedule noise 
 
 class InitDenoiser(nn.Module):
 
