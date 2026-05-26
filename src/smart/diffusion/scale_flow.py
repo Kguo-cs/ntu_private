@@ -570,6 +570,8 @@ class ScaleFlow(nn.Module):
         if self.use_scale:
             x=out[:,None]
 
+        x_pred[tokenized_agent["ego_mask"]]=x[tokenized_agent["ego_mask"]]
+
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
             x_pred[:,0],
