@@ -186,25 +186,24 @@ class SMARTAgentDecoder(nn.Module):
                     all_pos=torch.cat([local_allpos,pos_a],dim=1)
                     all_head=torch.cat([local_allheading,head_a],dim=1)
 
-                    token_dict = self.token_processor._match_agent_token(
+                    token_dict = self.token_processor._match_agent_token_reverse(
                         valid=torch.ones_like(all_head).to(torch.bool),
                         pos=all_pos,
                         heading=all_head,
                         agent_shape=tokenized_agent["token_agent_shape"],
                         token_traj=tokenized_agent["token_traj"],
-                        #error_dist=0
                     )
-                    head_a = token_dict["sampled_heading"]
-                    pos_a = token_dict["sampled_pos"]
+                    head_a = token_dict["sampled_heading"][:,1:]
+                    pos_a = token_dict["sampled_pos"][:,1:]
                     sampled_idx = token_dict["sampled_idx"]
 
-                    pos_recon, head_recon=all_pos[:,:1],all_head[:,:1]
+                    pos_recon, head_recon=token_dict["sampled_pos"][:,:1],token_dict["sampled_heading"][:,:1]
 
                     pred_traj_10hz.append(pos_recon)
                     pred_head_10hz.append(head_recon)
 
-                    pos_recon, head_recon=self.get_next(sampled_idx[:,:1],pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
-                    pos_recon, head_recon=self.get_next(sampled_idx[:,1:2],pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                    pos_recon, head_recon=self.get_next(sampled_idx[:,:1],token_dict["sampled_pos"][:,:1], token_dict["sampled_heading"][:,:1],pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                    pos_recon, head_recon=self.get_next(sampled_idx[:,1:2],token_dict["sampled_pos"][:,1:2], token_dict["sampled_heading"][:,1:2],pred_traj_10hz,pred_head_10hz,tokenized_agent)
 
                 else:
                     token_traj_all = tokenized_agent["token_traj_all"]

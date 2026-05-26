@@ -418,6 +418,139 @@ class TokenProcessor(torch.nn.Module):
 
         return out_dict
 
+    def _match_agent_token_reverse(
+            self,
+            valid: Tensor,  # [n_agent, n_step]
+            pos: Tensor,  # [n_agent, n_step, 2]
+            heading: Tensor,  # [n_agent, n_step]
+            agent_shape: Tensor,  # [n_agent, 2]
+            token_traj: Tensor,  # [n_agent, n_token, 4, 2], FORWARD token library
+            shift=5,
+            error_dist=0.3,
+    ) -> Dict[str, Tensor]:
+
+        n_agent, n_step = valid.shape
+        device = valid.device
+        range_a = torch.arange(n_agent, device=device)
+
+        if not self.training:
+            n_step = 11
+
+        last_idx = n_step - 1
+
+        # Current reverse anchor starts from the last GT point.
+        cur_pos = pos[:, last_idx].clone()
+        cur_head = heading[:, last_idx].clone()
+
+        out_dict = {
+            "valid_mask": [],
+            "sampled_idx": [],
+            "sampled_pos": [cur_pos],
+            "sampled_heading": [cur_head],
+            "token_mask": [],
+        }
+
+        for i in range(last_idx - shift, -1, -shift):
+            next_i = i + shift
+
+            # Segment validity: t_i -> t_{i+shift}
+            _valid_mask = (valid[:, i] & valid[:, next_i]).clone()
+
+            out_dict["token_mask"].append(_valid_mask.clone())
+
+            # Current anchor contour at t_{i+shift}.
+            # This may be GT for the first step, and quantized for later steps.
+            cur_contour = cal_polygon_contour(
+                cur_pos,
+                cur_head,
+                agent_shape,
+            ).unsqueeze(1)  # [n_agent, 1, 4, 2]
+
+            # Put the FORWARD token library at the candidate previous GT pose t_i.
+            # Each token predicts a future contour at t_{i+shift}.
+            token_world = transform_to_global(
+                pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token * 4, 2]
+                head_local=None,
+                pos_now=pos[:, i],  # previous pose
+                head_now=heading[:, i],
+            )[0].view(*token_traj.shape)  # [n_agent, n_token, 4, 2]
+
+            # Match predicted future contour to current reverse anchor contour.
+            all_dist = torch.norm(
+                token_world - cur_contour,
+                dim=-1,
+            ).sum(-1)  # [n_agent, n_token]
+
+            min_dist, token_idx_gt = torch.min(all_dist, dim=-1)  # [n_agent]
+
+            if self.traj_diffusion:
+                error_dist = 1
+
+            token_valid = min_dist < error_dist
+            _valid_mask = _valid_mask & token_valid
+
+            # Selected local forward token contour.
+            # This is expressed in the local frame of t_i.
+            token_local_gt = token_traj[range_a, token_idx_gt]  # [n_agent, 4, 2]
+
+            # Recover local forward displacement encoded by the token.
+            # token center in previous-frame coordinates
+            local_next_pos = token_local_gt.mean(1)  # [n_agent, 2]
+
+            # token endpoint heading relative to previous heading
+            dxy_local = token_local_gt[:, 0] - token_local_gt[:, 3]
+            local_next_head = torch.atan2(dxy_local[:, 1], dxy_local[:, 0])  # [n_agent]
+
+            # Invert the forward token:
+            #
+            # cur_head = prev_head + local_next_head
+            # cur_pos  = prev_pos + R(prev_head) @ local_next_pos
+            #
+            # therefore:
+            # prev_head = cur_head - local_next_head
+            # prev_pos  = cur_pos - R(prev_head) @ local_next_pos
+            recovered_prev_head = cur_head - local_next_head
+
+            cos_h = torch.cos(recovered_prev_head)
+            sin_h = torch.sin(recovered_prev_head)
+
+            rot_local_x = cos_h * local_next_pos[:, 0] - sin_h * local_next_pos[:, 1]
+            rot_local_y = sin_h * local_next_pos[:, 0] + cos_h * local_next_pos[:, 1]
+
+            recovered_prev_pos = cur_pos - torch.stack(
+                [rot_local_x, rot_local_y],
+                dim=-1,
+            )
+
+            # Default fallback uses GT previous pose.
+            next_cur_pos = pos[:, i].clone()
+            next_cur_head = heading[:, i].clone()
+
+            # For valid matched agents, use quantized recovered previous pose.
+            next_cur_pos[_valid_mask] = recovered_prev_pos[_valid_mask]
+            next_cur_head[_valid_mask] = recovered_prev_head[_valid_mask]
+
+            cur_pos = next_cur_pos
+            cur_head = next_cur_head
+
+            _invalid_mask = ~valid[:, i]
+
+            out_dict["sampled_idx"].append(token_idx_gt)
+
+            out_dict["sampled_pos"].append(
+                cur_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
+            )
+
+            out_dict["sampled_heading"].append(
+                cur_head.masked_fill(_invalid_mask, 0)
+            )
+
+            out_dict["valid_mask"].append(valid[:, i])
+
+        out_dict = {k: torch.stack(v, dim=1).flip(1)  for k, v in out_dict.items()}
+
+        return out_dict
+
     @staticmethod
     def _clean_heading(valid: Tensor, heading: Tensor) -> Tensor:
         valid_pairs = valid[:, :-1] & valid[:, 1:]
