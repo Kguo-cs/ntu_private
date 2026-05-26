@@ -172,11 +172,11 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
     pred_speeds=pred_vel.norm(dim=-1)
 
     batch = tokenized_agent["batch"]
-    cos = torch.cos(pred_head[:, :, 0])
-    sin = torch.sin(pred_head[:, :, 0])
+    cos = torch.cos(pred_head[:, :, 10])
+    sin = torch.sin(pred_head[:, :, 10])
 
     state = torch.cat(
-        [pred_traj[:, :, 0], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, 0, :2],pred_vel],
+        [pred_traj[:, :, 10], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, 10, :2],pred_vel],
         dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
     type = tokenized_agent["type"]
 
