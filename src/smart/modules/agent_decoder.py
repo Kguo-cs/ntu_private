@@ -192,6 +192,7 @@ class SMARTAgentDecoder(nn.Module):
                         heading=all_head,
                         agent_shape=tokenized_agent["token_agent_shape"],
                         token_traj=tokenized_agent["token_traj"],
+                        error_dist=0
                     )
                     head_a = token_dict["sampled_heading"][:,1:]
                     pos_a = token_dict["sampled_pos"][:,1:]
