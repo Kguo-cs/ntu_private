@@ -191,15 +191,20 @@ class SMARTAgentDecoder(nn.Module):
                         pos=all_pos,
                         heading=all_head,
                         agent_shape=tokenized_agent["token_agent_shape"],
-                        token_traj=tokenized_agent["token_traj"]
+                        token_traj=tokenized_agent["token_traj"],
+                        error_dist=0
                     )
                     head_a = token_dict["sampled_heading"]
                     pos_a = token_dict["sampled_pos"]
                     sampled_idx = token_dict["sampled_idx"]
 
-                    pred_traj_10hz.append(all_pos)
-                    pred_head_10hz.append(all_head)
+                    pos_recon, head_recon=all_pos[:,:1],all_head[:,:1]
 
+                    pred_traj_10hz.append(pos_recon)
+                    pred_head_10hz.append(head_recon)
+
+                    pos_recon, head_recon=self.get_next(sampled_idx[:,:1],pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                    pos_recon, head_recon=self.get_next(sampled_idx[:,1:2],pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
 
                 else:
                     token_traj_all = tokenized_agent["token_traj_all"]
