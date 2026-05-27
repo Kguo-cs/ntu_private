@@ -306,7 +306,7 @@ class ScaleFlow(nn.Module):
                 base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
 
                 shift = torch.tensor(
-                    [1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
                     device=x.device,
                     dtype=torch.float32,
                 ).view(1, 8)
@@ -754,7 +754,7 @@ class ScaleFlow(nn.Module):
             t_n=torch.full((num_agents,1,z.shape[-1]), t_n, device=z.device)
 
             shift = torch.tensor(
-                [1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
                 device=t_n.device,
                 dtype=torch.float32,
             ).view(1, 1,8)
