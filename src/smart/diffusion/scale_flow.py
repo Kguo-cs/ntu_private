@@ -303,7 +303,15 @@ class ScaleFlow(nn.Module):
 
                 #base_t=sample_linear_t(num_graphs,a=1,device=x.device)
 
-                base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid().repeat(1,8)
+                base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
+
+                shift = torch.tensor(
+                    [1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+                    device=x.device,
+                    dtype=torch.float32,
+                ).view(1, 8)
+
+                base_t = time_shift_fn(base_t, shift)  # [G, 8]
 
                 #base_t=base_t[:,None,:]
             else:
@@ -688,7 +696,7 @@ class ScaleFlow(nn.Module):
         #
         #     v_pred = (x - z) / (1 - t).clamp_min(self.t_eps)
         # else:
-        v_pred,t_n,x = self._forward_sample(z, t, labels)
+        v_pred,t_n,t_next,x = self._forward_sample(z, t, t_next,labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
 
         if self.use_cluster:
@@ -731,7 +739,7 @@ class ScaleFlow(nn.Module):
 
 
     @torch.no_grad()
-    def _forward_sample(self, z, t_n, labels):
+    def _forward_sample(self, z, t_n, t_next,labels):
         tokenized_agent, initial_map_feature, eval_mask=labels
         num_agents = len(z)
 
@@ -744,7 +752,20 @@ class ScaleFlow(nn.Module):
             t_n=t_n
         else:
             t_n=torch.full((num_agents,1,z.shape[-1]), t_n, device=z.device)
+
+            shift = torch.tensor(
+                [1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+                device=t_n.device,
+                dtype=torch.float32,
+            ).view(1, 1,8)
+
+            t_n = time_shift_fn(t_n, shift)  # [G, 8]
+
             t_n[tokenized_agent["ego_mask"]]=1
+
+            t_next=torch.full((num_agents,1,z.shape[-1]), t_next, device=z.device)
+
+            t_next = time_shift_fn(t_next, shift)  # [G, 8]
 
         if self.use_scale:
             padding_mask=tokenized_agent["padding_mask"]
@@ -764,7 +785,7 @@ class ScaleFlow(nn.Module):
         else:
             v_cond=x_cond
 
-        return v_cond,t_n,x_cond
+        return v_cond,t_n,t_next,x_cond
 
     @torch.no_grad()
     def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
