@@ -63,7 +63,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal=False
         self.use_all_pos=False
 
-        self.pred_all_pos=True
+        self.pred_all_pos=False
 
         self.traj_diffusion=False
 
