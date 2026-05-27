@@ -54,6 +54,47 @@ from src.smart.layers import MLPLayer
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t,get_closest_sum_idx
 from src.smart.diffusion.dit.dit import DiT
 
+import torch
+
+
+def expand_base_t_by_gamma(
+    base_t: torch.Tensor,
+    gammas=(0.5, 1.0, 1.0, 1.0),
+):
+    """
+    Args:
+        base_t: Tensor, shape [..., 1] or [...]
+                e.g. [num_graphs, 1]
+        gammas: (gamma_pos, gamma_head, gamma_shape, gamma_vel)
+
+    Returns:
+        base_t_dim: Tensor, shape [..., 8]
+                    dims = [x, y, cos_h, sin_h, length, width, vx, vy]
+    """
+    if base_t.dim() == 0:
+        base_t = base_t.view(1, 1)
+    elif base_t.shape[-1] != 1:
+        base_t = base_t.unsqueeze(-1)
+
+    gamma_pos, gamma_head, gamma_shape, gamma_vel = gammas
+
+    t_pos = base_t ** gamma_pos
+    t_head = base_t ** gamma_head
+    t_shape = base_t ** gamma_shape
+    t_vel = base_t ** gamma_vel
+
+    base_t_dim = torch.cat(
+        [
+            t_pos, t_pos,
+            t_head, t_head,
+            t_shape, t_shape,
+            t_vel, t_vel,
+        ],
+        dim=-1,
+    )
+
+    return base_t_dim
+
 class ScaleFlow(nn.Module):
 
     def __init__(self, args,token_processor):
@@ -305,13 +346,28 @@ class ScaleFlow(nn.Module):
 
                 base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
 
-                shift = torch.tensor(
-                    [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
-                    device=x.device,
-                    dtype=torch.float32,
-                ).view(1, 8)
+                # shift = torch.tensor(
+                #     [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
+                #     device=x.device,
+                #     dtype=torch.float32,
+                # ).view(1, 8)
+                #
+                # gamma_pos = 0.6
+                # gamma_head = 1.0
+                # gamma_shape = 1.0
+                # gamma_vel = 1.0
+                #
+                # t_pos = base_t ** gamma_pos  # [T+1]
+                # t_head =  base_t ** gamma_head # [T+1]
+                # t_shape =  base_t ** gamma_shape # [T+1]
+                # t_vel = base_t ** gamma_vel # [T+1]         # close
+                #
+                # base_t=torch.cat([t_pos, t_pos,t_head, t_head,t_shape,t_shape,t_vel,t_vel], dim=-1)
 
-                base_t = time_shift_fn(base_t, shift)  # [G, 8]
+                base_t=expand_base_t_by_gamma(base_t)
+
+
+                # base_t = time_shift_fn(base_t, shift)  # [G, 8]
 
                 #base_t=base_t[:,None,:]
             else:
@@ -751,21 +807,25 @@ class ScaleFlow(nn.Module):
         elif self.use_flux:
             t_n=t_n
         else:
-            t_n=torch.full((num_agents,1,z.shape[-1]), t_n, device=z.device)
+            t_n=torch.full((num_agents,1,1), t_n, device=z.device)
 
-            shift = torch.tensor(
-                [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
-                device=t_n.device,
-                dtype=torch.float32,
-            ).view(1, 1,8)
+            t_n = expand_base_t_by_gamma(t_n)
 
-            t_n = time_shift_fn(t_n, shift)  # [G, 8]
+            # shift = torch.tensor(
+            #     [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
+            #     device=t_n.device,
+            #     dtype=torch.float32,
+            # ).view(1, 1,8)
+            #
+            # t_n = time_shift_fn(t_n, shift)  # [G, 8]
 
             t_n[tokenized_agent["ego_mask"]]=1
 
-            t_next=torch.full((num_agents,1,z.shape[-1]), t_next, device=z.device)
+            t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            t_next = time_shift_fn(t_next, shift)  # [G, 8]
+            t_next = expand_base_t_by_gamma(t_next)
+
+            # t_next = time_shift_fn(t_next, shift)  # [G, 8]
 
         if self.use_scale:
             padding_mask=tokenized_agent["padding_mask"]
