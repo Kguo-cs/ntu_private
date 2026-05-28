@@ -379,7 +379,7 @@ class ScaleFlow(nn.Module):
                 #
                 # base_t=torch.cat([t_pos, t_pos,t_head, t_head,t_shape,t_shape,t_vel,t_vel], dim=-1)
 
-                base_t=expand_base_t_by_gamma(base_t,self.model.output_dim)
+                base_t=expand_base_t_by_gamma(base_t,self.model.m_delta_dim)
 
 
                 # base_t = time_shift_fn(base_t, shift)  # [G, 8]
@@ -649,7 +649,8 @@ class ScaleFlow(nn.Module):
         if self.use_scale:
             x=out[:,None]
 
-        x_pred[tokenized_agent["ego_mask"]]=x[tokenized_agent["ego_mask"]]
+        if not self.model.pred_gmm:
+            x_pred[tokenized_agent["ego_mask"]]=x[tokenized_agent["ego_mask"]]
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
@@ -824,7 +825,7 @@ class ScaleFlow(nn.Module):
         else:
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
 
-            t_n = expand_base_t_by_gamma(t_n,self.model.output_dim)
+            t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
 
             # shift = torch.tensor(
             #     [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
@@ -838,7 +839,7 @@ class ScaleFlow(nn.Module):
 
             t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            t_next = expand_base_t_by_gamma(t_next,self.model.output_dim)
+            t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
 
             # t_next = time_shift_fn(t_next, shift)  # [G, 8]
 
@@ -881,9 +882,9 @@ class ScaleFlow(nn.Module):
             tokenized_agent["lane_batch"] = lane_batch
 
         if self.use_uniform:
-            z = torch.rand(num_agents, num_samples, self.model.output_dim, device=agent_batch.device)*2-1
+            z = torch.rand(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)*2-1
         else:
-            z = torch.randn(num_agents, num_samples, self.model.output_dim, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
+            z = torch.randn(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
 
             #z[:,:,:6]=torch.rand(num_agents, num_samples, 6, device=agent_batch.device)*2-1
 

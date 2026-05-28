@@ -23,6 +23,31 @@ def gaussian_nll_2d(mu, sigma, target):
 
     return loss
 
+def gm_kl_loss(means,logweights,logstds, sample, eps=1e-4):
+    """
+    Gaussian mixture KL divergence loss (without constant terms), a.k.a. GM NLL loss.
+
+    Args:
+        gm (dict):
+            means (torch.Tensor): (bs, num_gaussians, D)
+            logstds (torch.Tensor): (bs, 1, 1)
+            logweights (torch.Tensor): (bs, num_gaussians, 1)
+        sample (torch.Tensor): (bs, D)
+
+    Returns:
+        torch.Tensor: (bs, )
+    """
+
+    means=means.reshape(means.shape[0],-1,2)
+    logweights=logweights[:,:,None]
+
+    inverse_stds = torch.exp(-logstds).clamp(max=1 / eps)
+    diff_weighted = (sample.unsqueeze(-2) - means) * inverse_stds  # (bs, num_gaussians, D)
+    gaussian_ll = (-0.5 * diff_weighted.square() - logstds).sum(dim=-1)  # (bs, num_gaussians)
+    gm_nll = -torch.logsumexp(gaussian_ll + logweights.squeeze(-1), dim=-1)  # (bs, )
+    return gm_nll
+
+
 def get_scale(x0_prediction,x0):
     weight_factor=torch.abs(x0_prediction.double() - x0.double()) .mean(dim=tuple(range(1, x0.ndim)), keepdim=True) .clip(min=0.00001)
 
@@ -35,7 +60,7 @@ def matching_loss(
 ):
 
     fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
-    real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:]
+    real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:8]
 
 
 
@@ -45,7 +70,7 @@ def matching_loss(
     #
     # pos_loss = dist.mean()
 
-    if fake_state.shape[-1]!=16:
+    if fake_state.shape[-1]<16:
         pos_loss=F.mse_loss(fake_pos, real_pos, reduction="none").mean(-1)
         #pos_loss=torch.tensor(0.0).to(real_state.device)
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
@@ -70,16 +95,35 @@ def matching_loss(
         # shape_loss=get_scale(fake_shape, real_shape)
         # vel_loss=get_scale(fake_vel, real_vel)
 
-    else:
+    elif fake_state.shape[-1]==16:
+        fake_vel = fake_state[:, 6:8]
+
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]
 
         pos_loss=gaussian_nll_2d(fake_pos,pos_std, real_pos).mean()
         heading_loss = gaussian_nll_2d(fake_heading,heading_std, real_heading).mean()
         shape_loss = gaussian_nll_2d(fake_shape, shape_std,real_shape).mean()
         vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel).mean()
+    else:
+        K=8
 
+        fake_pos, fake_heading, fake_shape, fake_vel = fake_state[:, :2*K], fake_state[:, 2*K:4*K], fake_state[:, 4*K:6*K],fake_state[:, 6*K:8*K]
+
+        w=fake_state[:, 8*K:9*K]
+
+        std=fake_state[:,None, -1:]
+
+        pos_loss=gm_kl_loss(fake_pos,w,std, real_pos)#.mean()
+        heading_loss = gm_kl_loss(fake_heading,w,std, real_heading)#.mean()
+        shape_loss = gm_kl_loss(fake_shape, w,std,real_shape)#.mean()
+        vel_loss = gm_kl_loss(fake_vel, w,std, real_vel)#.mean()
+
+        #print(1)
 
         # Shape: L1
+        # means(torch.Tensor): (bs, num_gaussians, D)
+        # logstds(torch.Tensor): (bs, 1, 1)
+        # logweights(torch.Tensor): (bs, num_gaussians, 1)
 
         # cluster_valid_mask=~torch.isnan(real_shape[:,2:])
 
@@ -290,21 +334,25 @@ def get_matching_loss(
         fake_state=fake_state[fake_idx]
         real_state=real_state[real_idx]
 
-    if x_pred:
-        denom = (1 - t).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+    denom = (1 - t[~tokenized_agent["ego_mask"],0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
-        v_target = (real_state - z) / denom
-
-        v_pred = (fake_state - z) / denom
-    else:
-        v_target = real_state #- e
-
-        v_pred = fake_state
+    # if x_pred:
+    #
+    #     v_target = (real_state - z) / denom
+    #
+    #     v_pred = (fake_state - z) / denom
+    # else:
+    # v_target = real_state/ denom #- e
+    #
+    # v_pred = fake_state/ denom
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        v_target[~tokenized_agent["ego_mask"]], v_pred[~tokenized_agent["ego_mask"]],
+        real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
         w_pos=w_pos, w_heading=w_heading, w_shape=w_shape, w_vel=w_vel
     )
+
+    match_loss=match_loss/denom
+
     # if use_match:
     # else:
     #     pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0, device=device)
