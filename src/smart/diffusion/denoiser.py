@@ -112,7 +112,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 11
         else:
             self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)#
-            m_delta_dim = 5+3
+            m_delta_dim = 10
 
         self.use_graph=True
         self.ego_rel = True
@@ -423,6 +423,9 @@ class InitDenoiser(nn.Module):
                 local_vel = torch.cat([local_vel, prev_heading.cos()[:,None],prev_heading.sin()[:,None]], dim=-1)
 
             m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
+
+            if "prev_vel" in tokenized_agent.keys():
+                m_init = torch.cat([m_init, tokenized_agent["prev_vel"][non_ego]], dim=-1)
 
         if self.use_scale:
             diff_input, diff_output , nonego_batch= cluster_point_per_type(m_init,  tokenized_agent)
@@ -864,11 +867,8 @@ class InitDenoiser(nn.Module):
                                         mean_shape], dim=-1)[:, None]
 
                 else:
-                    local_vel=res[:,6:]
-
                     res = torch.cat(
-                        [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:6],
-                         local_vel], dim=-1)[:, None]
+                        [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)[:, None]
         else:
             beta_emb = self.noise_emb(beta)
             # num_agents x 128
@@ -1150,7 +1150,11 @@ class InitDenoiser(nn.Module):
                 # )[0]
                 # gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
 
-                gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)
+                gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)[:, None]
+
+                prev_initial_idx = torch.linalg.norm(center_token_traj - pred_vel[:, None,2:4] * 0.5, dim=-1).argmin(-1)[:, None]
+
+                gt_initial_idx=torch.cat([prev_initial_idx,gt_initial_idx],dim=-1)
 
                 # import numpy as np
                 # import matplotlib.pyplot as plt
@@ -1158,7 +1162,7 @@ class InitDenoiser(nn.Module):
                 # plt.scatter(x=center_token_traj[0,:,0].cpu().numpy(),y=center_token_traj[0,:,1].cpu().numpy())
                 # plt.savefig('/home/ke/code/sim/src/1.png')
 
-            gt_initial_pos,gt_initial_heading,gt_initial_idx=gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None]
+            gt_initial_pos,gt_initial_heading=gt_initial_pos[:, None], gt_initial_heading[:, None]
 
         return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
 

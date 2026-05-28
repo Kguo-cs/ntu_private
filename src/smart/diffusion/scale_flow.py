@@ -89,6 +89,7 @@ def expand_base_t_by_gamma(
             t_head, t_head,
             t_shape, t_shape,
             t_vel, t_vel,
+            t_vel, t_vel,
         ],
         dim=-1,
     )
@@ -866,9 +867,9 @@ class ScaleFlow(nn.Module):
             tokenized_agent["lane_batch"] = lane_batch
 
         if self.use_uniform:
-            z = torch.rand(num_agents, num_samples, 8, device=agent_batch.device)*2-1
+            z = torch.rand(num_agents, num_samples, self.model.output_dim, device=agent_batch.device)*2-1
         else:
-            z = torch.randn(num_agents, num_samples, 8, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
+            z = torch.randn(num_agents, num_samples, self.model.output_dim, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
 
             #z[:,:,:6]=torch.rand(num_agents, num_samples, 6, device=agent_batch.device)*2-1
 

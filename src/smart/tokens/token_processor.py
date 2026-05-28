@@ -101,7 +101,7 @@ class TokenProcessor(torch.nn.Module):
 
         return tokenized_map, tokenized_agent
 
-    def get_init(self,tokenized_agent,start_idx=0):
+    def get_init(self,tokenized_agent):
         batch = tokenized_agent["batch"]
 
         if "ego_mask" not in tokenized_agent:
@@ -112,35 +112,45 @@ class TokenProcessor(torch.nn.Module):
         ego_mask = tokenized_agent["ego_mask"]
         tokenized_agent["initial_shape"] = tokenized_agent["shape"].clone()
 
-        tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:, start_idx]
-        tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:, start_idx]
+        init_idx = 1
 
-        # tokenized_agent["initial_pos"] = tokenized_agent["gt_traj_10hz"][:, start_idx]
-        # tokenized_agent["initial_heading"] = tokenized_agent["gt_head_10hz"][:, start_idx]
+        tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:, init_idx]
+        tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:, init_idx]
+
+        token_traj_all=tokenized_agent["token_traj_all"]
+
+        # tokenized_agent["initial_pos"] = tokenized_agent["gt_traj_10hz"][:, init_idx]
+        # tokenized_agent["initial_heading"] = tokenized_agent["gt_head_10hz"][:, init_idx]
         # tokenized_agent["ego_traj"] = tokenized_agent["gt_traj_10hz"][:, 1:11, :2][ego_mask]
 
-        ego_idx = tokenized_agent["sampled_idx"][ego_mask][:, start_idx:start_idx + 2]
-        ego_token_traj_all = tokenized_agent["token_traj_all"][ego_mask] # .mean(-2)
+        ego_idx = tokenized_agent["sampled_idx"][ego_mask]
+        ego_token_traj_all = token_traj_all[ego_mask] # .mean(-2)
+        #
+        # local_ego_traj = ego_token_traj_all[torch.arange(len(ego_idx))[:, None].repeat(1, 2), ego_idx, -1].reshape(
+        #     -1, 16)  # ego later 10 steps
+        #
+        # tokenized_agent["local_ego_traj"] = local_ego_traj
 
-        local_ego_traj = ego_token_traj_all[torch.arange(len(ego_idx))[:, None].repeat(1, 2), ego_idx, -1].reshape(
-            -1, 16)  # ego later 10 steps
+        pos0, head0 = infer_prev_pose(tokenized_agent["sampled_pos"][ego_mask,:1], tokenized_agent["sampled_heading"][ego_mask,:1], ego_idx[:,:1], ego_token_traj_all)
 
-        tokenized_agent["local_ego_traj"] = local_ego_traj
+        tokenized_agent["ego_pos2"]=torch.cat([pos0,tokenized_agent["sampled_pos"][ego_mask, :2]],dim=1)
+        tokenized_agent["ego_heading2"]=torch.cat([head0,tokenized_agent["sampled_heading"][ego_mask, :2]],dim=1)
 
-        pos_recon, head_recon = infer_prev_pose(tokenized_agent["initial_pos"][ego_mask,None], tokenized_agent["initial_heading"][ego_mask,None], ego_idx[:,:1], ego_token_traj_all)
+        cur_idx = tokenized_agent["sampled_idx"][:, 1].clone()
 
-        tokenized_agent["ego_pos2"]=torch.cat([pos_recon,tokenized_agent["sampled_pos"][ego_mask, :2]],dim=1)
-        tokenized_agent["ego_heading2"]=torch.cat([head_recon,tokenized_agent["sampled_heading"][ego_mask, :2]],dim=1)
-
-        first_idx = tokenized_agent["sampled_idx"][:, 0].clone()
+        prev_idx= tokenized_agent["sampled_idx"][:, 0].clone()
 
         invalid_mask = ~tokenized_agent["token_mask"][:, 0]
 
-        first_idx[invalid_mask] = tokenized_agent["sampled_idx"][:, 1][invalid_mask]
+        cur_idx[invalid_mask] = prev_idx[invalid_mask]
 
-        ego_token_traj_all = tokenized_agent["token_traj_all"][torch.arange(len(first_idx)), first_idx]
+        cur_traj = token_traj_all[torch.arange(len(cur_idx)), cur_idx]
 
-        tokenized_agent["local_vel"] = ego_token_traj_all[:, -1].mean(-2) / 0.5
+        prev_traj = token_traj_all[torch.arange(len(prev_idx)), prev_idx]
+
+        tokenized_agent["local_vel"] = cur_traj[:, -1].mean(-2) / 0.5
+
+        tokenized_agent["prev_vel"] = prev_traj[:, -1].mean(-2) / 0.5
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]
@@ -703,12 +713,12 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["batch_a"]=batch[~ego_mask]
 
                 if self.use_all_pos or self.pred_all_pos:
-                    start_idx = 10
+                    init_idx = 10
 
-                    tokenized_agent["initial_heading"] = heading[:, start_idx]#[valid]
-                    tokenized_agent["initial_pos"] = pos[:, start_idx]#[valid]  # [valid]
+                    tokenized_agent["initial_heading"] = heading[:, init_idx]#[valid]
+                    tokenized_agent["initial_pos"] = pos[:, init_idx]#[valid]  # [valid]
                     tokenized_agent["initial_shape"] = shape#[valid]
-                    tokenized_agent["initial_vel"]= vel[:, start_idx]
+                    tokenized_agent["initial_vel"]= vel[:, init_idx]
                     tokenized_agent["type"] = type.long()#[valid]
                     tokenized_agent["batch"] = batch#[valid]
 
