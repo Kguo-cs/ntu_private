@@ -114,6 +114,9 @@ class InitDenoiser(nn.Module):
             self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)#
             m_delta_dim = 8
 
+        if token_processor.pred_2step:
+            m_delta_dim=10
+
         self.use_graph=True
         self.ego_rel = True
         self.use_scale=False

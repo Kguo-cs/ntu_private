@@ -59,6 +59,7 @@ import torch
 
 def expand_base_t_by_gamma(
     base_t: torch.Tensor,
+    m_delta_dim,
     gammas=(0.5, 0.5, 1.0, 2.0),
 ):# smaller gamma -> more dense in large t -> more sparse
     """
@@ -83,16 +84,29 @@ def expand_base_t_by_gamma(
     t_shape = base_t ** gamma_shape
     t_vel = base_t ** gamma_vel
 
-    base_t_dim = torch.cat(
-        [
-            t_pos, t_pos,
-            t_head, t_head,
-            t_shape, t_shape,
-            t_vel, t_vel,
-           # t_vel, t_vel,
-        ],
-        dim=-1,
-    )
+    if m_delta_dim==8:
+        base_t_dim = torch.cat(
+            [
+                t_pos, t_pos,
+                t_head, t_head,
+                t_shape, t_shape,
+                t_vel, t_vel,
+               # t_vel, t_vel,
+            ],
+            dim=-1,
+        )
+    else:
+        base_t_dim = torch.cat(
+            [
+                t_pos, t_pos,
+                t_head, t_head,
+                t_shape, t_shape,
+                t_vel, t_vel,
+               t_vel, t_vel,
+            ],
+            dim=-1,
+        )
+
 
     return base_t_dim
 
@@ -365,7 +379,7 @@ class ScaleFlow(nn.Module):
                 #
                 # base_t=torch.cat([t_pos, t_pos,t_head, t_head,t_shape,t_shape,t_vel,t_vel], dim=-1)
 
-                base_t=expand_base_t_by_gamma(base_t)
+                base_t=expand_base_t_by_gamma(base_t,self.model.output_dim)
 
 
                 # base_t = time_shift_fn(base_t, shift)  # [G, 8]
@@ -810,7 +824,7 @@ class ScaleFlow(nn.Module):
         else:
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
 
-            t_n = expand_base_t_by_gamma(t_n)
+            t_n = expand_base_t_by_gamma(t_n,self.model.output_dim)
 
             # shift = torch.tensor(
             #     [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
@@ -824,7 +838,7 @@ class ScaleFlow(nn.Module):
 
             t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            t_next = expand_base_t_by_gamma(t_next)
+            t_next = expand_base_t_by_gamma(t_next,self.model.output_dim)
 
             # t_next = time_shift_fn(t_next, shift)  # [G, 8]
 
