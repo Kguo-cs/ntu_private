@@ -644,7 +644,7 @@ class ScaleFlow(nn.Module):
             e[:,0],
             t[:,0],
          #   use_match=True,
-            use_col=True,
+            use_col=False,
             x_pred=self.x_pred
         )
 
