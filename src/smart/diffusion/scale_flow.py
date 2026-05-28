@@ -59,7 +59,7 @@ import torch
 
 def expand_base_t_by_gamma(
     base_t: torch.Tensor,
-    gammas=(1.0, 0.5, 1.0, 1.0),
+    gammas=(1.0, 1.0, 1.0, 2.0),
 ):
     """
     Args:
