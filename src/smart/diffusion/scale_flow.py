@@ -59,8 +59,8 @@ import torch
 
 def expand_base_t_by_gamma(
     base_t: torch.Tensor,
-    gammas=(1.0, 0.5, 1.0, 2.0),
-):
+    gammas=(0.5, 0.5, 1.0, 2.0),
+):# smaller gamma -> more dense in large t -> more sparse
     """
     Args:
         base_t: Tensor, shape [..., 1] or [...]
