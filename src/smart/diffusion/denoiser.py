@@ -112,7 +112,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 11
         else:
             self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)#
-            m_delta_dim = 10
+            m_delta_dim = 8
 
         self.use_graph=True
         self.ego_rel = True
@@ -1152,9 +1152,11 @@ class InitDenoiser(nn.Module):
 
                 gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)[:, None]
 
-                prev_initial_idx = torch.linalg.norm(center_token_traj - pred_vel[:, None,2:4] * 0.5, dim=-1).argmin(-1)[:, None]
+                if pred_vel.shape[-1]>2:
 
-                gt_initial_idx=torch.cat([prev_initial_idx,gt_initial_idx],dim=-1)
+                    prev_initial_idx = torch.linalg.norm(center_token_traj - pred_vel[:, None,2:4] * 0.5, dim=-1).argmin(-1)[:, None]
+
+                    gt_initial_idx=torch.cat([prev_initial_idx,gt_initial_idx],dim=-1)
 
                 # import numpy as np
                 # import matplotlib.pyplot as plt

@@ -138,19 +138,22 @@ class TokenProcessor(torch.nn.Module):
 
         cur_idx = tokenized_agent["sampled_idx"][:, 1].clone()
 
-        prev_idx= tokenized_agent["sampled_idx"][:, 0].clone()
+        #prev_idx= tokenized_agent["sampled_idx"][:, 0].clone()
 
-        invalid_mask = ~tokenized_agent["token_mask"][:, 0]
+        #invalid_mask = ~tokenized_agent["token_mask"][:, 0]
 
-        cur_idx[invalid_mask] = prev_idx[invalid_mask]
+        #cur_idx[invalid_mask] = prev_idx[invalid_mask]
 
         cur_traj = token_traj_all[torch.arange(len(cur_idx)), cur_idx]
 
-        prev_traj = token_traj_all[torch.arange(len(prev_idx)), prev_idx]
+        #prev_traj = token_traj_all[torch.arange(len(prev_idx)), prev_idx]
 
         tokenized_agent["local_vel"] = cur_traj[:, -1].mean(-2) / 0.5
 
-        tokenized_agent["prev_vel"] = prev_traj[:, -1].mean(-2) / 0.5
+        # if init_idx==1:
+        #     prev_traj = token_traj_all[torch.arange(len(prev_idx)), prev_idx]
+        #
+        #     tokenized_agent["prev_vel"] = prev_traj[:, -1].mean(-2) / 0.5
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]

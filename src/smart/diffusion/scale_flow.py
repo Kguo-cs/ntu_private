@@ -89,7 +89,7 @@ def expand_base_t_by_gamma(
             t_head, t_head,
             t_shape, t_shape,
             t_vel, t_vel,
-            t_vel, t_vel,
+           # t_vel, t_vel,
         ],
         dim=-1,
     )

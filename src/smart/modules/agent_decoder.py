@@ -209,17 +209,25 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     token_traj_all = tokenized_agent["token_traj_all"]
 
-                    pos_a5, head5=infer_prev_pose(pos_a[:,:1],head_a[:,:1],sampled_idx[:,1:],token_traj_all)
-                    pos_recon, head_recon=infer_prev_pose(pos_a5, head5,sampled_idx[:,0:1],token_traj_all)
+                    pos_a5, head5=infer_prev_pose(pos_a[:,:1],head_a[:,:1],sampled_idx[:,-1:],token_traj_all)
 
-                    pred_traj_10hz.append(pos_recon)
-                    pred_head_10hz.append(head_recon)
+                    if sampled_idx.shape[1]>1:
+                        pos_a=torch.cat([pos_a5,pos_a],dim=1)
+                        head_a=torch.cat([head5,head_a],dim=1)
 
-                    new_pos,new_head=self.get_next(sampled_idx[:,:1],pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
-                    new_pos1,new_head1=self.get_next(sampled_idx[:,1:2],pos_a5, head5,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                        pos_recon, head_recon=infer_prev_pose(pos_a5, head5,sampled_idx[:,:1],token_traj_all)
 
-                    pos_a=torch.cat([pos_a5,pos_a],dim=1)
-                    head_a=torch.cat([head5,head_a],dim=1)
+                        pred_traj_10hz.append(pos_recon)
+                        pred_head_10hz.append(head_recon)
+
+                        new_pos,new_head=self.get_next(sampled_idx[:,:1],pos_recon, head_recon,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                        new_pos1,new_head1=self.get_next(sampled_idx[:,1:2],pos_a5, head5,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+
+                    else:
+                        pred_traj_10hz.append(pos_a5)
+                        pred_head_10hz.append(head5)
+                        new_pos,new_head=self.get_next(sampled_idx[:,:1],pos_a5, head5,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+
 
             if self.token_processor.use_all_pos:
                 out_dict = {
