@@ -334,7 +334,7 @@ def get_matching_loss(
         fake_state=fake_state[fake_idx]
         real_state=real_state[real_idx]
 
-    denom = (1 - t[~tokenized_agent["ego_mask"],0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+    denom = (1 - t[~tokenized_agent["ego_mask"]]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
     # if x_pred:
     #
@@ -348,10 +348,10 @@ def get_matching_loss(
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
-        w_pos=w_pos, w_heading=w_heading, w_shape=w_shape, w_vel=w_vel
+        w_pos=w_pos/denom[:,0], w_heading=w_heading/denom[:,2], w_shape=w_shape/denom[:,4], w_vel=w_vel/denom[:,6]
     )
 
-    match_loss=match_loss/denom
+    #match_loss=match_loss/denom
 
     # if use_match:
     # else:
