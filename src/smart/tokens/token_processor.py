@@ -114,7 +114,7 @@ class TokenProcessor(torch.nn.Module):
         ego_mask = tokenized_agent["ego_mask"]
         tokenized_agent["initial_shape"] = tokenized_agent["shape"].clone()
 
-        init_idx = 1
+        init_idx = 0
 
         tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:, init_idx]
         tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:, init_idx]
