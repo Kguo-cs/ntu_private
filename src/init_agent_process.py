@@ -171,7 +171,7 @@ def process_file(filename):
 
 
 # if __name__ == "__main__":
-files = os.listdir(agent_data_directory)#[:1000]#[ 357675:]
+files = os.listdir(agent_data_directory)#[220000:]#[ 357675:]
 
 for file in tqdm(files):
     process_file(file)
