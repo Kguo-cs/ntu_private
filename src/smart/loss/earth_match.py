@@ -348,11 +348,18 @@ def get_matching_loss(
     #
     # v_pred = fake_state/ denom
 
+    denom_sq=denom.square()
+
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
-        w_pos=w_pos/denom[:,0], w_heading=w_heading/denom[:,2], w_shape=w_shape/denom[:,4], w_vel=w_vel/denom[:,6]
+        w_pos=w_pos/denom_sq[:,0], w_heading=w_heading/denom_sq[:,2], w_shape=w_shape/denom_sq[:,4], w_vel=w_vel/denom_sq[:,6]
     )
 
+    # match_loss1, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
+    #     real_state[~tokenized_agent["ego_mask"]]/denom, fake_state[~tokenized_agent["ego_mask"]]/denom,
+    #     w_pos=w_pos, w_heading=w_heading, w_shape=w_shape, w_vel=w_vel
+    # )
+    #
     if use_col and x_pred:
         t_mask=t[:,0]>0.8
 
