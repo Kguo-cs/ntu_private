@@ -185,71 +185,51 @@ def compute_vehicle_circles_torch(
 
     return centers, radii
 
-def multi_circle_collision_loss_mem_efficient(
-    pos, heading, length, width, batch,
-    num_circles=5,
-    use_edge=True
-):
-    device = pos.device
-    N = pos.shape[0]
+def compute_penetration(state, start_idx, end_idx, num_circles=5, eps=1e-8):
+    pos = state[:, :2]
+    heading = torch.atan2(state[:, 3], state[:, 2])
 
-    centers, _ = compute_vehicle_circles_torch(
+    # detach if you do not want gradients w.r.t. shape
+    length = state[:, 4].detach()
+    width = state[:, 5].detach()
+
+    centers, radii = compute_vehicle_circles_torch(
         pos, heading, length, width, num_circles
-    )  # (N, C, 2)
+    )  # centers: (N, C, 2), radii: (N, C)
+
+    ci = centers[start_idx]  # (E, C, 2)
+    cj = centers[end_idx]    # (E, C, 2)
+
+    ri = radii[start_idx]    # (E, C)
+    rj = radii[end_idx]      # (E, C)
+
+    diff = ci[:, :, None, :] - cj[:, None, :, :]  # (E, C, C, 2)
+    dist = torch.sqrt((diff ** 2).sum(dim=-1) + eps)  # (E, C, C)
+
+    pair_penetration = ri[:, :, None] + rj[:, None, :] - dist  # (E, C, C)
+
+    # Positive means collision/overlap, negative means no collision
+    penetration = pair_penetration.amax(dim=(1, 2))  # (E,)
+
+    return penetration
+
+def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch):
 
     same_batch = batch[:, None] == batch[None, :]
-    not_self = ~torch.eye(N, dtype=torch.bool, device=device)
+    not_self = ~torch.eye(len(fake_state), dtype=torch.bool, device=fake_state.device)
     edge_mask = same_batch & not_self
 
-    if use_edge:
+    start_idx, end_idx = edge_mask.nonzero(as_tuple=True)
 
-        start_idx, end_idx = edge_mask.nonzero(as_tuple=True)
+    mask = start_idx < end_idx
+    start_idx = start_idx[mask]
+    end_idx = end_idx[mask]
 
-        mask = start_idx < end_idx
-        start_idx = start_idx[mask]
-        end_idx = end_idx[mask]
+    penetration_fake=compute_penetration(fake_state, start_idx, end_idx)
 
-        # Gather centers for edges
-        ci = centers[start_idx]  # (E, C, 2)
-        cj = centers[end_idx]  # (E, C, 2)
+    penetration_real=compute_penetration(real_state, start_idx, end_idx)
 
-        # Compute pairwise circle distances per edge
-        # (E, C, C, 2)
-        diff = ci[:, :, None, :] - cj[:, None, :, :]
-        dist = torch.norm(diff, dim=-1)  # (E, C, C)
-
-        # min over all circle pairs
-        min_dist = dist.amin(dim=(1, 2))  # (E,)
-
-        # collision threshold per edge
-        thresh = (width[start_idx] + width[end_idx]) / torch.sqrt(
-            torch.tensor(3.8, device=device)
-        )  # (E,)
-    else:
-
-        # 初始化为 +inf
-        min_dist = torch.full((N, N), float("inf"), device=device)
-
-        for i in range(num_circles):
-            ci = centers[:, i]           # (N, 2)
-            for j in range(num_circles):
-                cj = centers[:, j]       # (N, 2)
-                d = torch.cdist(ci, cj)  # (N, N)
-                min_dist = torch.minimum(min_dist, d)
-            # diff = ci[:, None, None, :] - centers[None, :, :, :]
-            # dist = torch.norm(diff, dim=-1)   # (N, N, C)
-            #
-            # # min over j circles
-            # min_dist = torch.minimum(min_dist, dist.amin(dim=-1))
-        min_dist=min_dist[edge_mask]
-
-        thresh = (width[:, None] + width[None, :]) / torch.sqrt(
-            torch.tensor(3.8, device=device)
-        )[edge_mask]
-
-    penetration = thresh - min_dist  #penatration>-0.1
-
-    loss = torch.relu(penetration).expm1()*100
+    loss = torch.relu(penetration_fake-penetration_real).expm1()*100
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
@@ -348,7 +328,7 @@ def get_matching_loss(
     #
     # v_pred = fake_state/ denom
 
-    denom_sq=denom#.square()
+    denom_sq=denom.square()
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
@@ -365,11 +345,13 @@ def get_matching_loss(
 
         fake_state=fake_state[t_mask]
 
+        real_state = real_state[t_mask]
+
         batch = tokenized_agent["nonego_batch"][t_mask]#[-len(fake_state):]
 
-        col_loss=multi_circle_collision_loss_mem_efficient(fake_state[:,:2], torch.atan2(fake_state[:,3],fake_state[:,2]), fake_state[:,4].detach(),fake_state[:,5].detach(),batch)[0].mean()
+        col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch)[0].mean()
 
-        # real_state=real_state[t_mask]
+        #
         # col_loss1=multi_circle_collision_loss_mem_efficient(real_state[:,:2], torch.atan2(real_state[:,3],real_state[:,2]), real_state[:,4].detach(),real_state[:,5].detach(),batch)[0].mean()
 
     else:
