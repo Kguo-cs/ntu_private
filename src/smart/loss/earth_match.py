@@ -332,7 +332,7 @@ def get_matching_loss(
     #
     # v_pred = fake_state/ denom
 
-    denom_sq=denom.square()
+    denom_sq=denom#.square()
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
