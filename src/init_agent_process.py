@@ -149,10 +149,13 @@ def process_file(filename):
         for key in ["initial_shape", "initial_pos", "initial_heading", "ego_pos2","ego_heading2","local_vel","type"]:
             init_tokenized_agent[key]=tokenized_agent[key]
 
-        init_tokenized_agent["num_nodes"]=len(init_tokenized_agent["initial_heading"])
 
-        init_tokenized_agent["ego_pos2"] =init_tokenized_agent["ego_pos2"].repeat(init_tokenized_agent["num_nodes"],1,1)
-        init_tokenized_agent["ego_heading2"] =init_tokenized_agent["ego_heading2"].repeat(init_tokenized_agent["num_nodes"],1)
+        init_tokenized_agent["ego_pos2"] =init_tokenized_agent["ego_pos2"].repeat(len(init_tokenized_agent["initial_heading"]),1,1)
+        init_tokenized_agent["ego_heading2"] =init_tokenized_agent["ego_heading2"].repeat(len(init_tokenized_agent["initial_heading"]),1)
+
+        for key in init_tokenized_agent.keys():
+            init_tokenized_agent[key] = init_tokenized_agent[key].cpu()
+        init_tokenized_agent["num_nodes"]=len(init_tokenized_agent["initial_heading"])
 
         data["tokenized_agent"]=init_tokenized_agent
 
