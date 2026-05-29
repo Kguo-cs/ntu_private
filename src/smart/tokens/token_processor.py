@@ -104,9 +104,9 @@ class TokenProcessor(torch.nn.Module):
         return tokenized_map, tokenized_agent
 
     def get_init(self,tokenized_agent):
-        batch = tokenized_agent["batch"]
 
         if "ego_mask" not in tokenized_agent:
+            batch = tokenized_agent["batch"]
             ego_mask = torch.ones_like(batch)
             ego_mask[:-1] = batch[:-1] != batch[1:]
             tokenized_agent["ego_mask"] = ego_mask.bool()
@@ -159,10 +159,6 @@ class TokenProcessor(torch.nn.Module):
 
         else:
             tokenized_agent["local_vel"] = prev_traj[:, -1].mean(-2) / 0.5
-
-
-
-    # if init_idx==1:
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]
@@ -773,20 +769,30 @@ class TokenProcessor(torch.nn.Module):
             else:
                 tokenized_agent=self.tokenize_agent(data)
         else:
-            if  "ego_traj" in agent.keys():
+            if  "initial_pos" in agent.keys():
 
-                for key in ["initial_heading", "initial_pos", "initial_shape", "batch", "ego_traj"]:
+                for key in ["initial_heading", "initial_pos", "initial_shape", "batch","type"]:
                     tokenized_agent[key] = agent[key]  # [agent_mask]
 
                 if "initial_vel" in agent.keys():
                     tokenized_agent["initial_vel"] = agent["initial_vel"]
                 else:
-                    tokenized_agent["initial_vel"] = (agent["initial_pos"] - agent["prev_pos"]) / 0.5
+                    # tokenized_agent["initial_vel"] = (agent["initial_pos"] - agent["prev_pos"]) / 0.5
+                    #
+                    # tokenized_agent["prev_heading"] = agent["prev_heading"]
+                    batch=tokenized_agent["batch"]
+                    ego_mask = torch.ones_like(batch)
+                    ego_mask[:-1] = batch[:-1] != batch[1:]
+                    ego_mask = ego_mask.bool()
 
-                    tokenized_agent["prev_heading"] = agent["prev_heading"]
+                    tokenized_agent["local_vel"] = agent["local_vel"]
+                    tokenized_agent["ego_pos2"] = agent["ego_pos2"][ego_mask]
+                    tokenized_agent["ego_heading2"] = agent["ego_heading2"][ego_mask]
+                    tokenized_agent['type'] = agent['type'].long()
 
-                tokenized_agent['type'] = agent['initial_type'].long()
-                tokenized_agent['shape'] = tokenized_agent['initial_shape']
+
+                # tokenized_agent['type'] = agent['initial_type'].long()
+                # tokenized_agent['shape'] = tokenized_agent['initial_shape']
 
                 if "sampled_pos" in agent.keys():
                     for key in ["sampled_pos", "sampled_heading"]:

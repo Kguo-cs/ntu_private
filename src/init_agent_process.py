@@ -35,9 +35,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./waymo_data/full/training_map2_a_light"
+agent_data_directory = "./waymo_data/full/training_map2_03_light"
 # map_data_directory  = "./waymo_data/map2_light/training"
-ouput_data_directory = "./waymo_data/full/training_map2_init10_inter"
+ouput_data_directory = "./waymo_data/full/training_map2_init5"
 
 pred_init=True
 
@@ -60,10 +60,9 @@ def process_file(filename):
 
     # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
     #
-    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
 
-    if av_index != len(data["agent"]["role"]) - 1:
-        print(av_index,len(data["agent"]["role"]) - 1)
+    # if av_index != len(data["agent"]["role"]) - 1:
+    #     print(av_index,len(data["agent"]["role"]) - 1)
 
     data1= HeteroData(data).cuda()
 
@@ -79,52 +78,83 @@ def process_file(filename):
     #
     # data["tokenized_map"]=tokenized_map
     # data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
-    agent = data1["agent"]
+    if agent_data_directory=="training_map2_a_light":
+        agent = data1["agent"]
+        av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
 
-    valid = agent["valid_mask"]  # [n_agent, n_step]
-    heading = agent["heading"]   ## [n_agent, n_step]
-    pos = agent["position"][..., :2].contiguous()  # # [n_agent, n_step, 2]
-    vel = agent["velocity"]   ## [n_agent, n_step, 2]
-
-
-
-    start_idx=10
-
-    heading = token_processor._clean_heading(valid[:,:start_idx+11], heading[:,:start_idx+11])
-    # ! extrapolate to previous 5th step.
-    valid, pos, heading, vel = token_processor._extrapolate_agent_to_prev_token_step(
-        valid[:,:start_idx+11], pos[:,:start_idx+11], heading[:,:start_idx+11], vel[:,:start_idx+11]
-    )
+        valid = agent["valid_mask"]  # [n_agent, n_step]
+        heading = agent["heading"]   ## [n_agent, n_step]
+        pos = agent["position"][..., :2].contiguous()  # # [n_agent, n_step, 2]
+        vel = agent["velocity"]   ## [n_agent, n_step, 2]
 
 
-    ego_traj=pos[av_index,start_idx+1:start_idx+11].contiguous()
-    #valid = valid[:,start_idx]  # [n_agent, n_step]
-    # heading = heading [:,start_idx]  ## [n_agent, n_step]
-    # pos = pos [:,start_idx]# # [n_agent, n_step, 2]
-    #vel = vel  [:,start_idx] ## [n_agent, n_step, 2]
-    shape = agent["shape"]
-    type = agent["type"]
 
-    tokenized_agent={}
+        start_idx=10
 
-    tokenized_agent["initial_heading"] = heading [:,start_idx]#[valid]  # [n_agent, n_step]
-    tokenized_agent["initial_pos"] = pos [:,start_idx]#[valid]  # [n_agent, n_step, 2]
-    tokenized_agent["prev_pos"] = pos[:,start_idx-5] # [valid]  # [n_agent, n_step, 2]
-    tokenized_agent["prev_heading"] = heading[:,start_idx-5] # [valid]  # [n_agent, n_step, 2]
+        heading = token_processor._clean_heading(valid[:,:start_idx+11], heading[:,:start_idx+11])
+        # ! extrapolate to previous 5th step.
+        valid, pos, heading, vel = token_processor._extrapolate_agent_to_prev_token_step(
+            valid[:,:start_idx+11], pos[:,:start_idx+11], heading[:,:start_idx+11], vel[:,:start_idx+11]
+        )
 
-    tokenized_agent["initial_shape"]= shape#[valid]
-    tokenized_agent["initial_type"] = type#[valid]
-    tokenized_agent["ego_traj"] = ego_traj
 
-    for key in tokenized_agent.keys():
-        tokenized_agent[key] = tokenized_agent[key].cpu()
+        ego_traj=pos[av_index,start_idx+1:start_idx+11].contiguous()
+        #valid = valid[:,start_idx]  # [n_agent, n_step]
+        # heading = heading [:,start_idx]  ## [n_agent, n_step]
+        # pos = pos [:,start_idx]# # [n_agent, n_step, 2]
+        #vel = vel  [:,start_idx] ## [n_agent, n_step, 2]
+        shape = agent["shape"]
+        type = agent["type"]
 
-    tokenized_agent["num_nodes"]=len(tokenized_agent["initial_heading"])
+        tokenized_agent={}
 
-    data["tokenized_agent"]=tokenized_agent#data["tokenized_agent"]
+        tokenized_agent["initial_heading"] = heading [:,start_idx]#[valid]  # [n_agent, n_step]
+        tokenized_agent["initial_pos"] = pos [:,start_idx]#[valid]  # [n_agent, n_step, 2]
+        tokenized_agent["prev_pos"] = pos[:,start_idx-5] # [valid]  # [n_agent, n_step, 2]
+        tokenized_agent["prev_heading"] = heading[:,start_idx-5] # [valid]  # [n_agent, n_step, 2]
 
-    del data['agent']
+        tokenized_agent["initial_shape"]= shape#[valid]
+        tokenized_agent["initial_type"] = type#[valid]
+        tokenized_agent["ego_traj"] = ego_traj
 
+        for key in tokenized_agent.keys():
+            tokenized_agent[key] = tokenized_agent[key].cpu()
+
+        tokenized_agent["num_nodes"]=len(tokenized_agent["initial_heading"])
+
+        data["tokenized_agent"]=tokenized_agent#data["tokenized_agent"]
+
+        del data['agent']
+
+    else:
+        tokenized_agent=data1["tokenized_agent"]
+
+        ego_mask = torch.zeros_like(tokenized_agent['pred_mask']).to(torch.bool)
+        ego_mask[-1]=True
+
+        tokenized_agent["ego_mask"]=ego_mask
+        agent_shape, token_traj_all, token_traj = token_processor._get_agent_shape_and_token_traj(
+            tokenized_agent["type"]
+        )
+
+        tokenized_agent['token_traj_all']=token_traj_all
+
+        tokenized_agent["sampled_idx"]=tokenized_agent["sampled_idx"].long()
+
+
+        token_processor.get_init(tokenized_agent)
+
+        init_tokenized_agent={}
+
+        for key in ["initial_shape", "initial_pos", "initial_heading", "ego_pos2","ego_heading2","local_vel","type"]:
+            init_tokenized_agent[key]=tokenized_agent[key]
+
+        init_tokenized_agent["num_nodes"]=len(init_tokenized_agent["initial_heading"])
+
+        init_tokenized_agent["ego_pos2"] =init_tokenized_agent["ego_pos2"].repeat(init_tokenized_agent["num_nodes"],1,1)
+        init_tokenized_agent["ego_heading2"] =init_tokenized_agent["ego_heading2"].repeat(init_tokenized_agent["num_nodes"],1)
+
+        data["tokenized_agent"]=init_tokenized_agent
 
     output_path = os.path.join(ouput_data_directory, filename[:-3]+'.pt')
 
@@ -138,7 +168,7 @@ def process_file(filename):
 
 
 # if __name__ == "__main__":
-files = os.listdir(agent_data_directory)#[ 357675:]
+files = os.listdir(agent_data_directory)#[:1000]#[ 357675:]
 
 for file in tqdm(files):
     process_file(file)

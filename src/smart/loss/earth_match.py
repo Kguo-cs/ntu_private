@@ -181,7 +181,7 @@ def compute_vehicle_circles_torch(
         pos[:, 1][:, None] + dy
     ], dim=-1)
 
-    radii = radius[:, None].expand(-1, C)
+    radii = width[:, None].expand(-1, C)/ torch.sqrt(torch.tensor(3.8, device=device))
 
     return centers, radii
 
