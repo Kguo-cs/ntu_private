@@ -45,7 +45,7 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=
 #ckpt_path: './waymo_data/dit256_l3_egotraj3_nosde_eps001_epoch=63-step=121792.ckpt'
 #flow in flow
 
-task_name: xflow256_v2_poshead05_real #_sq_sq_col200 #_eps001 #_demn0_eps001 #_101 # #_all_nocol_nocol #shape05 #_real1t08 #_pred10_rev0 #3 #_dt
+task_name: xflow256_v2_poshead05_realweight #_sq_sq_col200 #_eps001 #_demn0_eps001 #_101 # #_all_nocol_nocol #shape05 #_real1t08 #_pred10_rev0 #3 #_dt
 #nonoisesort_postypexy_col100_detachshapehead
 
 #set shape to 100, t scale
@@ -80,7 +80,7 @@ data:
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
-  #train_raw_dir: ${paths.cache_root}/training_map2_init5 #init0_light #init0_light  #init10_inter
+  train_raw_dir: ${paths.cache_root}/training_map2_init5 #init0_light #init0_light  #init10_inter
   #train_raw_dir: ${paths.cache_root}/training_map2_init0_idx #init10_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
   #val_raw_dir: ${paths.cache_root}/validation_lane #44097
 

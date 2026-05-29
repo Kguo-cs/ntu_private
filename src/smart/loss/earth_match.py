@@ -213,7 +213,7 @@ def compute_penetration(state, start_idx, end_idx, num_circles=5, eps=1e-8):
 
     return penetration
 
-def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch):
+def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch,w):
 
     same_batch = batch[:, None] == batch[None, :]
     not_self = ~torch.eye(len(fake_state), dtype=torch.bool, device=fake_state.device)
@@ -225,6 +225,7 @@ def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch):
     start_idx = start_idx[mask]
     end_idx = end_idx[mask]
 
+
     penetration_fake=compute_penetration(fake_state, start_idx, end_idx)
 
     penetration_real=compute_penetration(real_state, start_idx, end_idx)
@@ -232,7 +233,7 @@ def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch):
     fake_col = torch.relu(penetration_fake) #fake>0
     real_col = torch.relu(penetration_real) #real>0
 
-    loss = torch.relu(fake_col - real_col).expm1()*100
+    loss = torch.relu(fake_col - real_col).expm1()*w[start_idx]
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
@@ -331,7 +332,7 @@ def get_matching_loss(
     #
     # v_pred = fake_state/ denom
 
-    denom_sq=denom#.square()
+    denom_sq=denom.square()
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
@@ -344,15 +345,17 @@ def get_matching_loss(
     # )
     #
     if use_col and x_pred:
-        t_mask=t[:,0]>0.8
+        # t_mask=t[:,0]>0.8
+        #
+        # fake_state=fake_state[t_mask]
+        #
+        # real_state = real_state[t_mask]
+        #
+        batch = tokenized_agent["nonego_batch"]#[t_mask]#[-len(fake_state):]
+        denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+        w=1/denom.square()
 
-        fake_state=fake_state[t_mask]
-
-        real_state = real_state[t_mask]
-
-        batch = tokenized_agent["nonego_batch"][t_mask]#[-len(fake_state):]
-
-        col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch)[0].mean()
+        col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)[0].mean()
 
         #
         # col_loss1=multi_circle_collision_loss_mem_efficient(real_state[:,:2], torch.atan2(real_state[:,3],real_state[:,2]), real_state[:,4].detach(),real_state[:,5].detach(),batch)[0].mean()
