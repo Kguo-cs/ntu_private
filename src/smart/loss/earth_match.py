@@ -38,8 +38,9 @@ def gm_kl_loss(means,logweights,logstds, sample, eps=1e-4):
         torch.Tensor: (bs, )
     """
 
-    means=means.reshape(means.shape[0],-1,2)
+   # means=means.reshape(means.shape[0],-1,2)
     logweights=logweights[:,:,None]
+    logstds=logstds[:,None]
 
     inverse_stds = torch.exp(-logstds).clamp(max=1 / eps)
     diff_weighted = (sample.unsqueeze(-2) - means) * inverse_stds  # (bs, num_gaussians, D)
@@ -106,17 +107,18 @@ def matching_loss(
         vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel).mean()
     else:
         K=8
+        mean = fake_state[:, :8 * K].reshape(-1,K,8)
 
-        fake_pos, fake_heading, fake_shape, fake_vel = fake_state[:, :2*K], fake_state[:, 2*K:4*K], fake_state[:, 4*K:6*K],fake_state[:, 6*K:8*K]
+        fake_pos, fake_heading, fake_shape, fake_vel = mean[:,:, :2], mean[:, :, 2:4], mean[:,:,  4:6],mean[:,:,  6:8]
 
-        w=fake_state[:, 8*K:9*K]
+        w=fake_state[:, 8*K:9*K].log_softmax(dim=1)
 
-        std=fake_state[:,None, -1:]
+        pos_std,heading_std, shape_std,vel_std=fake_state[:, 9*K:9*K+2], fake_state[:, 9*K+2:9*K+4], fake_state[:, 9*K+4:9*K+6], fake_state[:, 9*K+6:]
 
-        pos_loss=gm_kl_loss(fake_pos,w,std, real_pos)#.mean()
-        heading_loss = gm_kl_loss(fake_heading,w,std, real_heading)#.mean()
-        shape_loss = gm_kl_loss(fake_shape, w,std,real_shape)#.mean()
-        vel_loss = gm_kl_loss(fake_vel, w,std, real_vel)#.mean()
+        pos_loss=gm_kl_loss(fake_pos,w,pos_std, real_pos)#.mean()
+        heading_loss = gm_kl_loss(fake_heading,w,heading_std, real_heading)#.mean()
+        shape_loss = gm_kl_loss(fake_shape, w,shape_std,real_shape)#.mean()
+        vel_loss = gm_kl_loss(fake_vel, w,vel_std, real_vel)#.mean()
 
         #print(1)
 
@@ -247,7 +249,7 @@ def multi_circle_collision_loss_mem_efficient(
 
     penetration = thresh - min_dist  #penatration>-0.1
 
-    loss = torch.relu(penetration).expm1()*20
+    loss = torch.relu(penetration).expm1()*100
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
@@ -348,7 +350,7 @@ def get_matching_loss(
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
-        w_pos=w_pos/denom[:,0], w_heading=w_heading/denom[:,0], w_shape=w_shape/denom[:,0], w_vel=w_vel/denom[:,0]
+        w_pos=w_pos/denom[:,0], w_heading=w_heading/denom[:,2], w_shape=w_shape/denom[:,4], w_vel=w_vel/denom[:,6]
     )
 
     #match_loss=match_loss/denom

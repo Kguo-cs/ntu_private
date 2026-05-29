@@ -660,7 +660,7 @@ class ScaleFlow(nn.Module):
             e[:,0],
             t[:,0],
          #   use_match=True,
-            use_col=True,
+            use_col=not self.model.pred_gmm,
             x_pred=self.x_pred
         )
 
@@ -849,6 +849,23 @@ class ScaleFlow(nn.Module):
             t_n[padding_mask]=0
 
         x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask)#[...,:z.shape[-1]]
+
+        if self.model.pred_gmm:
+            K=8
+            x_cond=x_cond[:,0]
+
+            gm_means=x_cond[:,:8 * K].reshape(-1,K,8)
+            logstds=x_cond[:, 9*K:]
+            gm_logweights=x_cond[:,8 * K:9 * K]#.log_softmax(dim=1)
+
+            inds=torch.multinomial(gm_logweights.softmax(dim=-1),1,replacement=True)[:,:,None].repeat(1,1,8)
+
+            means=gm_means.gather( dim=1,index=inds)
+
+            stds = logstds.exp()  # (bs, *, 1, 1, 1, 1) or (bs, *, num_gaussians, 1, h, w)
+
+            # (bs, *, n_samples, out_channels, h, w)
+            x_cond = stds[:,None] * torch.randn_like(z) + means
 
         if self.x_pred:
 

@@ -152,10 +152,10 @@ class InitDenoiser(nn.Module):
             self.output_dim=m_delta_dim
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
-        self.pred_gmm=False
+        self.pred_gmm=True
 
         if self.pred_gmm:
-            self.output_dim=m_delta_dim*8+8+1
+            self.output_dim=m_delta_dim*8+8+m_delta_dim
 
         if pred_all_pos:
             self.output_dim=10*3
