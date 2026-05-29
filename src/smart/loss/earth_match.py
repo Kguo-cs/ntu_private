@@ -348,7 +348,7 @@ def get_matching_loss(
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
-        w_pos=w_pos/denom[:,0], w_heading=w_heading/denom[:,2], w_shape=w_shape/denom[:,4], w_vel=w_vel/denom[:,6]
+        w_pos=w_pos/denom[:,0], w_heading=w_heading/denom[:,0], w_shape=w_shape/denom[:,0], w_vel=w_vel/denom[:,0]
     )
 
     #match_loss=match_loss/denom
