@@ -363,7 +363,7 @@ def get_matching_loss(
     else:
         col_loss = torch.zeros_like(match_loss.mean())  #.detach().detach()
 
-    return match_loss/20,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
+    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
 
 def sample_linear_t(
