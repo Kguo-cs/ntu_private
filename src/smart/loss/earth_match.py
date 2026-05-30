@@ -233,7 +233,7 @@ def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch,w):
     fake_col = torch.relu(penetration_fake) #fake>0
     real_col = 0#torch.relu(penetration_real) #real>0
 
-    loss = torch.relu(fake_col-real_col).expm1()*10#*w[start_idx]
+    loss = torch.relu(fake_col-real_col).expm1()*100#*w[start_idx]
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
