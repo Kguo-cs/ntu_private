@@ -345,7 +345,7 @@ def get_matching_loss(
     # )
     #
     if use_col and x_pred:
-        t_mask=t[:,0]>0.8
+        t_mask=t[:,0]>0
 
         fake_state=fake_state[t_mask]
 
