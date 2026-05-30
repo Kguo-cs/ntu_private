@@ -306,7 +306,13 @@ def get_closest_sum_idx(
         real_idx_all.append(idx[row])
         fake_idx_all.append(idx[col])
 
-    return torch.cat(fake_idx_all), torch.cat(real_idx_all)
+    real_idx=torch.cat(real_idx_all)
+    inv_real_idx = torch.empty_like(real_idx)
+    inv_real_idx[real_idx] = torch.arange(real_idx.numel(), device=real_idx.device)
+
+    fake_idx=torch.cat(fake_idx_all)[inv_real_idx]
+
+    return fake_idx
 
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,z,e,t,
@@ -318,7 +324,6 @@ def get_matching_loss(
         fake_idx, real_idx=get_closest_sum_idx(fake_state/scale, real_state/scale, tokenized_agent,all_state=all_state,use_all_type=use_all_type)
 
         fake_state=fake_state[fake_idx]
-        real_state=real_state[real_idx]
 
     denom = (1 - t[~tokenized_agent["ego_mask"]]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 

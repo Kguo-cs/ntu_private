@@ -21,7 +21,6 @@ from typing import Dict, Mapping, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from tensorflow_probability.python.bijectors import scale
 from torch.ao.nn.quantized.functional import clamp
 from torch_cluster import radius
 from torch_geometric.data import Batch
@@ -322,6 +321,10 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise = self.noise_model(e, t, tokenized_agent, initial_map_feature)
 
+            fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
+
+            x_pred_noise = x_pred_noise[fake_idx]
+
             policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,
                 x_pred_noise[:, 0],
@@ -329,11 +332,11 @@ class ScaleFlow(nn.Module):
                 e[:, 0],
                 e[:, 0],
                 t[:, 0],
-                use_match=True,
+                # use_match=True,
                 use_col=False,
                 x_pred=False
             )
-
+            #
             #policy_loss=policy_loss*10
 
             std = torch.clamp(x_pred_noise[:, :,8:].detach().exp(), min=1e-5)
