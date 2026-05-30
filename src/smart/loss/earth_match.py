@@ -351,7 +351,7 @@ def get_matching_loss(
 
         real_state = real_state[t_mask]
 
-        batch = tokenized_agent["nonego_batch"]#[t_mask]#[-len(fake_state):]
+        batch = tokenized_agent["nonego_batch"][t_mask]#[-len(fake_state):]
         denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
         w=1/denom.square()
 
