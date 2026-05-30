@@ -226,7 +226,7 @@ def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch,w):
     end_idx = end_idx[mask]
 
 
-    penetration_fake=compute_penetration(fake_state, start_idx, end_idx).clamp_max(max=1)*10
+    penetration_fake=compute_penetration(fake_state, start_idx, end_idx).clamp_max(max=0.3)*10
 
     #penetration_real=compute_penetration(real_state, start_idx, end_idx)
 
