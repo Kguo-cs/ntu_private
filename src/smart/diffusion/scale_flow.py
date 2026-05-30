@@ -200,7 +200,7 @@ class ScaleFlow(nn.Module):
 
         self.use_uniform=False
 
-        self.learn_noise=False
+        self.learn_noise=True
 
         self.mc_num=1
 
@@ -318,7 +318,7 @@ class ScaleFlow(nn.Module):
         # real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
         # e = e[real_idx]
         if self.learn_noise:
-            t = torch.zeros((len(agent_batch)), device=x.device, dtype=torch.float32)[:,None,None]
+            t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=x.device, dtype=torch.float32)
 
             x_pred_noise = self.noise_model(e, t, tokenized_agent, initial_map_feature)
 
