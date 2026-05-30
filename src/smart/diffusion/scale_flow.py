@@ -914,8 +914,6 @@ class ScaleFlow(nn.Module):
 
         diff_input=diff_input[:,None]
 
-        z[tokenized_agent["ego_mask"]]=diff_input[tokenized_agent["ego_mask"]]
-
         # real_pos = z[:, 0, 0] + z[:, 0, 1]
         # real_idx = torch.argsort(real_pos, stable=True)
         # real_idx = real_idx[torch.argsort(nonego_type[real_idx], stable=True)]
@@ -936,6 +934,8 @@ class ScaleFlow(nn.Module):
             std[:, :,:2] = std[:, :,:2] * 0.5
 
             z=std*torch.randn_like(z)+x_pred_noise[:, :,:8]
+
+        z[tokenized_agent["ego_mask"]]=diff_input[tokenized_agent["ego_mask"]]
 
         z_list=[z]
         x_list=[]
