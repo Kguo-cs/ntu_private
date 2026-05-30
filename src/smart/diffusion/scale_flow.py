@@ -921,7 +921,7 @@ class ScaleFlow(nn.Module):
         #tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][real_idx]
 
         if self.learn_noise:
-            t = torch.zeros((len(agent_batch)), device=z.device, dtype=torch.float32)[:,None,None]
+            t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=z.device, dtype=torch.float32)
 
             x_pred_noise = self.noise_model(z, t, tokenized_agent, initial_map_feature)
 
