@@ -160,7 +160,7 @@ class InitDenoiser(nn.Module):
         if pred_all_pos:
             self.output_dim=10*3
 
-        self.label_drop_prob=0.5
+        self.label_drop_prob=0
 
         self.use_bin=False
 
