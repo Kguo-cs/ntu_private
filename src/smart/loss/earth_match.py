@@ -87,7 +87,7 @@ def matching_loss(
         #     shape_loss =torch.zeros_like(vel_loss)
         #
         # else:
-        shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean(-1)
+        shape_loss = F.mse_loss(fake_shape, real_shape, reduction="none").mean(-1)
 
         vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean(-1)
 
