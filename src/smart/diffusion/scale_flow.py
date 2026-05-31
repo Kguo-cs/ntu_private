@@ -888,7 +888,7 @@ class ScaleFlow(nn.Module):
         if self.model.label_drop_prob>0:
             x_cond_non = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=0)
             v_pred_non =(x_cond_non - z) / (1.0 - t_n).clamp_min(self.t_eps)
-            v_cond=v_cond+(v_cond - v_pred_non)*4
+            v_cond=v_cond+(v_cond - v_pred_non)*3
 
         return v_cond,t_n,t_next,x_cond
 
