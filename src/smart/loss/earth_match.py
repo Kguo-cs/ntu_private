@@ -233,7 +233,7 @@ def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch,w):
     fake_col = torch.relu(penetration_fake) #fake>0
     real_col = 0#torch.relu(penetration_real) #real>0
 
-    loss = torch.relu(fake_col-real_col).expm1()*100#*w[start_idx]
+    loss = torch.relu(fake_col-real_col).expm1()*w[start_idx]
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
@@ -350,13 +350,13 @@ def get_matching_loss(
     # )
     #
     if use_col and x_pred:
-        t_mask=t[:,0]>0.8
-
-        fake_state=fake_state[t_mask]
-
-        real_state = real_state[t_mask]
-
-        batch = tokenized_agent["nonego_batch"][t_mask]#[-len(fake_state):]
+        # t_mask=t[:,0]>0.8
+        #
+        # fake_state=fake_state[t_mask]
+        #
+        # real_state = real_state[t_mask]
+        #
+        batch = tokenized_agent["nonego_batch"]#[t_mask]#[-len(fake_state):]
         denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
         w=1/denom.square()
 
