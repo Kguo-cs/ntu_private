@@ -59,7 +59,7 @@ import torch
 def expand_base_t_by_gamma(
     base_t: torch.Tensor,
     m_delta_dim,
-    gammas=(0.25, 0.5, 1.0, 2.0),
+    gammas=(0.5, 0.5, 1.0, 4.0),
 ):# smaller gamma -> more dense in large t -> more sparse
     """
     Args:
@@ -776,6 +776,7 @@ class ScaleFlow(nn.Module):
         v_pred,t_n,t_next,x = self._forward_sample(z, t, t_next,labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
 
+
         if self.use_cluster:
             increasing=tokenized_agent["increasing"]
             non_increasing=~increasing
@@ -811,6 +812,7 @@ class ScaleFlow(nn.Module):
         else:
             z = z + (t_next - t_n) * v_pred
             log_prob=None#torch.zeros_like(z)
+
 
         return z,x,t_n,log_prob
 
@@ -853,7 +855,7 @@ class ScaleFlow(nn.Module):
 
             t_n[padding_mask]=0
 
-        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask)#[...,:z.shape[-1]]
+        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=1)#[...,:z.shape[-1]]
 
         if self.model.pred_gmm:
             K=8
@@ -882,6 +884,11 @@ class ScaleFlow(nn.Module):
             v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
         else:
             v_cond=x_cond
+
+        if self.model.label_drop_prob>0:
+            x_cond_non = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=0)
+            v_pred_non =(x_cond_non - z) / (1.0 - t_n).clamp_min(self.t_eps)
+            v_cond=v_cond+(v_cond - v_pred_non)*2
 
         return v_cond,t_n,t_next,x_cond
 

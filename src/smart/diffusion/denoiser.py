@@ -160,7 +160,7 @@ class InitDenoiser(nn.Module):
         if pred_all_pos:
             self.output_dim=10*3
 
-        self.label_drop_prob=0
+        self.label_drop_prob=0.5
 
         self.use_bin=False
 
@@ -340,7 +340,7 @@ class InitDenoiser(nn.Module):
 
         return input#[:,None]
 
-    def drop_labels(self, labels,ego_embedding,mode):
+    def drop_labels(self, labels,mode):
 
         if mode==1:
             drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
@@ -348,9 +348,7 @@ class InitDenoiser(nn.Module):
         else:
             out=torch.full_like(labels, self.num_classes)
 
-        out1 = ego_embedding#torch.where(drop[:,None].repeat(1,ego_embedding.shape[1]), torch.full_like(ego_embedding, 0), ego_embedding)#ego_embedding#
-
-        return out,out1
+        return out
 
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
@@ -484,7 +482,7 @@ class InitDenoiser(nn.Module):
                 tokenized_agent: HeteroData,
                 map_feature: Mapping[str, torch.Tensor],
                 eval_mask=None,
-                num_samples=1,
+                mode=1
                 ) -> Dict[str, torch.Tensor]:
 
         device = m_delta.device
@@ -503,7 +501,11 @@ class InitDenoiser(nn.Module):
             if not self.use_rel_ego:
                 ego_embedding=ego_embedding[eval_mask]
 
-        #type,ego_embedding = self.drop_labels(type,ego_embedding,mode) if self.training else (type,ego_embedding)
+        if self.label_drop_prob>0:
+            if self.training:
+                type = self.drop_labels(type,mode)
+            elif mode==0:
+                type=torch.full_like(type, self.num_classes)
 
         if self.use_roformer:
             m_delta=m_delta.reshape(m_delta.shape[0],-1)
