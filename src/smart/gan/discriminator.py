@@ -130,6 +130,8 @@ class InitDiscriminator(nn.Module):
 
         self.use_Rp=False
 
+        self.use_bce=True
+
         self.Gamma=0
 
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
@@ -140,7 +142,6 @@ class InitDiscriminator(nn.Module):
         agent_n = len(Samples)
 
         if gamma>0:
-
             Samples = Samples.detach().requires_grad_(True)
 
         Logits, fake_weight, end_index = self.forward(Samples,  tokenized_agent)
@@ -155,12 +156,12 @@ class InitDiscriminator(nn.Module):
             dis_loss = nn.functional.softplus(-RelativisticLogits).mean()
         else:
             Logits1, interact_logits = Logits[:agent_n], Logits[agent_n:]
-            #
-            # if gamma>0:
-            #     dis_loss = F.binary_cross_entropy_with_logits(Logits1, torch.zeros_like(Logits1)+target,
-            #                                            reduction='mean')
-            # else:
-            dis_loss =(Logits1+1-2*target).square().mean() #(1-2*target)*   FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
+
+            if self.use_bce:
+                dis_loss = F.binary_cross_entropy_with_logits(Logits1, torch.zeros_like(Logits1)+target,
+                                                       reduction='mean')
+            else:
+                dis_loss =(Logits1+1-2*target).square().mean() #(1-2*target)*   FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
 
             gen_rewards = Logits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
