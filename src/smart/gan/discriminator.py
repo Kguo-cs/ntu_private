@@ -48,11 +48,11 @@ class InitDiscriminator(nn.Module):
 
         self.dis_weight=10
         self.dist_decay=3
-        self.dis_vel = True
+        self.dis_vel = False
 
-        if self.dis_vel:
-            self.use_decompose = False
-            self.use_entry_former=True
+       # if self.dis_vel:
+        self.use_decompose = False
+        self.use_entry_former=True
 
         if self.use_entry_former:
 
@@ -171,7 +171,7 @@ class InitDiscriminator(nn.Module):
                 dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
                                                        reduction='mean')
             else:
-                dis_loss =(1-2*target)*   FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
+                dis_loss =(FakeLogits1+1-2*target).square().mean() #(1-2*target)*   FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
 
             gen_rewards = FakeLogits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
@@ -256,8 +256,8 @@ class InitDiscriminator(nn.Module):
 
         logits_real, logits_fake = out_jvp.chunk(2, 0)
 
-        dis_adv_real_loss = logits_real.sub(1).square().mean()
-        dis_adv_fake_loss = logits_fake.add(1).square().mean()
+        dis_adv_real_loss = logits_real.sub(1).square().mean() #real close to 1
+        dis_adv_fake_loss = logits_fake.add(1).square().mean() #
         dis_adv_loss = dis_adv_real_loss + dis_adv_fake_loss
         dis_cp_loss = out.square().mean().mul(cp_scale)
 
@@ -328,7 +328,7 @@ class InitDiscriminator(nn.Module):
     def gan_update(self,logger,optimizer,G,inputs):
         RealSamples,FakeSamples, match_loss, noised_z,timesteps, tokenized_agent= inputs
 
-        if self.dis_vel:
+        if self.use_entry_former:
             tokenized_agent["lengths"] = torch.bincount(tokenized_agent["nonego_batch"], minlength=tokenized_agent["num_graphs"]).tolist()
 
             map_feature = tokenized_agent["initial_map_feature"]
@@ -356,10 +356,10 @@ class InitDiscriminator(nn.Module):
 
             g_loss=self.jvp_gen(velocity_pred,timesteps,noised_z,tokenized_agent)
         else:
-            g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,tokenized_agent)
+            g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,1,tokenized_agent)
 
 
-        loss=match_loss*0.1-g_loss
+        loss=match_loss*0.1+g_loss
 
        # logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
 
@@ -582,5 +582,5 @@ class InitDiscriminator(nn.Module):
             return score, weight, end_index
 
         else:
-            return score
+            return score,1,None
 
