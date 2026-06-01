@@ -255,7 +255,7 @@ class InitDiscriminator(nn.Module):
 
         loss=match_loss#*0.1-g_loss
 
-        logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
+       # logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
 
 
         opt_G.zero_grad()
