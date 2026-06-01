@@ -52,7 +52,7 @@ class InitDiscriminator(nn.Module):
 
        # if self.dis_vel:
         self.use_decompose = False
-        self.use_entry_former=True
+        self.use_entry_former=False
 
         if self.use_entry_former:
 
@@ -128,20 +128,9 @@ class InitDiscriminator(nn.Module):
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
-        self.use_GAIL=True
-
         self.use_Rp=False
 
-
-        if self.use_GAIL:
-            self.return_meanstd = RunningMeanStdTorch(shape=(1))
-
         self.Gamma=0
-
-        self.use_sde=False
-
-        self.noise_level=0.7
-
 
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
