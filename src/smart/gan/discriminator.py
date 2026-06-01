@@ -44,7 +44,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = True
+        self.use_decompose = False
 
         self.dis_weight=10
         self.dist_decay=3
@@ -52,7 +52,7 @@ class InitDiscriminator(nn.Module):
 
        # if self.dis_vel:
         self.use_decompose = False
-        self.use_entry_former=False
+        self.use_entry_former = False
 
         if self.use_entry_former:
 
@@ -130,7 +130,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_Rp=False
 
-        self.use_bce=True
+        self.use_bce=False
 
         self.Gamma=1
 
