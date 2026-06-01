@@ -132,7 +132,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_bce=True
 
-        self.Gamma=0
+        self.Gamma=1
 
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
