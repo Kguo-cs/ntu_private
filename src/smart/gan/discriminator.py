@@ -48,11 +48,11 @@ class InitDiscriminator(nn.Module):
 
         self.dis_weight=10
         self.dist_decay=3
-        self.dis_vel = False
+        self.dis_vel = True
 
-        # if self.dis_vel:
-        self.use_decompose = False
-        # self.use_entry_former=True
+        if self.dis_vel:
+            self.use_decompose = False
+            self.use_entry_former=True
 
         if self.use_entry_former:
 
@@ -322,17 +322,41 @@ class InitDiscriminator(nn.Module):
         torch.nn.utils.clip_grad_norm_( self.parameters(),   max_norm=1   )
         opt_D.step()
 
-        return gen_rewards,expert_rewards,FakeSamples
+        # return gen_rewards,expert_rewards,FakeSamples
 
 
     def gan_update(self,logger,optimizer,G,inputs):
-        RealSamples,fake_samples, match_loss, noised_z,timesteps, tokenized_agent= inputs
+        RealSamples,FakeSamples, match_loss, noised_z,timesteps, tokenized_agent= inputs
+
+        if self.dis_vel:
+            tokenized_agent["lengths"] = torch.bincount(tokenized_agent["nonego_batch"], minlength=tokenized_agent["num_graphs"]).tolist()
+
+            map_feature = tokenized_agent["initial_map_feature"]
+
+            batch_pl = map_feature["batch"]
+            pos_pl = map_feature["position"]
+            orient_pl = map_feature["orientation"]
+            feat_map = map_feature["pt_token"]
+
+            lengths_pl = torch.bincount(batch_pl, minlength=tokenized_agent["num_graphs"]).tolist()
+
+            pad_pos_pl, pad_orient_pl, pad_map_feature=self.padding(pos_pl,orient_pl, feat_map, lengths_pl)
+
+            tokenized_agent["pad_map_mask"]=torch.any(pad_map_feature != 0, dim=-1)
+            tokenized_agent["pad_pos_pl"]=pad_pos_pl
+            tokenized_agent["pad_orient_pl"]=pad_orient_pl
+            tokenized_agent["pad_map_feature"]=pad_map_feature
 
         opt_G, opt_D = optimizer
 
-        self.update_dis(logger,opt_D,inputs,fake_samples.detach())
+        self.update_dis(logger,opt_D,inputs,FakeSamples.detach())
 
-        g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,tokenized_agent)
+        if self.dis_vel:
+            velocity_pred= (FakeSamples - noised_z) /(1 -timesteps).clamp_min(0.05)
+
+            g_loss=self.jvp_gen(velocity_pred,timesteps,noised_z,tokenized_agent)
+        else:
+            g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,tokenized_agent)
 
 
         loss=match_loss*0.1-g_loss
@@ -408,8 +432,7 @@ class InitDiscriminator(nn.Module):
 
         return bce_loss,reward
 
-    def padding(self, pos, heading, feature, batch, num_graphs):
-        lengths = torch.bincount(batch, minlength=num_graphs).tolist()
+    def padding(self, pos, heading, feature, lengths):
 
         padding_pos_a = padding(pos, lengths, padding_value=0)  # b, n, d
         padding_heading_a = padding(heading, lengths, padding_value=0)  # b, n, d
@@ -417,7 +440,7 @@ class InitDiscriminator(nn.Module):
 
         return padding_pos_a, padding_heading_a, padding_features_a
 
-    def embed_input(self, initial_pos, initial_heading, initial_type, initial_shape, batch, num_graphs):
+    def embed_input(self, initial_pos, initial_heading, initial_type, initial_shape, lengths):
         type_embedding = self.type_embedding(initial_type)
        # pos_embedding = self.pos_embedding(initial_pos)
         #heading_embedding = self.head_embedding(initial_heading[:, None])
@@ -425,7 +448,7 @@ class InitDiscriminator(nn.Module):
 
         feat_a = type_embedding + shape_embedding#+ heading_embedding + pos_embedding
 
-        pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch, num_graphs)
+        pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, lengths)
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
@@ -433,14 +456,12 @@ class InitDiscriminator(nn.Module):
 
     def forward(self,inputs,   tokenized_agent,timesteps=None):
 
-        map_feature=tokenized_agent["initial_map_feature"]
 
         #inputs=inputs+torch.randn_like(inputs)*1e-2
         pos_a=inputs[...,:2]
         head_a=torch.atan2(inputs[...,3],inputs[...,2])
         shape=inputs[...,4:]
 
-        batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type"]
         num_graphs = tokenized_agent["num_graphs"]
        # ego_embedding = tokenized_agent["ego_embedding"].detach()
@@ -448,14 +469,15 @@ class InitDiscriminator(nn.Module):
         if self.use_entry_former:
             head_a = wrap_angle(head_a)
 
-            pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, num_graphs)
+            pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, tokenized_agent["lengths"])
 
-            batch_pl = map_feature["batch"]
-            pos_pl = map_feature["position"]
-            orient_pl = map_feature["orientation"]
-            feat_map = map_feature["pt_token"]
             #
             # feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
+            feat_map=tokenized_agent["pad_map_feature"]
+            pos_pl=tokenized_agent["pad_pos_pl"]
+            orient_pl=tokenized_agent["pad_orient_pl"]
+            map_mask=tokenized_agent["pad_map_mask"]
+
 
             if self.use_transformer:
                 with torch.backends.cuda.sdp_kernel(
@@ -469,26 +491,19 @@ class InitDiscriminator(nn.Module):
                         memory_key_padding_mask=~map_mask
                     )
             else:
-
                 attr_feature =self.entry_former(feat_a_b, pos_a_b,  heading_a_b, mask_a_b,
                                                                   feat_map,
                                                                   pos_pl,
                                                                   orient_pl, map_mask)
-                # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                #                                                   heading_a_b, mask_a_b,
-                #                                                   feat_map,
-                #                                                   pos_pl,
-                #                                                   orient_pl, map_mask)
-                #
-                # attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
-                #                                                use_time=False,use_causal=False)
-
             attr_feature = attr_feature[mask_a_b]
         else:
+            map_feature = tokenized_agent["initial_map_feature"]
+
             batch_pl = map_feature["batch"]
             pos_pl = map_feature["position"]
             orient_pl = map_feature["orientation"]
             feat_map = map_feature["pt_token"]
+            batch = tokenized_agent["nonego_batch"]
 
             head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
@@ -564,7 +579,8 @@ class InitDiscriminator(nn.Module):
             score=torch.cat([score, interact_logits], dim=0)
 
             weight = torch.exp(-dist[:, None] / self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
-        else:
-            weight = None
+            return score, weight, end_index
 
-        return score, weight, end_index
+        else:
+            return score
+
