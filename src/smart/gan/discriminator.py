@@ -147,39 +147,39 @@ class InitDiscriminator(nn.Module):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
 
-    def get_d_loss(self,FakeSamples,target, tokenized_agent,gamma=0):
-        agent_n = len(FakeSamples)
+    def get_d_loss(self,Samples,target, tokenized_agent,gamma=0):
+        agent_n = len(Samples)
 
         if gamma>0:
 
-            FakeSamples = FakeSamples.detach().requires_grad_(True)
+            Samples = Samples.detach().requires_grad_(True)
 
-        FakeLogits, fake_weight, end_index = self.forward(FakeSamples,  tokenized_agent)
+        Logits, fake_weight, end_index = self.forward(Samples,  tokenized_agent)
 
         if gamma>0:
-            Penalty = (gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits).mean()
+            Penalty = (gamma / 2) * self.ZeroCenteredGradientPenalty(Samples, Logits).mean()
         else:
-            Penalty=torch.tensor(0.0,device=FakeSamples.device)
+            Penalty=torch.tensor(0.0,device=Samples.device)
 
         if self.use_Rp:
             RelativisticLogits = RealLogits - FakeLogits
             dis_loss = nn.functional.softplus(-RelativisticLogits).mean()
         else:
-            FakeLogits1, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+            Logits1, interact_logits = Logits[:agent_n], Logits[agent_n:]
+            #
+            # if gamma>0:
+            #     dis_loss = F.binary_cross_entropy_with_logits(Logits1, torch.zeros_like(Logits1)+target,
+            #                                            reduction='mean')
+            # else:
+            dis_loss =(Logits1+1-2*target).square().mean() #(1-2*target)*   FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
 
-            if gamma>0:
-                dis_loss = F.binary_cross_entropy_with_logits(FakeLogits1, torch.zeros_like(FakeLogits1)+target,
-                                                       reduction='mean')
-            else:
-                dis_loss =(FakeLogits1+1-2*target).square().mean() #(1-2*target)*   FakeLogits1.mean() #torch.mean(F.relu(1.0 +(1-2*target)* FakeLogits1))#0->1
-
-            gen_rewards = FakeLogits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
+            gen_rewards = Logits1[:, 0]  ##torch.nn.functional.logsigmoid(FakeLogits1.mean(-1))
 
             if self.use_decompose:
                 if gamma > 0:
                     fake_interact_bce_loss = F.binary_cross_entropy_with_logits(
-                        fake_interact_logits,
-                        torch.zeros_like(fake_interact_logits)+target,
+                        interact_logits,
+                        torch.zeros_like(interact_logits)+target,
                        # weight=fake_weight.detach(),
                         reduction='none'
                     )
@@ -187,7 +187,7 @@ class InitDiscriminator(nn.Module):
                         fake_weight=fake_weight.detach()
                     fake_interact_bce_loss= (fake_interact_bce_loss * fake_weight).mean()
                 else:
-                    weight_logit = fake_interact_logits[:, 0]* fake_weight[:,0]
+                    weight_logit = interact_logits[:, 0]* fake_weight[:,0]
 
                     valid_interact_reward = (1-2*target)* scatter_sum(weight_logit, end_index, dim=0, dim_size=agent_n)#[:, 0]
 
@@ -199,7 +199,7 @@ class InitDiscriminator(nn.Module):
 
                 dis_loss = dis_loss + fake_interact_bce_loss
 
-        return dis_loss, gen_rewards, Penalty, FakeLogits1
+        return dis_loss, gen_rewards, Penalty, Logits1
 
 
     def compute_jvp(self, x, y, t, dx, dt):
