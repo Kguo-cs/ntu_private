@@ -240,7 +240,7 @@ class InitDiffusion(nn.Module):
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 
             if self.use_gan:
-                return  (diff_input,x_pred,match_loss.mean(),initial_map_feature, tokenized_agent)
+                return  (diff_input,x_pred,match_loss.mean(),z,t, tokenized_agent)
 
             loss = (match_loss.mean(), collision_loss.mean(), pos_loss.mean(), heading_loss.mean(), shape_loss.mean(), vel_loss.mean())
 

@@ -25,6 +25,8 @@ from torch import Tensor
 from src.smart.loss.earth_match import get_matching_loss
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch
 
+from torch import nn
+from torch.func import jvp, vmap
 
 class InitDiscriminator(nn.Module):
     def __init__(
@@ -46,6 +48,11 @@ class InitDiscriminator(nn.Module):
 
         self.dis_weight=10
         self.dist_decay=3
+        self.dis_vel = False
+
+        # if self.dis_vel:
+        self.use_decompose = False
+        # self.use_entry_former=True
 
         if self.use_entry_former:
 
@@ -101,7 +108,6 @@ class InitDiscriminator(nn.Module):
                     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=1
                 )
             else:
-
                 self.a2a_attn_layers = nn.ModuleList(
                     [
                         AttentionLayer(
@@ -126,6 +132,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_Rp=False
 
+
         if self.use_GAIL:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
@@ -140,14 +147,14 @@ class InitDiscriminator(nn.Module):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
 
-    def get_d_loss(self,FakeSamples,target,map_feature, tokenized_agent,gamma=0):
+    def get_d_loss(self,FakeSamples,target, tokenized_agent,gamma=0):
         agent_n = len(FakeSamples)
 
         if gamma>0:
 
             FakeSamples = FakeSamples.detach().requires_grad_(True)
 
-        FakeLogits, fake_weight, end_index = self.forward(FakeSamples, map_feature, tokenized_agent)
+        FakeLogits, fake_weight, end_index = self.forward(FakeSamples,  tokenized_agent)
 
         if gamma>0:
             Penalty = (gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits).mean()
@@ -194,47 +201,121 @@ class InitDiscriminator(nn.Module):
 
         return dis_loss, gen_rewards, Penalty, FakeLogits1
 
+
+    def compute_jvp(self, x, y, t, dx, dt):
+
+        def dis(x, t):
+            return self.forward(x, y, t)
+
+        def dis_jvp(dx, dt):
+            return jvp(dis, (x, t), (dx, dt))
+
+        def dis_jvp_vmap(dx, dt):
+            return vmap(dis_jvp)(dx, dt)
+
+        if x.ndim == dx.ndim:
+            o, do = dis_jvp(dx, dt)
+        else:
+            o, do = dis_jvp_vmap(dx, dt)
+
+        return o, do
+
+    def jvp_gen(self, velocity_pred,timesteps,noised_z,tokenized_agent):
+
+        ot_scale = 0
+
+        _, logits_fake = self.compute_jvp(
+            x=noised_z,
+            t=timesteps,
+            y=tokenized_agent,
+            dx=velocity_pred,
+            dt=torch.ones_like(timesteps),
+        )
+
+        gen_adv_loss = logits_fake.sub(1).square().mean()
+        gen_ot_loss = velocity_pred.square().mean().mul(ot_scale)
+
+        gen_loss=gen_adv_loss + gen_ot_loss
+
+        return gen_loss
+
+    def jvp_dis(self,velocity_real, velocity_pred,timesteps,noised_z,tokenized_agent):
+        cp_scale = 0.01
+
+        # Internally it uses vmap to fuse jvp computation of multiple tangents.
+        tangent_x = torch.stack([velocity_real, velocity_pred])
+        tangent_t = torch.stack([torch.ones_like(timesteps), torch.ones_like(timesteps)])
+
+        out, out_jvp = self.compute_jvp(
+            x=noised_z,
+            t=timesteps,
+            y=tokenized_agent,
+            dx=tangent_x,
+            dt=tangent_t,
+        )
+
+        logits_real, logits_fake = out_jvp.chunk(2, 0)
+
+        dis_adv_real_loss = logits_real.sub(1).square().mean()
+        dis_adv_fake_loss = logits_fake.add(1).square().mean()
+        dis_adv_loss = dis_adv_real_loss + dis_adv_fake_loss
+        dis_cp_loss = out.square().mean().mul(cp_scale)
+
+        dis_loss = dis_adv_loss + dis_cp_loss
+
+
+        return dis_loss
+
     def update_dis(self,logger,opt_D,inputs,FakeSamples):
 
-        RealSamples, _,_, map_feature, tokenized_agent= inputs
+        RealSamples, _,_, noised_z,timesteps, tokenized_agent= inputs
 
-        expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1,map_feature, tokenized_agent,self.Gamma)
-        #
-        # t_batch=tokenized_agent["t_batch"][:,0,0]
-        # batch=tokenized_agent["nonego_batch"]
-        # t=t_batch[batch]
-        #
-        # mask=t>0.5
-        #
-        # FakeSamples=FakeSamples[mask]
-        # for key in ["nonego_batch",'nonego_type']:
-        #     tokenized_agent[key]=tokenized_agent[key][mask]
+        if self.dis_vel:
 
-       # tokenized_agent["ego_feat"]=tokenized_agent["ego_feat"][t_batch>0.5]
+            velocity_real= (RealSamples - noised_z) /(1 -timesteps).clamp_min(0.05)
+            velocity_pred= (FakeSamples - noised_z) /(1 -timesteps).clamp_min(0.05)
 
-        #tokenized_agent["num_graphs"]=mask.sum()
+            loss=self.jvp_dis(velocity_real, velocity_pred,timesteps,noised_z,tokenized_agent)
 
-        # pt_mask=t_batch[map_feature["batch"]]>0.5
-        #
-        # for key in map_feature.keys():
-        #     map_feature[key]=map_feature[key][pt_mask]
+        else:
 
-        dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent,self.Gamma)
+            expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1, tokenized_agent,self.Gamma)
+            #
+            # t_batch=tokenized_agent["t_batch"][:,0,0]
+            # batch=tokenized_agent["nonego_batch"]
+            # t=t_batch[batch]
+            #
+            # mask=t>0.5
+            #
+            # FakeSamples=FakeSamples[mask]
+            # for key in ["nonego_batch",'nonego_type']:
+            #     tokenized_agent[key]=tokenized_agent[key][mask]
 
-        loss = expert_dis_loss+dis_loss + r1 + r2
+           # tokenized_agent["ego_feat"]=tokenized_agent["ego_feat"][t_batch>0.5]
 
-        logger("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
-        logger("train/r1", r1.item(), on_step=True, batch_size=1)
-        logger("train/r2", r2.item(), on_step=True, batch_size=1)
-        logger("train/d_loss", loss.item(), on_step=True, batch_size=1)
-        disc_val = torch.sigmoid(FakeLogits)
+            #tokenized_agent["num_graphs"]=mask.sum()
 
-        logger("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        logger("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
-        disc_val = torch.sigmoid(RealLogits)
+            # pt_mask=t_batch[map_feature["batch"]]>0.5
+            #
+            # for key in map_feature.keys():
+            #     map_feature[key]=map_feature[key][pt_mask]
 
-        logger("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        logger("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+            dis_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0, tokenized_agent,self.Gamma)
+
+            loss = expert_dis_loss+dis_loss + r1 + r2
+
+            logger("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
+            logger("train/r1", r1.item(), on_step=True, batch_size=1)
+            logger("train/r2", r2.item(), on_step=True, batch_size=1)
+            logger("train/d_loss", loss.item(), on_step=True, batch_size=1)
+            disc_val = torch.sigmoid(FakeLogits)
+
+            logger("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+            logger("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+            disc_val = torch.sigmoid(RealLogits)
+
+            logger("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+            logger("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         opt_D.zero_grad()
         loss.backward()#retain_graph=True
@@ -243,14 +324,15 @@ class InitDiscriminator(nn.Module):
 
         return gen_rewards,expert_rewards,FakeSamples
 
+
     def gan_update(self,logger,optimizer,G,inputs):
-        RealSamples,fake_samples, match_loss, map_feature, tokenized_agent= inputs
+        RealSamples,fake_samples, match_loss, noised_z,timesteps, tokenized_agent= inputs
 
         opt_G, opt_D = optimizer
 
         self.update_dis(logger,opt_D,inputs,fake_samples.detach())
 
-        #g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,map_feature, tokenized_agent)
+        g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,tokenized_agent)
 
 
         loss=match_loss#*0.1-g_loss
@@ -349,7 +431,9 @@ class InitDiscriminator(nn.Module):
 
         return pos_a_b, heading_a_b, feat_a_b, mask_a_b
 
-    def forward(self,inputs, map_feature,  tokenized_agent):
+    def forward(self,inputs,   tokenized_agent,timesteps=None):
+
+        map_feature=tokenized_agent["initial_map_feature"]
 
         #inputs=inputs+torch.randn_like(inputs)*1e-2
         pos_a=inputs[...,:2]
@@ -364,13 +448,14 @@ class InitDiscriminator(nn.Module):
         if self.use_entry_former:
             head_a = wrap_angle(head_a)
 
-            pos_pl, orient_pl, feat_map, map_mask = map_feature
-
             pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, num_graphs)
 
-            feat_map=feat_map.detach()
-
-           # feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
+            batch_pl = map_feature["batch"]
+            pos_pl = map_feature["position"]
+            orient_pl = map_feature["orientation"]
+            feat_map = map_feature["pt_token"]
+            #
+            # feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
             if self.use_transformer:
                 with torch.backends.cuda.sdp_kernel(
