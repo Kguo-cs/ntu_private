@@ -52,7 +52,7 @@ class InitDiscriminator(nn.Module):
 
        # if self.dis_vel:
         self.use_decompose = False
-        self.use_entry_former = False
+        self.use_entry_former = True
 
         if self.use_entry_former:
 
