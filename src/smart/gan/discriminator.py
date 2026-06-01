@@ -335,7 +335,7 @@ class InitDiscriminator(nn.Module):
         g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,tokenized_agent)
 
 
-        loss=match_loss#*0.1-g_loss
+        loss=match_loss*0.1-g_loss
 
        # logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
 
