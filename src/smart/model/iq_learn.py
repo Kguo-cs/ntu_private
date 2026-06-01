@@ -120,9 +120,9 @@ class IQ_SoftQ(LightningModule):
         if pred["initial_logit"] is not None:
 
             if self.encoder.agent_encoder.init_decoder.use_gan:
-                noncol_rate = get_col_rate(tokenized_agent, pred["initial_logit"][1])
-
-                self.log('train/noncol_rate', noncol_rate.mean(), on_step=True, batch_size=1)
+                # noncol_rate = get_col_rate(tokenized_agent, pred["initial_logit"][1])
+                #
+                # self.log('train/noncol_rate', noncol_rate.mean(), on_step=True, batch_size=1)
 
                 loss=self.encoder.agent_encoder.init_decoder.D.gan_update( self.log,self.optimizers(), self.encoder.agent_encoder.init_decoder.G1,pred["initial_logit"])
             elif self.encoder.agent_encoder.init_decoder.learn_autoencoder:

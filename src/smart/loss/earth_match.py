@@ -72,7 +72,7 @@ def matching_loss(
     # pos_loss = dist.mean()
 
     if fake_state.shape[-1]<16:
-        pos_loss=F.mse_loss(fake_pos, real_pos, reduction="none").mean(-1)
+        pos_loss=F.l1_loss(fake_pos, real_pos, reduction="none").mean(-1)
         #pos_loss=torch.tensor(0.0).to(real_state.device)
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
         #real_vel=torch.cat([real_pos,real_vel],dim=-1)
@@ -80,16 +80,16 @@ def matching_loss(
 
         #cluster_valid_mask=~torch.isnan(real_vel)
 
-        heading_loss = F.mse_loss(fake_heading, real_heading, reduction="none").mean(-1)
+        heading_loss = F.l1_loss(fake_heading, real_heading, reduction="none").mean(-1)
 
         # if fake_state.shape[1]==44:
         #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
         #     shape_loss =torch.zeros_like(vel_loss)
         #
         # else:
-        shape_loss = F.mse_loss(fake_shape, real_shape, reduction="none").mean(-1)
+        shape_loss = F.l1_loss(fake_shape, real_shape, reduction="none").mean(-1)
 
-        vel_loss = F.mse_loss(fake_vel, real_vel, reduction="none").mean(-1)
+        vel_loss = F.l1_loss(fake_vel, real_vel, reduction="none").mean(-1)
 
         # pos_loss=get_scale(fake_pos,real_pos)
         # heading_loss=get_scale(fake_heading, real_heading)
@@ -337,7 +337,7 @@ def get_matching_loss(
     #
     # v_pred = fake_state/ denom
 
-    denom_sq=denom.square()
+    denom_sq=denom#.square()
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],

@@ -199,16 +199,16 @@ class InitDiscriminator(nn.Module):
         RealSamples, _,_, map_feature, tokenized_agent= inputs
 
         expert_dis_loss, expert_rewards, r2, RealLogits=self.get_d_loss(RealSamples,1,map_feature, tokenized_agent,self.Gamma)
-
-        t_batch=tokenized_agent["t_batch"][:,0,0]
-        batch=tokenized_agent["nonego_batch"]
-        t=t_batch[batch]
-
-        mask=t>0.5
-
-        FakeSamples=FakeSamples[mask]
-        for key in ["nonego_batch",'nonego_type']:
-            tokenized_agent[key]=tokenized_agent[key][mask]
+        #
+        # t_batch=tokenized_agent["t_batch"][:,0,0]
+        # batch=tokenized_agent["nonego_batch"]
+        # t=t_batch[batch]
+        #
+        # mask=t>0.5
+        #
+        # FakeSamples=FakeSamples[mask]
+        # for key in ["nonego_batch",'nonego_type']:
+        #     tokenized_agent[key]=tokenized_agent[key][mask]
 
        # tokenized_agent["ego_feat"]=tokenized_agent["ego_feat"][t_batch>0.5]
 
@@ -248,9 +248,9 @@ class InitDiscriminator(nn.Module):
 
         opt_G, opt_D = optimizer
 
-        gen_rewards,expert_rewards,FakeSamples=self.update_dis(logger,opt_D,inputs,fake_samples.detach())
+        self.update_dis(logger,opt_D,inputs,fake_samples.detach())
 
-        g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(FakeSamples,0,map_feature, tokenized_agent)
+        g_loss, gen_rewards, r1, FakeLogits=self.get_d_loss(fake_samples,0,map_feature, tokenized_agent)
 
 
         loss=match_loss*0.1-g_loss
