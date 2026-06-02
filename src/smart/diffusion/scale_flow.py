@@ -764,15 +764,15 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-            # z = z + (t_next - t_n) * v_pred
-            # log_prob=None#torch.zeros_like(z)
+            z = z + (t_next - t_n) * v_pred
+            # # log_prob=None#torch.zeros_like(z)
+            # #
+            # if torch.all(t_next==1):
+            #     z = pred_x0
+            # else:
+            # pred_epsilon = ( z- (1.0 - t_n) * pred_x0 ) / t_n.clamp_min( 1e-5)
             #
-            if torch.all(t_next==1):
-                z = pred_x0
-            else:
-                pred_epsilon = ( z- (1.0 - t_n) * pred_x0 ) / t_n.clamp_min( 1e-5)
-
-                z =   (1.0 - t_next) * pred_x0  + t_next * pred_epsilon
+            # z =   (1.0 - t_next) * pred_x0  + t_next * pred_epsilon
 
             log_prob=None
 
