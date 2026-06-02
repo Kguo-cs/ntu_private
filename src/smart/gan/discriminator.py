@@ -233,7 +233,7 @@ class InitDiscriminator(nn.Module):
 
         return gen_loss
 
-    def jvp_dis(self,velocity_real, velocity_pred,timesteps,noised_z,tokenized_agent):
+    def jvp_dis(self,logger,velocity_real, velocity_pred,timesteps,noised_z,tokenized_agent):
         cp_scale = 0.01
 
         # Internally it uses vmap to fuse jvp computation of multiple tangents.
@@ -257,6 +257,16 @@ class InitDiscriminator(nn.Module):
 
         dis_loss = dis_adv_loss + dis_cp_loss
 
+        logger("train/dis_adv_loss", dis_adv_loss.item(), on_step=True, batch_size=1)
+        logger("train/dis_cp_loss", dis_cp_loss.item(), on_step=True, batch_size=1)
+        disc_val = torch.sigmoid(logits_fake)
+
+        logger("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+        logger("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+        disc_val = torch.sigmoid(logits_real)
+
+        logger("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+        logger("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         return dis_loss
 
@@ -269,7 +279,7 @@ class InitDiscriminator(nn.Module):
             velocity_real= (RealSamples - noised_z) /(1 -timesteps).clamp_min(0.05)
             velocity_pred= (FakeSamples - noised_z) /(1 -timesteps).clamp_min(0.05)
 
-            loss=self.jvp_dis(velocity_real, velocity_pred,timesteps,noised_z,tokenized_agent)
+            loss=self.jvp_dis(logger,velocity_real, velocity_pred,timesteps,noised_z,tokenized_agent)
 
         else:
 
