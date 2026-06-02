@@ -785,7 +785,9 @@ class ScaleFlow(nn.Module):
         else:
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
 
-            t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
+            # t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
+
+            t_n, t_dt = self.model.schedule(t_n, z)
 
             # shift = torch.tensor(
             #     [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
@@ -799,7 +801,9 @@ class ScaleFlow(nn.Module):
 
             t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
+            t_next, t_dt = self.model.schedule(t_next, z)
+
+           # t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
 
             # t_next = time_shift_fn(t_next, shift)  # [G, 8]
 
