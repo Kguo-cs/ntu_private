@@ -28,6 +28,7 @@ from torch_geometric.data import HeteroData
 from torch.nn.utils.rnn import pad_sequence
 from torch.distributions import Bernoulli
 
+from sd.utils.gpudrive_helpers import log_prob
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -726,7 +727,7 @@ class ScaleFlow(nn.Module):
         #
         #     v_pred = (x - z) / (1 - t).clamp_min(self.t_eps)
         # else:
-        v_pred,t_n,t_next,x = self._forward_sample(z, t, t_next,labels)
+        v_pred,t_n,t_next,pred_x0 = self._forward_sample(z, t, t_next,labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
 
 
@@ -763,11 +764,19 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-            z = z + (t_next - t_n) * v_pred
-            log_prob=None#torch.zeros_like(z)
+            # z = z + (t_next - t_n) * v_pred
+            # log_prob=None#torch.zeros_like(z)
+            #
+            if torch.all(t_next==1):
+                z = pred_x0
+            else:
+                pred_epsilon = ( z- (1.0 - t_n) * pred_x0 ) / t_n.clamp_min( 1e-5)
 
+                z =   (1.0 - t_next) * pred_x0  + t_next * pred_epsilon
 
-        return z,x,t_n,log_prob
+            log_prob=None
+
+        return z,pred_x0,t_n,log_prob
 
 
     @torch.no_grad()
