@@ -225,7 +225,7 @@ class InitDiscriminator(nn.Module):
             dx=velocity_pred,
             dt=torch.ones_like(timesteps),
         )
-        ego_mask=tokenized_agent["ego_mask"]
+        ego_mask=torch.zeros_like(tokenized_agent["ego_mask"])
 
         gen_adv_loss = logits_fake[~ego_mask].sub(1).square().mean()
         gen_ot_loss = velocity_pred.square().mean().mul(ot_scale)
@@ -248,7 +248,7 @@ class InitDiscriminator(nn.Module):
             dx=tangent_x,
             dt=tangent_t,
         )
-        non_ego_mask=~tokenized_agent["ego_mask"]
+        non_ego_mask=~torch.zeros_like(tokenized_agent["ego_mask"])
 
         logits_real, logits_fake = out_jvp.chunk(2, 0)
 
