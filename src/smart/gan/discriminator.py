@@ -131,7 +131,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_Rp=False
 
-        self.use_bce=False
+        self.use_bce=True
 
         self.Gamma=1
 
