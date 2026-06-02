@@ -43,7 +43,7 @@ from .diffusion_planner.decoder import  DiT
 from src.smart.modules.interative_decoder import InterativeDecoder
 from src.smart.utils.edge_utils import build_batch
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return
-
+from .noise_schedule import LearnableGroupedPowerSchedule
 
 def sinusoidal_embedding(position, D):
     """
@@ -151,6 +151,11 @@ class InitDenoiser(nn.Module):
         else:
             self.output_dim=m_delta_dim
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
+
+        self.learn_schedule=True
+
+        if self.learn_schedule:
+            self.schedule=LearnableGroupedPowerSchedule()
 
         self.pred_gmm=False
 
@@ -469,7 +474,7 @@ class InitDenoiser(nn.Module):
                 #self.normal_mean[:,2:4]=0
                 #self.normal_scale[:,6:8]=self.normal_scale[:,6:8]*2
 
-                self.normal_scale[:,2:8]=self.normal_scale[:,2:8]*2
+                self.normal_scale[:,2:6]=self.normal_scale[:,2:6]*2
                 self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
                 #self.normal_scale[:,2:4]=1#self.normal_scale[:,2:4]*2
 

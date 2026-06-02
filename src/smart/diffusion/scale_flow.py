@@ -55,60 +55,6 @@ from src.smart.diffusion.dit.dit import DiT
 
 import torch
 
-
-def expand_base_t_by_gamma(
-    base_t: torch.Tensor,
-    m_delta_dim,
-    gammas=(0.75, 0.5, 1.0, 4.0),
-):# smaller gamma -> more dense in large t -> more sparse
-    """
-    Args:
-        base_t: Tensor, shape [..., 1] or [...]
-                e.g. [num_graphs, 1]
-        gammas: (gamma_pos, gamma_head, gamma_shape, gamma_vel)
-
-    Returns:
-        base_t_dim: Tensor, shape [..., 8]
-                    dims = [x, y, cos_h, sin_h, length, width, vx, vy]
-    """
-    if base_t.dim() == 0:
-        base_t = base_t.view(1, 1)
-    elif base_t.shape[-1] != 1:
-        base_t = base_t.unsqueeze(-1)
-
-    gamma_pos, gamma_head, gamma_shape, gamma_vel = gammas
-
-    t_pos = base_t ** gamma_pos
-    t_head = base_t ** gamma_head
-    t_shape = base_t ** gamma_shape
-    t_vel = base_t ** gamma_vel
-
-    if m_delta_dim==8:
-        base_t_dim = torch.cat(
-            [
-                t_pos, t_pos,
-                t_head, t_head,
-                t_shape, t_shape,
-                t_vel, t_vel,
-               # t_vel, t_vel,
-            ],
-            dim=-1,
-        )
-    else:
-        base_t_dim = torch.cat(
-            [
-                t_pos, t_pos,
-                t_head, t_head,
-                t_shape, t_shape,
-                t_vel, t_vel,
-               t_vel, t_vel,
-            ],
-            dim=-1,
-        )
-
-
-    return base_t_dim
-
 class ScaleFlow(nn.Module):
 
     def __init__(self, args,token_processor):
@@ -384,21 +330,28 @@ class ScaleFlow(nn.Module):
                 #
                 # base_t=torch.cat([t_pos, t_pos,t_head, t_head,t_shape,t_shape,t_vel,t_vel], dim=-1)
 
-                base_t=expand_base_t_by_gamma(base_t,self.model.m_delta_dim)
+                # base_t=expand_base_t_by_gamma(base_t,self.model.m_delta_dim)
+                base_t=base_t[agent_batch]
 
+                t, t_dt = self.model.schedule(  base_t, x )
 
                 # base_t = time_shift_fn(base_t, shift)  # [G, 8]
 
                 #base_t=base_t[:,None,:]
             else:
                 base_t = torch.rand((len(agent_batch)), device=x.device, dtype=torch.float32)
-            t_batch = time_shift_fn(base_t)[:, None] #.to(x.dtype)
+             # t_batch = time_shift_fn(base_t)[:, None] #.to(x.dtype)
 
-        t=t_batch[agent_batch]
+                t=base_t[agent_batch]
 
-        t[tokenized_agent["ego_mask"]]=1
+        ego_mask = tokenized_agent["ego_mask"]
 
-        tokenized_agent["t_batch"]=t_batch
+        t = torch.where(
+            ego_mask[:,None,None],
+            torch.ones_like(t),
+            t,
+        )
+        # tokenized_agent["t_batch"]=t_batch
 
         if self.use_scale:
             nan_mask=torch.isnan(x)
@@ -1061,7 +1014,7 @@ class ScaleFlow(nn.Module):
                 #         self.P_mean + self.P_std * torch.special.ndtri(timesteps)
                 #     )
 
-            timesteps = time_shift_fn(timesteps)
+           # timesteps = time_shift_fn(timesteps)
 
             if self.use_flux:
                 count=tokenized_agent["type_counts"].sum(-1)
