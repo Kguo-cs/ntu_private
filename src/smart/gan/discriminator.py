@@ -48,12 +48,16 @@ class InitDiscriminator(nn.Module):
 
         self.dis_weight=10
         self.dist_decay=3
-        self.dis_vel = False
+        self.dis_vel = True
 
        # if self.dis_vel:
         self.use_decompose = False
         self.use_entry_former = True
-        self.use_transformer=True
+        self.use_transformer=False
+        self.use_bce=True
+
+        if self.dis_vel:
+            self.t_embeding=MLPLayer(8,hidden_dim,hidden_dim)
 
         if self.use_entry_former:
 
@@ -131,7 +135,6 @@ class InitDiscriminator(nn.Module):
 
         self.use_Rp=False
 
-        self.use_bce=True
 
         self.Gamma=1
 
@@ -431,13 +434,15 @@ class InitDiscriminator(nn.Module):
 
         return padding_pos_a, padding_heading_a, padding_features_a
 
-    def embed_input(self, initial_pos, initial_heading, initial_type, initial_shape, lengths):
+    def embed_input(self, initial_pos, initial_heading, initial_type, initial_shape, lengths,timesteps):
         type_embedding = self.type_embedding(initial_type)
        # pos_embedding = self.pos_embedding(initial_pos)
         #heading_embedding = self.head_embedding(initial_heading[:, None])
         shape_embedding = self.shape_embedding(initial_shape)
 
         feat_a = type_embedding + shape_embedding#+ heading_embedding + pos_embedding
+        if self.dis_vel:
+            feat_a = feat_a + self.t_embeding(timesteps)
 
         pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, lengths)
 
@@ -460,9 +465,8 @@ class InitDiscriminator(nn.Module):
         if self.use_entry_former:
             head_a = wrap_angle(head_a)
 
-            pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, tokenized_agent["lengths"])
+            pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, tokenized_agent["lengths"],timesteps)
 
-            #
             feat_map=tokenized_agent["pad_map_feature"]
             pos_pl=tokenized_agent["pad_pos_pl"]
             orient_pl=tokenized_agent["pad_orient_pl"]
@@ -574,5 +578,8 @@ class InitDiscriminator(nn.Module):
             return score, weight, end_index
 
         else:
-            return score,1,None
+            if self.dis_vel:
+                return score
+            else:
+                return score,1,None
 
