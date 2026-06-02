@@ -52,7 +52,8 @@ class InitDiscriminator(nn.Module):
 
        # if self.dis_vel:
         self.use_decompose = False
-        self.use_entry_former = False
+        self.use_entry_former = True
+        self.use_transformer=True
 
         if self.use_entry_former:
 
@@ -462,7 +463,6 @@ class InitDiscriminator(nn.Module):
             pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, tokenized_agent["lengths"])
 
             #
-            # feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
             feat_map=tokenized_agent["pad_map_feature"]
             pos_pl=tokenized_agent["pad_pos_pl"]
             orient_pl=tokenized_agent["pad_orient_pl"]
@@ -470,10 +470,12 @@ class InitDiscriminator(nn.Module):
 
 
             if self.use_transformer:
+                feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
+                feat_a_b = feat_a_b + self.pos_embedding(pos_a_b) + self.head_embedding(heading_a_b[:, :, None])
+
                 with torch.backends.cuda.sdp_kernel(
                         enable_mem_efficient=False,
                 ):
-
                     attr_feature = self.transformer_decoder(
                         tgt=feat_a_b,  # self-attention queries
                         memory=feat_map,  # cross-attention keys/values
