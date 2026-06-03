@@ -1,4 +1,4 @@
-
+from pytorch_lightning import demos
 from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 import math
@@ -325,17 +325,13 @@ def get_matching_loss(
 
         fake_state=fake_state[fake_idx]
 
-    denom = (1 - t).clamp_min(t_eps)/t_dt  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+    if x_pred:
+        denom = (1 - t).clamp_min(t_eps) / t_dt  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
-    # if x_pred:
-    #
-    #     v_target = (real_state - z) / denom
-    #
-    #     v_pred = (fake_state - z) / denom
-    # else:
-    # v_target = real_state/ denom #- e
-    #
-    # v_pred = fake_state/ denom
+    else:
+        real_state = real_state - e
+
+        denom= 1 / t_dt.detach()
 
     denom_sq=denom[~tokenized_agent["ego_mask"]].square()
 

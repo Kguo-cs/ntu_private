@@ -72,7 +72,7 @@ class ScaleFlow(nn.Module):
         if self.use_dit:
             self.x_pred=False
         else:
-            self.x_pred=True
+            self.x_pred=False
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)
@@ -829,15 +829,15 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-            #z1 = z + (t_next - t_n) * v_pred
+            z = z +0.05 * v_pred
             # # log_prob=None#torch.zeros_like(z)
             # #
             # if torch.all(t_next==1):
             #     z = pred_x0
             # else:
-            pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( self.t_eps)
-
-            z =   t_next * pred_x0  + (1-t_next) * pred_epsilon #t_next=1.
+            # pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( self.t_eps)
+            #
+            # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon #t_next=1.
 
            # print((z-z1)[~tokenized_agent["ego_mask"]].max())
             #     z = z +0.05* v_pred
