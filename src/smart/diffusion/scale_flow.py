@@ -126,12 +126,6 @@ class ScaleFlow(nn.Module):
         if self.use_vp:
             self.sde = VPSDE_linear()
 
-        self.use_dpm_solver=False
-
-        self.use_flow_ode=False
-
-        self.use_flux=False
-
         self.use_sde=False
 
         self.noise_level=0.7
@@ -202,15 +196,6 @@ class ScaleFlow(nn.Module):
 
         if self.use_kl:
             self.ref_model = copy.deepcopy(self.model)
-
-        if self.use_flow_ode:
-            from .flow_planner.flow_ode import FlowODE
-            from flow_matching.path.affine import  AffineProbPath
-            from flow_matching.path.scheduler import  CondOTScheduler
-            from .flow_planner.time_sampler import TimeSampler
-            path=AffineProbPath(CondOTScheduler())
-            time_sampler=TimeSampler(device='cuda',eps=1e-3,alpha=1.0,beta=1.5)
-            self.flow_ode=FlowODE(path,time_sampler,cfg_weight=1.8,sample_steps=self.steps+1,sample_method='midpoint',sample_temperature=1)
 
         self.apply(weight_init)
 
@@ -303,8 +288,6 @@ class ScaleFlow(nn.Module):
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
             t_batch = t_batch[:, None, None]
-        elif self.use_flow_ode:
-            t_batch = self.flow_ode.time_sampler.sample(num_graphs).to(device)[:, None,None]
         else:
             if self.lognorm_t:
                 #base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt() #** (2.0 / 3)#.sqrt()
@@ -366,10 +349,6 @@ class ScaleFlow(nn.Module):
         if self.use_vp:
             mean, std = self.sde.marginal_prob(x, t)
             z = mean + std * e
-        elif self.use_flow_ode:
-            path_sample = self.flow_ode.path.sample(x_0=e, x_1=x, t=t[:,0,0])
-
-            z=path_sample.x_t
         else:
             z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
 
@@ -704,6 +683,91 @@ class ScaleFlow(nn.Module):
         return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
 
     @torch.no_grad()
+    def _forward_sample(self, z, t_n, t_next,labels):
+        tokenized_agent, initial_map_feature, eval_mask=labels
+        num_agents = len(z)
+
+        if self.model.use_return_conditioned:
+            tokenized_agent["advantages"]=torch.ones_like(tokenized_agent["nonego_batch"]).to(torch.float32)
+
+        if self.use_cluster:
+            t_n=t_n[:,None,None]
+        else:
+
+            t_n=torch.full((num_agents,1,1), t_n, device=z.device)
+            t_next=torch.full((num_agents,1,1), t_next, device=z.device)
+
+            # t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
+
+            t_n, t_dt = self.model.schedule(t_n, z)
+
+            t_n[tokenized_agent["ego_mask"]]=1
+
+
+            t_next, t_next_dt = self.model.schedule(t_next, z)
+
+            t_next[tokenized_agent["ego_mask"]]=1
+
+
+           # t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
+
+            # t_next = time_shift_fn(t_next, shift)  # [G, 8]
+
+        if self.use_scale:
+            padding_mask=tokenized_agent["padding_mask"]
+
+            t_n[padding_mask]=0
+
+        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=1)#[...,:z.shape[-1]]
+
+        if self.model.pred_gmm:
+            K=8
+            x_cond=x_cond[:,0]
+
+            gm_means=x_cond[:,:8 * K].reshape(-1,K,8)
+            logstds=x_cond[:, 9*K:]
+            gm_logweights=x_cond[:,8 * K:9 * K]#.log_softmax(dim=1)
+
+            inds=torch.multinomial(gm_logweights.softmax(dim=-1),1,replacement=True)[:,:,None].repeat(1,1,8)
+
+            means=gm_means.gather( dim=1,index=inds)
+
+            stds = logstds.exp()  # (bs, *, 1, 1, 1, 1) or (bs, *, num_gaussians, 1, h, w)
+
+            # (bs, *, n_samples, out_channels, h, w)
+            x_cond = stds[:,None] * torch.randn_like(z) + means
+
+        if self.x_pred:
+
+            if x_cond.shape[-1]!=z.shape[-1]:
+                x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
+            else:
+                x_cond=x_cond[...,:z.shape[-1]]
+
+            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
+
+            # x_euler =  z   + (t_next-t_n) * v_cond
+            # x_mid = z   + (t_next-t_n) * v_cond*0.5
+            #
+            # t_mid=(t_n+t_next)/2
+            #
+            # x_cond =  self.model(x_mid, t_mid, tokenized_agent, initial_map_feature, eval_mask,mode=1)
+            #
+            # v_cond = (x_cond-x_mid)/ (1.0 - t_mid).clamp_min(self.t_eps)
+
+            #v_cond=0.5*(v_cond+velocity_next)
+        else:
+            v_cond=x_cond
+
+        if self.model.label_drop_prob>0:
+            x_cond_non = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=0)
+            v_pred_non =(x_cond_non - z) / (1.0 - t_n).clamp_min(self.t_eps)
+            v_cond=v_cond+(v_cond - v_pred_non)*3
+
+        return v_cond,t_n,t_next,x_cond
+
+
+    @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=False):
 
         if sde_inspired:
@@ -764,103 +828,22 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-            z = z + (t_next - t_n) * v_pred
+            #z1 = z + (t_next - t_n) * v_pred
             # # log_prob=None#torch.zeros_like(z)
             # #
             # if torch.all(t_next==1):
             #     z = pred_x0
             # else:
-            #     # pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( 1e-5)
-            #     #
-            #     # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon
+            pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( self.t_eps)
+
+            z =   t_next * pred_x0  + (1-t_next) * pred_epsilon #t_next=1.
+
+           # print((z-z1)[~tokenized_agent["ego_mask"]].max())
             #     z = z +0.05* v_pred
             log_prob=None
 
         return z,pred_x0,t_n,log_prob
 
-
-    @torch.no_grad()
-    def _forward_sample(self, z, t_n, t_next,labels):
-        tokenized_agent, initial_map_feature, eval_mask=labels
-        num_agents = len(z)
-
-        if self.model.use_return_conditioned:
-            tokenized_agent["advantages"]=torch.ones_like(tokenized_agent["nonego_batch"]).to(torch.float32)
-
-        if self.use_cluster:
-            t_n=t_n[:,None,None]
-        elif self.use_flux:
-            t_n=t_n
-        else:
-
-            t_n=torch.full((num_agents,1,1), t_n, device=z.device)
-            t_next=torch.full((num_agents,1,1), t_next, device=z.device)
-
-            # t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
-
-            t_n, t_dt = self.model.schedule(t_n, z)
-
-            t_n[tokenized_agent["ego_mask"]]=1
-
-
-            t_next, t_next_dt = self.model.schedule(t_next, z)
-
-           # t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
-
-            # t_next = time_shift_fn(t_next, shift)  # [G, 8]
-
-        if self.use_scale:
-            padding_mask=tokenized_agent["padding_mask"]
-
-            t_n[padding_mask]=0
-
-        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=1)#[...,:z.shape[-1]]
-
-        if self.model.pred_gmm:
-            K=8
-            x_cond=x_cond[:,0]
-
-            gm_means=x_cond[:,:8 * K].reshape(-1,K,8)
-            logstds=x_cond[:, 9*K:]
-            gm_logweights=x_cond[:,8 * K:9 * K]#.log_softmax(dim=1)
-
-            inds=torch.multinomial(gm_logweights.softmax(dim=-1),1,replacement=True)[:,:,None].repeat(1,1,8)
-
-            means=gm_means.gather( dim=1,index=inds)
-
-            stds = logstds.exp()  # (bs, *, 1, 1, 1, 1) or (bs, *, num_gaussians, 1, h, w)
-
-            # (bs, *, n_samples, out_channels, h, w)
-            x_cond = stds[:,None] * torch.randn_like(z) + means
-
-        if self.x_pred:
-
-            if x_cond.shape[-1]!=z.shape[-1]:
-                x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
-            else:
-                x_cond=x_cond[...,:z.shape[-1]]
-
-            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
-
-            # x_euler =  z   + (t_next-t_n) * v_cond
-            # x_mid = z   + (t_next-t_n) * v_cond*0.5
-            #
-            # t_mid=(t_n+t_next)/2
-            #
-            # x_cond =  self.model(x_mid, t_mid, tokenized_agent, initial_map_feature, eval_mask,mode=1)
-            #
-            # v_cond = (x_cond-x_mid)/ (1.0 - t_mid).clamp_min(self.t_eps)
-
-            #v_cond=0.5*(v_cond+velocity_next)
-        else:
-            v_cond=x_cond
-
-        if self.model.label_drop_prob>0:
-            x_cond_non = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=0)
-            v_pred_non =(x_cond_non - z) / (1.0 - t_n).clamp_min(self.t_eps)
-            v_cond=v_cond+(v_cond - v_pred_non)*3
-
-        return v_cond,t_n,t_next,x_cond
 
     @torch.no_grad()
     def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
@@ -978,67 +961,11 @@ class ScaleFlow(nn.Module):
             beta = torch.cat([t, r], dim=-1)
 
             z = self.model(z, beta, tokenized_agent, initial_map_feature,eval_mask)
-
-        elif self.use_flow_ode:
-            other_model_params = {
-                "initial_map_feature": initial_map_feature,
-                "tokenized_agent": tokenized_agent,
-            }
-
-            z = self.flow_ode.generate(z, self.model, 'x_start', use_cfg=False, **other_model_params)#cfg_weight=1.8,
-
-        elif self.use_dpm_solver:
-            noise_schedule = NoiseScheduleVP(
-                schedule='linear'
-            )
-
-            other_model_params = {
-                "initial_map_feature": initial_map_feature,
-                "tokenized_agent": tokenized_agent,
-            }
-            dpm_solver_params = {}
-            model_wrapper_params = {}
-
-            model_fn = model_wrapper(
-                self.model,  # use your noise prediction model here
-                noise_schedule,
-                model_type="x_start",  # or "x_start" or "v" or "score"
-                model_kwargs=other_model_params,
-                **model_wrapper_params
-            )
-            diffusion_steps=self.steps
-
-            dpm_solver = DPM_Solver(
-                model_fn, noise_schedule, algorithm_type="dpmsolver++", **dpm_solver_params) # w.o. dynamic thresholding
-
-            z = dpm_solver.sample(
-                z[:,0],
-                steps=diffusion_steps,
-                order=3,
-                skip_type="logSNR",
-                method="singlestep_fixed",
-                denoise_to_zero=True,
-            )[:,None]
         else:
             if self.use_vp:
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
                 timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)#.pow(2/3)
-
-            if self.use_flux:
-                count=tokenized_agent["type_counts"].sum(-1)
-
-                mu = calculate_shift( count)[None]
-
-                t_batch=1-timesteps[:,None]
-
-                sigma = mu * t_batch / (1 + (mu - 1) * t_batch)
-
-                timesteps=1-sigma
-
-                timesteps[0]=0
-
-                timesteps=timesteps[:,agent_batch][:,:,None,None]
 
             noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 
