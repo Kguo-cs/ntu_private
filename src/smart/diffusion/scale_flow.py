@@ -810,7 +810,7 @@ class ScaleFlow(nn.Module):
 
             t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            t_next, t_dt = self.model.schedule(t_next, z)
+            t_next, t_next_dt = self.model.schedule(t_next, z)
 
            # t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
 
@@ -848,6 +848,14 @@ class ScaleFlow(nn.Module):
                 x_cond=x_cond[...,:z.shape[-1]]
 
             v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)*t_dt
+
+            x_euler =  z   + 0.05 * v_cond
+
+            pred_x0_next =  self.model(x_euler, t_next, tokenized_agent, initial_map_feature, eval_mask,mode=1)
+
+            velocity_next = (pred_x0_next-x_euler)/ (1.0 - t_next).clamp_min(self.t_eps)*t_next_dt
+
+            v_cond=0.5*(v_cond+velocity_next)
         else:
             v_cond=x_cond
 
