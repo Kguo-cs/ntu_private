@@ -53,7 +53,6 @@ from src.smart.layers import MLPLayer
 
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t,get_closest_sum_idx
 from src.smart.diffusion.dit.dit import DiT
-from .noise_schedule import expand_base_t_by_gamma
 
 import torch
 
@@ -300,14 +299,6 @@ class ScaleFlow(nn.Module):
                 base_t=base_t[agent_batch]
 
                 t, t_dt = self.model.schedule(base_t, x)
-
-                # if self.model.learn_schedule:
-                #     t, t_dt = self.model.schedule(  base_t, x )
-                # else:
-                #     t = expand_base_t_by_gamma(base_t, self.model.m_delta_dim)[:,None]
-                #     t_dt = torch.ones_like(t)
-
-                # base_t = time_shift_fn(base_t, shift)  # [G, 8]
 
                 #base_t=base_t[:,None,:]
             else:
