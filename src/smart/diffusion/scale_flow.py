@@ -801,25 +801,6 @@ class ScaleFlow(nn.Module):
             non_increasing=~increasing
             z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
             z[increasing] = (1-t_next[increasing])*torch.randn_like(x[increasing])+ t_next[increasing] * x[increasing]
-        elif self.use_vp:
-            dt = t_next - t_n  # negative
-
-            # β(t)
-            beta_t = (self.sde._beta_max - self.sde._beta_min) * t_n + self.sde._beta_min
-
-            # α_t
-            alpha_t = self.sde.marginal_alpha(t_n)
-
-            # σ_t
-            sigma_t = self.sde.marginal_prob_std(t_n)
-
-            score=(alpha_t * x - z) / (sigma_t ** 2 + 1e-8)
-
-            drift = -0.5 * beta_t * z - beta_t * score
-
-            noise = torch.randn_like(x)
-
-            z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         elif self.use_sde and torch.any(noise_level>0) :#and "gt_z_raw" not in tokenized_agent.keys():
             z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                 1-t_n,
