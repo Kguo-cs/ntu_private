@@ -329,7 +329,7 @@ def get_matching_loss(
         denom = (1 - t).clamp_min(t_eps) #/ t_dt#.detach()  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
         real_state=real_state*t_dt.detach()
-        fake_state=real_state*t_dt#.square()#.detach()
+        fake_state=fake_state*t_dt#.square()#.detach()
     else:
         real_state = (real_state - e)#*t_dt.detach()
 
