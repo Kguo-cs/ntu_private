@@ -792,7 +792,9 @@ class ScaleFlow(nn.Module):
         elif self.use_flux:
             t_n=t_n
         else:
+
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
+            t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
             # t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
 
@@ -800,7 +802,6 @@ class ScaleFlow(nn.Module):
 
             t_n[tokenized_agent["ego_mask"]]=1
 
-            t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
             t_next, t_next_dt = self.model.schedule(t_next, z)
 
@@ -841,13 +842,16 @@ class ScaleFlow(nn.Module):
 
             v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
-            x_euler =  z   + (t_next-t_n) * v_cond
+            # x_euler =  z   + (t_next-t_n) * v_cond
+            x_mid = z   + (t_next-t_n) * v_cond*0.5
 
-            x_cond =  self.model(x_euler, t_next, tokenized_agent, initial_map_feature, eval_mask,mode=1)
+            t_mid=(t_n+t_next)/2
 
-            velocity_next = (x_cond-x_euler)/ (1.0 - t_next).clamp_min(self.t_eps)
+            x_cond =  self.model(x_mid, t_mid, tokenized_agent, initial_map_feature, eval_mask,mode=1)
 
-            v_cond=0.5*(v_cond+velocity_next)
+            v_cond = (x_cond-x_mid)/ (1.0 - t_mid).clamp_min(self.t_eps)
+
+            #v_cond=0.5*(v_cond+velocity_next)
         else:
             v_cond=x_cond
 
