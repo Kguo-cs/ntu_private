@@ -299,11 +299,13 @@ class ScaleFlow(nn.Module):
 
                 base_t=base_t[agent_batch]
 
-                if self.model.learn_schedule:
-                    t, t_dt = self.model.schedule(  base_t, x )
-                else:
-                    t = expand_base_t_by_gamma(base_t, self.model.m_delta_dim)[:,None]
-                    t_dt = torch.ones_like(t)
+                t, t_dt = self.model.schedule(base_t, x)
+
+                # if self.model.learn_schedule:
+                #     t, t_dt = self.model.schedule(  base_t, x )
+                # else:
+                #     t = expand_base_t_by_gamma(base_t, self.model.m_delta_dim)[:,None]
+                #     t_dt = torch.ones_like(t)
 
                 # base_t = time_shift_fn(base_t, shift)  # [G, 8]
 
@@ -685,18 +687,11 @@ class ScaleFlow(nn.Module):
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
             t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            if self.model.learn_schedule:
-                t_n, t_dt = self.model.schedule(t_n, z)
-            else:
-                t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
+            t_n, t_dt = self.model.schedule(t_n, z)
 
             t_n[tokenized_agent["ego_mask"]]=1
 
-            if self.model.learn_schedule:
-
-                t_next, t_next_dt = self.model.schedule(t_next, z)
-            else:
-                t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
+            t_next, t_next_dt = self.model.schedule(t_next, z)
 
             t_next[tokenized_agent["ego_mask"]]=1
 
