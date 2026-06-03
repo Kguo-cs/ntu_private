@@ -774,7 +774,7 @@ class ScaleFlow(nn.Module):
             #     #
             #     # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon
             #     z = z +0.05* v_pred
-            #     log_prob=None
+            log_prob=None
 
         return z,pred_x0,t_n,log_prob
 
