@@ -315,7 +315,7 @@ def get_closest_sum_idx(
     return fake_idx
 
 def get_matching_loss(
-    tokenized_agent, fake_state,real_state,z,e,t,
+    tokenized_agent, fake_state,real_state,z,e,t,t_dt=1,
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05,w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
     ):
@@ -325,7 +325,7 @@ def get_matching_loss(
 
         fake_state=fake_state[fake_idx]
 
-    denom = (1 - t[~tokenized_agent["ego_mask"]]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+    denom = (1 - t).clamp_min(t_eps)/t_dt  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
     # if x_pred:
     #
@@ -337,7 +337,7 @@ def get_matching_loss(
     #
     # v_pred = fake_state/ denom
 
-    denom_sq=denom.square()
+    denom_sq=denom[~tokenized_agent["ego_mask"]].square()
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],

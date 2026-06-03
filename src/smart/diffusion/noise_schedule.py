@@ -29,7 +29,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         init_gamma: Sequence[float] = (1, 1, 1.0, 1),
         gamma_min: float = 0.25,
         gamma_max: float = 5.0,
-        eps: float = 0,#1e-10,
+        eps: float = 1e-4,#1e-10,
     ) -> None:
         super().__init__()
 
