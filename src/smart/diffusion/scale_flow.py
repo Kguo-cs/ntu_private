@@ -843,13 +843,13 @@ class ScaleFlow(nn.Module):
             v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
             # x_euler =  z   + (t_next-t_n) * v_cond
-            x_mid = z   + (t_next-t_n) * v_cond*0.5
-
-            t_mid=(t_n+t_next)/2
-
-            x_cond =  self.model(x_mid, t_mid, tokenized_agent, initial_map_feature, eval_mask,mode=1)
-
-            v_cond = (x_cond-x_mid)/ (1.0 - t_mid).clamp_min(self.t_eps)
+            # x_mid = z   + (t_next-t_n) * v_cond*0.5
+            #
+            # t_mid=(t_n+t_next)/2
+            #
+            # x_cond =  self.model(x_mid, t_mid, tokenized_agent, initial_map_feature, eval_mask,mode=1)
+            #
+            # v_cond = (x_cond-x_mid)/ (1.0 - t_mid).clamp_min(self.t_eps)
 
             #v_cond=0.5*(v_cond+velocity_next)
         else:

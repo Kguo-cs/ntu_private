@@ -149,6 +149,13 @@ class IQ_SoftQ(LightningModule):
                 if "noncol_rate" in tokenized_agent.keys():
                     self.log('train/noncol_rate', tokenized_agent["noncol_rate"].mean(), on_step=True, batch_size=1)
 
+                if self.encoder.agent_encoder.init_decoder.G1.model.learn_schedule:
+                    gamma_groups=self.encoder.agent_encoder.init_decoder.G1.model.schedule.gamma_groups
+                    self.log('train/pos_gamma', gamma_groups[0], on_step=True, batch_size=1)
+                    self.log('train/heading_gamma', gamma_groups[1], on_step=True, batch_size=1)
+                    self.log('train/shape_gamma', gamma_groups[2], on_step=True, batch_size=1)
+                    self.log('train/vel_gamma', gamma_groups[3], on_step=True, batch_size=1)
+
                 loss = match_loss + collision_loss
 
             action_nll = action_nll + loss
