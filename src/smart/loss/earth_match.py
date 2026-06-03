@@ -332,6 +332,7 @@ def get_matching_loss(
         real_state = (real_state - e)*t_dt.detach()
 
         denom= torch.ones_like(t)
+        w_pos=w_heading=w_shape=w_vel=1
 
     denom_sq=denom[~tokenized_agent["ego_mask"]].square()
 
