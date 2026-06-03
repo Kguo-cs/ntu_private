@@ -53,6 +53,7 @@ from src.smart.layers import MLPLayer
 
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t,get_closest_sum_idx
 from src.smart.diffusion.dit.dit import DiT
+from .noise_schedule import expand_base_t_by_gamma
 
 import torch
 
@@ -296,28 +297,13 @@ class ScaleFlow(nn.Module):
 
                 base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
 
-                # shift = torch.tensor(
-                #     [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
-                #     device=x.device,
-                #     dtype=torch.float32,
-                # ).view(1, 8)
-                #
-                # gamma_pos = 0.6
-                # gamma_head = 1.0
-                # gamma_shape = 1.0
-                # gamma_vel = 1.0
-                #
-                # t_pos = base_t ** gamma_pos  # [T+1]
-                # t_head =  base_t ** gamma_head # [T+1]
-                # t_shape =  base_t ** gamma_shape # [T+1]
-                # t_vel = base_t ** gamma_vel # [T+1]         # close
-                #
-                # base_t=torch.cat([t_pos, t_pos,t_head, t_head,t_shape,t_shape,t_vel,t_vel], dim=-1)
-
-                # base_t=expand_base_t_by_gamma(base_t,self.model.m_delta_dim)
                 base_t=base_t[agent_batch]
 
-                t, t_dt = self.model.schedule(  base_t, x )
+                if self.model.learn_schedule:
+                    t, t_dt = self.model.schedule(  base_t, x )
+                else:
+                    t = expand_base_t_by_gamma(base_t, self.model.m_delta_dim)[:,None]
+                    t_dt = torch.ones_like(t)
 
                 # base_t = time_shift_fn(base_t, shift)  # [G, 8]
 
@@ -327,6 +313,7 @@ class ScaleFlow(nn.Module):
              # t_batch = time_shift_fn(base_t)[:, None] #.to(x.dtype)
 
                 t=base_t[agent_batch]
+
 
         ego_mask = tokenized_agent["ego_mask"]
 
@@ -698,21 +685,20 @@ class ScaleFlow(nn.Module):
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
             t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            # t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
-
-            t_n, t_dt = self.model.schedule(t_n, z)
+            if self.model.learn_schedule:
+                t_n, t_dt = self.model.schedule(t_n, z)
+            else:
+                t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
 
             t_n[tokenized_agent["ego_mask"]]=1
 
+            if self.model.learn_schedule:
 
-            t_next, t_next_dt = self.model.schedule(t_next, z)
+                t_next, t_next_dt = self.model.schedule(t_next, z)
+            else:
+                t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
 
             t_next[tokenized_agent["ego_mask"]]=1
-
-
-           # t_next = expand_base_t_by_gamma(t_next,self.model.m_delta_dim)
-
-            # t_next = time_shift_fn(t_next, shift)  # [G, 8]
 
         if self.use_scale:
             padding_mask=tokenized_agent["padding_mask"]
@@ -810,7 +796,7 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-            z = z +0.05 * v_pred
+            z = z +(t_next-t_n) * v_pred
             # # log_prob=None#torch.zeros_like(z)
             # #
             # if torch.all(t_next==1):

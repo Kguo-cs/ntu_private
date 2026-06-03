@@ -152,7 +152,7 @@ class InitDenoiser(nn.Module):
             self.output_dim=m_delta_dim
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
-        self.learn_schedule=True
+        self.learn_schedule=False
 
         if self.learn_schedule:
             self.schedule=LearnableGroupedPowerSchedule()
