@@ -770,10 +770,10 @@ class ScaleFlow(nn.Module):
             # if torch.all(t_next==1):
             #     z = pred_x0
             # else:
-            pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( 1e-5)
-
-            z =   t_next * pred_x0  + (1-t_next) * pred_epsilon
-
+            # pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( 1e-5)
+            #
+            # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon
+            z = z +0.05* v_pred
             log_prob=None
 
         return z,pred_x0,t_n,log_prob
@@ -847,7 +847,7 @@ class ScaleFlow(nn.Module):
             else:
                 x_cond=x_cond[...,:z.shape[-1]]
 
-            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
+            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)*t_dt
         else:
             v_cond=x_cond
 
