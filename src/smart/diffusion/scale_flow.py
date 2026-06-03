@@ -764,17 +764,17 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-            # z = z + (t_next - t_n) * v_pred
+            z = z + (t_next - t_n) * v_pred
             # # log_prob=None#torch.zeros_like(z)
             # #
             # if torch.all(t_next==1):
             #     z = pred_x0
             # else:
-            # pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( 1e-5)
-            #
-            # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon
-            z = z +0.05* v_pred
-            log_prob=None
+            #     # pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( 1e-5)
+            #     #
+            #     # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon
+            #     z = z +0.05* v_pred
+            #     log_prob=None
 
         return z,pred_x0,t_n,log_prob
 
@@ -797,14 +797,6 @@ class ScaleFlow(nn.Module):
             # t_n = expand_base_t_by_gamma(t_n,self.model.m_delta_dim)
 
             t_n, t_dt = self.model.schedule(t_n, z)
-
-            # shift = torch.tensor(
-            #     [1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
-            #     device=t_n.device,
-            #     dtype=torch.float32,
-            # ).view(1, 1,8)
-            #
-            # t_n = time_shift_fn(t_n, shift)  # [G, 8]
 
             t_n[tokenized_agent["ego_mask"]]=1
 
@@ -847,13 +839,13 @@ class ScaleFlow(nn.Module):
             else:
                 x_cond=x_cond[...,:z.shape[-1]]
 
-            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)*t_dt
+            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
-            x_euler =  z   + 0.05 * v_cond
+            x_euler =  z   + (t_next-t_n) * v_cond
 
-            pred_x0_next =  self.model(x_euler, t_next, tokenized_agent, initial_map_feature, eval_mask,mode=1)
+            x_cond =  self.model(x_euler, t_next, tokenized_agent, initial_map_feature, eval_mask,mode=1)
 
-            velocity_next = (pred_x0_next-x_euler)/ (1.0 - t_next).clamp_min(self.t_eps)*t_next_dt
+            velocity_next = (x_cond-x_euler)/ (1.0 - t_next).clamp_min(self.t_eps)
 
             v_cond=0.5*(v_cond+velocity_next)
         else:
@@ -1028,14 +1020,6 @@ class ScaleFlow(nn.Module):
                 timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
             else:
                 timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)#.pow(2/3)
-
-                # if self.lognorm_t:
-                #     # logistic-normal inverse CDF
-                #     timesteps = torch.sigmoid(
-                #         self.P_mean + self.P_std * torch.special.ndtri(timesteps)
-                #     )
-
-           # timesteps = time_shift_fn(timesteps)
 
             if self.use_flux:
                 count=tokenized_agent["type_counts"].sum(-1)
