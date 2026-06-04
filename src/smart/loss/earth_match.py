@@ -321,7 +321,7 @@ def get_matching_loss(
     ):
 
     if use_match:
-        fake_idx, real_idx=get_closest_sum_idx(fake_state/scale, real_state/scale, tokenized_agent,all_state=all_state,use_all_type=use_all_type)
+        fake_idx=get_closest_sum_idx(fake_state/scale, real_state/scale, tokenized_agent,all_state=all_state,use_all_type=use_all_type)
 
         fake_state=fake_state[fake_idx]
 
