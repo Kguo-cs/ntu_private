@@ -131,17 +131,17 @@ class LearnableGroupedPowerSchedule(nn.Module):
             gamma,
         )
 
-        if self.learn_schedule:
-            dgrouped_t_dt = (
-                    gamma
-                    * torch.pow(
-                base_t,
-                gamma - 1.0,
-            )
-            )
+       # if self.learn_schedule:
+        dgrouped_t_dt = (
+                gamma
+                * torch.pow(
+            base_t,
+            gamma - 1.0,
+        )
+        )
 
-        else:
-            dgrouped_t_dt=torch.ones_like(base_t)
+        # else:
+        #     dgrouped_t_dt=torch.ones_like(base_t)
         return grouped_t, dgrouped_t_dt
 
 @dataclass
