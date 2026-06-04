@@ -43,7 +43,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
             / (gamma_max - gamma_min)
         )
 
-        self.learn_schedule=False
+        self.learn_schedule=True
 
         if self.learn_schedule:
             self.raw_gamma = nn.Parameter(
@@ -110,11 +110,11 @@ class LearnableGroupedPowerSchedule(nn.Module):
             dtype=x_ref.dtype,
         )
 
-        # base_t = torch.clamp(
-        #     base_t,
-        #     min=self.eps,
-        #     max=1.0,
-        # )
+        base_t = torch.clamp(
+            base_t,
+            min=self.eps,
+            max=1.0,
+        )
 
         gamma = self.gamma_dims.to(
             device=x_ref.device,
