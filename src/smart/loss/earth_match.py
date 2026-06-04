@@ -325,6 +325,25 @@ def get_matching_loss(
 
         fake_state=fake_state[fake_idx]
 
+    if use_col and x_pred:
+        # t_mask=t[:,0]>0.8
+        #
+        # fake_state=fake_state[t_mask]
+        #
+        # real_state = real_state[t_mask]
+        #
+        batch = tokenized_agent["nonego_batch"]#[t_mask]#[-len(fake_state):]
+        denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+        w=1/denom.square()
+
+        col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)[0].mean()
+
+        #
+        # col_loss1=multi_circle_collision_loss_mem_efficient(real_state[:,:2], torch.atan2(real_state[:,3],real_state[:,2]), real_state[:,4].detach(),real_state[:,5].detach(),batch)[0].mean()
+
+    else:
+        col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
+
     if x_pred:
         denom = (1 - t).clamp_min(t_eps) #/ t_dt#.detach()  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
@@ -348,24 +367,6 @@ def get_matching_loss(
     #     w_pos=w_pos, w_heading=w_heading, w_shape=w_shape, w_vel=w_vel
     # )
     #
-    if use_col and x_pred:
-        # t_mask=t[:,0]>0.8
-        #
-        # fake_state=fake_state[t_mask]
-        #
-        # real_state = real_state[t_mask]
-        #
-        batch = tokenized_agent["nonego_batch"]#[t_mask]#[-len(fake_state):]
-        denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
-        w=1/denom.square()
-
-        col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)[0].mean()
-
-        #
-        # col_loss1=multi_circle_collision_loss_mem_efficient(real_state[:,:2], torch.atan2(real_state[:,3],real_state[:,2]), real_state[:,4].detach(),real_state[:,5].detach(),batch)[0].mean()
-
-    else:
-        col_loss = torch.zeros_like(match_loss.mean())  #.detach().detach()
 
     return match_loss/5,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 

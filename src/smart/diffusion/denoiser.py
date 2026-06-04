@@ -153,7 +153,7 @@ class InitDenoiser(nn.Module):
             self.output_dim=m_delta_dim
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
-        self.schedule_loss=True
+        self.schedule_loss=False
 
         if self.schedule_loss:
             groups = SceneStateGroups()
