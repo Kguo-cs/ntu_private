@@ -272,16 +272,15 @@ class ScaleFlow(nn.Module):
                 # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
 
 
-                base_t =  torch.rand((num_graphs,1), device=x.device, dtype=torch.float32)
+                base_t =  torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32)
 
                 base_t=base_t[agent_batch]
 
-                t, t_dt = self.model.schedule(base_t, x)
+                t, t_dt = self.model.schedule(base_t, x,tokenized_agent)
 
-                #base_t=base_t[:,None,:]
+                policy_loss=( ( t_dt - 1.0 ) ** 2  ).mean()*1e-3
             else:
                 base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
-             # t_batch = time_shift_fn(base_t)[:, None] #.to(x.dtype)
 
                 t=base_t[agent_batch]
 
@@ -542,7 +541,7 @@ class ScaleFlow(nn.Module):
             e[:,0],
             t[:,0],
             t_dt=t_dt[:, 0],
-            use_match=True,
+            use_match=False,
             use_col=False,#not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
@@ -659,11 +658,11 @@ class ScaleFlow(nn.Module):
             t_n=torch.full((num_agents,1,1), t_n, device=z.device)
             t_next=torch.full((num_agents,1,1), t_next, device=z.device)
 
-            t_n, t_dt = self.model.schedule(t_n, z)
+            t_n, t_dt = self.model.schedule(t_n, z,tokenized_agent)
 
             t_n[tokenized_agent["ego_mask"]]=1
 
-            t_next, t_next_dt = self.model.schedule(t_next, z)
+            t_next, t_next_dt = self.model.schedule(t_next, z,tokenized_agent)
 
             t_next[tokenized_agent["ego_mask"]]=1
 
