@@ -417,33 +417,6 @@ class CDTDGroupedWarp(nn.Module):
 
         return 1.0 - corruption
 
-    def fit_loss(
-        self,
-        corruption: Tensor,
-        observed_group_loss: Tensor,
-    ) -> Tensor:
-        """
-        Fit the monotonic schedule curve to detached reconstruction loss.
-
-        Args:
-            corruption:
-                [..., num_groups]
-
-            observed_group_loss:
-                [..., num_groups]
-                Must normally be detached from the model graph.
-
-        Returns:
-            Scalar scheduler fitting loss.
-        """
-        predicted = self.predicted_loss(
-            corruption
-        )
-
-        return F.smooth_l1_loss(
-            predicted,
-            observed_group_loss.detach(),
-        )
 
     def regularization(self) -> Tensor:
         """
@@ -455,6 +428,41 @@ class CDTDGroupedWarp(nn.Module):
                 self.slope ** 2
             ).mean()
         )
+
+    @property
+    def gamma_groups(self) -> Tensor:
+        return self.location
+
+    def forward(
+        self,
+        base_t: Tensor,
+        x_ref: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        with torch.no_grad():
+            progress_group = self.progress_from_tau(
+                base_t
+            )
+
+        progress_dim = self.groups.expand_group_values(
+            progress_group
+        )[:,None]
+
+        return progress_dim,torch.ones_like(progress_dim)
+
+    def loss(self,
+             corruption,
+             observed_group_loss,
+             ):
+        predicted = self.predicted_loss(
+            corruption
+        )
+
+        loss=F.smooth_l1_loss(
+            predicted,
+            observed_group_loss.detach(),
+        )+self.regularization()
+
+        return loss
 
 
 # ============================================================
@@ -858,83 +866,3 @@ def train_schedule_step(
         "schedule/location_shape": warp.location[2].detach(),
         "schedule/location_velocity": warp.location[3].detach(),
     }
-
-groups = SceneStateGroups()
-
-warp = CDTDGroupedWarp(
-    groups=groups,
-    eps=1e-4,
-).to(device)
-
-model = InitialSceneGenerator(
-    # your model arguments
-).to(device)
-
-model_optimizer = torch.optim.AdamW(
-    model.parameters(),
-    lr=1e-4,
-    weight_decay=1e-4,
-)
-
-schedule_optimizer = torch.optim.AdamW(
-    warp.parameters(),
-    lr=5e-4,
-    weight_decay=0.0,
-)
-
-schedule_update_interval = 10
-
-for global_step, batch in enumerate(
-    train_loader
-):
-    x_0 = batch["agent_state"].to(device)
-
-    agent_batch = batch[
-        "agent_batch"
-    ].to(device)
-
-    model_kwargs = {
-        "tokenized_map": batch[
-            "tokenized_map"
-        ],
-        "agent_type": batch[
-            "agent_type"
-        ],
-    }
-
-    model_logs = train_model_step(
-        model=model,
-        warp=warp,
-        optimizer=model_optimizer,
-        x_0=x_0,
-        agent_batch=agent_batch,
-        model_kwargs=model_kwargs,
-    )
-
-    if (
-        global_step
-        % schedule_update_interval
-        == 0
-    ):
-        schedule_logs = train_schedule_step(
-            model=model,
-            warp=warp,
-            schedule_optimizer=schedule_optimizer,
-            x_0=x_0,
-            agent_batch=agent_batch,
-            model_kwargs=model_kwargs,
-        )
-    else:
-        schedule_logs = {}
-
-    logs = {
-        **model_logs,
-        **schedule_logs,
-    }
-
-    print(
-        {
-            key: float(value)
-            for key, value in logs.items()
-        }
-    )

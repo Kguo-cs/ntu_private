@@ -122,10 +122,6 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster=False
 
-        self.use_vp=False
-        if self.use_vp:
-            self.sde = VPSDE_linear()
-
         self.use_sde=False
 
         self.noise_level=0.7
@@ -231,23 +227,6 @@ class ScaleFlow(nn.Module):
 
         e=self.model.denormalize(e,nonego_type)
 
-        # fake_idx, real_idx=get_closest_sum_idx(x[:,0], e[:,0], tokenized_agent)
-
-        # fake_pos = x[:, 0, 0] + x[:, 0, 1]
-        #
-        # # sort by (batch, type, pos) ascending
-        # fake_idx = torch.argsort(fake_pos, stable=True)
-        # fake_idx = fake_idx[torch.argsort(nonego_type[fake_idx], stable=True)]
-        # fake_idx = fake_idx[torch.argsort(agent_batch[fake_idx], stable=True)]
-        #
-        # x = x[fake_idx]
-        # tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][fake_idx]
-        #
-        # real_pos = e[:, 0, 0] + e[:, 0, 1]
-        # real_idx = torch.argsort(real_pos, stable=True)
-        # real_idx = real_idx[torch.argsort(nonego_type[real_idx], stable=True)]
-        # real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
-        # e = e[real_idx]
         if self.learn_noise:
             t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=x.device, dtype=torch.float32)
 
@@ -302,11 +281,10 @@ class ScaleFlow(nn.Module):
 
                 #base_t=base_t[:,None,:]
             else:
-                base_t = torch.rand((len(agent_batch)), device=x.device, dtype=torch.float32)
+                base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
              # t_batch = time_shift_fn(base_t)[:, None] #.to(x.dtype)
 
                 t=base_t[agent_batch]
-
 
         ego_mask = tokenized_agent["ego_mask"]
 
@@ -315,7 +293,6 @@ class ScaleFlow(nn.Module):
             torch.ones_like(t),
             t,
         )
-        # tokenized_agent["t_batch"]=t_batch
 
         if self.use_scale:
             nan_mask=torch.isnan(x)
@@ -326,11 +303,7 @@ class ScaleFlow(nn.Module):
 
             x[nan_mask]=0
 
-        if self.use_vp:
-            mean, std = self.sde.marginal_prob(x, t)
-            z = mean + std * e
-        else:
-            z = (1 - t) * e + t * x #large t, low noise        target velocity e-x = (z-x)/(1-t)
+        z = (1 - t) * e + t * x  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
         if self.model.use_cfg_cond:
             tokenized_agent["cfg"]= torch.ones(num_graphs,device=agent_batch.device)*2#sample_cfg_scale(num_graphs,device=z.device)#t
@@ -556,14 +529,6 @@ class ScaleFlow(nn.Module):
         else:
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
-        if self.use_kl:
-            x=ref_prediction
-            z = z_sampled
-            t = t_n_sampled
-            denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
-            e =x-(x - z) / denom #e_sampled
-            x_pred = x_pred_all
-
         if self.use_scale:
             x=out[:,None]
 
@@ -640,24 +605,41 @@ class ScaleFlow(nn.Module):
 
             policy_loss=pos_loss1+heading_loss1
 
-        # if self.use_kl:
-        #
-        #     # kl_loss = (
-        #     #     torch.mean((pred.float() - sample["preds"].detach().float()) ** 2)
-        #     #     / args.gradient_accumulation_steps
-        #     # )
-        #
-        #
-        #     # with torch.no_grad():
-        #     #     weight_factor = (
-        #     #         torch.abs(x_pred.double() - x.double())
-        #     #         .mean(dim=tuple(range(1, x.ndim)), keepdim=True)
-        #     #         .clip(min=0.00001)
-        #     #     )
-        #     weight_factor=1
-        #     match_loss = ((x_pred /scale- x/scale) ** 2 / weight_factor).mean(dim=tuple(range(1, x.ndim)))
+        if self.model.schedule_loss:
 
-        # print(policy_loss)
+            with torch.no_grad():
+                e = torch.randn_like(x)  # .clamp(min=-3,max=3) # base distribution N(0, I)
+
+                base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
+
+                t=base_t[agent_batch]
+
+                t = torch.where(
+                    ego_mask[:, None, None],
+                    torch.ones_like(t),
+                    t,
+                )
+
+                z = (1 - t) * e + t * x  # large t, low noise        target velocity e-x = (z-x)/(1-t)
+
+                x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+
+                observed_group_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+                    tokenized_agent,
+                    x_pred[:, 0],
+                    x[:, 0],
+                    z[:, 0],
+                    e[:, 0],
+                    t[:, 0],
+                    t_dt=t_dt[:, 0],
+                    #   use_match=True,
+                    use_col=False,  # not self.model.pred_gmm,
+                    x_pred=self.x_pred,
+                )
+
+                observed_group_loss=torch.stack([pos_loss1,heading_loss1,shape_loss1,vel_loss1], dim=-1)
+
+            policy_loss =  self.model.schedule.loss( t[~ego_mask,0,::2],observed_group_loss    )
 
         loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
@@ -914,12 +896,9 @@ class ScaleFlow(nn.Module):
             r = torch.zeros(num_agents, device=agent_batch.device)[:,None]
             beta = torch.cat([t, r], dim=-1)
 
-            z = self.model(z, beta, tokenized_agent, initial_map_feature,eval_mask)
+            z = self.model(z, beta, tokenized_agent, initial_map_feature, eval_mask)
         else:
-            if self.use_vp:
-                timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
-            else:
-                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)#.pow(2/3)
+            timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)  # .pow(2/3)
 
             noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 

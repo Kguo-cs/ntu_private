@@ -44,6 +44,7 @@ from src.smart.modules.interative_decoder import InterativeDecoder
 from src.smart.utils.edge_utils import build_batch
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return
 from .noise_schedule import LearnableGroupedPowerSchedule
+from .cdtd import CDTDGroupedWarp,SceneStateGroups
 
 def sinusoidal_embedding(position, D):
     """
@@ -152,7 +153,13 @@ class InitDenoiser(nn.Module):
             self.output_dim=m_delta_dim
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
-        self.schedule=LearnableGroupedPowerSchedule()
+        self.schedule_loss=False
+
+        if self.schedule_loss:
+            groups = SceneStateGroups()
+            self.schedule =CDTDGroupedWarp(groups)
+        else:
+            self.schedule=LearnableGroupedPowerSchedule()
 
         self.pred_gmm=False
 
@@ -195,6 +202,8 @@ class InitDenoiser(nn.Module):
 
         if self.use_prev_condition:
             self.condition_embed = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
+
+
 
         self.use_cfg_cond=False
 
