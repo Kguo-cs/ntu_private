@@ -110,11 +110,11 @@ class LearnableGroupedPowerSchedule(nn.Module):
             dtype=x_ref.dtype,
         )
 
-        # base_t = torch.clamp(
-        #     base_t,
-        #     min=self.eps,
-        #     max=1.0,
-        # )
+        base_t = torch.clamp(
+            base_t,
+            min=self.eps,
+            max=1.0-self.eps,
+        )
 
         gamma = self.gamma_dims.to(
             device=x_ref.device,
