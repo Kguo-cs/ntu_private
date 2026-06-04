@@ -269,11 +269,10 @@ class ScaleFlow(nn.Module):
             t_batch = t_batch[:, None, None]
         else:
             if self.lognorm_t:
-                #base_t = torch.rand((num_graphs), device=x.device, dtype=torch.float32).sqrt() #** (2.0 / 3)#.sqrt()
+                # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
 
-                #base_t=sample_linear_t(num_graphs,a=1,device=x.device)
 
-                base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
+                base_t =  torch.rand((num_graphs,1), device=x.device, dtype=torch.float32)
 
                 base_t=base_t[agent_batch]
 

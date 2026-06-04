@@ -362,12 +362,6 @@ def get_matching_loss(
         w_pos=w_pos/denom_sq[:,0], w_heading=w_heading/denom_sq[:,2], w_shape=w_shape/denom_sq[:,4], w_vel=w_vel/denom_sq[:,6]
     )
 
-    # match_loss1, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-    #     real_state[~tokenized_agent["ego_mask"]]/denom, fake_state[~tokenized_agent["ego_mask"]]/denom,
-    #     w_pos=w_pos, w_heading=w_heading, w_shape=w_shape, w_vel=w_vel
-    # )
-    #
-
     return match_loss/5,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
 
