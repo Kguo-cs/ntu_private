@@ -541,8 +541,8 @@ class ScaleFlow(nn.Module):
             e[:,0],
             t[:,0],
             t_dt=t_dt[:, 0],
-            use_match=False,
-            use_col=False,#not self.model.pred_gmm,
+          # use_match=False,
+            use_col=True,#not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
