@@ -110,9 +110,9 @@ class LearnableGroupedPowerSchedule(nn.Module):
             dtype=x_ref.dtype,
         )
 
-        base_t = torch.clamp(
+        safe_t = torch.clamp(
             base_t,
-            min=self.eps,
+            min=0.05,
             max=1.0,
         )
 
@@ -135,7 +135,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         dgrouped_t_dt = (
                 gamma
                 * torch.pow(
-            base_t,
+            safe_t,
             gamma - 1.0,
         )
         )
