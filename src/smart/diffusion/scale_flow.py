@@ -221,9 +221,7 @@ class ScaleFlow(nn.Module):
         if self.use_uniform:
             e = torch.rand_like(x)*2-1  # base distribution N(0, I)
         else:
-            e = torch.randn_like(x) #.clamp(min=-3,max=3) # base distribution N(0, I)
-
-            #e[:,:,:6]=torch.rand_like(x[:,:,:6])*2-1
+            e = torch.randn_like(x)
 
         e=self.model.denormalize(e,nonego_type)
 
@@ -269,8 +267,8 @@ class ScaleFlow(nn.Module):
             t_batch = t_batch[:, None, None]
         else:
             if self.lognorm_t:
-                # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
 
+                # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
 
                 base_t =  torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32)
 
@@ -940,7 +938,7 @@ class ScaleFlow(nn.Module):
                 t_list.append(t_n)
                 log_prob_list.append(log_prob)
 
-                tokenized_agent["prev_x"]=x_cond[:,0]
+                # tokenized_agent["prev_x"]=x_cond[:,0]
 
               #  feat_list.append(tokenized_agent["noise_feat"])
 
