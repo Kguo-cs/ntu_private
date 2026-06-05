@@ -155,14 +155,13 @@ class InitDenoiser(nn.Module):
             #self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
 
         self.schedule_loss=False
-        self.use_mulan=True
 
         if self.schedule_loss:
             groups = SceneStateGroups()
             self.schedule =CDTDGroupedWarp(groups)
         else:
-            self.schedule=LearnableGroupedPowerSchedule()
-            # self.schedule=AdaptiveGroupedPolynomialSchedule(latent_dim=0,map_context_dim=hidden_dim)
+            # self.schedule=LearnableGroupedPowerSchedule()
+            self.schedule=AdaptiveGroupedPolynomialSchedule(latent_dim=0,map_context_dim=hidden_dim)
 
         self.pred_gmm=False
 
