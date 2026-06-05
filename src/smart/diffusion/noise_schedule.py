@@ -43,7 +43,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
         self.learn_schedule=True
 
-        self.piecewise=True
+        self.piecewise=False
 
 
         if self.learn_schedule:
@@ -265,22 +265,27 @@ class LearnableGroupedPowerSchedule(nn.Module):
         identity_weight: float = 1e-4,
     ) -> Tensor:
         """Weak regularization against sharp or collapsed path warping."""
-        values = self.knot_values()
-        second_difference = (
-            values[:, 2:] - 2.0 * values[:, 1:-1] + values[:, :-2]
-        )
-        reference = torch.linspace(
-            0.0,
-            1.0,
-            self.num_intervals + 1,
-            device=values.device,
-            dtype=values.dtype,
-        )
-        return (
-            smoothness_weight * second_difference.square().mean()
-            + identity_weight * (values - reference).square().mean()
-        )
 
+        if self.piecewise:
+            values = self.knot_values()
+            second_difference = (
+                values[:, 2:] - 2.0 * values[:, 1:-1] + values[:, :-2]
+            )
+            reference = torch.linspace(
+                0.0,
+                1.0,
+                self.num_intervals + 1,
+                device=values.device,
+                dtype=values.dtype,
+            )
+            return (
+                    smoothness_weight * second_difference.square().mean()
+                    + identity_weight * (values - reference).square().mean()
+            )
+
+        else:
+
+            return  ((d_t - 1.0) ** 2).mean()
 @dataclass
 class GroupedFlowMatchingBatch:
     x_t: Tensor

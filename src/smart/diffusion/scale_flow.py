@@ -278,7 +278,7 @@ class ScaleFlow(nn.Module):
 
                 t, t_dt = self.model.schedule(base_t, x,tokenized_agent)
 
-                policy_loss=self.model.schedule.regularization(t_dt)#( ( t_dt - 1.0 ) ** 2  ).mean()
+                policy_loss=self.model.schedule.regularization(t_dt)#
             else:
                 base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
 
