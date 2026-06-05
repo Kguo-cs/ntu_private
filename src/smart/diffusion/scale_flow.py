@@ -110,7 +110,7 @@ class ScaleFlow(nn.Module):
         self.use_all_type=self.model.use_all_type
 
         if self.x_pred:
-            self.t_eps=0.05
+            self.t_eps=0.01
         else:
             self.t_eps=0
 
@@ -539,6 +539,7 @@ class ScaleFlow(nn.Module):
             e[:,0],
             t[:,0],
             t_dt=t_dt[:, 0],
+            t_eps=self.t_eps,
           # use_match=False,
             use_col=True,#not self.model.pred_gmm,
             x_pred=self.x_pred,
