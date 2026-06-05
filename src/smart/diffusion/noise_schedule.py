@@ -83,6 +83,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         self,
         base_t: Tensor,
         x_ref: Tensor,
+        context=None,
     ) -> tuple[Tensor, Tensor]:
         """
         Args:
