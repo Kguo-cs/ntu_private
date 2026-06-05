@@ -212,7 +212,7 @@ class InitDenoiser(nn.Module):
         # if self.use_cfg_cond:
         #     self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
-        self.use_pos=True
+        self.use_pos=False
 
         if self.use_roformer:
             if self.use_dit:
