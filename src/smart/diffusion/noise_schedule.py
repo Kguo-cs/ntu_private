@@ -52,7 +52,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
             self.lane_embed = MLPLayer(128 + 4, hidden_dim, hidden_dim)
 
-            # self.type_embed=nn.Embedding(3,hidden_dim)
+            self.type_embed=nn.Embedding(3,hidden_dim)
 
             self.schedule_net = nn.Sequential(
                 nn.Linear(
@@ -153,9 +153,9 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
         map_context= scatter_mean(feat_map,batch_pl,dim=0)
 
-        #type_embed = self.type_embed(nonego_type)
+        type_embed = self.type_embed(nonego_type)
 
-        context=map_context[agent_batch]#+type_embed
+        context=map_context[agent_batch]+type_embed
 
         raw_gamma = self.schedule_net(
             context
@@ -182,7 +182,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         # )
 
         grouped_t = torch.pow(
-            base_t,
+            safe_t,
             gamma,
         )
 
