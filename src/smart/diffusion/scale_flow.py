@@ -699,7 +699,12 @@ class ScaleFlow(nn.Module):
 
             v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
-            # x_euler =  z   + (t_next-t_n) * v_cond
+            x_euler = z + 0.05 * v_cond*t_dt
+
+            x_next = self.model(x_euler, t_next, tokenized_agent, initial_map_feature, eval_mask,mode=1)
+
+            velocity_next = (x_next- x_euler) / (1.0 - t_next).clamp_min(self.t_eps)
+
             # x_mid = z   + (t_next-t_n) * v_cond*0.5
             #
             # t_mid=(t_n+t_next)/2
@@ -708,7 +713,7 @@ class ScaleFlow(nn.Module):
             #
             # v_cond = (x_cond-x_mid)/ (1.0 - t_mid).clamp_min(self.t_eps)
 
-            #v_cond=0.5*(v_cond+velocity_next)
+            v_cond=0.5*(v_cond*t_dt+velocity_next*t_next_dt)
         else:
             v_cond=x_cond
 
@@ -762,7 +767,7 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-            z = z +(t_next-t_n) * v_pred
+           # z = z +(t_next-t_n) * v_pred
             # # log_prob=None#torch.zeros_like(z)
             # #
             # if torch.all(t_next==1):
@@ -773,7 +778,7 @@ class ScaleFlow(nn.Module):
             # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon #t_next=1.
 
            # print((z-z1)[~tokenized_agent["ego_mask"]].max())
-            #     z = z +0.05* v_pred
+            z = z +0.05* v_pred
             log_prob=None
 
         return z,pred_x0,t_n,log_prob
@@ -801,8 +806,6 @@ class ScaleFlow(nn.Module):
             z = torch.rand(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)*2-1
         else:
             z = torch.randn(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
-
-            #z[:,:,:6]=torch.rand(num_agents, num_samples, 6, device=agent_batch.device)*2-1
 
         z=self.model.denormalize(z,nonego_type)
 
