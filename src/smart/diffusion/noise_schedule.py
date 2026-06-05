@@ -2,17 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional, Sequence
+from src.smart.layers import MLPLayer
 
-import torch
-import torch.nn.functional as F
-from torch import Tensor, nn
 
 
 from typing import Sequence
 
 import torch
 from torch import Tensor, nn
-
+from torch_scatter import scatter_mean
 
 class LearnableGroupedPowerSchedule(nn.Module):
     """
@@ -46,12 +44,37 @@ class LearnableGroupedPowerSchedule(nn.Module):
         self.learn_schedule=True
 
         if self.learn_schedule:
-            self.raw_gamma = nn.Parameter(
-                torch.logit(scaled)
+            # self.raw_gamma = nn.Parameter(
+            #     torch.logit(scaled)
+            # )
+            hidden_dim=128
+            output_dim=4
+
+            self.lane_embed = MLPLayer(128 + 4, hidden_dim, hidden_dim)
+
+            # self.type_embed=nn.Embedding(3,hidden_dim)
+
+            self.schedule_net = nn.Sequential(
+                nn.Linear(
+                    hidden_dim,
+                    hidden_dim,
+                ),
+                nn.SiLU(),
+                nn.Linear(
+                    hidden_dim,
+                    hidden_dim,
+                ),
+                nn.SiLU(),
+                nn.Linear(
+                    hidden_dim,
+                    output_dim,
+                ),
             )
+
         else:
             raw_gamma = torch.logit(scaled)
             self.register_buffer("raw_gamma", raw_gamma)
+
 
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
@@ -66,24 +89,24 @@ class LearnableGroupedPowerSchedule(nn.Module):
             "group_index",
             group_index,
         )
-
-    @property
-    def gamma_groups(self) -> Tensor:
-        return (
-            self.gamma_min
-            + (self.gamma_max - self.gamma_min)
-            * torch.sigmoid(self.raw_gamma)
-        )
-
-    @property
-    def gamma_dims(self) -> Tensor:
-        return self.gamma_groups[self.group_index]
+    #
+    # @property
+    # def gamma_groups(self) -> Tensor:
+    #     return (
+    #         self.gamma_min
+    #         + (self.gamma_max - self.gamma_min)
+    #         * torch.sigmoid(self.raw_gamma)
+    #     )
+    #
+    # @property
+    # def gamma_dims(self) -> Tensor:
+    #     return self.gamma_groups[self.group_index]
 
     def forward(
         self,
         base_t: Tensor,
         x_ref: Tensor,
-        context=None,
+        tokenized_agent=None,
     ) -> tuple[Tensor, Tensor]:
         """
         Args:
@@ -113,19 +136,50 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
         safe_t = torch.clamp(
             base_t,
-            min=0.05,
+            min=self.eps,
             max=1.0,
         )
 
-        gamma = self.gamma_dims.to(
-            device=x_ref.device,
-            dtype=x_ref.dtype,
+        map_feature=tokenized_agent["initial_map_feature"]
+        nonego_type=tokenized_agent["nonego_type"]
+        agent_batch = tokenized_agent["nonego_batch"]
+
+        batch_pl = map_feature["batch"]
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
+        feat_map = map_feature["pt_token"]
+
+        feat_map = self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]], dim=-1))
+
+        map_context= scatter_mean(feat_map,batch_pl,dim=0)
+
+        #type_embed = self.type_embed(nonego_type)
+
+        context=map_context[agent_batch]#+type_embed
+
+        raw_gamma = self.schedule_net(
+            context
         )
 
-        gamma = gamma.view(
-            *([1] * (x_ref.ndim - 1)),
-            -1,
+        gamma_groups = (
+                self.gamma_min
+                + (self.gamma_max - self.gamma_min)
+                * torch.sigmoid(raw_gamma)
         )
+
+        gamma=gamma_groups[:,None,self.group_index]
+
+        self.gamma_groups=gamma_groups.mean(0).detach()
+
+        # gamma = self.gamma_dims.to(
+        #     device=x_ref.device,
+        #     dtype=x_ref.dtype,
+        # )
+        #
+        # gamma = gamma.view(
+        #     *([1] * (x_ref.ndim - 1)),
+        #     -1,
+        # )
 
         grouped_t = torch.pow(
             base_t,
