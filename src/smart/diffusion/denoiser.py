@@ -160,8 +160,8 @@ class InitDenoiser(nn.Module):
             groups = SceneStateGroups()
             self.schedule =CDTDGroupedWarp(groups)
         else:
-            # self.schedule=LearnableGroupedPowerSchedule()
-            self.schedule=AdaptiveGroupedPolynomialSchedule(latent_dim=0,map_context_dim=hidden_dim)
+            self.schedule=LearnableGroupedPowerSchedule()
+            #4self.schedule=AdaptiveGroupedPolynomialSchedule(latent_dim=0,map_context_dim=hidden_dim)
 
         self.pred_gmm=False
 
