@@ -43,7 +43,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
             / (gamma_max - gamma_min)
         )
 
-        self.learn_schedule=False
+        self.learn_schedule=True
 
         if self.learn_schedule:
             self.raw_gamma = nn.Parameter(
