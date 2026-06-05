@@ -41,39 +41,57 @@ class LearnableGroupedPowerSchedule(nn.Module):
             / (gamma_max - gamma_min)
         )
 
-        self.learn_schedule=False
+        self.learn_schedule=True
+
+        self.piecewise=True
+
 
         if self.learn_schedule:
             # self.raw_gamma = nn.Parameter(
             #     torch.logit(scaled)
             # )
-            hidden_dim=128
-            output_dim=4
+            if self.piecewise:
+                num_intervals = 16
+                min_interval_mass=0.02
 
-            self.lane_embed = MLPLayer(128 + 4, hidden_dim, hidden_dim)
+                self.num_groups=len(group_dims)
 
-            self.type_embed=nn.Embedding(3,hidden_dim)
+                self.num_intervals = num_intervals
+                self.min_interval_mass = min_interval_mass
+                self.interval_logits = nn.Parameter(
+                    torch.zeros(len(group_dims), num_intervals)
+                )
+            else:
 
-            self.schedule_net = nn.Sequential(
-                nn.Linear(
-                    hidden_dim,
-                    hidden_dim,
-                ),
-                nn.SiLU(),
-                nn.Linear(
-                    hidden_dim,
-                    hidden_dim,
-                ),
-                nn.SiLU(),
-                nn.Linear(
-                    hidden_dim,
-                    output_dim,
-                ),
-            )
+                hidden_dim=128
+                output_dim=4
+
+                self.lane_embed = MLPLayer(128 + 4, hidden_dim, hidden_dim)
+
+                self.type_embed=nn.Embedding(3,hidden_dim)
+
+                self.schedule_net = nn.Sequential(
+                    nn.Linear(
+                        hidden_dim,
+                        hidden_dim,
+                    ),
+                    nn.SiLU(),
+                    nn.Linear(
+                        hidden_dim,
+                        hidden_dim,
+                    ),
+                    nn.SiLU(),
+                    nn.Linear(
+                        hidden_dim,
+                        output_dim,
+                    ),
+                )
 
         else:
             raw_gamma = torch.logit(scaled)
             self.register_buffer("raw_gamma", raw_gamma)
+
+
 
 
         self.gamma_min = gamma_min
@@ -89,6 +107,21 @@ class LearnableGroupedPowerSchedule(nn.Module):
             "group_index",
             group_index,
         )
+
+    def interval_mass(self) -> Tensor:
+        learned = torch.softmax(self.interval_logits, dim=-1)
+        uniform = torch.full_like(learned, 1.0 / self.num_intervals)
+        return (
+            (1.0 - self.min_interval_mass) * learned
+            + self.min_interval_mass * uniform
+        )
+
+    def knot_values(self) -> Tensor:
+        mass = self.interval_mass()
+        zero = torch.zeros(
+            mass.shape[0], 1, device=mass.device, dtype=mass.dtype
+        )
+        return torch.cat([zero, torch.cumsum(mass, dim=-1)], dim=-1)
 
     def forward(
         self,
@@ -128,74 +161,125 @@ class LearnableGroupedPowerSchedule(nn.Module):
             max=1.0,
         )
 
-        if self.learn_schedule:
-            map_feature=tokenized_agent["initial_map_feature"]
-            nonego_type=tokenized_agent["nonego_type"]
-            agent_batch = tokenized_agent["nonego_batch"]
 
-            batch_pl = map_feature["batch"]
-            pos_pl = map_feature["position"]
-            orient_pl = map_feature["orientation"]
-            feat_map = map_feature["pt_token"]
+        if self.piecewise:
+            original_shape = safe_t.shape[:-1]
+            t_flat = safe_t.reshape(-1)
 
-            feat_map = self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]], dim=-1))
-
-            map_context= scatter_mean(feat_map,batch_pl,dim=0)
-
-            type_embed = self.type_embed(nonego_type)
-
-            context=map_context[agent_batch]+type_embed
-
-            raw_gamma = self.schedule_net(
-                context
+            scaled = t_flat * self.num_intervals
+            index = torch.floor(scaled).long().clamp(
+                min=0, max=self.num_intervals - 1
             )
+            fraction = (scaled - index.to(scaled.dtype)).clamp(0.0, 1.0)
 
-            gamma_groups = (
-                    self.gamma_min
-                    + (self.gamma_max - self.gamma_min)
-                    * torch.sigmoid(raw_gamma)
-            )
+            values = self.knot_values()  # [G, K + 1]
+            left = values[:, index].transpose(0, 1)
+            right = values[:, index + 1].transpose(0, 1)
 
-            gamma=gamma_groups[:,None,self.group_index]
+            r_flat = left + fraction[:, None] * (right - left)
+            dr_flat = self.num_intervals * (right - left)
 
-            self.gamma_groups=gamma_groups.mean(0).detach()
+            r_group = r_flat.reshape(*original_shape, self.num_groups)
+            dr_group = dr_flat.reshape(*original_shape, self.num_groups)
+            grouped_t = r_group[..., self.group_index]
+
+            dgrouped_t_dt=dr_group[..., self.group_index]
+
+            self.gamma_groups=r_flat.mean(0).detach()
 
         else:
-            self.gamma_groups = (
-                    self.gamma_min
-                    + (self.gamma_max - self.gamma_min)
-                    * torch.sigmoid(self.raw_gamma)
+
+            if self.learn_schedule:
+                map_feature = tokenized_agent["initial_map_feature"]
+                nonego_type = tokenized_agent["nonego_type"]
+                agent_batch = tokenized_agent["nonego_batch"]
+
+                batch_pl = map_feature["batch"]
+                pos_pl = map_feature["position"]
+                orient_pl = map_feature["orientation"]
+                feat_map = map_feature["pt_token"]
+
+                feat_map = self.lane_embed(
+                    torch.cat([feat_map, pos_pl, orient_pl.cos()[:, None], orient_pl.sin()[:, None]], dim=-1))
+
+                map_context = scatter_mean(feat_map, batch_pl, dim=0)
+
+                type_embed = self.type_embed(nonego_type)
+
+                context = map_context[agent_batch] + type_embed
+
+                raw_gamma = self.schedule_net(
+                    context
+                )
+
+                gamma_groups = (
+                        self.gamma_min
+                        + (self.gamma_max - self.gamma_min)
+                        * torch.sigmoid(raw_gamma)
+                )
+
+                gamma = gamma_groups[:, None, self.group_index]
+
+                self.gamma_groups = gamma_groups.mean(0).detach()
+
+            else:
+                self.gamma_groups = (
+                        self.gamma_min
+                        + (self.gamma_max - self.gamma_min)
+                        * torch.sigmoid(self.raw_gamma)
+                )
+
+                gamma_dims = self.gamma_groups[self.group_index]
+
+                gamma = gamma_dims.to(
+                    device=x_ref.device,
+                    dtype=x_ref.dtype,
+                )
+
+                gamma = gamma.view(
+                    *([1] * (x_ref.ndim - 1)),
+                    -1,
+                )
+            grouped_t = torch.pow(
+                safe_t,
+                gamma,
             )
 
-            gamma_dims = self.gamma_groups[ self.group_index]
-
-            gamma = gamma_dims.to(
-                device=x_ref.device,
-                dtype=x_ref.dtype,
+           # if self.learn_schedule:
+            dgrouped_t_dt = (
+                    gamma
+                    * torch.pow(
+                safe_t,
+                gamma - 1.0,
             )
-
-            gamma = gamma.view(
-                *([1] * (x_ref.ndim - 1)),
-                -1,
             )
-
-        grouped_t = torch.pow(
-            safe_t,
-            gamma,
-        )
-
-       # if self.learn_schedule:
-        dgrouped_t_dt = (
-                gamma
-                * torch.pow(
-            safe_t,
-            gamma - 1.0,
-        )
-        )
 
         # else:
         #     dgrouped_t_dt=torch.ones_like(base_t)
         return grouped_t, dgrouped_t_dt
+
+    def regularization(
+        self,
+        d_t,
+        smoothness_weight: float = 1e-3,
+        identity_weight: float = 1e-4,
+    ) -> Tensor:
+        """Weak regularization against sharp or collapsed path warping."""
+        values = self.knot_values()
+        second_difference = (
+            values[:, 2:] - 2.0 * values[:, 1:-1] + values[:, :-2]
+        )
+        reference = torch.linspace(
+            0.0,
+            1.0,
+            self.num_intervals + 1,
+            device=values.device,
+            dtype=values.dtype,
+        )
+        return (
+            smoothness_weight * second_difference.square().mean()
+            + identity_weight * (values - reference).square().mean()
+        )
 
 @dataclass
 class GroupedFlowMatchingBatch:

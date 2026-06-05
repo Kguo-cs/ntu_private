@@ -278,7 +278,7 @@ class ScaleFlow(nn.Module):
 
                 t, t_dt = self.model.schedule(base_t, x,tokenized_agent)
 
-                policy_loss=( ( t_dt - 1.0 ) ** 2  ).mean()*1e-3
+                policy_loss=self.model.schedule.regularization(t_dt)#( ( t_dt - 1.0 ) ** 2  ).mean()
             else:
                 base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
 
@@ -699,21 +699,12 @@ class ScaleFlow(nn.Module):
 
             v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
-            x_euler = z + 0.05 * v_cond*t_dt
-
-            x_next = self.model(x_euler, t_next, tokenized_agent, initial_map_feature, eval_mask,mode=1)
-
-            velocity_next = (x_next- x_euler) / (1.0 - t_next).clamp_min(self.t_eps)
-
-            # x_mid = z   + (t_next-t_n) * v_cond*0.5
+            # x_euler = z + 0.05 * v_cond*t_dt
             #
-            # t_mid=(t_n+t_next)/2
+            # x_next = self.model(x_euler, t_next, tokenized_agent, initial_map_feature, eval_mask,mode=1)
             #
-            # x_cond =  self.model(x_mid, t_mid, tokenized_agent, initial_map_feature, eval_mask,mode=1)
-            #
-            # v_cond = (x_cond-x_mid)/ (1.0 - t_mid).clamp_min(self.t_eps)
-
-            v_cond=0.5*(v_cond*t_dt+velocity_next*t_next_dt)
+            # velocity_next = (x_next- x_euler) / (1.0 - t_next).clamp_min(self.t_eps)
+            # v_cond=0.5*(v_cond*t_dt+velocity_next*t_next_dt)
         else:
             v_cond=x_cond
 
@@ -767,7 +758,7 @@ class ScaleFlow(nn.Module):
                 noise_level
             )
         else:
-           # z = z +(t_next-t_n) * v_pred
+            z = z +(t_next-t_n) * v_pred
             # # log_prob=None#torch.zeros_like(z)
             # #
             # if torch.all(t_next==1):
@@ -778,7 +769,7 @@ class ScaleFlow(nn.Module):
             # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon #t_next=1.
 
            # print((z-z1)[~tokenized_agent["ego_mask"]].max())
-            z = z +0.05* v_pred
+            #z = z +0.05* v_pred
             log_prob=None
 
         return z,pred_x0,t_n,log_prob
