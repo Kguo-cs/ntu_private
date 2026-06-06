@@ -212,7 +212,7 @@ class InitDenoiser(nn.Module):
         # if self.use_cfg_cond:
         #     self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
-        self.use_pos=False
+        self.use_pos=True
 
         if self.use_roformer:
             if self.use_dit:
@@ -671,52 +671,52 @@ class InitDenoiser(nn.Module):
 
                     if self.use_pos:
 
-                        # valid_idx = batch * 3 + type
-                        #
-                        # # sort group ids
-                        # sorted_idx, perm = torch.sort(valid_idx)
-                        #
-                        # # detect new groups
-                        # group_change = torch.ones_like(sorted_idx, dtype=torch.bool)
-                        # group_change[1:] = sorted_idx[1:] != sorted_idx[:-1]
-                        #
-                        # # position inside sorted array
-                        # pos = torch.arange(sorted_idx.numel(), device=sorted_idx.device)
-                        #
-                        # # first position of each group
-                        # group_start = torch.where(group_change, pos, 0)
-                        # group_start = torch.cummax(group_start, dim=0)[0]
-                        #
-                        # # rank within group
-                        # sorted_rank = pos - group_start
-                        #
-                        # # unsort back
-                        # pos_idx = torch.empty_like(sorted_rank)
-                        # pos_idx[perm] = sorted_rank
+                        valid_idx = batch * 3 + type
 
-                        gid = batch * 3 + type
-                        score = pos_s[:, 0] + pos_s[:, 1]  # key inside each (batch, type) group
+                        # sort group ids
+                        sorted_idx, perm = torch.sort(valid_idx)
 
-                        # stable lexicographic sort by (gid, score):
-                        # 1) sort by secondary key (score)
-                        perm = torch.argsort(score, stable=True)
-                        # 2) stable sort by primary key (gid), preserving score order within gid
-                        perm = perm[torch.argsort(gid[perm], stable=True)]
+                        # detect new groups
+                        group_change = torch.ones_like(sorted_idx, dtype=torch.bool)
+                        group_change[1:] = sorted_idx[1:] != sorted_idx[:-1]
 
-                        gid_sorted = gid[perm]
+                        # position inside sorted array
+                        pos = torch.arange(sorted_idx.numel(), device=sorted_idx.device)
 
-                        group_change = torch.ones_like(gid_sorted, dtype=torch.bool)
-                        group_change[1:] = gid_sorted[1:] != gid_sorted[:-1]
-
-                        pos = torch.arange(gid_sorted.numel(), device=gid_sorted.device)
+                        # first position of each group
                         group_start = torch.where(group_change, pos, 0)
-                        group_start = torch.cummax(group_start, dim=0).values
+                        group_start = torch.cummax(group_start, dim=0)[0]
 
+                        # rank within group
                         sorted_rank = pos - group_start
 
-                        # back to original order
+                        # unsort back
                         pos_idx = torch.empty_like(sorted_rank)
                         pos_idx[perm] = sorted_rank
+
+                        # gid = batch * 3 + type
+                        # score = pos_s[:, 0] + pos_s[:, 1]  # key inside each (batch, type) group
+                        #
+                        # # stable lexicographic sort by (gid, score):
+                        # # 1) sort by secondary key (score)
+                        # perm = torch.argsort(score, stable=True)
+                        # # 2) stable sort by primary key (gid), preserving score order within gid
+                        # perm = perm[torch.argsort(gid[perm], stable=True)]
+                        #
+                        # gid_sorted = gid[perm]
+                        #
+                        # group_change = torch.ones_like(gid_sorted, dtype=torch.bool)
+                        # group_change[1:] = gid_sorted[1:] != gid_sorted[:-1]
+                        #
+                        # pos = torch.arange(gid_sorted.numel(), device=gid_sorted.device)
+                        # group_start = torch.where(group_change, pos, 0)
+                        # group_start = torch.cummax(group_start, dim=0).values
+                        #
+                        # sorted_rank = pos - group_start
+                        #
+                        # # back to original order
+                        # pos_idx = torch.empty_like(sorted_rank)
+                        # pos_idx[perm] = sorted_rank
 
                         # counts = torch.bincount(batch, minlength=num_graphs)
                         #

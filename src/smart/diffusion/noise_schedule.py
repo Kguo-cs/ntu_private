@@ -157,7 +157,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
         safe_t = torch.clamp(
             base_t,
-            min=self.eps,
+            min=0,
             max=1.0,
         )
 
