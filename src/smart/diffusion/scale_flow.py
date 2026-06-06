@@ -234,6 +234,8 @@ class ScaleFlow(nn.Module):
             #
             # x_pred_noise = x_pred_noise[fake_idx]
 
+            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
+
 
             policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,
