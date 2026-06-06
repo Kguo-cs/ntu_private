@@ -51,7 +51,7 @@ from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 from src.smart.layers import MLPLayer
 
-from src.smart.loss.earth_match import get_matching_loss,get_closest_sum_idx,get_type_position_index
+from src.smart.loss.earth_match import get_matching_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last
 from src.smart.diffusion.dit.dit import DiT
 
 import torch
@@ -144,27 +144,27 @@ class ScaleFlow(nn.Module):
             self.use_sde=False
 
         if self.learn_noise:
-            #self.noise_model = DiT(self.hidden_dim)
-            self.noise_model = InitDenoiser(
-                token_processor,
-                dataset=args.dataset,
-                input_dim=args.input_dim,
-                hidden_dim=args.hidden_dim,
-                output_dim=args.output_dim,
-                output_head=args.output_head,
-                init_timestep=args.init_timestep,
-                num_freq_bands=args.num_freq_bands,
-                num_layers=1,
-                num_heads=args.num_heads,
-                head_dim=args.head_dim,
-                dropout=args.dropout,
-                diff_type=args.diff_type,
-                m_dim=args.m_dim,
-                mean_flow=self.mean_flow,
-                x_pred=self.x_pred,
-                learn_noise=self.learn_noise
-            )
-
+            self.noise_model = DiT(self.hidden_dim)
+            # self.noise_model = InitDenoiser(
+            #     token_processor,
+            #     dataset=args.dataset,
+            #     input_dim=args.input_dim,
+            #     hidden_dim=args.hidden_dim,
+            #     output_dim=args.output_dim,
+            #     output_head=args.output_head,
+            #     init_timestep=args.init_timestep,
+            #     num_freq_bands=args.num_freq_bands,
+            #     num_layers=1,
+            #     num_heads=args.num_heads,
+            #     head_dim=args.head_dim,
+            #     dropout=args.dropout,
+            #     diff_type=args.diff_type,
+            #     m_dim=args.m_dim,
+            #     mean_flow=self.mean_flow,
+            #     x_pred=self.x_pred,
+            #     learn_noise=self.learn_noise
+            # )
+            #
 
         self.pred_all_pos=token_processor.pred_all_pos
 
@@ -221,9 +221,18 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise = self.noise_model(torch.zeros_like(e), t, tokenized_agent, initial_map_feature)
 
-            fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
+            # fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
+            #
+            # x_pred_noise = x_pred_noise[fake_idx]
 
-            x_pred_noise = x_pred_noise[fake_idx]
+            perm = sort_agents_by_xy_keep_last(
+                    pos=x[:,0,:2],
+                    batch=agent_batch,
+                    agent_type=nonego_type,
+                    num_types=3,
+                )
+
+            x=x[perm]
 
             policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,

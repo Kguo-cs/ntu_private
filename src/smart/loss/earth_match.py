@@ -15,6 +15,169 @@ from torch import Tensor
 
 import torch
 from torch import Tensor
+import torch
+from torch import Tensor
+
+
+def sort_agents_by_xy_keep_last(
+    pos: Tensor,
+    batch: Tensor,
+    agent_type: Tensor,
+    num_types: int = 3,
+):
+    """
+    Sort agents by x + y inside each (batch, type) group.
+
+    The last agent in each batch is not sorted and remains at its original
+    absolute position. Sorting never moves an agent across batches or types.
+
+    Args:
+        pos:
+            Agent positions with shape [N, 2] or [N, D].
+            The first two columns are interpreted as x and y.
+
+        batch:
+            Batch index of each agent, shape [N].
+
+        agent_type:
+            Agent type of each agent, shape [N].
+            Valid types are expected to be in [0, num_types - 1].
+
+        num_types:
+            Number of agent types.
+
+    Returns:
+        sorted_pos:
+            Positions after sorting, shape [N, D].
+
+        sorted_batch:
+            Batch indices after sorting, shape [N].
+            This should be identical to the input batch tensor because agents
+            never move across batches.
+
+        sorted_type:
+            Agent types after sorting, shape [N].
+            This should be identical to the input agent_type tensor because
+            agents never move across types.
+
+        perm:
+            Mapping from each output slot to its original input index:
+                sorted_pos = pos[perm]
+
+        pos_idx:
+            Zero-based rank after sorting inside each (batch, type) group.
+            The last agent in each batch receives -1 because it is excluded
+            from sorting.
+    """
+    if pos.ndim != 2 or pos.shape[1] < 2:
+        raise ValueError("pos must have shape [N, D] with D >= 2.")
+
+    if batch.ndim != 1 or agent_type.ndim != 1:
+        raise ValueError("batch and agent_type must be 1D tensors.")
+
+    if not (pos.shape[0] == batch.shape[0] == agent_type.shape[0]):
+        raise ValueError("pos, batch, and agent_type must contain the same number of agents.")
+
+    num_agents = batch.numel()
+
+    if num_agents == 0:
+        empty_idx = torch.empty_like(batch)
+        return pos, batch, agent_type, empty_idx, empty_idx
+
+    if torch.any(agent_type < 0) or torch.any(agent_type >= num_types):
+        raise ValueError(f"agent_type must be in [0, {num_types - 1}].")
+
+    device = batch.device
+    original_idx = torch.arange(num_agents, device=device)
+
+    # ---------------------------------------------------------------
+    # 1. Detect the last occurrence of each batch in the original input.
+    # ---------------------------------------------------------------
+    num_batches = int(batch.max().item()) + 1
+
+    last_idx_per_batch = torch.full(
+        (num_batches,),
+        fill_value=-1,
+        dtype=torch.long,
+        device=device,
+    )
+
+    # scatter_reduce_ is available in recent PyTorch versions.
+    last_idx_per_batch.scatter_reduce_(
+        dim=0,
+        index=batch,
+        src=original_idx,
+        reduce="amax",
+        include_self=True,
+    )
+
+    keep_fixed = original_idx == last_idx_per_batch[batch]
+    sortable = ~keep_fixed
+
+    # ---------------------------------------------------------------
+    # 2. Sort movable agents lexicographically by:
+    #       primary key:   (batch, type)
+    #       secondary key: x + y
+    #
+    # Stable sorting ensures deterministic ordering when x + y ties.
+    # ---------------------------------------------------------------
+    sortable_idx = original_idx[sortable]
+
+    sortable_batch = batch[sortable_idx]
+    sortable_type = agent_type[sortable_idx]
+    score = pos[sortable_idx, 0] + pos[sortable_idx, 1]
+
+    group_id = sortable_batch * num_types + sortable_type
+
+    # Stable lexicographic sort:
+    # first sort by secondary key, then by primary key.
+    order = torch.argsort(score, stable=True)
+    order = order[torch.argsort(group_id[order], stable=True)]
+
+    sorted_source_idx = sortable_idx[order]
+
+    # ---------------------------------------------------------------
+    # 3. Write sorted agents back into their original (batch, type)
+    #    slots. Fixed last agents remain untouched.
+    #
+    # The sortable slots must also be arranged by (batch, type), while
+    # preserving their original positions within each group.
+    # ---------------------------------------------------------------
+    slot_order = torch.argsort(group_id, stable=True)
+    target_slots = sortable_idx[slot_order]
+
+    perm = original_idx.clone()
+    perm[target_slots] = sorted_source_idx
+
+    # ---------------------------------------------------------------
+    # 4. Compute rank within each sorted (batch, type) group.
+    #    Fixed agents receive -1.
+    # ---------------------------------------------------------------
+    sorted_group_id = group_id[order]
+
+    group_change = torch.ones_like(sorted_group_id, dtype=torch.bool)
+    group_change[1:] = sorted_group_id[1:] != sorted_group_id[:-1]
+
+    sorted_position = torch.arange(
+        sorted_group_id.numel(),
+        device=device,
+        dtype=torch.long,
+    )
+
+    group_start = torch.where(group_change, sorted_position, 0)
+    group_start = torch.cummax(group_start, dim=0).values
+
+    sorted_rank = sorted_position - group_start
+
+    pos_idx = torch.full(
+        (num_agents,),
+        fill_value=-1,
+        dtype=torch.long,
+        device=device,
+    )
+    pos_idx[target_slots] = sorted_rank
+
+    return perm
 
 def sinusoidal_embedding(position, D):
     """
