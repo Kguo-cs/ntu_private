@@ -144,26 +144,26 @@ class ScaleFlow(nn.Module):
             self.use_sde=False
 
         if self.learn_noise:
-            # self.noise_model = DiT(self.hidden_dim)
-            self.noise_model = InitDenoiser(
-                token_processor,
-                dataset=args.dataset,
-                input_dim=args.input_dim,
-                hidden_dim=args.hidden_dim,
-                output_dim=args.output_dim,
-                output_head=args.output_head,
-                init_timestep=args.init_timestep,
-                num_freq_bands=args.num_freq_bands,
-                num_layers=1,
-                num_heads=args.num_heads,
-                head_dim=args.head_dim,
-                dropout=args.dropout,
-                diff_type=args.diff_type,
-                m_dim=args.m_dim,
-                mean_flow=self.mean_flow,
-                x_pred=self.x_pred,
-                learn_noise=self.learn_noise
-            )
+            self.noise_model = DiT(self.hidden_dim)
+            # self.noise_model = InitDenoiser(
+            #     token_processor,
+            #     dataset=args.dataset,
+            #     input_dim=args.input_dim,
+            #     hidden_dim=args.hidden_dim,
+            #     output_dim=args.output_dim,
+            #     output_head=args.output_head,
+            #     init_timestep=args.init_timestep,
+            #     num_freq_bands=args.num_freq_bands,
+            #     num_layers=1,
+            #     num_heads=args.num_heads,
+            #     head_dim=args.head_dim,
+            #     dropout=args.dropout,
+            #     diff_type=args.diff_type,
+            #     m_dim=args.m_dim,
+            #     mean_flow=self.mean_flow,
+            #     x_pred=self.x_pred,
+            #     learn_noise=self.learn_noise
+            # )
 
 
         self.pred_all_pos=token_processor.pred_all_pos
@@ -237,7 +237,9 @@ class ScaleFlow(nn.Module):
                 x_pred=True
             )
 
-            std = torch.clamp(x_pred_noise[:, :,8:].exp(), min=1e-5)
+          #  print(x_pred_noise[:, :,8:].max())
+
+            std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
             std[:, :,:2] = std[:, :,:2] * 0.5
             std[:,:, 2:6] = std[:, :,2:6] * 2
