@@ -110,7 +110,7 @@ class ScaleFlow(nn.Module):
         self.use_all_type=self.model.use_all_type
 
         if self.x_pred:
-            self.t_eps=0.1
+            self.t_eps=0.05
         else:
             self.t_eps=0
 
@@ -136,7 +136,7 @@ class ScaleFlow(nn.Module):
 
         self.use_uniform=False
 
-        self.learn_noise=False
+        self.learn_noise=True
 
         self.mc_num=1
 
@@ -154,7 +154,7 @@ class ScaleFlow(nn.Module):
                 output_head=args.output_head,
                 init_timestep=args.init_timestep,
                 num_freq_bands=args.num_freq_bands,
-                num_layers=args.num_denoiser_layers,
+                num_layers=1,
                 num_heads=args.num_heads,
                 head_dim=args.head_dim,
                 dropout=args.dropout,
@@ -276,7 +276,7 @@ class ScaleFlow(nn.Module):
 
                 t, t_dt = self.model.schedule(base_t, x,tokenized_agent)
 
-                policy_loss=self.model.schedule.regularization(t_dt)#
+                #policy_loss=self.model.schedule.regularization(t_dt)#
             else:
                 base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
 
