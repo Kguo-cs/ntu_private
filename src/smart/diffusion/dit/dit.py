@@ -41,7 +41,7 @@ class DiT(nn.Module):
         # # Condition on scene type
         # self.scene_type_embedder = LabelEmbedder(self.cfg_dataset.num_map_ids * 2, hidden_dim,
         #                                          self.cfg_model.label_dropout) ## 2type: either nocturne_compatible (1) or not (0) used for sampling GPU-Drive compatible scenes
-        self.scene_type_embedder = LabelEmbedder(3, hidden_dim,  0.1) ## 2type: either nocturne_compatible (1) or not (0) used for sampling GPU-Drive compatible scenes
+        self.scene_type_embedder = LabelEmbedder(3, hidden_dim,  0) ## 2type: either nocturne_compatible (1) or not (0) used for sampling GPU-Drive compatible scenes
 
         # Condition on number of agents and lanes
         self.num_agents_embedder = LabelEmbedder(350, hidden_dim, 0)
