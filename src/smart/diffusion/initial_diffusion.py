@@ -19,7 +19,7 @@ from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_n
 from .scale_flow import ScaleFlow
 from src.smart.diffusion.dit.autoencoder import AutoEncoder
 from src.smart.diffusion.dit.ldm import LDM
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale
+from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,get_type_position_index,sinusoidal_embedding
 from torch_scatter import scatter_sum,scatter_mean
 
 class InitDiffusion(nn.Module):
@@ -172,6 +172,10 @@ class InitDiffusion(nn.Module):
             tokenized_agent["initial_map_feature"] = initial_map_feature
         else:
             initial_map_feature=tokenized_agent["initial_map_feature"]
+
+        pos_idx = get_type_position_index(nonego_batch, tokenized_agent["nonego_type"], num_types=3)
+
+        tokenized_agent["pos_feat"] =sinusoidal_embedding(pos_idx[:, None] + 1, 256)
 
         if self.training:
             diff_input,diff_output=self.G1.model.get_input(tokenized_agent)

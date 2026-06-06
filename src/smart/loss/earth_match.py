@@ -10,6 +10,109 @@ from src.smart.utils import (
     wrap_angle,
 )
 from torch_scatter import scatter_sum,scatter_mean
+import torch
+from torch import Tensor
+
+import torch
+from torch import Tensor
+
+def sinusoidal_embedding(position, D):
+    """
+    Create sinusoidal positional embeddings for positions 1 to N
+    Args:
+        N: number of positions (assumes positions 1 to N)
+        D: embedding dimension (must be even)
+    Returns:
+        Tensor of shape [N, D]
+    """
+   # return 0
+    div_term = torch.exp(torch.arange(0, D, 2,device=position.device) * (-math.log(10000.0) / D))  # shape [D/2]
+
+    pe = torch.zeros(len(position), D,device=position.device)
+    pe[:, 0::2] = torch.sin(position * div_term)  # even indices
+    pe[:, 1::2] = torch.cos(position * div_term)  # odd indices
+
+    return pe
+
+def get_type_position_index(
+    batch: Tensor,
+    agent_type: Tensor,
+    num_types: int = 3,
+    invalid_value: int = -1,
+) -> Tensor:
+    """
+    Assign a zero-based position index to each valid agent within its
+    corresponding (batch, agent_type) group.
+
+    The input does not need to be sorted.
+
+    Args:
+        batch:
+            Tensor of shape [N]. batch[i] is the batch index of agent i.
+
+        agent_type:
+            Tensor of shape [N]. agent_type[i] is the type of agent i.
+            Valid types are 0, ..., num_types - 1.
+            Invalid entries, such as -1, receive invalid_value.
+
+        num_types:
+            Total number of valid agent types.
+
+        invalid_value:
+            Output value assigned to invalid entries.
+
+    Returns:
+        pos_idx:
+            Tensor of shape [N]. For each valid agent, pos_idx[i] is its
+            zero-based index among agents with the same batch and type.
+    """
+    if batch.ndim != 1 or agent_type.ndim != 1:
+        raise ValueError("batch and agent_type must be 1D tensors.")
+
+    if batch.shape != agent_type.shape:
+        raise ValueError("batch and agent_type must have the same shape.")
+
+    pos_idx = torch.full_like(batch, invalid_value)
+
+    # Only assign indices to valid agent types.
+    valid_mask = (agent_type >= 0) & (agent_type < num_types)
+
+    if not valid_mask.any():
+        return pos_idx
+
+    valid_batch = batch[valid_mask]
+    valid_type = agent_type[valid_mask]
+
+    # Unique group ID for each (batch, type) pair.
+    group_id = valid_batch * num_types + valid_type
+
+    # Stable sorting preserves the original order within each group.
+    sorted_group_id, perm = torch.sort(group_id, stable=True)
+
+    # Identify the first element of every group.
+    group_change = torch.ones_like(sorted_group_id, dtype=torch.bool)
+    group_change[1:] = sorted_group_id[1:] != sorted_group_id[:-1]
+
+    sorted_pos = torch.arange(
+        sorted_group_id.numel(),
+        device=sorted_group_id.device,
+        dtype=sorted_group_id.dtype,
+    )
+
+    group_start = torch.where(group_change, sorted_pos, 0)
+    group_start = torch.cummax(group_start, dim=0).values
+
+    # Rank inside each (batch, type) group.
+    sorted_rank = sorted_pos - group_start
+
+    # Restore the original order of valid agents.
+    valid_pos_idx = torch.empty_like(sorted_rank)
+    valid_pos_idx[perm] = sorted_rank
+
+    # Insert valid results into the complete output tensor.
+    pos_idx[valid_mask] = valid_pos_idx
+
+    return pos_idx
 
 def gaussian_nll_2d(mu, sigma, target):
     dx = target - mu

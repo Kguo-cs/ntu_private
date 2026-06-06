@@ -51,7 +51,7 @@ from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 from src.smart.layers import MLPLayer
 
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,time_shift_fn,sample_linear_t,get_closest_sum_idx
+from src.smart.loss.earth_match import get_matching_loss,get_closest_sum_idx,get_type_position_index
 from src.smart.diffusion.dit.dit import DiT
 
 import torch
@@ -198,6 +198,7 @@ class ScaleFlow(nn.Module):
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=x.device, dtype=torch.float32)
+
 
             x_pred_noise = self.noise_model(torch.zeros_like(e), t, tokenized_agent, initial_map_feature)
 

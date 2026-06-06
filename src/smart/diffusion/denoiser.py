@@ -47,23 +47,6 @@ from .noise_schedule import LearnableGroupedPowerSchedule
 from .cdtd import CDTDGroupedWarp,SceneStateGroups
 from .MuLAN import AdaptiveGroupedPolynomialSchedule
 
-def sinusoidal_embedding(position, D):
-    """
-    Create sinusoidal positional embeddings for positions 1 to N
-    Args:
-        N: number of positions (assumes positions 1 to N)
-        D: embedding dimension (must be even)
-    Returns:
-        Tensor of shape [N, D]
-    """
-   # return 0
-    div_term = torch.exp(torch.arange(0, D, 2,device=position.device) * (-math.log(10000.0) / D))  # shape [D/2]
-
-    pe = torch.zeros(len(position), D,device=position.device)
-    pe[:, 0::2] = torch.sin(position * div_term)  # even indices
-    pe[:, 1::2] = torch.cos(position * div_term)  # odd indices
-
-    return pe
 
 #different dimension take different schedule noise
 
@@ -671,29 +654,6 @@ class InitDenoiser(nn.Module):
 
                     if self.use_pos:
 
-                        valid_idx = batch * 3 + type
-
-                        # sort group ids
-                        sorted_idx, perm = torch.sort(valid_idx)
-
-                        # detect new groups
-                        group_change = torch.ones_like(sorted_idx, dtype=torch.bool)
-                        group_change[1:] = sorted_idx[1:] != sorted_idx[:-1]
-
-                        # position inside sorted array
-                        pos = torch.arange(sorted_idx.numel(), device=sorted_idx.device)
-
-                        # first position of each group
-                        group_start = torch.where(group_change, pos, 0)
-                        group_start = torch.cummax(group_start, dim=0)[0]
-
-                        # rank within group
-                        sorted_rank = pos - group_start
-
-                        # unsort back
-                        pos_idx = torch.empty_like(sorted_rank)
-                        pos_idx[perm] = sorted_rank
-
                         # gid = batch * 3 + type
                         # score = pos_s[:, 0] + pos_s[:, 1]  # key inside each (batch, type) group
                         #
@@ -722,8 +682,9 @@ class InitDenoiser(nn.Module):
                         #
                         # pos_idx = torch.arange(batch.size(0), device=batch.device) - torch.repeat_interleave(
                         #     torch.cumsum(counts, 0) - counts, counts)
+                        pos_feat=tokenized_agent["pos_feat"]
 
-                        feat_a = feat_a+sinusoidal_embedding(pos_idx[:, None] + 1, self.hidden_dim)
+                        feat_a = feat_a+pos_feat
 
                     # if  not self.learn_noise:
                     #     x_pred_noise=tokenized_agent["x_pred_noise"][:,0]
