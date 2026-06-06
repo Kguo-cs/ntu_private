@@ -22,6 +22,7 @@ class DiT(nn.Module):
         # self.cfg = cfg
         # self.cfg_model = self.cfg.model
         # self.cfg_dataset = self.cfg.dataset
+        self.lane_embed = nn.Linear(128 + 4, hidden_dim)
 
         self.use_rel_ego=False
         self.use_scale=False
@@ -77,7 +78,7 @@ class DiT(nn.Module):
         self.register_buffer("normal_scale", torch.ones(1, 8))
 
         # noise prediction heads
-        self.pred_agent_noise = FinalLayer(self.agent_hidden_dim, self.agent_latent_dim)
+        self.pred_agent_noise = FinalLayer(self.agent_hidden_dim, self.agent_latent_dim*2)
         # self.pred_lane_noise = FinalLayer(hidden_dim, self.cfg_model.lane_latent_dim)
         self.initialize_weights()
 
@@ -185,15 +186,28 @@ class DiT(nn.Module):
                 x_agent,
                 agent_timestep,
                 data,
-                x_lane,
-                lane_timestep=None,
+                initial_map_feature,
                 unconditional=False):
+
+        if "lane_timestep" not in initial_map_feature.keys():
+            lane_batch = initial_map_feature["batch"][::2]
+            pos_pl = initial_map_feature["position"][::2]
+            orient_pl = initial_map_feature["orientation"][::2]
+            feat_map = initial_map_feature["pt_token"][::2]
+            x_lane = self.lane_embed(
+                torch.cat([feat_map, pos_pl, orient_pl.cos()[:, None], orient_pl.sin()[:, None]], dim=-1))
+
+            initial_map_feature["x_lane"]=x_lane
+            initial_map_feature["lane_batch"]=lane_batch
+        else:
+            x_lane=initial_map_feature["x_lane"]
+            lane_batch=initial_map_feature["lane_batch"]
+
         """ Forward pass of the DiT model."""
         agent_batch = data["nonego_batch"]
         nonego_type=data["nonego_type"]
         batch_size=data["num_graphs"]
-        ego_embedding=data["ego_embedding"]
-        lane_batch=data["lane_batch"]
+        ego_embedding=0#data["ego_embedding"]
 
         if len(x_agent.shape)==3:
 
@@ -233,8 +247,8 @@ class DiT(nn.Module):
         num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
         num_lanes_emb =self.num_lanes_embedder(num_lanes[:,None].to(torch.float32))[lane_batch] #self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
 
-        if lane_timestep is  None:
-            lane_timestep=torch.ones_like(lane_batch)
+        #if lane_timestep is  None:
+        lane_timestep=torch.ones_like(lane_batch)
 
         # embedding of timestep
         t =self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))

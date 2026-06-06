@@ -76,7 +76,6 @@ class ScaleFlow(nn.Module):
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)
-            self.lane_embed1 = nn.Linear(128 + 4, self.hidden_dim)
         else:
             self.model = InitDenoiser(
                 token_processor,
@@ -145,25 +144,7 @@ class ScaleFlow(nn.Module):
             self.use_sde=False
 
         if self.learn_noise:
-            self.noise_model = InitDenoiser(
-                token_processor,
-                dataset=args.dataset,
-                input_dim=args.input_dim,
-                hidden_dim=args.hidden_dim,
-                output_dim=args.output_dim,
-                output_head=args.output_head,
-                init_timestep=args.init_timestep,
-                num_freq_bands=args.num_freq_bands,
-                num_layers=1,
-                num_heads=args.num_heads,
-                head_dim=args.head_dim,
-                dropout=args.dropout,
-                diff_type=args.diff_type,
-                m_dim=args.m_dim,
-                mean_flow=self.mean_flow,
-                x_pred=self.x_pred,
-                learn_noise=self.learn_noise
-            )
+            self.noise_model = DiT(self.hidden_dim)
 
         self.pred_all_pos=token_processor.pred_all_pos
 
@@ -205,16 +186,6 @@ class ScaleFlow(nn.Module):
         num_graphs = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]
         nonego_type=tokenized_agent["nonego_type"]
-        
-        if self.use_dit:
-            lane_batch = initial_map_feature["batch"][::2]
-            pos_pl = initial_map_feature["position"][::2]
-            orient_pl = initial_map_feature["orientation"][::2]
-            feat_map = initial_map_feature["pt_token"][::2]
-            initial_map_feature = self.lane_embed1(
-                torch.cat([feat_map, pos_pl, orient_pl.cos()[:, None], orient_pl.sin()[:, None]], dim=-1))
-
-            tokenized_agent["lane_batch"]=lane_batch
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
@@ -245,8 +216,6 @@ class ScaleFlow(nn.Module):
                 use_col=False,
                 x_pred=True
             )
-            #
-            #policy_loss=policy_loss*10
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(), min=1e-5)
 
@@ -781,16 +750,6 @@ class ScaleFlow(nn.Module):
         num_graphs = tokenized_agent["num_graphs"]
         nonego_type = tokenized_agent["nonego_type"]
         num_agents = len(agent_batch)
-
-        if self.use_dit:
-            lane_batch = initial_map_feature["batch"][::2]
-            pos_pl = initial_map_feature["position"][::2]
-            orient_pl = initial_map_feature["orientation"][::2]
-            feat_map = initial_map_feature["pt_token"][::2]
-            initial_map_feature = self.lane_embed1(
-                torch.cat([feat_map, pos_pl, orient_pl.cos()[:, None], orient_pl.sin()[:, None]], dim=-1))
-
-            tokenized_agent["lane_batch"] = lane_batch
 
         if self.use_uniform:
             z = torch.rand(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)*2-1
