@@ -808,6 +808,8 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise = self.noise_model(torch.zeros_like(z), t, tokenized_agent, initial_map_feature)
 
+            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
+
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
             std[:,:, 2:6] = std[:, :,2:6] * 2
