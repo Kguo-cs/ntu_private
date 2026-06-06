@@ -110,7 +110,7 @@ class ScaleFlow(nn.Module):
         self.use_all_type=self.model.use_all_type
 
         if self.x_pred:
-            self.t_eps=0.01
+            self.t_eps=0.1
         else:
             self.t_eps=0
 
@@ -775,7 +775,7 @@ class ScaleFlow(nn.Module):
 
 
     @torch.no_grad()
-    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1,noise_level=None):
+    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1):
 
         agent_batch = tokenized_agent["nonego_batch"]
         num_graphs = tokenized_agent["num_graphs"]
