@@ -243,7 +243,7 @@ class ScaleFlow(nn.Module):
                 t[:, 0],
                 # use_match=True,
                 use_col=False,
-                x_pred=False
+                x_pred=True
             )
             #
             #policy_loss=policy_loss*10
@@ -814,8 +814,6 @@ class ScaleFlow(nn.Module):
             t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=z.device, dtype=torch.float32)
 
             x_pred_noise = self.noise_model(torch.zeros_like(z), t, tokenized_agent, initial_map_feature)
-
-            #tokenized_agent["x_pred_noise"]=x_pred_noise
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(), min=1e-5)
 
