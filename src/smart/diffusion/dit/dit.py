@@ -217,6 +217,7 @@ class DiT(nn.Module):
         #agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding=data
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False,hidden_dim=self.agent_hidden_dim)
 
+        pos_emb_agent = data["pos_feat"]
         # lane_idx_batch = get_indices_within_scene(lane_batch)
         # agent_idx_batch = get_indices_within_scene(agent_batch)
 
