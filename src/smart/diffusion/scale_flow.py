@@ -135,7 +135,7 @@ class ScaleFlow(nn.Module):
 
         self.use_uniform=False
 
-        self.learn_noise=True
+        self.learn_noise=False
 
         self.mc_num=1
 
@@ -216,6 +216,15 @@ class ScaleFlow(nn.Module):
 
         e=self.model.denormalize(e,nonego_type)
 
+        perm = sort_agents_by_xy_keep_last(
+                pos=x[:,0,:2],
+                batch=agent_batch,
+                agent_type=nonego_type,
+                num_types=3,
+            )
+
+        x=x[perm]
+
         if self.learn_noise:
             t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=x.device, dtype=torch.float32)
 
@@ -225,14 +234,6 @@ class ScaleFlow(nn.Module):
             #
             # x_pred_noise = x_pred_noise[fake_idx]
 
-            # perm = sort_agents_by_xy_keep_last(
-            #         pos=x[:,0,:2],
-            #         batch=agent_batch,
-            #         agent_type=nonego_type,
-            #         num_types=3,
-            #     )
-            #
-            # x=x[perm]
 
             policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,
