@@ -253,8 +253,8 @@ class ScaleFlow(nn.Module):
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
-            # std[:, :,:2] = std[:, :,:2] * 0.5
-            # std[:,:, 2:6] = std[:, :,2:6] * 2
+            std[:, :,:2] = std[:, :,:2] * 0.5
+            std[:,:, 2:6] = std[:, :,2:6] * 2
 
             e=std*torch.randn_like(x)+x_pred_noise[:, :,:8]#.detach()
 
@@ -812,9 +812,9 @@ class ScaleFlow(nn.Module):
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
-            # std[:,:, 2:6] = std[:, :,2:6] * 2
-            # std[:, :,:2] = std[:, :,:2] * 0.5
-            #
+            std[:,:, 2:6] = std[:, :,2:6] * 2
+            std[:, :,:2] = std[:, :,:2] * 0.5
+
             z=std*torch.randn_like(z)+x_pred_noise[:, :,:8]
 
         z[tokenized_agent["ego_mask"]]=diff_input[tokenized_agent["ego_mask"]]
