@@ -260,9 +260,11 @@ class ScaleFlow(nn.Module):
             # std[:, :,:2] = std[:, :,:2] * 0.5
             # std[:,:, 2:6] = std[:, :,2:6] * 2
 
+            tokenized_agent["noise_std"] =std
+
             e=std*torch.randn_like(x)+x_pred_noise[:, :,:8]#
 
-            # e=e.detach()
+           # e=e.detach()
 
             #tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
         else:
@@ -814,7 +816,7 @@ class ScaleFlow(nn.Module):
 
             #x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
 
-           # tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
+            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
