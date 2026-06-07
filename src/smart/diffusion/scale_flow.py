@@ -257,8 +257,9 @@ class ScaleFlow(nn.Module):
 
             #policy_loss=(self.model.normal_scale[None]-std).square().mean()
 
-            # std[:, :,:2] = std[:, :,:2] * 0.5
-            # std[:,:, 2:6] = std[:, :,2:6] * 2
+            #std[:, :,:2] = std[:, :,:2] * 0.5
+            std[:,:, 2:6] = std[:, :,2:6] * 2
+            std[:,:, 4:6] = std[:, :,4:6] * 4
 
             tokenized_agent["noise_std"] =std
 
@@ -820,8 +821,8 @@ class ScaleFlow(nn.Module):
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
-            # std[:,:, 2:6] = std[:, :,2:6] * 2
-            # std[:, :,:2] = std[:, :,:2] * 0.5
+            std[:,:, 2:6] = std[:, :,2:6] * 2
+            std[:,:, 4:6] = std[:, :,4:6] * 4
 
             z=std*torch.randn_like(z)+x_pred_noise[:, :,:8]
 
