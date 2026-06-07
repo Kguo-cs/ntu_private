@@ -216,23 +216,23 @@ class ScaleFlow(nn.Module):
 
         e=self.model.denormalize(e,nonego_type)
 
-        perm = sort_agents_by_xy_keep_last(
-                pos=x[:,0,:2],
-                batch=agent_batch,
-                agent_type=nonego_type,
-                num_types=3,
-            )
-
-        x=x[perm]
+        # perm = sort_agents_by_xy_keep_last(
+        #         pos=x[:,0,:2],
+        #         batch=agent_batch,
+        #         agent_type=nonego_type,
+        #         num_types=3,
+        #     )
+        #
+        # x=x[perm]
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=x.device, dtype=torch.float32)
 
             x_pred_noise = self.noise_model(torch.zeros_like(e), t, tokenized_agent, initial_map_feature)
 
-            # fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
-            #
-            # x_pred_noise = x_pred_noise[fake_idx]
+            fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
+
+            x_pred_noise = x_pred_noise[fake_idx]
 
             tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
