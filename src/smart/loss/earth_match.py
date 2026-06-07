@@ -125,7 +125,7 @@ def sort_agents_by_xy_keep_last(
 
     sortable_batch = batch[sortable_idx]
     sortable_type = agent_type[sortable_idx]
-    score = pos[sortable_idx, 0] + pos[sortable_idx, 1]
+    score = pos[sortable_idx, 0].square() + pos[sortable_idx, 1].square()
 
     group_id = sortable_batch * num_types + sortable_type
 
