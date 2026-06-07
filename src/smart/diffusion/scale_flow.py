@@ -144,7 +144,7 @@ class ScaleFlow(nn.Module):
             self.use_sde=False
 
         if self.learn_noise:
-            self.noise_model = DiT(128)
+            self.noise_model = DiT(256)
             # self.noise_model = InitDenoiser(
             #     token_processor,
             #     dataset=args.dataset,
