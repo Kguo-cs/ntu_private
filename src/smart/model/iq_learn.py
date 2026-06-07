@@ -159,7 +159,7 @@ class IQ_SoftQ(LightningModule):
                 if "x_pred_noise" in tokenized_agent.keys():
                     std=tokenized_agent["x_pred_noise"][:,0,8:].exp().mean(0)
                 else:
-                    std=self.encoder.agent_encoder.init_decoder.G1.model.normal_scale
+                    std=self.encoder.agent_encoder.init_decoder.G1.model.normal_scale[0]
 
                 self.log('train/pos_std', std[0:2].mean(), on_step=True, batch_size=1)
                 self.log('train/heading_std', std[2:4].mean(), on_step=True, batch_size=1)
