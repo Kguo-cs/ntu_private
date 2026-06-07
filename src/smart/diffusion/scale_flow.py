@@ -230,7 +230,7 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise = self.noise_model(torch.zeros_like(e), t, tokenized_agent, initial_map_feature)
 
-            #x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
+            x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
 
             fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
 
@@ -239,17 +239,17 @@ class ScaleFlow(nn.Module):
             tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
 
-            policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                tokenized_agent,
-                x_pred_noise[:, 0],
-                x[:, 0],
-                e[:, 0],
-                e[:, 0],
-                t[:, 0],
-                # use_match=True,
-                use_col=False,
-                x_pred=True
-            )
+            # policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+            #     tokenized_agent,
+            #     x_pred_noise[:, 0],
+            #     x[:, 0],
+            #     e[:, 0],
+            #     e[:, 0],
+            #     t[:, 0],
+            #     # use_match=True,
+            #     use_col=False,
+            #     x_pred=True
+            # )
 
           #  print(x_pred_noise[:, :,8:].max())
 
@@ -259,14 +259,14 @@ class ScaleFlow(nn.Module):
            # policy_loss=0
 
             #std[:, :,:2] = std[:, :,:2] * 0.5
-            std[:,:, 2:6] = std[:, :,2:6] * 2
+            #std[:,:, 2:6] = std[:, :,2:6] * 2
             # std[:,:, 4:6] = std[:, :,4:6] * 2
 
             tokenized_agent["noise_std"] =std
 
             e=std*torch.randn_like(x)+x_pred_noise[:, :,:8]#
 
-            e=e.detach()
+            #e=e.detach()
 
             #tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
         else:
@@ -816,13 +816,13 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise = self.noise_model(torch.zeros_like(z), t, tokenized_agent, initial_map_feature)
 
-            #x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
+            x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
 
             tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
-            std[:,:, 2:6] = std[:, :,2:6] * 2
+            #std[:,:, 2:6] = std[:, :,2:6] * 2
             # std[:,:, 4:6] = std[:, :,4:6] * 2
 
             z=std*torch.randn_like(z)+x_pred_noise[:, :,:8]
