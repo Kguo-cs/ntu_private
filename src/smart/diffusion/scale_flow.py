@@ -230,6 +230,8 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise = self.noise_model(torch.zeros_like(e), t, tokenized_agent, initial_map_feature)
 
+            x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
+
             fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
 
             x_pred_noise = x_pred_noise[fake_idx]
@@ -809,6 +811,8 @@ class ScaleFlow(nn.Module):
             t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=z.device, dtype=torch.float32)
 
             x_pred_noise = self.noise_model(torch.zeros_like(z), t, tokenized_agent, initial_map_feature)
+
+            x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
 
             tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
