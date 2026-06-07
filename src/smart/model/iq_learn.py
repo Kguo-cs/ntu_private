@@ -156,6 +156,17 @@ class IQ_SoftQ(LightningModule):
                 self.log('train/shape_gamma', gamma_groups[2], on_step=True, batch_size=1)
                 self.log('train/vel_gamma', gamma_groups[3], on_step=True, batch_size=1)
 
+                if "x_pred_noise" in tokenized_agent.keys():
+                    std=tokenized_agent["x_pred_noise"][:,0,8:].exp().mean(0)
+                else:
+                    std=self.encoder.agent_encoder.init_decoder.G1.model.normal_scale
+
+                self.log('train/pos_std', std[0:2].mean(), on_step=True, batch_size=1)
+                self.log('train/heading_std', std[2:4].mean(), on_step=True, batch_size=1)
+                self.log('train/shape_std', std[4:6].mean(), on_step=True, batch_size=1)
+                self.log('train/vel_std', std[6:8].mean(), on_step=True, batch_size=1)
+
+
                 loss = match_loss + collision_loss
 
             action_nll = action_nll + loss
