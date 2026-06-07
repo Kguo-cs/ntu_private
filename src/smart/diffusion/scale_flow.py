@@ -239,30 +239,30 @@ class ScaleFlow(nn.Module):
             tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
 
-            # policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-            #     tokenized_agent,
-            #     x_pred_noise[:, 0],
-            #     x[:, 0],
-            #     e[:, 0],
-            #     e[:, 0],
-            #     t[:, 0],
-            #     # use_match=True,
-            #     use_col=False,
-            #     x_pred=True
-            # )
+            policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                tokenized_agent,
+                x_pred_noise[:, 0],
+                x[:, 0],
+                e[:, 0],
+                e[:, 0],
+                t[:, 0],
+                # use_match=True,
+                use_col=False,
+                x_pred=True
+            )
 
           #  print(x_pred_noise[:, :,8:].max())
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
-            policy_loss=(self.model.normal_scale[None]-std).square().mean()
+            #policy_loss=(self.model.normal_scale[None]-std).square().mean()
 
             # std[:, :,:2] = std[:, :,:2] * 0.5
             # std[:,:, 2:6] = std[:, :,2:6] * 2
 
             e=std*torch.randn_like(x)+x_pred_noise[:, :,:8]#.detach()
 
-           # e=e.detach()
+            e=e.detach()
 
             #tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
         else:
@@ -814,7 +814,7 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
 
-            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
+           # tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
 
             std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
 
