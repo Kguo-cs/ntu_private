@@ -32,8 +32,8 @@ class DiT(nn.Module):
         self.dropout=0
         self.num_heads=8
         self.agent_num_heads=8
-        self.num_l2l_blocks=1
-        self.num_factorized_dit_blocks=2
+        self.num_l2l_blocks=0
+        self.num_factorized_dit_blocks=1
         self.agent_latent_dim=8
 
 

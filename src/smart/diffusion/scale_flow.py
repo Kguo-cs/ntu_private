@@ -265,7 +265,7 @@ class ScaleFlow(nn.Module):
 
             e=std*torch.randn_like(x)+x_pred_noise[:, :,:8]#
 
-           # e=e.detach()
+            e=e.detach()
 
             #tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
         else:
