@@ -583,7 +583,7 @@ def get_closest_sum_idx(
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,z,e,t,t_dt=1,
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
-    t_eps=0.05,w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
+    t_eps=0.05,w_pos=0.05, w_heading=0.5, w_shape=0.2,w_vel=0.2
     ):
 
     if use_match:
@@ -628,7 +628,7 @@ def get_matching_loss(
         w_pos=w_pos/denom_sq[:,0], w_heading=w_heading/denom_sq[:,2], w_shape=w_shape/denom_sq[:,4], w_vel=w_vel/denom_sq[:,6]
     )
 
-    return match_loss/10,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
+    return match_loss/5,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
 
 def sample_linear_t(
