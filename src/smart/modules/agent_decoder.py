@@ -241,10 +241,10 @@ class SMARTAgentDecoder(nn.Module):
                 return out_dict
 
             current_step=pos_a.shape[1]
-            if self.training:
-                max_step = gt_valid.shape[1]-current_step
+            if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+                max_step = 18-current_step
             else:
-                max_step=18-current_step
+                max_step=gt_valid.shape[1]-current_step
             mask = torch.ones_like(gt_valid[:, :current_step])
             token_mask = torch.ones_like(tokenized_agent["token_mask"][:, :current_step])
         else:
