@@ -52,7 +52,7 @@ class IQ_SoftQ(LightningModule):
             # self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = True
+        self.use_gradient_penalty = False
 
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
