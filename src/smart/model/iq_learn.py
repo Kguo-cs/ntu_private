@@ -268,8 +268,8 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            # for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
-            #     tokenized_agent[key] = tokenized_agent[key][:, :10]
+            for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
+                tokenized_agent[key] = tokenized_agent[key][:, :10]
 
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent)
 
@@ -356,7 +356,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
-        policy_loss = 0.1*expert_nll + ppo_loss + 1e-2 * value_loss  # - 0.01 * agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 1e-2 * value_loss  # - 0.01 * agent_entropy.mean()
 
         actor_optimizer.zero_grad()
 
