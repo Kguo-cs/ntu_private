@@ -23,7 +23,6 @@ model:
     val_open_loop: False
     finetune: true
     smart : false
-    n_rollout_closed_val: 8
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
      # dropout: 0.1
@@ -40,7 +39,7 @@ model:
 ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: model32_all13_bclen10_nll1 #_noise1e2 #_grad_dis5e5
+task_name: model20_all13_nll1 #_bclen10_noise1e2 #_grad_dis5e5
 
 
 trainer:
@@ -53,7 +52,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 32 #6
+  train_batch_size: 20 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
