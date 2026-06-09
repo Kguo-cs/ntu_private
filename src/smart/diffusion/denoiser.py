@@ -210,7 +210,7 @@ class InitDenoiser(nn.Module):
                     output_dim=8,  # x, y, cos, sin
                     hidden_dim=hidden_dim,
                     heads=num_heads,
-                    dropout=0.1,
+                    dropout=0,
                     model_type='x_start',
                     future_length=None
                 )
