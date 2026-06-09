@@ -39,7 +39,7 @@ model:
 ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: model22_all203_nll1_init01_nodecomp #_bclen10_noise1e2 #_grad_dis5e5
+task_name: model22_203_init01_nodecompdiff #_bclen10_noise1e2 #_grad_dis5e5
 
 
 trainer:

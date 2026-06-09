@@ -67,7 +67,9 @@ def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
                                                       )
 
         ego_logits, interact_logits = disc_out_interp[0]
-        ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
+
+        if dis_mask is not None and mask_t is not None:
+            ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
         logit = torch.cat([ego_logits, interact_logits], dim=0)
 
         disc_flat = logit.reshape(-1, 1)
