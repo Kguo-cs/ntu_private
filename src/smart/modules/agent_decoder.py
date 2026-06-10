@@ -97,8 +97,8 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.discriminator and self.training:
             pos_a=pos_a+torch.randn_like(pos_a)*1e-1
-            head_a=head_a+torch.randn_like(head_a)*1e-1
-            shape=shape+torch.randn_like(shape)*1e-1
+            head_a=head_a+torch.randn_like(head_a)*1e-2
+            shape=shape+torch.randn_like(shape)*1e-2
 
         n_agent, n_step = head_a.shape
 
