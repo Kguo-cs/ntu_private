@@ -208,6 +208,9 @@ class IQ_SoftQ(LightningModule):
 
         ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
 
+        if not self.encoder.discriminator.training:
+            return ego_rewards.reshape(mask_t.shape)
+
         if len(nei_rewards)>0:
             all_rewards = ego_rewards + nei_rewards
             self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
@@ -227,6 +230,7 @@ class IQ_SoftQ(LightningModule):
 
             if dis_mask is not None:
                 ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
+
 
         self.log("train/"+key+"_ego_score", torch.sigmoid(ego_logits).mean().item(), on_step=True, batch_size=1)
 
@@ -317,7 +321,7 @@ class IQ_SoftQ(LightningModule):
         with torch.no_grad():
             self.encoder.discriminator.eval()
 
-            agent_dis_loss, agent_rewards, nei_rewards,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+            agent_rewards= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
             self.encoder.discriminator.train()
 
