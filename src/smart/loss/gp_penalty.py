@@ -1,100 +1,304 @@
 import torch
 
 
-def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
-    if key == "expert":
-        tokenized_agent["expert_sampled_pos"] = tokenized_agent['sampled_pos'].clone()
-        tokenized_agent["expert_sampled_heading"] = tokenized_agent['sampled_heading'].clone()
-        tokenized_agent["expert_valid_mask"] = tokenized_agent['valid_mask'].clone()
-        tokenized_agent["expert_token_mask"] = tokenized_agent['token_mask'].clone()
-        tokenized_agent["expert_shape"]= tokenized_agent['shape'].clone()
-        gp = 0
-    else:
-        expert_pos = tokenized_agent["expert_sampled_pos"]  # [B, N, 2]
-        expert_head = tokenized_agent["expert_sampled_heading"]  # [B, N, 1]
-        expert_shape=tokenized_agent["expert_shape"]
-        policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
-        policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
-        policy_shape = tokenized_agent["shape"]
+def _select_ego_logits(
+    ego_logits: torch.Tensor,
+    dis_mask: torch.Tensor | None,
+    mask_t: torch.Tensor | None,
+) -> torch.Tensor:
+    """
+    Support two discriminator-output conventions:
 
-        dis_loss = 'r2'
+    1. ego_logits is already compressed to entries where mask_t is True.
+    2. ego_logits is dense over the flattened time-agent grid.
+    """
+    if dis_mask is None or mask_t is None:
+        return ego_logits
 
-        if dis_loss == 'r1':
-            valid_mask = tokenized_agent['expert_valid_mask']
-            token_mask = tokenized_agent['expert_token_mask']
-            alpha = torch.ones_like(expert_pos[..., 0])  # [B, N, 1]
-        elif dis_loss == 'r2':
-            valid_mask = tokenized_agent['valid_mask']
-            token_mask = tokenized_agent['token_mask']
-            alpha = torch.zeros_like(expert_pos[..., 0])  # [B, N, 1]
-        else:
-            valid_mask = tokenized_agent['valid_mask'] & tokenized_agent['expert_valid_mask']
-            token_mask = tokenized_agent['token_mask'] & tokenized_agent['expert_token_mask']
-            # alpha = torch.rand_like(expert_pos[..., 0])
-            batch_idx = tokenized_agent['batch']
+    base_mask = mask_t.flatten()
 
-            alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
+    if dis_mask.dtype != torch.bool:
+        raise TypeError("dis_mask must be a Boolean tensor.")
 
-            alpha = alpha[batch_idx]
-
-        interp_pos = alpha[..., None] * expert_pos + (1.0 - alpha[..., None]) * policy_pos  # [B, N, 2]
-        interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
-        interp_shape = alpha[:,0, None] * expert_shape[..., :2] + (1.0 - alpha[:,0, None]) * policy_shape[..., :2]  # [B, N, 1]
-
-        if tokenized_agent["train_mask"] is not None:
-            train_valid_mask = valid_mask & tokenized_agent["train_mask"][:, None]
-        else:
-            train_valid_mask = valid_mask
-
-        interpolates_pose = torch.cat((interp_pos, interp_head[:, :, None]), dim=-1)
-
-        interpolates = interpolates_pose[train_valid_mask]  # [train_mask,2:]
-
-        interpolates.requires_grad_(True)  # IMPORTANT
-
-        interp_shape.requires_grad_(True)
-
-        interpolates_pose[train_valid_mask] = interpolates
-
-        disc_out_interp = discriminator.predict_agent(None,
-                                                       token_mask,
-                                                       valid_mask,
-                                                       interpolates_pose[..., :2],
-                                                       interpolates_pose[..., 2],
-                                                       tokenized_agent,
-                                                       tokenized_agent["map_feature"],
-                                                       interp_shape
-                                                      )
-
-        ego_logits, interact_logits = disc_out_interp[0]
-
-        if dis_mask is not None and mask_t is not None:
-            ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
-        logit = torch.cat([ego_logits, interact_logits], dim=0)
-
-        disc_flat = logit.reshape(-1, 1)
-        grad_outputs = torch.ones_like(disc_flat)
-
-        #interpolates=torch.cat([interp_shape.flatten(),interpolates.flatten()])
-
-        # Compute gradients wrt interpolated inputs
-        grad_interpolates, grad_shape = torch.autograd.grad(
-            outputs=disc_flat,
-            inputs=(interpolates, interp_shape),  # multiple inputs
-            grad_outputs=grad_outputs,
-            create_graph=True,
-            retain_graph=True,
-            only_inputs=True,
+    if dis_mask.numel() != base_mask.numel():
+        raise ValueError(
+            f"dis_mask has {dis_mask.numel()} elements, but mask_t has "
+            f"{base_mask.numel()} flattened elements."
         )
 
-        grad_norm = torch.cat([grad_interpolates.norm(2, dim=1),grad_shape.norm(2, dim=1)])  # [B]
-        gp_lambda = 1
+    compressed_size = int(base_mask.sum().item())
 
-        if dis_loss == 'r1' or dis_loss == 'r2':
-            gp = (grad_norm ** 2).mean() * gp_lambda / 2
+    if ego_logits.numel() == compressed_size:
+        # predict_agent() already removed invalid entries.
+        return ego_logits[dis_mask[base_mask]]
+
+    if ego_logits.numel() == base_mask.numel():
+        # predict_agent() returned a dense grid.
+        return ego_logits[base_mask & dis_mask]
+
+    raise ValueError(
+        "Cannot align ego_logits with mask_t. "
+        f"ego_logits.numel()={ego_logits.numel()}, "
+        f"mask_t.numel()={base_mask.numel()}, "
+        f"mask_t.sum()={compressed_size}."
+    )
+
+
+def compute_gp(
+    key: str,
+    tokenized_agent: dict,
+    dis_mask: torch.Tensor | None,
+    mask_t: torch.Tensor | None,
+    discriminator,
+    dis_loss: str = "r2",
+    gp_lambda: float = 1.0,
+    regularize_shape: bool = True,
+) -> torch.Tensor:
+    """
+    Calculate scene-level R1, R2, or interpolation-based gradient penalty.
+
+    dis_loss:
+        "r1": regularize discriminator gradient at expert samples.
+        "r2": regularize discriminator gradient at policy samples.
+        "wgan-gp": regularize interpolated expert-policy samples.
+    """
+    policy_pos = tokenized_agent["sampled_pos"]
+    device = policy_pos.device
+
+    if key == "expert":
+        # Cache expert data without retaining any upstream graph.
+        tokenized_agent["expert_sampled_pos"] = (
+            tokenized_agent["sampled_pos"].detach().clone()
+        )
+        tokenized_agent["expert_sampled_heading"] = (
+            tokenized_agent["sampled_heading"].detach().clone()
+        )
+        tokenized_agent["expert_valid_mask"] = (
+            tokenized_agent["valid_mask"].detach().clone()
+        )
+        tokenized_agent["expert_token_mask"] = (
+            tokenized_agent["token_mask"].detach().clone()
+        )
+        tokenized_agent["expert_shape"] = (
+            tokenized_agent["shape"].detach().clone()
+        )
+
+        return policy_pos.new_zeros(())
+
+    required_keys = (
+        "expert_sampled_pos",
+        "expert_sampled_heading",
+        "expert_valid_mask",
+        "expert_token_mask",
+        "expert_shape",
+    )
+    missing_keys = [k for k in required_keys if k not in tokenized_agent]
+    if missing_keys:
+        raise RuntimeError(
+            "Expert tensors must be cached before computing the policy GP. "
+            f"Missing keys: {missing_keys}"
+        )
+
+    expert_pos = tokenized_agent["expert_sampled_pos"].detach()
+    expert_head = tokenized_agent["expert_sampled_heading"].detach()
+    expert_shape = tokenized_agent["expert_shape"].detach()
+
+    policy_pos = tokenized_agent["sampled_pos"].detach()
+    policy_head = tokenized_agent["sampled_heading"].detach()
+    policy_shape = tokenized_agent["shape"].detach()
+
+    batch_idx = tokenized_agent["batch"]
+    num_graphs = int(batch_idx.max().item()) + 1
+    num_agents = batch_idx.numel()
+
+    if expert_pos.shape != policy_pos.shape:
+        raise ValueError("Expert and policy positions must have identical shapes.")
+
+    if expert_head.shape != policy_head.shape:
+        raise ValueError("Expert and policy headings must have identical shapes.")
+
+    if expert_shape.shape != policy_shape.shape:
+        raise ValueError("Expert and policy shapes must have identical shapes.")
+
+    if expert_shape.shape[-1] < 2:
+        raise ValueError("shape must contain at least two continuous geometry dimensions.")
+
+    if dis_loss == "r1":
+        valid_mask = tokenized_agent["expert_valid_mask"]
+        token_mask = tokenized_agent["expert_token_mask"]
+        alpha_agent = torch.ones(
+            (num_agents, 1),
+            device=device,
+            dtype=policy_pos.dtype,
+        )
+
+    elif dis_loss == "r2":
+        valid_mask = tokenized_agent["valid_mask"]
+        token_mask = tokenized_agent["token_mask"]
+        alpha_agent = torch.zeros(
+            (num_agents, 1),
+            device=device,
+            dtype=policy_pos.dtype,
+        )
+
+    elif dis_loss == "wgan-gp":
+        valid_mask = (
+            tokenized_agent["valid_mask"]
+            & tokenized_agent["expert_valid_mask"]
+        )
+        token_mask = (
+            tokenized_agent["token_mask"]
+            & tokenized_agent["expert_token_mask"]
+        )
+
+        alpha_graph = torch.rand(
+            (num_graphs, 1),
+            device=device,
+            dtype=policy_pos.dtype,
+        )
+        alpha_agent = alpha_graph[batch_idx]
+
+    else:
+        raise ValueError(f"Unsupported dis_loss: {dis_loss}")
+
+    train_mask = tokenized_agent.get("train_mask")
+    if train_mask is None:
+        train_agent_mask = torch.ones(
+            num_agents,
+            dtype=torch.bool,
+            device=device,
+        )
+    else:
+        train_agent_mask = train_mask.bool()
+
+    train_valid_mask = valid_mask & train_agent_mask[:, None]
+
+    # Position interpolation: [A, 1, 1] * [A, T, 2]
+    alpha_pos = alpha_agent[..., None]
+    interp_pos = alpha_pos * expert_pos + (1.0 - alpha_pos) * policy_pos
+
+    # Circular interpolation for heading angles in radians.
+    heading_delta = torch.atan2(
+        torch.sin(expert_head - policy_head),
+        torch.cos(expert_head - policy_head),
+    )
+    interp_head = policy_head + alpha_agent * heading_delta
+
+    pose_base = torch.cat(
+        [interp_pos, interp_head.unsqueeze(-1)],
+        dim=-1,
+    )
+
+    # Introduce an explicit leaf tensor only for active poses.
+    pose_leaf = (
+        pose_base[train_valid_mask]
+        .detach()
+        .requires_grad_(True)
+    )
+
+    pose_input = pose_base.detach().clone()
+    pose_input[train_valid_mask] = pose_leaf
+
+    # Only regularize continuous shape geometry: length and width.
+    shape_xy_base = (
+        alpha_agent * expert_shape[..., :2]
+        + (1.0 - alpha_agent) * policy_shape[..., :2]
+    )
+
+    shape_agent_mask = train_agent_mask & valid_mask.any(dim=1)
+
+    if regularize_shape:
+        shape_xy_leaf = (
+            shape_xy_base[shape_agent_mask]
+            .detach()
+            .requires_grad_(True)
+        )
+
+        shape_xy_input = shape_xy_base.detach().clone()
+        shape_xy_input[shape_agent_mask] = shape_xy_leaf
+    else:
+        shape_xy_leaf = None
+        shape_xy_input = shape_xy_base.detach()
+
+    # Preserve any additional non-geometric shape attributes.
+    if policy_shape.shape[-1] > 2:
+        if dis_loss == "r1":
+            shape_rest = expert_shape[..., 2:]
         else:
-            gp = ((grad_norm - 1.0) ** 2).mean() * gp_lambda
+            # Do not interpolate categorical or static attributes.
+            shape_rest = policy_shape[..., 2:]
+
+        interp_shape_input = torch.cat(
+            [shape_xy_input, shape_rest.detach()],
+            dim=-1,
+        )
+    else:
+        interp_shape_input = shape_xy_input
+
+    disc_out_interp = discriminator.predict_agent(
+        None,
+        token_mask,
+        valid_mask,
+        pose_input[..., :2],
+        pose_input[..., 2],
+        tokenized_agent,
+        tokenized_agent["map_feature"],
+        interp_shape_input,
+    )
+
+    ego_logits, interact_logits = disc_out_interp[0]
+
+    ego_logits = _select_ego_logits(
+        ego_logits=ego_logits,
+        dis_mask=dis_mask,
+        mask_t=mask_t,
+    )
+
+    if torch.is_tensor(interact_logits) and interact_logits.numel() > 0:
+        all_logits = torch.cat([ego_logits, interact_logits], dim=0)
+    else:
+        all_logits = ego_logits
+
+    grad_inputs = [pose_leaf]
+    if regularize_shape and shape_xy_leaf is not None:
+        grad_inputs.append(shape_xy_leaf)
+
+    gradients = torch.autograd.grad(
+        outputs=all_logits.sum(),
+        inputs=tuple(grad_inputs),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+        allow_unused=True,
+    )
+
+    grad_pose = gradients[0]
+    grad_shape = gradients[1] if len(gradients) > 1 else None
+
+    # Calculate one gradient norm per scene.
+    grad_sq_per_graph = torch.zeros(
+        num_graphs,
+        device=device,
+        dtype=policy_pos.dtype,
+    )
+
+    if grad_pose is not None and grad_pose.numel() > 0:
+        pose_agent_idx = train_valid_mask.nonzero(as_tuple=False)[:, 0]
+        pose_graph_idx = batch_idx[pose_agent_idx]
+
+        pose_grad_sq = grad_pose.square().sum(dim=-1)
+        grad_sq_per_graph.index_add_(0, pose_graph_idx, pose_grad_sq)
+
+    if grad_shape is not None and grad_shape.numel() > 0:
+        shape_graph_idx = batch_idx[shape_agent_mask]
+
+        shape_grad_sq = grad_shape.square().sum(dim=-1)
+        grad_sq_per_graph.index_add_(0, shape_graph_idx, shape_grad_sq)
+
+    if dis_loss in {"r1", "r2"}:
+        gp = 0.5 * gp_lambda * grad_sq_per_graph.mean()
+    else:
+        grad_norm_per_graph = torch.sqrt(grad_sq_per_graph + 1e-12)
+        gp = gp_lambda * (grad_norm_per_graph - 1.0).square().mean()
 
     return gp
-
-

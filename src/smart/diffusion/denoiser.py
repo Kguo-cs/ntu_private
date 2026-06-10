@@ -236,7 +236,7 @@ class InitDenoiser(nn.Module):
 
                     else:
 
-                        self.edge_encoder = EdgeEncoder(hidden_dim,
+                        self.edge_encoder = EdgeEncoder(token_processor,hidden_dim,
                                                         num_freq_bands,
                                                         use_a2a=True,
                                                         use_pl2a=True

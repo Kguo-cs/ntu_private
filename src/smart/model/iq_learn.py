@@ -8,6 +8,7 @@ import time
 from collections import deque
 import random
 import copy
+
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
 from src.smart.loss.gp_penalty import compute_gp
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,get_col_rate
@@ -52,12 +53,12 @@ class IQ_SoftQ(LightningModule):
             # self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = False
+        self.use_gradient_penalty = self.token_processor.use_gradient_penalty
+        self.pred_init=self.token_processor.pred_init
 
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
-        self.pred_init=self.token_processor.pred_init
 
         if self.gail or (self.pred_init and self.encoder.agent_encoder.init_decoder.use_gan):
 
@@ -318,13 +319,14 @@ class IQ_SoftQ(LightningModule):
 
         discriminator_optimizer.step()
 
-        with torch.no_grad():
-            self.encoder.discriminator.eval()
+        if  not self.use_gradient_penalty:
+            with torch.no_grad() :
+                self.encoder.discriminator.eval()
 
-            agent_rewards= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+                agent_rewards= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
-            self.encoder.discriminator.train()
-
+                self.encoder.discriminator.train()
+        #
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
         agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')

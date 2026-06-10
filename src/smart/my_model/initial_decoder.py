@@ -75,7 +75,7 @@ class InitDecoder(nn.Module):
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
             else:
-                self.edge_encoder = EdgeEncoder(hidden_dim,
+                self.edge_encoder = EdgeEncoder(token_processor,hidden_dim,
                                                 num_freq_bands,
                                                 a2a=False,
                                                 share=False,

@@ -85,7 +85,8 @@ class InterativeDecoder(nn.Module):
             self.dis_start_step = 2  # first state not used
             self.gail_start_step=1 #first action not used
 
-        self.edge_encoder = EdgeEncoder(hidden_dim,
+        self.edge_encoder = EdgeEncoder(token_processor,
+                                        hidden_dim,
                                         num_freq_bands,
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
