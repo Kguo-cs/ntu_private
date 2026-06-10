@@ -340,8 +340,8 @@ def _weighted_bce_with_logits(
         logits,
         targets,
         weight=weight,
-        reduction="sum",
-    ) / weight.sum().clamp_min(eps)
+        reduction="mean",
+    ) #/ weight.sum().clamp_min(eps)
 
 
 def get_reward(

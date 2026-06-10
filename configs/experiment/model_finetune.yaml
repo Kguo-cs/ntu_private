@@ -39,7 +39,7 @@ model:
 ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: model22_203_bclen10_gpshapeagent01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
+task_name: model22_203_bclen10_mean_gpshapeagent01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
 
 
 trainer:
