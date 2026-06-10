@@ -301,7 +301,7 @@ def compute_gp(
         grad_norm_per_graph = torch.sqrt(grad_sq_per_graph + 1e-12)
         gp = gp_lambda * (grad_norm_per_graph - 1.0).square().mean()
 
-    return gp
+    return gp*0.1
 
 import torch
 import torch.nn.functional as F
