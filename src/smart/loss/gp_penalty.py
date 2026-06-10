@@ -276,27 +276,27 @@ def compute_gp(
     grad_shape = gradients[1] if len(gradients) > 1 else None
 
     # Calculate one gradient norm per scene.
-    grad_sq_per_graph = torch.zeros(
-        num_graphs,
-        device=device,
-        dtype=policy_pos.dtype,
-    )
-
+    # grad_sq_per_graph = torch.zeros(
+    #     num_graphs,
+    #     device=device,
+    #     dtype=policy_pos.dtype,
+    # )
+    #
     if grad_pose is not None and grad_pose.numel() > 0:
-        pose_agent_idx = train_valid_mask.nonzero(as_tuple=False)[:, 0]
-        pose_graph_idx = batch_idx[pose_agent_idx]
+       # pose_agent_idx = train_valid_mask.nonzero(as_tuple=False)[:, 0]
+       # pose_graph_idx = batch_idx[pose_agent_idx]
 
         pose_grad_sq = grad_pose.square().sum(dim=-1)
-        grad_sq_per_graph.index_add_(0, pose_graph_idx, pose_grad_sq)
+       # grad_sq_per_graph.index_add_(0, pose_graph_idx, pose_grad_sq)
 
     if grad_shape is not None and grad_shape.numel() > 0:
-        shape_graph_idx = batch_idx[shape_agent_mask]
+        #shape_graph_idx = batch_idx[shape_agent_mask]
 
         shape_grad_sq = grad_shape.square().sum(dim=-1)
-        grad_sq_per_graph.index_add_(0, shape_graph_idx, shape_grad_sq)
+    #     grad_sq_per_graph.index_add_(0, shape_graph_idx, shape_grad_sq)
 
     if dis_loss in {"r1", "r2"}:
-        gp = 0.5 * gp_lambda * grad_sq_per_graph.mean()
+        gp = 0.5 * gp_lambda * (pose_grad_sq.mean()+shape_grad_sq.mean())#grad_sq_per_graph.mean()
     else:
         grad_norm_per_graph = torch.sqrt(grad_sq_per_graph + 1e-12)
         gp = gp_lambda * (grad_norm_per_graph - 1.0).square().mean()
@@ -573,7 +573,7 @@ def get_reward(
             discriminator=discriminator,
             dis_loss="r2",
             gp_lambda=1.0,
-            regularize_shape=False,
+            regularize_shape=True,
         )
 
         self.log(
