@@ -10,7 +10,7 @@ import random
 import copy
 
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
-from src.smart.loss.gp_penalty import compute_gp
+from src.smart.loss.gp_penalty import compute_gp,get_reward
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,get_col_rate
 from torch_scatter import scatter_sum,scatter_mean
 
@@ -289,7 +289,7 @@ class IQ_SoftQ(LightningModule):
         #     tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
         if self.encoder.learn_dis:
-            expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+            expert_dis_loss,_,_,_,expert_dis_mask = get_reward(self,tokenized_agent, "expert")
         else:
             expert_dis_loss=0
             expert_dis_mask=None
@@ -299,7 +299,7 @@ class IQ_SoftQ(LightningModule):
         # agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step)
 
         if self.encoder.learn_dis:
-            agent_dis_loss, agent_rewards, nei_rewards, agent_gp, _ = self.get_reward(
+            agent_dis_loss, agent_rewards, nei_rewards, agent_gp, _ = get_reward(self,
                 tokenized_agent_rollout, "agent", expert_dis_mask)
 
         critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
