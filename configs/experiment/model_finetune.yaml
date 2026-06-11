@@ -39,7 +39,7 @@ model:
 ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: model20_bclen10_mean_r201_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
+task_name: model20_bclen10_mean_r2 #01_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
 
 
 trainer:
@@ -50,6 +50,23 @@ trainer:
   #val_check_interval: 0.000002
   max_epochs: 5
   gradient_clip_val: 0.0
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: null     # or any directory you prefer
+  filename: "epoch={epoch}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
+  monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
+  verbose: false
+  save_last: true
+  save_top_k: 30
+  mode: "max"                          # "max" since your metric increases with performance
+  auto_insert_metric_name: false
+  save_weights_only: false
+  every_n_train_steps: null
+  train_time_interval: null
+  every_n_epochs: null
+  save_on_train_epoch_end: false       # <== important, disables save after training epoch
+
 
 data:
   train_batch_size: 20 #6

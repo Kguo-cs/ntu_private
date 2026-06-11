@@ -843,6 +843,16 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 
 0.6442
 
+/home/ke/code/sim/src/waymo_data/model32_all203_nll1_bclen10_init01.ckpt
+
+test: 0.6484
+
+model32_203_bclen10_meanweight_epoch=3-step=98922.ckpt
+
+
+
+
+
 
 dit256_map100_lane2_pos3_col_flow
 
