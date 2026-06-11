@@ -50,7 +50,7 @@ def compute_gp(
     dis_mask: torch.Tensor | None,
     mask_t: torch.Tensor | None,
     discriminator,
-    dis_loss: str = "r2",
+    dis_loss: str = "r1",
     gp_lambda: float = 1.0,
     regularize_shape: bool = True,
 ) -> torch.Tensor:
