@@ -376,10 +376,10 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if self.use_gradient_penalty and key=="agent":
-            gamma=1
-            Penalty_pos = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_pos, disc_loss).mean()
-            Penalty_head = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_heading, disc_loss).mean()
-            Penalty_shape = (gamma / 2) * ZeroCenteredGradientPenalty(shape, disc_loss).mean()
+            gamma=0.1
+            Penalty_pos = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_pos, combined_logits).mean()
+            Penalty_head = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_heading, combined_logits).mean()
+            Penalty_shape = (gamma / 2) * ZeroCenteredGradientPenalty(shape, combined_logits).mean()
             regularization_loss=Penalty_pos + Penalty_head + Penalty_shape
             self.log( f"train/{key}_gp",  regularization_loss,    on_step=True, batch_size=1, )
             self.log(  f"train/{key}_pos_gp",         Penalty_pos,  on_step=True,   batch_size=1,    )
