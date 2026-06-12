@@ -27,7 +27,7 @@ model:
       hist_drop_prob: 0 #0.1 #0.1
      # dropout: 0.1
 
-      dis_a2a_radius: 60
+      dis_a2a_radius: 10
       dis_a2a_neighbor: 20
 
       dis_weight: 20
@@ -39,7 +39,7 @@ model:
 ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: model22_gp1_max100 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
+task_name: model22_gp1_max100_disr10 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
 
 
 trainer:
