@@ -71,7 +71,7 @@ class InterativeDecoder(nn.Module):
         self.agent_hist = self.time_span // self.shift
         self.n_token_agent=n_token_agent
         self.discriminator = discriminator
-        self.use_decompose=True
+        self.use_decompose=False
         self.use_full_feature=False
         self.use_airl=False
 
