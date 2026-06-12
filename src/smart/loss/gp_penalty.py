@@ -343,252 +343,92 @@ def _weighted_bce_with_logits(
         reduction="mean",
     ) #/ weight.sum().clamp_min(eps)
 
+def ZeroCenteredGradientPenalty(Samples, Critics):
+    Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
+    return Gradient.square()#.sum([-1])
 
-def get_reward(
-    self,
-    tokenized_agent: dict,
-    key: str,
-    dis_mask: torch.Tensor | None = None,
-):
-    """
-    Calculate discriminator loss and rewards for expert or policy trajectories.
+def get_reward(self, tokenized_agent, key, dis_mask=None):
 
-    Args:
-        tokenized_agent:
-            Dictionary containing tokenized trajectories, masks, map features,
-            shape features, and optional train_mask.
+    mask_t = tokenized_agent["valid_mask"].transpose(0, 1)[self.dis_start_step:]
 
-        key:
-            Either "expert" or "agent".
+    if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
+        mask_t = mask_t[:, tokenized_agent["train_mask"]]
 
-        dis_mask:
-            Optional Boolean mask over the flattened time-agent grid. It is
-            created from mask_t when omitted.
+    if dis_mask is None and not self.pred_init:
+        dis_mask = mask_t.flatten(0, 1)
 
-    Returns:
-        disc_loss:
-            Ego BCE loss + interaction BCE loss.
-
-        ego_rewards:
-            For policy samples, reshaped to [T, A].
-            For expert samples, returned in the original discriminator format.
-
-        nei_rewards:
-            For policy samples, reshaped to [T, A] when available.
-            For expert samples, returned in the original discriminator format.
-
-        regularization_loss:
-            R1, R2, or interpolation gradient penalty.
-
-        dis_mask:
-            Boolean discriminator mask.
-    """
-
-    discriminator = self.encoder.discriminator
-
-    # valid_mask: [A, T]
-    # mask_t:     [T_selected, A_selected]
-    mask_t = tokenized_agent["valid_mask"].transpose(0, 1)[
-        self.dis_start_step:
-    ]
-
-    train_mask = tokenized_agent.get("train_mask")
-
-    if train_mask is not None:
-        train_mask = train_mask.bool()
-        mask_t = mask_t[:, train_mask]
-
-    # Create a dense mask over the selected [time, agent] grid.
-    # This mask is reused to keep expert and policy discriminator losses aligned.
-    if dis_mask is None or (self.pred_init and key == "agent"):
-        dis_mask = mask_t.flatten()
-
-    if dis_mask is not None:
-        dis_mask = dis_mask.bool()
         tokenized_agent["dis_mask"] = dis_mask
 
-    disc_out = discriminator.predict_agent(
-        tokenized_agent["sampled_idx"],
-        tokenized_agent["token_mask"],
-        tokenized_agent["valid_mask"],
-        tokenized_agent["sampled_pos"],
-        tokenized_agent["sampled_heading"],
-        tokenized_agent,
-        tokenized_agent["map_feature"],
-        tokenized_agent["shape"],
-    )
+    disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                        tokenized_agent["token_mask"],
+                                                        tokenized_agent["valid_mask"],
+                                                        tokenized_agent["sampled_pos"],
+                                                        tokenized_agent["sampled_heading"],
+                                                        tokenized_agent,
+                                                        tokenized_agent["map_feature"],
+                                                        tokenized_agent["shape"]
+                                                        )
 
     ego_logits, interact_logits = disc_out[0]
 
-    (
-        ego_rewards,
-        nei_rewards,
-        valid_ego_reward,
-        valid_interact_reward,
-    ) = disc_out[2]
+    ego_rewards, nei_rewards, valid_ego_reward, valid_interact_reward = disc_out[2]
 
-    # During validation or rollout, only return the policy reward grid.
-    if not discriminator.training:
+    if not self.encoder.discriminator.training:
         return ego_rewards.reshape(mask_t.shape)
 
-    # Apply the same ego-logit mask to both expert and policy samples.
-    # This avoids training expert and generated samples on different subsets.
-    ego_logits = _select_ego_logits(
-        ego_logits=ego_logits,
-        dis_mask=dis_mask,
-        mask_t=mask_t,
-    )
-
-    target = 1.0 if key == "expert" else 0.0
-
-    ego_bce_loss = _weighted_bce_with_logits(
-        logits=ego_logits,
-        target=target,
-    )
-
-    has_nei_rewards = _has_elements(nei_rewards)
-    has_interact_logits = _has_elements(interact_logits)
-
-    if has_interact_logits:
-        interaction_weight = disc_out[3]
-
-        interact_bce_loss = _weighted_bce_with_logits(
-            logits=interact_logits,
-            target=target,
-            weight=interaction_weight,
-        )
-
-        combined_logits = torch.cat(
-            [ego_logits.reshape(-1), interact_logits.reshape(-1)],
-            dim=0,
-        )
-    else:
-        interact_bce_loss = ego_logits.new_zeros(())
-        combined_logits = ego_logits.reshape(-1)
-
-    disc_loss = ego_bce_loss + interact_bce_loss
-
-    # Reshape only policy rewards because these are consumed by the policy
-    # update as a [time, agent] reward matrix.
-    if key == "agent":
-        ego_rewards = ego_rewards.reshape(mask_t.shape)
-
-        if has_nei_rewards:
-            nei_rewards = nei_rewards.reshape(mask_t.shape)
-
-    # ----------------------------
-    # Logging
-    # ----------------------------
-    self.log(
-        f"train/{key}_rewards",
-        ego_rewards.mean(),
-        on_step=True,
-        batch_size=1,
-    )
-
-    if _has_elements(valid_ego_reward):
-        self.log(
-            f"train/{key}_valid_ego_reward",
-            valid_ego_reward.mean(),
-            on_step=True,
-            batch_size=1,
-        )
-
-    if _has_elements(valid_interact_reward):
-        self.log(
-            f"train/{key}_valid_interact_reward",
-            valid_interact_reward.mean(),
-            on_step=True,
-            batch_size=1,
-        )
-
-    if has_nei_rewards:
+    if len(nei_rewards) > 0:
         all_rewards = ego_rewards + nei_rewards
+        self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
 
-        self.log(
-            f"train/{key}_all_rewards",
-            all_rewards.mean(),
-            on_step=True,
-            batch_size=1,
-        )
+    self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_valid_ego_reward", valid_ego_reward.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True,
+             batch_size=1)
 
-        self.log(
-            f"train/{key}_nei_rewards",
-            nei_rewards.mean(),
-            on_step=True,
-            batch_size=1,
-        )
-
-    ego_score = torch.sigmoid(ego_logits)
-
-    self.log(
-        f"train/{key}_ego_score",
-        ego_score.mean(),
-        on_step=True,
-        batch_size=1,
-    )
-
-    if has_interact_logits:
-        interact_score = torch.sigmoid(interact_logits)
-
-        self.log(
-            f"train/{key}_inter_score",
-            interact_score.mean(),
-            on_step=True,
-            batch_size=1,
-        )
-
-        self.log(
-            f"train/{key}_interact_logits",
-            interact_logits.mean(),
-            on_step=True,
-            batch_size=1,
-        )
-
-    disc_val = torch.sigmoid(combined_logits)
-
-    self.log(
-        f"train/{key}_disc_val",
-        disc_val.mean(),
-        on_step=True,
-        batch_size=1,
-    )
-
-    self.log(
-        f"train/{key}_disc_val_std",
-        disc_val.std(unbiased=False),
-        on_step=True,
-        batch_size=1,
-    )
-
-    # ----------------------------
-    # Gradient regularization
-    # ----------------------------
-    if self.use_gradient_penalty:
-        regularization_loss = compute_gp(
-            key=key,
-            tokenized_agent=tokenized_agent,
-            dis_mask=dis_mask,
-            mask_t=mask_t,
-            discriminator=discriminator,
-            dis_loss="r2",
-            gp_lambda=1.0,
-            regularize_shape=True,
-        )
-
-        self.log(
-            f"train/{key}_gp",
-            regularization_loss,
-            on_step=True,
-            batch_size=1,
-        )
+    if key == "expert":
+        target = 1
     else:
-        regularization_loss = ego_logits.new_zeros(())
+        target = 0
+        ego_rewards = ego_rewards.reshape(mask_t.shape)  # [self.gail_start_step-self.dis_start_step:] #t,a
+        if len(nei_rewards):
+            nei_rewards = nei_rewards.reshape(mask_t.shape)  # t,a
 
-    return (
-        disc_loss,
-        ego_rewards,
-        nei_rewards,
-        regularization_loss,
-        dis_mask,
-    )
+        if dis_mask is not None:
+            ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
+
+    self.log("train/" + key + "_ego_score", torch.sigmoid(ego_logits).mean().item(), on_step=True, batch_size=1)
+
+    bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits) + target,
+                                                  reduction='mean')
+
+    if len(interact_logits) > 0:
+        weight = disc_out[3]
+
+        self.log("train/" + key + "_inter_score", torch.sigmoid(interact_logits).mean().item(), on_step=True,
+                 batch_size=1)
+
+        # interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
+        #                                              weight=weight, reduction='sum')/len(ego_logits)#/len(interact_logits)#
+        #
+        interact_bce_loss = F.binary_cross_entropy_with_logits(interact_logits,
+                                                               torch.zeros_like(interact_logits) + target,
+                                                               weight=weight, reduction='mean')  # /dis_mask.sum()
+
+        ego_logits = torch.cat([ego_logits, interact_logits], dim=0)
+        self.log("train/" + key + "_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
+    else:
+        interact_bce_loss = 0
+
+    disc_val = torch.sigmoid(ego_logits)
+
+    self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+
+    if self.use_gradient_penalty:
+        gp = compute_gp(key, tokenized_agent, dis_mask, mask_t, self.encoder.discriminator)
+        self.log("train/" + key + "_gp", gp, on_step=True, batch_size=1)
+    else:
+        gp = 0
+
+    return bce_loss + interact_bce_loss, ego_rewards, nei_rewards, gp, dis_mask  # ,mask_s.flatten(0,1)
