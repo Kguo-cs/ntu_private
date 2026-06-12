@@ -376,7 +376,7 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if self.use_gradient_penalty and key=="agent":
-            gamma=10
+            gamma=100
             Penalty_pos = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_pos, combined_logits).mean()
             Penalty_head = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_heading, combined_logits).mean()
             Penalty_shape = (gamma / 2) * ZeroCenteredGradientPenalty(shape, combined_logits).mean()
