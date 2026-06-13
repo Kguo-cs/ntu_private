@@ -264,7 +264,7 @@ class InterativeDecoder(nn.Module):
 
                 weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
 
-                weight=weight.clamp_max(max=20)
+                weight=weight.clamp_max(max=100)
 
                 weight_logit= interact_logits[:,0].detach() * weight
 
