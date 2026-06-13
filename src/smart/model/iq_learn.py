@@ -440,18 +440,18 @@ class IQ_SoftQ(LightningModule):
 
 
        # if self.pred_init:
-       #  tokenized_agent["train_mask"] = tokenized_agent["token_mask"].all(1)
-       #  tokenized_agent["pred_mask"] =tokenized_agent["token_mask"].all(1)
+        tokenized_agent["train_mask"] = tokenized_agent["token_mask"].all(1)
+        tokenized_agent["pred_mask"] =tokenized_agent["token_mask"].all(1)
         # else:
         #     tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
-        tokenized_agent["train_mask"] = None
-        tokenized_agent["pred_mask"] =None
-
         if self.encoder.learn_dis:
             expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
         else:
             expert_dis_loss=0
             expert_dis_mask=None
+        tokenized_agent["train_mask"] = None
+        tokenized_agent["pred_mask"] =None
+
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
