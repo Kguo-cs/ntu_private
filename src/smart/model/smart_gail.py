@@ -26,8 +26,10 @@ from torch import optim
 
 class SMART_IQ(IQ_SoftQ, SMART):
     def __init__(self, model_config) -> None:
-        SMART.__init__(self, model_config)  # Explicit call
-        IQ_SoftQ.__init__(self, model_config)  # Explicit call
+        # Use cooperative multiple inheritance. IQ_SoftQ.__init__ calls
+        # SMART.__init__ through super(), so calling both explicitly would
+        # initialize the complete model twice and recreate self.encoder.
+        super().__init__(model_config)
 
 
     def configure_optimizers(self):
@@ -123,7 +125,6 @@ class SMART_IQ(IQ_SoftQ, SMART):
                 discriminator_optimizer=torch.optim.AdamW(self.encoder.agent_encoder.init_decoder.D.parameters(), lr=self.lr)#,weight_decay=10
 
             return [actor_optimizer, discriminator_optimizer]
-
 
 
 

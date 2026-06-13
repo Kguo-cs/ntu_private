@@ -75,6 +75,12 @@ class InterativeDecoder(nn.Module):
         self.use_full_feature=False
         self.use_airl=False
 
+        if self.discriminator and self.use_decompose and self.dis_decay <= 0:
+            raise ValueError(
+                f"dist_decay must be positive for the decomposed discriminator, "
+                f"got {self.dis_decay}."
+            )
+
         if self.token_processor.pred_init:
             self.gail_start_step=0 #first action not used
             if self.token_processor.learn_init:

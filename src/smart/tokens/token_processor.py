@@ -147,14 +147,14 @@ class TokenProcessor(torch.nn.Module):
 
         prev_idx[invalid_mask] = cur_idx[invalid_mask]
 
-        cur_traj = token_traj_all[torch.arange(len(cur_idx)), cur_idx]
-        prev_traj = token_traj_all[torch.arange(len(prev_idx)), prev_idx]
+        cur_traj = token_traj_all[torch.arange(len(cur_idx), device=cur_idx.device), cur_idx]
+        prev_traj = token_traj_all[torch.arange(len(prev_idx), device=prev_idx.device), prev_idx]
 
         if init_idx==1:
             tokenized_agent["local_vel"] = cur_traj[:, -1].mean(-2) / 0.5
 
             if self.pred_2step:
-                prev_traj = token_traj_all[torch.arange(len(prev_idx)), prev_idx]
+                prev_traj = token_traj_all[torch.arange(len(prev_idx), device=prev_idx.device), prev_idx]
 
                 tokenized_agent["prev_vel"] = prev_traj[:, -1].mean(-2) / 0.5
 
@@ -861,4 +861,3 @@ class TokenProcessor(torch.nn.Module):
             )[:, -1].flatten(1, 2)
 
         return tokenized_map, tokenized_agent
-

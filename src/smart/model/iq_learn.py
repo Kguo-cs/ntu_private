@@ -14,9 +14,71 @@ from src.smart.loss.gp_penalty import compute_gp,_select_ego_logits,_weighted_bc
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,get_col_rate
 from torch_scatter import scatter_sum,scatter_mean
 
-def ZeroCenteredGradientPenalty(Samples, Critics):
-    Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
-    return Gradient.square()#.sum([-1])
+def _masked_square_norm_mean(gradient, mask, reference):
+    """Mean squared gradient norm over valid entries only."""
+    if gradient is None or mask is None or not torch.any(mask):
+        return reference.new_zeros(())
+
+    valid_gradient = gradient[mask]
+    return valid_gradient.reshape(valid_gradient.shape[0], -1).square().sum(dim=-1).mean()
+
+
+def ZeroCenteredGradientPenalty(
+        sampled_pos,
+        sampled_heading,
+        shape,
+        critic_score,
+        valid_mask,
+        gamma=0.01,
+):
+    """Zero-centered R2 penalty on generated trajectories.
+
+    The discriminator locally differentiates through the fixed graph topology.
+    Padding entries are excluded from the normalization.
+    """
+    gradients = torch.autograd.grad(
+        outputs=critic_score,
+        inputs=(sampled_pos, sampled_heading, shape),
+        create_graph=True,
+        retain_graph=True,
+        allow_unused=True,
+    )
+
+    grad_pos, grad_heading, grad_shape = gradients
+    valid_mask = valid_mask.bool()
+    valid_agent_mask = valid_mask.any(dim=-1)
+
+    pos_penalty = _masked_square_norm_mean(grad_pos, valid_mask, critic_score)
+    heading_penalty = _masked_square_norm_mean(grad_heading, valid_mask, critic_score)
+    shape_penalty = _masked_square_norm_mean(grad_shape, valid_agent_mask, critic_score)
+
+    scale = gamma / 2.0
+    return (
+        scale * (pos_penalty + heading_penalty + shape_penalty),
+        scale * pos_penalty,
+        scale * heading_penalty,
+        scale * shape_penalty,
+    )
+
+
+def _reshape_valid_rewards(rewards, mask_t, name):
+    """Restore compressed valid-node rewards to a dense [T, A] tensor."""
+    if not torch.is_tensor(rewards):
+        raise TypeError(f"{name} must be a tensor, got {type(rewards)}")
+
+    if rewards.numel() == mask_t.numel():
+        return rewards.reshape(mask_t.shape)
+
+    valid_count = int(mask_t.sum().item())
+    if rewards.numel() != valid_count:
+        raise ValueError(
+            f"Cannot align {name} with mask_t: rewards.numel()={rewards.numel()}, "
+            f"mask_t.numel()={mask_t.numel()}, mask_t.sum()={valid_count}."
+        )
+
+    dense_rewards = rewards.new_zeros(mask_t.shape)
+    dense_rewards[mask_t] = rewards
+    return dense_rewards
 
 class IQ_SoftQ(LightningModule):
 
@@ -215,14 +277,20 @@ class IQ_SoftQ(LightningModule):
                 dis_mask = dis_mask.bool()
                 tokenized_agent["dis_mask"] = dis_mask
 
-        sampled_pos=tokenized_agent["sampled_pos"]
-        sampled_heading=tokenized_agent["sampled_heading"]
-        shape=tokenized_agent["shape"][:,:2]
+        sampled_pos = tokenized_agent["sampled_pos"]
+        sampled_heading = tokenized_agent["sampled_heading"]
+        shape = tokenized_agent["shape"][..., :2]
 
-        if self.use_gradient_penalty and key=="agent":
-            sampled_pos = sampled_pos.detach().requires_grad_(True)
-            sampled_heading = sampled_heading.detach().requires_grad_(True)
-            shape = shape.detach().requires_grad_(True)
+        # The critic update must not backpropagate through rollout generation.
+        if key == "agent":
+            sampled_pos = sampled_pos.detach()
+            sampled_heading = sampled_heading.detach()
+            shape = shape.detach()
+
+            if self.use_gradient_penalty and discriminator.training:
+                sampled_pos.requires_grad_(True)
+                sampled_heading.requires_grad_(True)
+                shape.requires_grad_(True)
 
         disc_out = discriminator.predict_agent(
             tokenized_agent["sampled_idx"],
@@ -246,7 +314,7 @@ class IQ_SoftQ(LightningModule):
 
         # During validation or rollout, only return the policy reward grid.
         if not discriminator.training:
-            return ego_rewards.reshape(mask_t.shape)
+            return _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
         # Apply the same ego-logit mask to both expert and policy samples.
         # This avoids training expert and generated samples on different subsets.
@@ -288,10 +356,10 @@ class IQ_SoftQ(LightningModule):
         # Reshape only policy rewards because these are consumed by the policy
         # update as a [time, agent] reward matrix.
         if key == "agent":
-            ego_rewards = ego_rewards.reshape(mask_t.shape)
+            ego_rewards = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
             if has_nei_rewards:
-                nei_rewards = nei_rewards.reshape(mask_t.shape)
+                nei_rewards = _reshape_valid_rewards(nei_rewards, mask_t, "nei_rewards")
 
         # ----------------------------
         # Logging
@@ -377,40 +445,33 @@ class IQ_SoftQ(LightningModule):
             on_step=True,
             batch_size=1,
         )
-        if self.use_gradient_penalty and key=="agent":
-            gamma=0.01
-            Penalty_pos = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_pos, combined_logits).sum(-1).mean()
-            Penalty_head = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_heading, combined_logits).mean()
-            Penalty_shape = (gamma / 2) * ZeroCenteredGradientPenalty(shape, combined_logits).mean()
-            regularization_loss=Penalty_pos + Penalty_head + Penalty_shape
-            self.log( f"train/{key}_gp",  regularization_loss,    on_step=True, batch_size=1, )
-            self.log(  f"train/{key}_pos_gp",         Penalty_pos,  on_step=True,   batch_size=1,    )
-            self.log(   f"train/{key}_head_gp",   Penalty_head,   on_step=True,  batch_size=1)
-            self.log(  f"train/{key}_shape_gp",  Penalty_shape,on_step=True,   batch_size=1, )
+        if self.use_gradient_penalty and key == "agent":
+            gamma = 0.01
 
-            ego_rewards=ego_rewards.detach()
+            critic_score = ego_logits.sum()
+            if has_interact_logits:
+                critic_score = critic_score + (
+                    interact_logits * interaction_weight
+                ).sum()
 
-        # ----------------------------
-        # Gradient regularization
-        # ----------------------------
-        # if self.use_gradient_penalty:
-        #     regularization_loss = compute_gp(
-        #         key=key,
-        #         tokenized_agent=tokenized_agent,
-        #         dis_mask=dis_mask,
-        #         mask_t=mask_t,
-        #         discriminator=discriminator,
-        #         dis_loss="r2",
-        #         gp_lambda=1.0,
-        #         regularize_shape=True,
-        #     )
-        #
-        #     self.log(
-        #         f"train/{key}_gp",
-        #         regularization_loss,
-        #         on_step=True,
-        #         batch_size=1,
-        #     )
+            (
+                regularization_loss,
+                penalty_pos,
+                penalty_head,
+                penalty_shape,
+            ) = ZeroCenteredGradientPenalty(
+                sampled_pos=sampled_pos,
+                sampled_heading=sampled_heading,
+                shape=shape,
+                critic_score=critic_score,
+                valid_mask=tokenized_agent["valid_mask"],
+                gamma=gamma,
+            )
+
+            self.log(f"train/{key}_gp", regularization_loss, on_step=True, batch_size=1)
+            self.log(f"train/{key}_pos_gp", penalty_pos, on_step=True, batch_size=1)
+            self.log(f"train/{key}_head_gp", penalty_head, on_step=True, batch_size=1)
+            self.log(f"train/{key}_shape_gp", penalty_shape, on_step=True, batch_size=1)
         else:
             regularization_loss = ego_logits.new_zeros(())
 
@@ -455,33 +516,34 @@ class IQ_SoftQ(LightningModule):
         # agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step)
 
         if self.encoder.learn_dis:
-            agent_dis_loss, agent_rewards, nei_rewards, agent_gp, _ = self.get_reward(
-                tokenized_agent_rollout, "agent", expert_dis_mask)
-
-        critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
+            agent_dis_loss, _, _, agent_gp, _ = self.get_reward(
+                tokenized_agent_rollout, "agent", expert_dis_mask
+            )
+            critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
+        else:
+            critic_loss = tokenized_agent_rollout["sampled_pos"].new_zeros(())
 
         self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
         if self.token_processor.learn_init:
-
-            actor_optimizer,discriminator_optimizer, init_optimizer=self.optimizers()
+            actor_optimizer, discriminator_optimizer, init_optimizer = self.optimizers()
         else:
-            actor_optimizer,discriminator_optimizer=self.optimizers()
+            actor_optimizer, discriminator_optimizer = self.optimizers()
 
+        if self.encoder.learn_dis:
+            discriminator_optimizer.zero_grad()
+            critic_loss.backward()
+            discriminator_optimizer.step()
 
-        discriminator_optimizer.zero_grad()
-
-        critic_loss.backward()
-
-        discriminator_optimizer.step()
-
-        if  not self.use_gradient_penalty:
-            with torch.no_grad() :
-                self.encoder.discriminator.eval()
-
-                agent_rewards= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
-
-                self.encoder.discriminator.train()
+        # Always refresh rewards after the critic update. This avoids using
+        # stale pre-update rewards when gradient regularization is enabled.
+        with torch.no_grad():
+            discriminator_was_training = self.encoder.discriminator.training
+            self.encoder.discriminator.eval()
+            agent_rewards = self.get_reward(
+                tokenized_agent_rollout, "agent", expert_dis_mask
+            )
+            self.encoder.discriminator.train(discriminator_was_training)
         #
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
@@ -535,7 +597,9 @@ class IQ_SoftQ(LightningModule):
 
             self.log('train/init_advantages', init_advantages.mean(), on_step=True, batch_size=1)
 
-            init_advantages=(init_advantages-init_advantages.mean())/init_advantages.std()
+            init_advantages = (
+                init_advantages - init_advantages.mean()
+            ) / init_advantages.std(unbiased=False).clamp_min(1e-8)
 
             tokenized_agent["advantages"]=init_advantages
 
