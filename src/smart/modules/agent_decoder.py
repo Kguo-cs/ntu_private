@@ -320,7 +320,7 @@ class SMARTAgentDecoder(nn.Module):
     def get_next(self,sampled_idx,pos_a,head_a,pred_traj_10hz,pred_head_10hz,tokenized_agent):
         token_traj_all = tokenized_agent["token_traj_all"]
 
-        next_token_traj_all = token_traj_all[torch.arange(len(sampled_idx)), sampled_idx[:, -1]]
+        next_token_traj_all = token_traj_all[torch.arange(len(sampled_idx),device=sampled_idx.device), sampled_idx[:, -1]]
 
         token_traj_global = transform_to_global(
             pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]

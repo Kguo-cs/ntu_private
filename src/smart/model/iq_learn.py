@@ -10,10 +10,13 @@ import random
 import copy
 
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
-from src.smart.loss.gp_penalty import compute_gp,_select_ego_logits,_weighted_bce_with_logits,_has_elements,ZeroCenteredGradientPenalty
+from src.smart.loss.gp_penalty import compute_gp,_select_ego_logits,_weighted_bce_with_logits,_has_elements
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,get_col_rate
 from torch_scatter import scatter_sum,scatter_mean
 
+def ZeroCenteredGradientPenalty(Samples, Critics):
+    Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
+    return Gradient.square()#.sum([-1])
 
 class IQ_SoftQ(LightningModule):
 
@@ -377,7 +380,7 @@ class IQ_SoftQ(LightningModule):
         )
         if self.use_gradient_penalty and key=="agent":
             gamma=0.01
-            Penalty_pos = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_pos, combined_logits).mean()
+            Penalty_pos = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_pos, combined_logits).sum(-1).mean()
             Penalty_head = (gamma / 2) * ZeroCenteredGradientPenalty(sampled_heading, combined_logits).mean()
             Penalty_shape = (gamma / 2) * ZeroCenteredGradientPenalty(shape, combined_logits).mean()
             regularization_loss=Penalty_pos + Penalty_head + Penalty_shape
