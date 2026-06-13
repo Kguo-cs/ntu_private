@@ -39,7 +39,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         scaled = (
             (init_gamma_tensor - gamma_min)
             / (gamma_max - gamma_min)
-        )
+        ).clamp(min=eps, max=1.0 - eps)
 
         self.learn_schedule=False
 
@@ -243,12 +243,13 @@ class LearnableGroupedPowerSchedule(nn.Module):
             )
 
            # if self.learn_schedule:
+            derivative_t = safe_t.clamp_min(self.eps)
             dgrouped_t_dt = (
-                    gamma
-                    * torch.pow(
-                safe_t,
-                gamma - 1.0,
-            )
+                gamma
+                * torch.pow(
+                    derivative_t,
+                    gamma - 1.0,
+                )
             )
 
         # else:
@@ -342,7 +343,7 @@ def make_grouped_flow_matching_batch(
 
     grouped_t, dgrouped_t_dt = schedule(
         base_t=base_t,
-        target=x_0,
+        x_ref=x_0,
     )
 
     x_t = (

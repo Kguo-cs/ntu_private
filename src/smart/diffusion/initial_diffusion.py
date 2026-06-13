@@ -37,7 +37,7 @@ class InitDiffusion(nn.Module):
 
         parser = ArgumentParser()
         self.add_model_specific_args(parser)
-        args = parser.parse_args()
+        args, _ = parser.parse_known_args()
 
         self.learn_autoencoder = False
         self.latent_diffusion = False
@@ -72,10 +72,12 @@ class InitDiffusion(nn.Module):
 
     def forward(self, tokenized_agent):
 
-        if "ego_feat" not in tokenized_agent.keys():
-            num_graphs = tokenized_agent["num_graphs"]
+        num_graphs = tokenized_agent["num_graphs"]
+        ego_mask = tokenized_agent["ego_mask"]
+        ego_position = tokenized_agent["initial_pos"][ego_mask]
+        ego_heading = tokenized_agent["initial_heading"][ego_mask]
 
-            ego_mask = tokenized_agent["ego_mask"]
+        if "ego_feat" not in tokenized_agent.keys():
             non_ego = ~ego_mask
 
            # if self.use_all_pos or self.pred_all_pos:
@@ -83,8 +85,6 @@ class InitDiffusion(nn.Module):
 
             tokenized_agent["non_ego"]=non_ego
 
-            ego_position = tokenized_agent["initial_pos"][ego_mask]
-            ego_heading = tokenized_agent["initial_heading"][ego_mask]
             nonego_batch = tokenized_agent["batch"][non_ego]
             tokenized_agent["nonego_batch"] = nonego_batch
             tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
@@ -138,24 +138,23 @@ class InitDiffusion(nn.Module):
                 initial_map_feature =map_feature
             else:
                 batch_pl = map_feature["batch"]
-
                 pos_pt = map_feature["position"]
 
-                ego_pos = ego_position.reshape(-1,batch_pl.max().item()+1,2)
-
-                dist=torch.norm(ego_pos[:,batch_pl]-pos_pt[None],dim=-1).amin(0)
-
-                initial_map_feature = {}
-
-                for key in map_feature.keys():
-                    initial_map_feature[key] = map_feature[key][dist < 100]
+                if batch_pl.numel() == 0:
+                    initial_map_feature = {key: value for key, value in map_feature.items()}
+                else:
+                    ego_pos = ego_position.reshape(-1, num_graphs, 2)
+                    dist = torch.norm(ego_pos[:, batch_pl] - pos_pt[None], dim=-1).amin(0)
+                    initial_map_feature = {
+                        key: value[dist < 100] for key, value in map_feature.items()
+                    }
 
             batch_pl = initial_map_feature["batch"]
             pos_pl = initial_map_feature["position"]
             orient_pl = initial_map_feature["orientation"]
             feat_map = initial_map_feature["pt_token"]
 
-            if batch_pl.max().item() == num_graphs - 1:
+            if batch_pl.numel() > 0 and batch_pl.max().item() == num_graphs - 1:
                 pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                        orient_pl,  # [:,None],
                                                        ego_position[batch_pl],
@@ -173,9 +172,11 @@ class InitDiffusion(nn.Module):
         else:
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
-        pos_idx = get_type_position_index(nonego_batch, tokenized_agent["nonego_type"], num_types=3)
-
-        tokenized_agent["pos_feat"] =sinusoidal_embedding(pos_idx[:, None] + 1, 256)
+        # pos_idx = get_type_position_index(nonego_batch, tokenized_agent["nonego_type"], num_types=3)
+        #
+        # tokenized_agent["pos_feat"] = sinusoidal_embedding(
+        #     pos_idx[:, None] + 1, self.G1.hidden_dim
+        # )
 
         if self.training:
             diff_input,diff_output=self.G1.model.get_input(tokenized_agent)

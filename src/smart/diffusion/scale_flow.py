@@ -28,7 +28,6 @@ from torch_geometric.data import HeteroData
 from torch.nn.utils.rnn import pad_sequence
 from torch.distributions import Bernoulli
 
-from sd.utils.gpudrive_helpers import log_prob
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -275,7 +274,8 @@ class ScaleFlow(nn.Module):
         if "step_idx" in tokenized_agent.keys():
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
-            t_batch = t_batch[:, None, None]
+            t = t_batch[:, None, None]
+            t_dt = torch.ones_like(t)
         else:
             if self.lognorm_t:
 
@@ -291,7 +291,8 @@ class ScaleFlow(nn.Module):
             else:
                 base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
 
-                t=base_t[agent_batch]
+                t = base_t[agent_batch]
+                t_dt = torch.ones_like(t)
 
         ego_mask = tokenized_agent["ego_mask"]
 
@@ -338,7 +339,10 @@ class ScaleFlow(nn.Module):
                     dim=1,
                 ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
 
-                t_n_sampled=torch.rand_like(t_batch[None].repeat(self.mc_num, 1,1,1).flatten(0,1))[agent_batch]
+                sampled_base_t = torch.rand_like(x_sampled[..., :1])
+                t_n_sampled, _ = self.model.schedule(
+                    sampled_base_t, x_sampled, tokenized_agent
+                )
 
                 advantages=advantages[None].repeat(self.mc_num, 1).flatten(0,1)
 
@@ -670,11 +674,14 @@ class ScaleFlow(nn.Module):
 
             t_n, t_dt = self.model.schedule(t_n, z,tokenized_agent)
 
-            t_n[tokenized_agent["ego_mask"]]=1
+            ego_mask = tokenized_agent["ego_mask"]
+            if eval_mask is not None:
+                ego_mask = ego_mask[eval_mask]
+            t_n[ego_mask] = 1
 
-            t_next, t_next_dt = self.model.schedule(t_next, z,tokenized_agent)
+            t_next, t_next_dt = self.model.schedule(t_next, z, tokenized_agent)
 
-            t_next[tokenized_agent["ego_mask"]]=1
+            t_next[ego_mask] = 1
 
         if self.use_scale:
             padding_mask=tokenized_agent["padding_mask"]
@@ -758,7 +765,10 @@ class ScaleFlow(nn.Module):
             increasing=tokenized_agent["increasing"]
             non_increasing=~increasing
             z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
-            z[increasing] = (1-t_next[increasing])*torch.randn_like(x[increasing])+ t_next[increasing] * x[increasing]
+            z[increasing] = (
+                (1 - t_next[increasing]) * torch.randn_like(pred_x0[increasing])
+                + t_next[increasing] * pred_x0[increasing]
+            )
         elif self.use_sde and torch.any(noise_level>0) :#and "gt_z_raw" not in tokenized_agent.keys():
             z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                 1-t_n,
@@ -891,6 +901,7 @@ class ScaleFlow(nn.Module):
             beta = torch.cat([t, r], dim=-1)
 
             z = self.model(z, beta, tokenized_agent, initial_map_feature, eval_mask)
+            t_n = t
         else:
             timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)  # .pow(2/3)
 
@@ -901,7 +912,9 @@ class ScaleFlow(nn.Module):
 
                 t_rand=t_rand[agent_batch]
 
-                noise_level[torch.arange(num_agents), t_rand, 0] = self.noise_level
+                noise_level[
+                    torch.arange(num_agents, device=agent_batch.device), t_rand, 0
+                ] = self.noise_level
 
                 noise_mask=noise_level[:,:,0] > 0
 
@@ -930,7 +943,13 @@ class ScaleFlow(nn.Module):
                         t=noise_scedule[:,i][agent_batch][eval_mask]
                         t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
 
-                    z[eval_mask],x_cond,t_n,log_prob=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
+                    z[eval_mask], x_cond, t_n, log_prob = self._euler_step(
+                        z[eval_mask],
+                        t,
+                        t_next,
+                        (tokenized_agent, initial_map_feature, eval_mask),
+                        noise_level[eval_mask, i],
+                    )
 
                 else:
                     z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
@@ -1086,7 +1105,7 @@ def return_decay(step, decay_type):
         uprate = 0.0075
         uphold = 0.999
     else:
-        assert False
+        raise ValueError(f"Unsupported decay_type: {decay_type}")
 
     if step < flat:
         return 0.0

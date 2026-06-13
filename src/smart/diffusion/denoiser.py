@@ -140,11 +140,11 @@ class InitDenoiser(nn.Module):
         self.schedule_loss=False
 
         if self.schedule_loss:
-            groups = SceneStateGroups()
-            self.schedule =CDTDGroupedWarp(groups)
-        else:
-            self.schedule=LearnableGroupedPowerSchedule()
-            #4self.schedule=AdaptiveGroupedPolynomialSchedule(latent_dim=0,map_context_dim=hidden_dim)
+            raise NotImplementedError(
+                "schedule_loss requires the optional CDTDGroupedWarp implementation."
+            )
+        schedule_group_dims = (2, 2, 2, max(2, m_delta_dim - 6))
+        self.schedule = LearnableGroupedPowerSchedule(group_dims=schedule_group_dims)
 
         self.pred_gmm=False
 
@@ -457,7 +457,9 @@ class InitDenoiser(nn.Module):
                 # self.normal_mean[:,:2]=0
 
                 self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
-                self.normal_scale.copy_(torch.std(diff_output, dim=0, keepdim=True))
+                self.normal_scale.copy_(
+                    torch.std(diff_output, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
+                )
                 #
                 # self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*2#self.normal_mean[:,4:6]#
                 # self.normal_scale[:,:2]=30#self.normal_scale[:,:2]*1
@@ -506,29 +508,9 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             m_delta=m_delta.reshape(m_delta.shape[0],-1)
             if self.use_dit:
-                pos_pl, orient_pl, map_emb,map_mask=scene_enc
-
-                map_emb=self.map_embed(torch.cat((pos_pl,orient_pl[:,:,None].cos(),orient_pl[:,:,None].sin(),map_emb),dim=-1))
-
-                map_emb[~map_mask]=0
-
-                lengths = torch.bincount(batch, minlength=num_graphs).tolist()
-
-                feat_a = padding(m_delta, lengths, padding_value=0)  # b, n, d
-
-                feat_b=padding(ego_embedding+self.type_a_emb(type), lengths, padding_value=0)
-
-                if len(beta.shape)==0:
-                    beta=torch.zeros_like(m_delta[:,0])+beta
-
-                t=padding(beta.reshape(-1), lengths, padding_value=0) [:,0]
-
-                mask = torch.any(feat_b != 0, dim=-1)
-
-                feat_a =self.dit(feat_a, t, map_emb, feat_b)
-
-                res=feat_a[mask][:,None]
-
+                raise NotImplementedError(
+                    "InitDenoiser.use_dit=True is not implemented for the current map-feature format."
+                )
             else:
 
                 beta_emb_m = self.noise_embedding(beta[:,0]) +self.type_a_emb(type)
@@ -856,142 +838,10 @@ class InitDenoiser(nn.Module):
                     res = torch.cat(
                         [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)[:, None]
         else:
-            beta_emb = self.noise_emb(beta)
-            # num_agents x 128
+            raise NotImplementedError(
+                "InitDenoiser.use_roformer=False is not implemented in this module."
+            )
 
-            m_delta = self.proj_in_m_delta(m_delta).view(-1, self.hidden_dim)
-
-            if self.use_all_type:
-                m_delta = m_delta +ego_embedding
-
-            else:
-                m_delta = m_delta + self.type_a_emb(type)+ego_embedding
-            m_delta = self.proj_in_m_delta_2(m_delta)
-
-            self.num_samples = num_samples
-
-            if self.use_padding:
-                pos_pl, orient_pl,map_mask, map_emb=scene_enc
-
-                lengths=tokenized_agent["lengths"]
-
-                #lengths = torch.bincount(batch, minlength=batch_size).tolist()
-
-                m_delta = padding(m_delta, lengths, padding_value=0)  # b, n, d
-
-                mask_agent = torch.any(m_delta != 0, dim=-1)
-
-                beta_emb_m= padding(beta_emb, lengths, padding_value=0)
-
-            else:
-                pos_pl, orient_pl, batch_pl, feat_map=scene_enc
-
-                x_pt = feat_map#.repeat(self.num_samples, 1)
-                map_batch_list = batch_pl
-
-                poly_cnt_per_batch = map_batch_list.bincount(minlength=batch_size)
-                map_emb_batch = torch.split(x_pt, poly_cnt_per_batch.tolist())
-
-                map_emb = pad_sequence(map_emb_batch, batch_first=True, padding_value=0)
-
-                agent_cnt_per_batch = batch.bincount(minlength=batch_size)
-                agent_emb_batch = torch.split(m_delta, agent_cnt_per_batch.tolist())
-
-                m_delta = pad_sequence(agent_emb_batch, batch_first=True, padding_value=0)
-
-                beta_emb_batch = torch.split(beta_emb, agent_cnt_per_batch.tolist())
-
-                beta_emb_m = pad_sequence(beta_emb_batch, batch_first=True, padding_value=0)
-
-            pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
-            m_delta += pos_emb
-
-            B, N, D = m_delta.shape
-            B, N_map, _ = map_emb.shape
-
-            if self.use_padding:
-                attn_mask_agent_layers = ~mask_agent
-                attn_mask_map_layers = ~map_mask
-            else:
-                #mask_map_layers = []
-                #mask_agent_layers = []
-
-                attn_mask_map_layers = []
-                attn_mask_agent_layers = []
-
-                for i in range(batch_size):
-                   # mask_attn_map_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
-                    #mask_attn_map_agent_i = mask_attn_map_agent_i.unsqueeze(-1).expand(-1, N_map)
-                    mask_attn_map_pt_i = torch.arange(N_map).to(m_delta.device) < poly_cnt_per_batch[i]
-                    attn_mask_map_layers.append(mask_attn_map_pt_i)
-                    #mask_attn_map_pt_i = mask_attn_map_pt_i.unsqueeze(0).expand(N, -1)
-
-                    #mask_attn_i = mask_attn_map_agent_i & mask_attn_map_pt_i
-                    # mask_map_layers.append(mask_attn_i)
-
-                    mask_attn_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
-                    attn_mask_agent_layers.append(mask_attn_agent_i)
-                    # mask_attn_agent_i = mask_attn_agent_i.unsqueeze(-1).expand(-1, N)
-                    # mask_attn_i = mask_attn_agent_i & mask_attn_agent_i.t()
-                    # mask_agent_layers.append(mask_attn_i)
-
-                attn_mask_agent_layers = ~torch.stack(attn_mask_agent_layers)
-                attn_mask_map_layers = ~torch.stack(attn_mask_map_layers)
-                mask_agent = torch.arange(N).expand(B, N).to(m_delta.device) < agent_cnt_per_batch.unsqueeze(1)  # [B, N]
-                #mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
-
-
-            # attn_mask_agent_layers1 = attn_mask_agent_layers.view(B, 1, N).to(torch.bool)
-            # attn_mask_map_layers1 = attn_mask_map_layers.view(B, 1, 1, N_map). \
-            #     expand(-1, self.num_heads * 2, N, -1)
-            # #
-            # # 0: don't attend others
-            # if mode == 0:
-            #     attn_mask_agent_layers = attn_mask_agent_layers + ~torch.eye(N).to(torch.bool).unsqueeze(0).to(
-            #         m_delta.device)
-
-            for i in range(self.num_layers):
-                m_delta = m_delta + beta_emb_m
-
-                # m_delta = self.interact_pt2m[i](
-                #     tgt=m_delta,
-                #     memory=map_emb,
-                #     tgt_key_padding_mask=attn_mask_agent_layers,
-                #     memory_key_padding_mask=attn_mask_map_layers
-                # )
-
-                # m_delta = self.interact_pt2m[i](x=m_delta, map_enc=map_emb,
-                #                                 mask=attn_mask_agent_layers1,
-                #                                 map_mask=attn_mask_map_layers1)
-                m_delta = self.interact_pt2m[i](m_delta, torch.zeros_like(m_delta[:,:,:2]),
-                               torch.zeros_like(m_delta[:,:,0]), ~attn_mask_agent_layers,
-                               map_emb,
-                               torch.zeros_like(map_emb[:,:,:2]),
-                               torch.zeros_like(map_emb[:,:,0]), ~attn_mask_map_layers
-                               )
-
-            m_out_delta = m_delta[mask_agent]#.view(-1, D)  # [sum(agent_cnt_per_batch), D]
-
-            out_m_delta = self.to_out_m_delta(m_out_delta)
-            out_m_delta = out_m_delta.view(-1, self.num_samples, self.hidden_dim)
-            res=self.proj_out_m_delta(out_m_delta)
-
-        if self.use_noise :
-
-            noise_std = self.explore_noise_net(feat_a)
-            #
-            # noise_std=self.denormalize(noise_std[:,None])
-            noise_std = torch.exp(noise_std)+1e-3
-
-            if not self.training:
-                noise_std=torch.zeros_like(noise_std)
-
-            res=torch.cat([res,noise_std[:,None]],dim=-1)
-
-        # if not self.training:
-        #     tokenized_agent["noise_feat"] = feat_a.detach()
-        if torch.all(beta==0):
-            tokenized_agent["noise_feat"] = feat_a
         return res
 
     def get_output(self, pred_init, tokenized_agent):
@@ -1158,7 +1008,7 @@ class InitDenoiser(nn.Module):
 class ExploreNoiseNet(nn.Module):
     '''
     Neural network to generate learnable exploration noise, conditioned on time embeddings and or state embeddings.
-    \sigma(s,t) or \sigma(s)
+    sigma(s, t) or sigma(s)
     '''
 
     def __init__(self,
@@ -1166,12 +1016,13 @@ class ExploreNoiseNet(nn.Module):
                  out_dim: int,
                  logprob_denoising_std_range: list,  # [min_std, max_std]
                  device,
-                 hidden_dims=[16],  # [8]  [32],
+                 hidden_dims=None,  # [8]  [32],
                  activation_type='Tanh'
                  ):
         super().__init__()
         self.device = device
-        self.mlp_logvar = MLPLayer(in_dim,hidden_dims,out_dim)
+        hidden_dims = [16] if hidden_dims is None else hidden_dims
+        self.mlp_logvar = MLPLayer(in_dim, hidden_dims, out_dim)
 
         self.set_noise_range(logprob_denoising_std_range)
 
@@ -1196,7 +1047,7 @@ class ExploreNoiseNet(nn.Module):
     def process_noise(self, noise_logvar):
         '''
         input:
-            torch.Tensor([B, Ta , Da])   log \sigma^2
+            torch.Tensor([B, Ta , Da])   log sigma^2
         output:
             torch.Tensor([B, 1, Ta * Da]), sigma, floating point values, bounded in [min_logprob_denoising_std, max_logprob_denoising_std]
         '''
