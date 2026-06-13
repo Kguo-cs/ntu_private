@@ -39,7 +39,7 @@ model:
 ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: model22_gp1_max100_disr10plr10 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
+task_name: model22_gp01_max100_disr10plr10 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
 
 
 trainer:
@@ -53,20 +53,30 @@ trainer:
 
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
-  dirpath: null     # or any directory you prefer
-  filename: "epoch={epoch}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
-  monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
-  verbose: false
+
+  dirpath: ${paths.output_dir}/checkpoints
+
+  # step 必须保留，否则同一个 epoch 内多次 validation 时文件名会重复
+  filename: "epoch={epoch}-step={step}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
+
+  monitor: "val_closed/wosac_likelihood/metametric"
+  mode: "max"
+
+  verbose: true
   save_last: true
-  save_top_k: 30
-  mode: "max"                          # "max" since your metric increases with performance
+
+  # 保存每一次 validation 对应的 checkpoint，不仅保留 Top-K
+  save_top_k: -1
+
   auto_insert_metric_name: false
   save_weights_only: false
+
   every_n_train_steps: null
   train_time_interval: null
-  every_n_epochs: null
-  save_on_train_epoch_end: true       # <== important, disables save after training epoch
+  every_n_epochs: 1
 
+  # validation 结束时保存
+  save_on_train_epoch_end: false
 
 data:
   train_batch_size: 22 #6
