@@ -108,8 +108,10 @@ def compute_gp(
     policy_shape = tokenized_agent["shape"].detach()
 
     batch_idx = tokenized_agent["batch"]
-    num_graphs = int(batch_idx.max().item()) + 1
     num_agents = batch_idx.numel()
+    if num_agents == 0:
+        return policy_pos.new_zeros(())
+    num_graphs = int(batch_idx.max().item()) + 1
 
     if expert_pos.shape != policy_pos.shape:
         raise ValueError("Expert and policy positions must have identical shapes.")
@@ -259,6 +261,9 @@ def compute_gp(
     else:
         all_logits = ego_logits
 
+    if all_logits.numel() == 0 or not all_logits.requires_grad:
+        return policy_pos.new_zeros(())
+
     grad_inputs = [pose_leaf]
     if regularize_shape and shape_xy_leaf is not None:
         grad_inputs.append(shape_xy_leaf)
@@ -275,28 +280,31 @@ def compute_gp(
     grad_pose = gradients[0]
     grad_shape = gradients[1] if len(gradients) > 1 else None
 
-    # Calculate one gradient norm per scene.
-    # grad_sq_per_graph = torch.zeros(
-    #     num_graphs,
-    #     device=device,
-    #     dtype=policy_pos.dtype,
-    # )
-    #
-    if grad_pose is not None and grad_pose.numel() > 0:
-       # pose_agent_idx = train_valid_mask.nonzero(as_tuple=False)[:, 0]
-       # pose_graph_idx = batch_idx[pose_agent_idx]
+    # Calculate one accumulated squared-gradient norm per scene.
+    grad_sq_per_graph = torch.zeros(
+        num_graphs,
+        device=device,
+        dtype=policy_pos.dtype,
+    )
+    zero = policy_pos.new_zeros(())
+    pose_penalty = zero
+    shape_penalty = zero
 
+    if grad_pose is not None and grad_pose.numel() > 0:
         pose_grad_sq = grad_pose.square().sum(dim=-1)
-       # grad_sq_per_graph.index_add_(0, pose_graph_idx, pose_grad_sq)
+        pose_agent_idx = train_valid_mask.nonzero(as_tuple=False)[:, 0]
+        pose_graph_idx = batch_idx[pose_agent_idx]
+        grad_sq_per_graph.index_add_(0, pose_graph_idx, pose_grad_sq)
+        pose_penalty = pose_grad_sq.mean()
 
     if grad_shape is not None and grad_shape.numel() > 0:
-        #shape_graph_idx = batch_idx[shape_agent_mask]
-
         shape_grad_sq = grad_shape.square().sum(dim=-1)
-    #     grad_sq_per_graph.index_add_(0, shape_graph_idx, shape_grad_sq)
+        shape_graph_idx = batch_idx[shape_agent_mask]
+        grad_sq_per_graph.index_add_(0, shape_graph_idx, shape_grad_sq)
+        shape_penalty = shape_grad_sq.mean()
 
     if dis_loss in {"r1", "r2"}:
-        gp = 0.5 * gp_lambda * (pose_grad_sq.mean()+shape_grad_sq.mean())#grad_sq_per_graph.mean()
+        gp = 0.5 * gp_lambda * (pose_penalty + shape_penalty)
     else:
         grad_norm_per_graph = torch.sqrt(grad_sq_per_graph + 1e-12)
         gp = gp_lambda * (grad_norm_per_graph - 1.0).square().mean()
@@ -327,6 +335,9 @@ def _weighted_bce_with_logits(
     """
     targets = torch.full_like(logits, fill_value=target)
 
+    if logits.numel() == 0:
+        return logits.new_zeros(())
+
     if weight is None:
         return F.binary_cross_entropy_with_logits(
             logits,
@@ -335,13 +346,13 @@ def _weighted_bce_with_logits(
         )
 
     weight = weight.to(dtype=logits.dtype)
-
-    return F.binary_cross_entropy_with_logits(
+    elementwise_loss = F.binary_cross_entropy_with_logits(
         logits,
         targets,
         weight=weight,
         reduction="mean",
-    ) #/ weight.sum().clamp_min(eps)
+    )
+    return elementwise_loss #.sum() / weight.sum().clamp_min(eps)
 
 def ZeroCenteredGradientPenalty(Samples, Critics):
     Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)

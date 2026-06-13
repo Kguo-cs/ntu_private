@@ -1,4 +1,3 @@
-from pytorch_lightning import demos
 from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 import math
@@ -6,16 +5,9 @@ import torch
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_local,
-    transform_to_local,
     wrap_angle,
 )
-from torch_scatter import scatter_sum,scatter_mean
-import torch
-from torch import Tensor
-
-import torch
-from torch import Tensor
-import torch
+from torch_scatter import scatter_sum, scatter_mean
 from torch import Tensor
 
 
@@ -47,27 +39,10 @@ def sort_agents_by_xy_keep_last(
             Number of agent types.
 
     Returns:
-        sorted_pos:
-            Positions after sorting, shape [N, D].
-
-        sorted_batch:
-            Batch indices after sorting, shape [N].
-            This should be identical to the input batch tensor because agents
-            never move across batches.
-
-        sorted_type:
-            Agent types after sorting, shape [N].
-            This should be identical to the input agent_type tensor because
-            agents never move across types.
-
         perm:
             Mapping from each output slot to its original input index:
                 sorted_pos = pos[perm]
 
-        pos_idx:
-            Zero-based rank after sorting inside each (batch, type) group.
-            The last agent in each batch receives -1 because it is excluded
-            from sorting.
     """
     if pos.ndim != 2 or pos.shape[1] < 2:
         raise ValueError("pos must have shape [N, D] with D >= 2.")
@@ -81,8 +56,7 @@ def sort_agents_by_xy_keep_last(
     num_agents = batch.numel()
 
     if num_agents == 0:
-        empty_idx = torch.empty_like(batch)
-        return pos, batch, agent_type, empty_idx, empty_idx
+        return torch.empty_like(batch)
 
     if torch.any(agent_type < 0) or torch.any(agent_type >= num_types):
         raise ValueError(f"agent_type must be in [0, {num_types - 1}].")
@@ -125,7 +99,7 @@ def sort_agents_by_xy_keep_last(
 
     sortable_batch = batch[sortable_idx]
     sortable_type = agent_type[sortable_idx]
-    score = pos[sortable_idx, 0].square() + pos[sortable_idx, 1].square()
+    score = pos[sortable_idx, 0] + pos[sortable_idx, 1]
 
     group_id = sortable_batch * num_types + sortable_type
 
@@ -179,22 +153,31 @@ def sort_agents_by_xy_keep_last(
 
     return perm
 
-def sinusoidal_embedding(position, D):
-    """
-    Create sinusoidal positional embeddings for positions 1 to N
-    Args:
-        N: number of positions (assumes positions 1 to N)
-        D: embedding dimension (must be even)
-    Returns:
-        Tensor of shape [N, D]
-    """
-   # return 0
-    div_term = torch.exp(torch.arange(0, D, 2,device=position.device) * (-math.log(10000.0) / D))  # shape [D/2]
+def sinusoidal_embedding(position, D, device=None):
+    """Create sinusoidal embeddings for explicit positions or ``range(N)``."""
+    if D % 2 != 0:
+        raise ValueError(f"D must be even, got {D}.")
 
-    pe = torch.zeros(len(position), D,device=position.device)
-    pe[:, 0::2] = torch.sin(position * div_term)  # even indices
-    pe[:, 1::2] = torch.cos(position * div_term)  # odd indices
+    if isinstance(position, int):
+        if position < 0:
+            raise ValueError("position count must be non-negative.")
+        position = torch.arange(position, device=device, dtype=torch.float32)[:, None]
+    elif torch.is_tensor(position):
+        if position.ndim == 1:
+            position = position[:, None]
+        elif position.ndim != 2 or position.shape[1] != 1:
+            raise ValueError("position must be an int, [N], or [N, 1] tensor.")
+        position = position.to(dtype=torch.float32)
+    else:
+        raise TypeError("position must be an int or a tensor.")
 
+    div_term = torch.exp(
+        torch.arange(0, D, 2, device=position.device, dtype=position.dtype)
+        * (-math.log(10000.0) / D)
+    )
+    pe = torch.zeros(position.shape[0], D, device=position.device, dtype=position.dtype)
+    pe[:, 0::2] = torch.sin(position * div_term)
+    pe[:, 1::2] = torch.cos(position * div_term)
     return pe
 
 def get_type_position_index(

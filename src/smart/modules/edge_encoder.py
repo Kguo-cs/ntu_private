@@ -105,11 +105,14 @@ class EdgeEncoder(nn.Module):
         else:
             mask_t = mask.unsqueeze(2) & mask.unsqueeze(1)
 
+        if self.shift <= 0:
+            raise ValueError("shift must be positive when temporal edges are enabled.")
+
         edge_index_t = dense_to_sparse(mask_t)[0]
         edge_index_t = edge_index_t[:, edge_index_t[1] > edge_index_t[0]]
         edge_index_t = edge_index_t[
-                       :, edge_index_t[1] - edge_index_t[0] <= self.time_span / self.shift
-                       ]
+            :, edge_index_t[1] - edge_index_t[0] <= self.time_span / self.shift
+        ]
         rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
         rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
 
@@ -380,6 +383,8 @@ def topo_rank_among_edges( dst, dist_3d):
     """
     device = dist_3d.device
     E = dist_3d.shape[0]
+    if E == 0:
+        return torch.empty_like(dst)
 
     # Combine dst and dist for sorting: first by dst, then by distance
     # We can achieve lexicographic sort by scaling dst up and adding a normalized distance

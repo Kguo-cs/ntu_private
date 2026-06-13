@@ -126,7 +126,10 @@ class AgentTokenEncoder(nn.Module):
                     agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
                     agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
             else:
-                agent_token_emb[token_mask] = self.embedding(agent_token_index[token_mask])
+                if token_mask is None:
+                    agent_token_emb = self.embedding(agent_token_index)
+                else:
+                    agent_token_emb[token_mask] = self.embedding(agent_token_index[token_mask])
 
         else:
             if self.use_state_action:
@@ -134,7 +137,9 @@ class AgentTokenEncoder(nn.Module):
                 _device = agent_token_index.device
 
                 agent_token_emb = torch.zeros(
-                    (n_agent, n_step-1, self.hidden_dim), device=_device, dtype=agent_token_index.dtype
+                    (n_agent, n_step - 1, self.hidden_dim),
+                    device=_device,
+                    dtype=next(self.token_emb_veh.parameters()).dtype,
                 )
 
                 veh_mask =agent_type == 0
@@ -160,6 +165,8 @@ class AgentTokenEncoder(nn.Module):
             agent_type,  # [n_agent]
             agent_shape,  # [n_agent, 3]
             token_mask=None,
+            goal_pos=None,
+            goal_mask=None,
     ):
         n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
         _device = pos_a.device
@@ -184,7 +191,7 @@ class AgentTokenEncoder(nn.Module):
 
         if self.use_goal:
             if goal_pos is not None:
-                goal_vector_a = goal_pos[:,None]-pos_a[:,-n_step:]
+                goal_vector_a = goal_pos[:, None] - pos_a[:, -n_step:]
 
                 feature_goal=torch.stack(
                     [
@@ -199,16 +206,25 @@ class AgentTokenEncoder(nn.Module):
                 if self.use_bird:
                     feature_goal = torch.cat([feature_goal, goal_vector_a[:, :, 2:]], dim=-1)
 
-                feature_goal[~goal_mask]=0
+                if goal_mask is None:
+                    goal_mask = torch.ones(
+                        feature_goal.shape[:-1],
+                        dtype=torch.bool,
+                        device=feature_goal.device,
+                    )
+                elif goal_mask.ndim == 1:
+                    goal_mask = goal_mask[:, None].expand(feature_goal.shape[:-1])
+                feature_goal[~goal_mask.bool()] = 0
             else:
-                feature_goal=torch.zeros_like(feature_a)
+                feature_goal = torch.zeros_like(feature_a)
 
             feature_a = torch.cat([feature_a, feature_goal], dim=-1)
 
-        if agent_shape is not None:
-            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape[...,:self.shape_dim])
-
-            categorical_embs=categorical_embs[None].repeat(n_step,1,1)
+        if self.use_type and agent_shape is not None:
+            categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
+                agent_shape[..., :self.shape_dim]
+            )
+            categorical_embs = categorical_embs[None].repeat(n_step, 1, 1)
         else:
             categorical_embs = None
 
@@ -218,7 +234,8 @@ class AgentTokenEncoder(nn.Module):
             feature_a=feature_a.transpose(0, 1)[mask_s]
             if agent_token_emb is not None:
                 agent_token_emb=agent_token_emb.transpose(0, 1)[mask_s]
-            categorical_embs=categorical_embs[mask_s]
+            if categorical_embs is not None:
+                categorical_embs = categorical_embs[mask_s]
         else:
             feature_a=feature_a.view(-1, feature_a.size(-1))
 

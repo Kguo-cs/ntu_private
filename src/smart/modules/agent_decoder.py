@@ -112,6 +112,8 @@ class SMARTAgentDecoder(nn.Module):
             agent_type=tokenized_agent["type"],  # [n_agent]
             agent_shape=shape,  # [n_agent, 3]
             token_mask=token_mask,
+            goal_pos=tokenized_agent.get("goal_pos"),
+            goal_mask=tokenized_agent.get("goal_mask"),
         )
 
         pos_a = pos_a[:, -n_step:]
@@ -278,7 +280,11 @@ class SMARTAgentDecoder(nn.Module):
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, shape,t - 1)
 
-            next_token_idx=Categorical(logits=next_token_logits[-next_mask.sum():] / self.alpha).sample()
+            num_active = int(next_mask.sum().item())
+            next_token_idx = sampled_idx[:, -1].clone()
+            if num_active > 0:
+                active_logits = next_token_logits[-num_active:] / self.alpha
+                next_token_idx[next_mask] = Categorical(logits=active_logits).sample()
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 

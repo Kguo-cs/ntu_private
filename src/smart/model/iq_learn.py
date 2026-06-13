@@ -1,4 +1,3 @@
-from jax.example_libraries.stax import logsoftmax
 from lightning import LightningModule
 import numpy as np
 import torch

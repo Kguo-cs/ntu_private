@@ -14,19 +14,20 @@ import torch.distributed as dist
 def _is_dist_available_and_initialized():
     return dist.is_available() and dist.is_initialized()
 
-def get_reduce_loss(loss,loss2=None):
-    local_count = torch.tensor([loss.numel()],
-                               device=loss.device,
-                               dtype=torch.float32)
-   # print('local', self.global_rank, local_count)
-    # Get global number of samples across all GPUs
-    dist.all_reduce(local_count, op=dist.ReduceOp.SUM)
-    global_count = local_count.item() / dist.get_world_size()
-    #print('global', self.global_rank, global_count)
+def get_reduce_loss(loss, loss2=None):
+    local_count = torch.tensor(
+        [loss.numel()], device=loss.device, dtype=torch.float32
+    )
+    if _is_dist_available_and_initialized():
+        dist.all_reduce(local_count, op=dist.ReduceOp.SUM)
+        normalizer = local_count.item() / dist.get_world_size()
+    else:
+        normalizer = local_count.item()
 
+    normalizer = max(normalizer, 1.0)
     if loss2 is not None:
-        return (loss.sum()+loss2.sum())/global_count
-    return loss.sum()/global_count
+        return (loss.sum() + loss2.sum()) / normalizer
+    return loss.sum() / normalizer
 
 
 class RunningMeanStdTorch(nn.Module):
@@ -42,6 +43,8 @@ class RunningMeanStdTorch(nn.Module):
         return dist.is_available() and dist.is_initialized()
 
     def update(self, x):
+        if x.numel() == 0 or x.size(0) == 0:
+            return
         batch_mean = torch.mean(x, dim=0)
         batch_var = torch.var(x, dim=0, unbiased=False)
         batch_count = x.size(0)
@@ -275,6 +278,8 @@ def get_near_returns(
         return out
 
     # process per scene for correctness & efficiency
+    if batch.numel() == 0:
+        return out[~train_mask]
     B = int(batch.max().item()) + 1
     for b in range(B):
         inv_b = invalid_idx[(batch[invalid_idx] == b)]
@@ -570,17 +575,16 @@ def compute_advantages(rewards, values,gamma=0.99,lam=0.95,infinite_horizon=Fals
     # dones[-1]=1
 
     if infinite_horizon:
-        rewards_len=rewards.shape[0]-1
-        mask[-1]=False
+        rewards_len = rewards.shape[0]
     else:
-        dones[-1]=1
-        rewards_len=rewards.shape[0]
+        dones[-1] = 1
+        rewards_len = rewards.shape[0]
 
     advantages = torch.zeros_like(rewards)
-    last_adv = 0
+    last_adv = torch.zeros_like(rewards[0])
     for t in reversed(range(rewards_len)):
         if t == rewards.shape[0] - 1:
-            next_value = 0
+            next_value = v_detach[t] if infinite_horizon else 0
         else:
             next_value = v_detach[t + 1]
         next_non_terminal = 1.0 - dones[t]
