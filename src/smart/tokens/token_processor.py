@@ -814,8 +814,10 @@ class TokenProcessor(torch.nn.Module):
                 if "col_mask" in agent.keys():
                     tokenized_agent["col_mask"] = agent["col_mask"]
 
-                if "pred_mask" in agent.keys():
-                    tokenized_agent["pred_mask"] = agent["pred_mask"]
+
+                if not self.pred_init:
+                    if "pred_mask" in agent.keys():
+                        tokenized_agent["pred_mask"] = agent["pred_mask"]
 
                 if "gt_valid_raw" in data.keys():
                     for key in ["type", "batch", "shape"]:
