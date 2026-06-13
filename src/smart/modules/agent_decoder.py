@@ -272,7 +272,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.interative_decoder.feat_a_cache =[feat[:current_step] for feat in self.interative_decoder.feat_a_cache ]
                 else:
                     next_token_logits,a2a_feature,_,_,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,shape,0)
+                                                                head_a,tokenized_agent, map_feature,shape,t-1)
             else:
                 next_token_logits, a2a_feature, _, _, feat_a = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],

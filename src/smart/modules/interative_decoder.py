@@ -342,14 +342,8 @@ class InterativeDecoder(nn.Module):
             if self.use_decompose:
                 valid_number = int(feat_a_later_mask.sum().item())
 
-                if self.dis_decay <= 0:
-                    raise ValueError(
-                        "dist_decay must be positive for the decomposed "
-                        f"discriminator, got {self.dis_decay}."
-                    )
-
                 weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
-                weight = weight.clamp_max(max=100)
+                #weight = weight.clamp_max(max=100)
 
                 weight_logit = interact_logits[:, 0].detach() * weight
 

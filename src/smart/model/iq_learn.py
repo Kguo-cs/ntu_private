@@ -70,7 +70,8 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
-        tokenized_agent["train_mask"] = None
+        if not self.pred_init:
+            tokenized_agent["train_mask"] = None
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
@@ -200,20 +201,19 @@ class IQ_SoftQ(LightningModule):
             self.dis_start_step:
         ]
 
-        train_mask = tokenized_agent.get("train_mask")
+        if not self.pred_init:
+            train_mask = tokenized_agent.get("train_mask")
 
-        if train_mask is not None:
-            train_mask = train_mask.bool()
-            mask_t = mask_t[:, train_mask]
+            if train_mask is not None:
+                train_mask = train_mask.bool()
+                mask_t = mask_t[:, train_mask]
 
-        # Create a dense mask over the selected [time, agent] grid.
-        # This mask is reused to keep expert and policy discriminator losses aligned.
-        if dis_mask is None or (self.pred_init and key == "agent"):
-            dis_mask = mask_t.flatten()
+            if dis_mask is None or (self.pred_init and key == "agent"):
+                dis_mask = mask_t.flatten()
 
-        if dis_mask is not None:
-            dis_mask = dis_mask.bool()
-            tokenized_agent["dis_mask"] = dis_mask
+            if dis_mask is not None:
+                dis_mask = dis_mask.bool()
+                tokenized_agent["dis_mask"] = dis_mask
 
         sampled_pos=tokenized_agent["sampled_pos"]
         sampled_heading=tokenized_agent["sampled_heading"]
@@ -223,7 +223,6 @@ class IQ_SoftQ(LightningModule):
             sampled_pos = sampled_pos.detach().requires_grad_(True)
             sampled_heading = sampled_heading.detach().requires_grad_(True)
             shape = shape.detach().requires_grad_(True)
-
 
         disc_out = discriminator.predict_agent(
             tokenized_agent["sampled_idx"],
