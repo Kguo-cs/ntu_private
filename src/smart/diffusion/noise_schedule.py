@@ -85,12 +85,12 @@ class LearnableGroupedPowerSchedule(nn.Module):
                 )
 
         else:
-            self.raw_gamma = nn.Parameter(
-                torch.logit(scaled)
-            )
+            # self.raw_gamma = nn.Parameter(
+            #     torch.logit(scaled)
+            # )
 
-            # raw_gamma = torch.logit(scaled)
-            # self.register_buffer("raw_gamma", raw_gamma)
+            raw_gamma = torch.logit(scaled)
+            self.register_buffer("raw_gamma", raw_gamma)
 
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
