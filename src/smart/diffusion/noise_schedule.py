@@ -47,9 +47,6 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
 
         if self.learn_schedule:
-            # self.raw_gamma = nn.Parameter(
-            #     torch.logit(scaled)
-            # )
             if self.piecewise:
                 num_intervals = 16
                 min_interval_mass=0.02
@@ -88,8 +85,12 @@ class LearnableGroupedPowerSchedule(nn.Module):
                 )
 
         else:
-            raw_gamma = torch.logit(scaled)
-            self.register_buffer("raw_gamma", raw_gamma)
+            self.raw_gamma = nn.Parameter(
+                torch.logit(scaled)
+            )
+
+            # raw_gamma = torch.logit(scaled)
+            # self.register_buffer("raw_gamma", raw_gamma)
 
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
