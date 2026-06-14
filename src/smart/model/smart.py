@@ -124,7 +124,7 @@ class SMART(LightningModule):
                 self.para_num=32
             else:
                 self.para_num=1
-            self.n_rollout_closed_val=2
+            self.n_rollout_closed_val=4
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
             self.para_num=32

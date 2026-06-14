@@ -1,6 +1,6 @@
 export PBS_JOBID=118609.pbs111
 
-nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/validation_map2light  ./
 
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
