@@ -204,7 +204,10 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head,pred_sizes,pred_vels = [], [], [],[],[]
             if self.encoder.sep_map:
                 map_feature = self.encoder.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
-                tokenized_agent["initial_map_feature"] = map_feature
+            else:
+                map_feature = self.encoder.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
+
+            tokenized_agent["initial_map_feature"] = map_feature
 
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"]=map_feature

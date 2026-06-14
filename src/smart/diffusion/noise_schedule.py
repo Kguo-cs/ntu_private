@@ -243,13 +243,12 @@ class LearnableGroupedPowerSchedule(nn.Module):
             )
 
            # if self.learn_schedule:
-            derivative_t = safe_t.clamp_min(self.eps)
             dgrouped_t_dt = (
-                gamma
-                * torch.pow(
-                    derivative_t,
-                    gamma - 1.0,
-                )
+                    gamma
+                    * torch.pow(
+                safe_t,
+                gamma - 1.0,
+            )
             )
 
         # else:

@@ -236,6 +236,9 @@ class SMARTDecoder(nn.Module):
             else:
                 map_feature = self.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
+            if self.pred_init and self.gail:
+                map_feature = self.map_encoder(tokenized_map, tokenized_agent=tokenized_agent)
+                tokenized_agent["initial_map_feature"] = map_feature
 
         if self.traj_diffusion:
             pred_dict=self.traj_diffuser(tokenized_agent,map_feature)
