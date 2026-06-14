@@ -19,7 +19,6 @@ from torch_scatter import scatter_mean
 class EdgeEncoder(nn.Module):
     def __init__(
             self,
-            token_processor,
             hidden_dim: int,
             num_freq_bands:int,
             hist_drop_prob=0.0,
@@ -29,14 +28,12 @@ class EdgeEncoder(nn.Module):
             use_bird=False,
             use_pl2a=False,
             use_a2a=False,
-            use_t2t=False
+            use_t2t=False,
+            differentiable_edge=True
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
-        if token_processor.use_gradient_penalty:
-            self.differentiable_edge = True
-        else:
-            self.differentiable_edge = not discriminator
+        self.differentiable_edge=differentiable_edge
 
         self.rollout_traj=False
 

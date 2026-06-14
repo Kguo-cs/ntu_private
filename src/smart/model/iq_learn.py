@@ -447,11 +447,11 @@ class IQ_SoftQ(LightningModule):
         if self.use_gradient_penalty and key == "agent":
             gamma = 0.01
 
-            critic_score = ego_logits.sum()
-            if has_interact_logits:
-                critic_score = critic_score + (
-                    interact_logits * interaction_weight
-                ).sum()
+            # critic_score = ego_logits.sum()
+            # if has_interact_logits:
+            #     critic_score = critic_score + (
+            #         interact_logits * interaction_weight
+            #     ).sum()
 
             (
                 regularization_loss,
@@ -462,7 +462,7 @@ class IQ_SoftQ(LightningModule):
                 sampled_pos=sampled_pos,
                 sampled_heading=sampled_heading,
                 shape=shape,
-                critic_score=critic_score,
+                critic_score=combined_logits,
                 valid_mask=tokenized_agent["valid_mask"],
                 gamma=gamma,
             )

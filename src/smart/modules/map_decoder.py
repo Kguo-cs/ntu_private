@@ -70,7 +70,7 @@ class SMARTMapDecoder(nn.Module):
             #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
             if num_layers>0:
-                self.edge_encoder = EdgeEncoder(token_processor,hidden_dim,num_freq_bands,use_pl2a=True)
+                self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,use_pl2a=True)
 
                 self.pt2pt_layers = nn.ModuleList(
                     [
