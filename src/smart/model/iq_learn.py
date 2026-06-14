@@ -471,6 +471,8 @@ class IQ_SoftQ(LightningModule):
             self.log(f"train/{key}_pos_gp", penalty_pos, on_step=True, batch_size=1)
             self.log(f"train/{key}_head_gp", penalty_head, on_step=True, batch_size=1)
             self.log(f"train/{key}_shape_gp", penalty_shape, on_step=True, batch_size=1)
+
+            ego_rewards=ego_rewards.detach()
         else:
             regularization_loss = ego_logits.new_zeros(())
 
@@ -515,7 +517,7 @@ class IQ_SoftQ(LightningModule):
         # agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step)
 
         if self.encoder.learn_dis:
-            agent_dis_loss, _, _, agent_gp, _ = self.get_reward(
+            agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
                 tokenized_agent_rollout, "agent", expert_dis_mask
             )
             critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
@@ -534,15 +536,14 @@ class IQ_SoftQ(LightningModule):
             critic_loss.backward()
             discriminator_optimizer.step()
 
-        # Always refresh rewards after the critic update. This avoids using
-        # stale pre-update rewards when gradient regularization is enabled.
-        with torch.no_grad():
-            discriminator_was_training = self.encoder.discriminator.training
-            self.encoder.discriminator.eval()
-            agent_rewards = self.get_reward(
-                tokenized_agent_rollout, "agent", expert_dis_mask
-            )
-            self.encoder.discriminator.train(discriminator_was_training)
+        if not self.use_gradient_penalty:
+            with torch.no_grad():
+                discriminator_was_training = self.encoder.discriminator.training
+                self.encoder.discriminator.eval()
+                agent_rewards = self.get_reward(
+                    tokenized_agent_rollout, "agent", expert_dis_mask
+                )
+                self.encoder.discriminator.train(discriminator_was_training)
         #
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
