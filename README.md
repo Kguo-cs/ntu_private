@@ -22,7 +22,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 
 rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  zs@10.87.225.106:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/model22_nopred_new/2026-06-13_20-10-34/bc/x1tzeflo/checkpoints/last.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/model22_nopred_new_val4_start0/2026-06-14_10-50-03/bc/57y9xd44/checkpoints/last.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/model32_203_bclen10_meanweight/2026-06-10_05-52-33/bc/2agu3ckt/checkpoints/epoch=3-step=98922.ckpt ./
