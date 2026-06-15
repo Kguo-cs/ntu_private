@@ -178,8 +178,8 @@ class IQ_SoftQ(LightningModule):
 
             action_nll=-log_prob.mean()
 
-            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
-            self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_nll", action_nll.detach(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_entropy", entropy.mean().detach(), on_step=True, batch_size=1)
         else:
             action_nll=log_prob=0
 
@@ -280,13 +280,19 @@ class IQ_SoftQ(LightningModule):
         sampled_heading = tokenized_agent["sampled_heading"]
         shape = tokenized_agent["shape"][..., :2]
 
+        use_gp_this_step = (
+                self.use_gradient_penalty
+                and key == "agent"
+                and self.global_step % 4 == 0
+        )
+
         # The critic update must not backpropagate through rollout generation.
         if key == "agent":
             sampled_pos = sampled_pos.detach()
             sampled_heading = sampled_heading.detach()
             shape = shape.detach()
 
-            if self.use_gradient_penalty and discriminator.training:
+            if use_gp_this_step:
                 sampled_pos.requires_grad_(True)
                 sampled_heading.requires_grad_(True)
                 shape.requires_grad_(True)
@@ -444,7 +450,7 @@ class IQ_SoftQ(LightningModule):
             on_step=True,
             batch_size=1,
         )
-        if self.use_gradient_penalty and key == "agent":
+        if use_gp_this_step:
             gamma = 0.01
 
             # critic_score = ego_logits.sum()
@@ -525,7 +531,7 @@ class IQ_SoftQ(LightningModule):
         else:
             critic_loss = tokenized_agent_rollout["sampled_pos"].new_zeros(())
 
-        self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+        self.log("train/critic_loss", critic_loss.detach(), on_step=True, batch_size=1)
 
         if self.token_processor.learn_init:
             actor_optimizer, discriminator_optimizer, init_optimizer = self.optimizers()
@@ -577,9 +583,9 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var, on_step=True, batch_size=1)
-        self.log("train/ppo_loss", ppo_loss.item(), on_step=True, batch_size=1)
-        self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
-        self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        self.log("train/ppo_loss", ppo_loss.detach(), on_step=True, batch_size=1)
+        self.log("train/advantages", advantages.mean().detach(), on_step=True, batch_size=1)
+        self.log("train/value_loss", value_loss.detach(), on_step=True, batch_size=1)
 
         policy_loss = expert_nll + ppo_loss + 1e-2 * value_loss  # - 0.01 * agent_entropy.mean()
 
@@ -609,7 +615,7 @@ class IQ_SoftQ(LightningModule):
             #
             # g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
             #
-            # self.log('train/g_loss', g_loss.item(), on_step=True, batch_size=1)
+            # self.log('train/g_loss', g_loss.detach(), on_step=True, batch_size=1)
 
             match_loss, g_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent)
 
@@ -641,13 +647,13 @@ class IQ_SoftQ(LightningModule):
             reset_mask=tokenized_agent["reset_mask"]
             token_mask=tokenized_agent["token_mask"]
 
-            self.log("train/mean_token_error", max_dist.mean().item(), on_step=True, batch_size=1)
-            self.log("train/reset_mask", reset_mask[token_mask].float().mean().item(), on_step=True, batch_size=1)
+            self.log("train/mean_token_error", max_dist.mean().detach(), on_step=True, batch_size=1)
+            self.log("train/reset_mask", reset_mask[token_mask].float().mean().detach(), on_step=True, batch_size=1)
 
         if "entry_token_invalid_mask"  in   tokenized_agent.keys():
             entry_token_invalid_mask=tokenized_agent["entry_token_invalid_mask"]
 
-            self.log("train/entry_token_invalid", entry_token_invalid_mask.float().mean().item(), on_step=True, batch_size=1)
+            self.log("train/entry_token_invalid", entry_token_invalid_mask.float().mean().detach(), on_step=True, batch_size=1)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

@@ -548,8 +548,8 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
     V_diff=(V[:,:-1]-returns[:,:-1])
     # current_Q_diff=current_Q_diff[all_valid_mask]
     # V_diff=V_diff[all_valid_mask]
-    # self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
-    # self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
+    # self.log("train/"+key+"_Q_diff", current_Q_diff.mean().detach(), on_step=True, batch_size=1)
+    # self.log("train/"+key+"_V_diff", V_diff.mean().detach(), on_step=True, batch_size=1)
 
     return current_Q_diff, V_diff
 

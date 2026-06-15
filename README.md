@@ -5,7 +5,7 @@ rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 

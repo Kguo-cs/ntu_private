@@ -389,12 +389,12 @@ def get_reward(self, tokenized_agent, key, dis_mask=None):
 
     if len(nei_rewards) > 0:
         all_rewards = ego_rewards + nei_rewards
-        self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_all_rewards", all_rewards.mean().detach(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_nei_rewards", nei_rewards.mean().detach(), on_step=True, batch_size=1)
 
-    self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
-    self.log("train/" + key + "_valid_ego_reward", valid_ego_reward.mean().item(), on_step=True, batch_size=1)
-    self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True,
+    self.log("train/" + key + "_rewards", ego_rewards.mean().detach(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_valid_ego_reward", valid_ego_reward.mean().detach(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().detach(), on_step=True,
              batch_size=1)
 
     if key == "expert":
@@ -408,7 +408,7 @@ def get_reward(self, tokenized_agent, key, dis_mask=None):
         if dis_mask is not None:
             ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
 
-    self.log("train/" + key + "_ego_score", torch.sigmoid(ego_logits).mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_ego_score", torch.sigmoid(ego_logits).mean().detach(), on_step=True, batch_size=1)
 
     bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits) + target,
                                                   reduction='mean')
@@ -416,7 +416,7 @@ def get_reward(self, tokenized_agent, key, dis_mask=None):
     if len(interact_logits) > 0:
         weight = disc_out[3]
 
-        self.log("train/" + key + "_inter_score", torch.sigmoid(interact_logits).mean().item(), on_step=True,
+        self.log("train/" + key + "_inter_score", torch.sigmoid(interact_logits).mean().detach(), on_step=True,
                  batch_size=1)
 
         # interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
@@ -427,14 +427,14 @@ def get_reward(self, tokenized_agent, key, dis_mask=None):
                                                                weight=weight, reduction='mean')  # /dis_mask.sum()
 
         ego_logits = torch.cat([ego_logits, interact_logits], dim=0)
-        self.log("train/" + key + "_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_interact_logits", interact_logits.mean().detach(), on_step=True, batch_size=1)
     else:
         interact_bce_loss = 0
 
     disc_val = torch.sigmoid(ego_logits)
 
-    self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-    self.log("train/" + key + "_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_disc_val", disc_val.mean().detach(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_disc_val_std", disc_val.std().detach(), on_step=True, batch_size=1)
 
     if self.use_gradient_penalty:
         gp = compute_gp(key, tokenized_agent, dis_mask, mask_t, self.encoder.discriminator)

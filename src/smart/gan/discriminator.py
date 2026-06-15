@@ -259,16 +259,16 @@ class InitDiscriminator(nn.Module):
 
         dis_loss = dis_adv_loss + dis_cp_loss
 
-        logger("train/dis_adv_loss", dis_adv_loss.item(), on_step=True, batch_size=1)
-        logger("train/dis_cp_loss", dis_cp_loss.item(), on_step=True, batch_size=1)
+        logger("train/dis_adv_loss", dis_adv_loss.detach(), on_step=True, batch_size=1)
+        logger("train/dis_cp_loss", dis_cp_loss.detach(), on_step=True, batch_size=1)
         disc_val = torch.sigmoid(logits_fake)
 
-        logger("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        logger("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+        logger("train/agent_disc_val", disc_val.mean().detach(), on_step=True, batch_size=1)
+        logger("train/agent_disc_val_std", disc_val.std().detach(), on_step=True, batch_size=1)
         disc_val = torch.sigmoid(logits_real)
 
-        logger("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        logger("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+        logger("train/expert_disc_val", disc_val.mean().detach(), on_step=True, batch_size=1)
+        logger("train/expert_disc_val_std", disc_val.std().detach(), on_step=True, batch_size=1)
 
         return dis_loss
 
@@ -310,18 +310,18 @@ class InitDiscriminator(nn.Module):
 
             loss = expert_dis_loss+dis_loss + r1 + r2
 
-            logger("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
-            logger("train/r1", r1.item(), on_step=True, batch_size=1)
-            logger("train/r2", r2.item(), on_step=True, batch_size=1)
-            logger("train/d_loss", loss.item(), on_step=True, batch_size=1)
+            logger("train/dis_los", dis_loss.detach(), on_step=True, batch_size=1)
+            logger("train/r1", r1.detach(), on_step=True, batch_size=1)
+            logger("train/r2", r2.detach(), on_step=True, batch_size=1)
+            logger("train/d_loss", loss.detach(), on_step=True, batch_size=1)
             disc_val = torch.sigmoid(FakeLogits)
 
-            logger("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-            logger("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+            logger("train/agent_disc_val", disc_val.mean().detach(), on_step=True, batch_size=1)
+            logger("train/agent_disc_val_std", disc_val.std().detach(), on_step=True, batch_size=1)
             disc_val = torch.sigmoid(RealLogits)
 
-            logger("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-            logger("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+            logger("train/expert_disc_val", disc_val.mean().detach(), on_step=True, batch_size=1)
+            logger("train/expert_disc_val_std", disc_val.std().detach(), on_step=True, batch_size=1)
 
         opt_D.zero_grad()
         loss.backward()#retain_graph=True
@@ -367,7 +367,7 @@ class InitDiscriminator(nn.Module):
 
         loss=match_loss*0.1+g_loss
 
-       # logger("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
+       # logger("train/g_loss", g_loss.detach(), on_step=True, batch_size=1)
 
 
         opt_G.zero_grad()
