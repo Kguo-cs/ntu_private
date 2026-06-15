@@ -240,7 +240,7 @@ class InitDenoiser(nn.Module):
                                                         num_freq_bands,
                                                         use_a2a=True,
                                                         use_pl2a=True,
-                                                        differentiable_edge=False
+                                                       # differentiable_edge=False
                                                         )
                         self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
 

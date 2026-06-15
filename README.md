@@ -7,7 +7,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_msesq_scedule5_nolog_epoch=
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init5 zs@10.87.225.106:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 
@@ -25,7 +25,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/model22_nopred_new_val4_start0/2026-06-14_10-50-03/bc/57y9xd44/checkpoints/last.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/model32_203_bclen10_meanweight/2026-06-10_05-52-33/bc/2agu3ckt/checkpoints/epoch=3-step=98922.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow256_val4/2026-06-14_05-27-45/bc/m5e4vc4x/checkpoints/epoch=63-step=121792.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
