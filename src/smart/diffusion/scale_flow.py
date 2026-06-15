@@ -52,8 +52,11 @@ from src.smart.layers import MLPLayer
 
 from src.smart.loss.earth_match import get_matching_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last
 from src.smart.diffusion.dit.dit import DiT
-
+from src.smart.diffusion.noise_bin import InfoNoiseSampler
 import torch
+
+from torch_scatter import scatter_mean
+
 
 class ScaleFlow(nn.Module):
 
@@ -135,6 +138,8 @@ class ScaleFlow(nn.Module):
         self.use_uniform=False
 
         self.learn_noise=False
+
+        self.info_sampler=InfoNoiseSampler()
 
         self.mc_num=1
 
@@ -280,8 +285,11 @@ class ScaleFlow(nn.Module):
             if self.lognorm_t:
 
                 # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
+                t, bin_idx = self.info_sampler.sample(batch_size=num_graphs)
 
-                base_t =  torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32)
+                base_t = t[:,None]
+
+                # base_t =  torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32)
 
                 base_t=base_t[agent_batch]
 
@@ -560,6 +568,10 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred,
         )
 
+        loss_per_sample=scatter_mean(match_loss,agent_batch[~tokenized_agent["ego_mask"]])
+
+        self.info_sampler.update(bin_idx, loss_per_sample)
+
         if self.model.use_prev_condition :
             tokenized_agent["prev_x"]=x_pred[:,0].detach()#.clone()
 
@@ -603,6 +615,7 @@ class ScaleFlow(nn.Module):
                     use_col=False,
                     x_pred=self.x_pred
                 )
+
 
         if self.pred_all_pos:
             x_pred = self.pred_model(x, t*0, tokenized_agent, initial_map_feature).reshape(x.shape[0],-1,3)
@@ -983,7 +996,6 @@ class ScaleFlow(nn.Module):
             tokenized_agent["t_list"]=t_list
         else:
             tokenized_agent["z_list"]=z
-
 
         # inv_real_idx = torch.empty_like(real_idx)
         # inv_real_idx[real_idx] = torch.arange(real_idx.numel(), device=real_idx.device)
