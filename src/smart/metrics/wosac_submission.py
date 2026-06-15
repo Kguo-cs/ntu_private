@@ -107,7 +107,7 @@ class WOSACSubmission(Metric):
         self._save_shard()
         self.i_file = 0
 
-        #self.submission_dir= Path('/home/ke/code/catk/src/logs/my/2025-11-19_18-16-14') / "wosac_submission"
+       # self.submission_dir= Path('/home/ke/code/sim/src/logs/my/2026-06-15_15-39-00') / "wosac_submission"
         tar_file_name = self.submission_dir.as_posix() + ".tar.gz"
 
         log.info(f"Saving wosac submission files to {tar_file_name}")

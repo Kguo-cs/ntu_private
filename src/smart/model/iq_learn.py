@@ -283,7 +283,7 @@ class IQ_SoftQ(LightningModule):
         use_gp_this_step = (
                 self.use_gradient_penalty
                 and key == "agent"
-                and self.global_step % 2 == 0
+                and self.global_step % 8 == 0
         )
 
         # The critic update must not backpropagate through rollout generation.
@@ -451,7 +451,7 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if use_gp_this_step:
-            gamma = 0.01
+            gamma = 0.1
 
             # critic_score = ego_logits.sum()
             # if has_interact_logits:

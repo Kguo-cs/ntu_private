@@ -153,7 +153,7 @@ class SMART(LightningModule):
         self.all_data=[]
 
         self.metric_logger=MetricDict()
-        #self.wosac_submission.save_sub_file()
+       # self.wosac_submission.save_sub_file()
 
         self.samples = []
         self.gt_samples = []
