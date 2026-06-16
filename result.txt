@@ -859,7 +859,7 @@ model22_initfeat_logitgp001_01nll
 0.6496
 
 
-model22_logitgp001_ckpt
+model22_logitgp001_gpinter2_t10_epoch=4-step=199232-valmeta=0.6697.ckpt
 
 
 
