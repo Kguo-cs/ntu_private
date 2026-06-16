@@ -497,9 +497,9 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            if self.gail:
-                for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
-                    tokenized_agent[key] = tokenized_agent[key][:, :10]
+            # if self.gail:
+            #     for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
+            #         tokenized_agent[key] = tokenized_agent[key][:, :10]
 
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent)
 

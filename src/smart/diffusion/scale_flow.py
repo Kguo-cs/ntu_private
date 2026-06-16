@@ -139,7 +139,7 @@ class ScaleFlow(nn.Module):
 
         self.learn_noise=False
 
-        self.info_sampler=InfoNoiseSampler()
+        #self.info_sampler=InfoNoiseSampler()
 
         self.mc_num=1
 
@@ -285,7 +285,7 @@ class ScaleFlow(nn.Module):
             if self.lognorm_t:
 
                 # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
-                t, bin_idx = self.info_sampler.sample(batch_size=num_graphs)
+                #t, bin_idx = self.info_sampler.sample(batch_size=num_graphs)
 
                 base_t = t[:,None]
 
@@ -568,9 +568,9 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred,
         )
 
-        loss_per_sample=scatter_mean(match_loss,agent_batch[~tokenized_agent["ego_mask"]])
-
-        self.info_sampler.update(bin_idx, loss_per_sample)
+        # loss_per_sample=scatter_mean(match_loss,agent_batch[~tokenized_agent["ego_mask"]])
+        #
+        # self.info_sampler.update(bin_idx, loss_per_sample)
 
         if self.model.use_prev_condition :
             tokenized_agent["prev_x"]=x_pred[:,0].detach()#.clone()
