@@ -283,7 +283,7 @@ class IQ_SoftQ(LightningModule):
         use_gp_this_step = (
                 self.use_gradient_penalty
                 and key == "agent"
-                and self.global_step % 8 == 0
+                and self.global_step % 16 == 0
         )
 
         # The critic update must not backpropagate through rollout generation.

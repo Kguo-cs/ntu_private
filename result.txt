@@ -856,6 +856,15 @@ model22_nopred_new_val4_start0
 
 model22_initfeat_logitgp001_01nll
 
+0.6496
+
+
+model22_logitgp001_ckpt
+
+
+
+
+
 
 
 
