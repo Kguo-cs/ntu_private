@@ -314,8 +314,8 @@ class InitDenoiser(nn.Module):
         self.apply(weight_init)
 
 
-    # def normalize(self,input):
-    #     return (input - self.normal_mean[None]) / self.normal_scale[None]
+    def normalize(self,input):
+        return (input - self.normal_mean[None]) / self.normal_scale[None]
 
     def denormalize(self,input,nonego_type=None):
         # input=input* self.normal_scale[None]+self.normal_mean[None]
@@ -842,6 +842,9 @@ class InitDenoiser(nn.Module):
             raise NotImplementedError(
                 "InitDenoiser.use_roformer=False is not implemented in this module."
             )
+
+        if torch.all(beta[:len(tokenized_agent["ego_mask"])][~tokenized_agent["ego_mask"]]==0):
+            tokenized_agent["noise_feat"] = feat_a
 
         return res
 

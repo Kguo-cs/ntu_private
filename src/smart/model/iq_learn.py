@@ -497,9 +497,9 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            # if self.gail:
-            #     for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
-            #         tokenized_agent[key] = tokenized_agent[key][:, :10]
+            if self.gail:
+                for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
+                    tokenized_agent[key] = tokenized_agent[key][:, :10]
 
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent)
 
@@ -563,9 +563,7 @@ class IQ_SoftQ(LightningModule):
         value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
 
         if self.token_processor.learn_init:
-            intial_value=torch.zeros_like(value[0])
-
-            intial_value[~tokenized_agent_rollout["ego_mask"]]=self.encoder.init_value_network(tokenized_agent_rollout["noise_feat"])[:,0]
+            intial_value=self.encoder.init_value_network(tokenized_agent_rollout["noise_feat"])[:,0]
 
             value=torch.cat([intial_value[None],value],dim=0)
 
@@ -596,11 +594,11 @@ class IQ_SoftQ(LightningModule):
         actor_optimizer.step()
 
         if self.token_processor.learn_init:
-            noncol_rate=get_col_rate(tokenized_agent,tokenized_agent["pred_init"])
+            # noncol_rate=get_col_rate(tokenized_agent,tokenized_agent["pred_init"])
+            #
+            # self.log('train/noncol_rate', noncol_rate.mean(), on_step=True, batch_size=1)
 
-            self.log('train/noncol_rate', noncol_rate.mean(), on_step=True, batch_size=1)
-
-            init_advantages=advantages[:-len(agent_log_prob)][~tokenized_agent_rollout["ego_mask"]]
+            init_advantages=advantages[:-len(agent_log_prob)]#[~tokenized_agent_rollout["ego_mask"]]
 
             self.log('train/init_advantages', init_advantages.mean(), on_step=True, batch_size=1)
 

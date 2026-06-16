@@ -123,7 +123,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster=False
 
-        self.use_sde=False
+        self.use_sde=True
 
         self.noise_level=0.7
 
@@ -287,9 +287,9 @@ class ScaleFlow(nn.Module):
                 # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
                 #t, bin_idx = self.info_sampler.sample(batch_size=num_graphs)
 
-                base_t = t[:,None]
+                #base_t = t[:,None]
 
-                # base_t =  torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32)
+                base_t =  torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32)
 
                 base_t=base_t[agent_batch]
 
@@ -497,12 +497,12 @@ class ScaleFlow(nn.Module):
                 else:
                     if self.use_sde:
                         prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                            1 - t_n_sampled,
-                            1 - t_next_sampled,
-                            -v_pred,
-                            z_sampled,
+                            1 - t_n_sampled[~ego_mask],
+                            1 - t_next_sampled[~ego_mask],
+                            -v_pred[~ego_mask],
+                            z_sampled[~ego_mask],
                             noise_level=self.noise_level,
-                            prev_sample=prev_sample
+                            prev_sample=prev_sample[~ego_mask]
                         )
                     else:
                         x_pred = x_pred_all[:len(z_sampled)]
@@ -534,7 +534,7 @@ class ScaleFlow(nn.Module):
                         )
                         log_prob=-match_loss#torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
-                    per_sample_policy_loss = - log_prob * advantages
+                    per_sample_policy_loss = - log_prob * advantages[~ego_mask]
 
                     if self.rationorm:
                         sigma_t = std_dev_t.mean()
@@ -1028,6 +1028,7 @@ class ScaleFlow(nn.Module):
             prev_sample=self.model.normalize(prev_sample)
 
         dt = sigma_prev - sigma
+        # dt = dt.clamp_max(-1e-5)
 
         if sde_type == 'sde':
             std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))) * noise_level

@@ -199,19 +199,18 @@ class SMARTDecoder(nn.Module):
         if "map_feature" in tokenized_agent:
             map_feature = tokenized_agent["map_feature"]
         else:
-            if self.agent_encoder.learn_init :
-                map_feature=None
-                if self.pred_init:
-                    if self.sep_map:
-                        initial_map_feature = self.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
-                    else:
-                        initial_map_feature = self.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
-                    tokenized_agent["initial_map_feature"] = initial_map_feature
+            if self.pred_init :
+                if self.sep_map:
+                    initial_map_feature = self.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
+                else:
+                    initial_map_feature = self.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
+                tokenized_agent["initial_map_feature"] = initial_map_feature
 
-            else:
+            if self.gail or (not self.pred_init):
                 map_feature = self.map_encoder(tokenized_map)
                 tokenized_agent["map_feature"] = map_feature
-
+            else:
+                map_feature=None
 
         if self.traj_diffusion:
             pred_dict=self.traj_diffuser(tokenized_agent,map_feature)
