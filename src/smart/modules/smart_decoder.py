@@ -59,7 +59,6 @@ class SMARTDecoder(nn.Module):
         self.pred_init=token_processor.pred_init
 
         self.use_lcf=reward_weight!=0
-        self.use_value=True
         self.use_kl_penalty=False
         self.gail=dis_a2a_radius>0
         self.learn_dis=True
@@ -182,10 +181,9 @@ class SMARTDecoder(nn.Module):
                 discriminator=True
             )
 
-            if self.use_value:
-                self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
-                if self.use_lcf:
-                    self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
+            self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
+            if self.use_lcf:
+                self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
 
             if token_processor.learn_init:
                 self.init_value_network =MLPLayer(self.agent_encoder.init_decoder.G1.hidden_dim,hidden_dim*2,1)

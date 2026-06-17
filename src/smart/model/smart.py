@@ -96,6 +96,14 @@ class SMART(LightningModule):
                 for p in self.encoder.agent_encoder.parameters():
                     p.requires_grad = True
 
+                for p in self.encoder.value_network.parameters():
+                    p.requires_grad = True
+
+                if self.token_processor.learn_init:
+                    for p in self.encoder.init_value_network.parameters():
+                        p.requires_grad = True
+
+
             if self.token_processor.learn_init:
                 if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
                     for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():

@@ -601,17 +601,8 @@ class IQ_SoftQ(LightningModule):
             # self.log('train/noncol_rate', noncol_rate.mean(), on_step=True, batch_size=1)
 
             # For learn_init update: use the initial-state row explicitly.
-            # advantages_2d_norm = advantages_flat.view_as(advantages_2d)
-            # init_advantages = advantages_2d_norm[0].detach()
-            init_return = agent_rewards.sum(dim=0).detach()
-
-            non_ego = ~tokenized_agent_rollout["ego_mask"]
-            init_advantages = torch.zeros_like(init_return)
-
-            ret = init_return[non_ego]
-            init_advantages[non_ego] = (
-                                               ret - ret.mean()
-                                       ) / ret.std(unbiased=False).clamp_min(1e-8)
+            advantages_2d_norm = advantages_flat.view_as(advantages_2d)
+            init_advantages = advantages_2d_norm[0].detach()
 
             # Optional: normalize only non-ego init advantages.
             # non_ego = ~tokenized_agent_rollout["ego_mask"]
