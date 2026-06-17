@@ -381,7 +381,7 @@ class SMART(LightningModule):
                     tfrecord_path=data["tfrecord_path"]
                     if self.n_vis_batch==0:
                         if self.challenge_type == ChallengeType.SCENARIO_GEN:
-                            scenario_rollouts=scenario_rollouts[:64]
+                            scenario_rollouts=scenario_rollouts[:32]
                         if len(scenario_rollouts) > self.para_num:
                             for i in range(np.ceil(len(scenario_rollouts) / self.para_num).astype(int)):  # 64
                                 print(i)# [05:45<00:00] para  [05:27<00:00] resample 64: [06:11<00:00,
