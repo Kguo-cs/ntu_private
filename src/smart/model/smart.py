@@ -204,10 +204,10 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head,pred_sizes,pred_vels = [], [], [],[],[]
             if self.encoder.sep_map:
                 map_feature = self.encoder.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
-            else:
-                map_feature = self.encoder.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
+            # else:
+            #     map_feature = self.encoder.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
 
-            tokenized_agent["initial_map_feature"] = map_feature
+                tokenized_agent["initial_map_feature"] = map_feature
 
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"]=map_feature
@@ -370,7 +370,7 @@ class SMART(LightningModule):
                     tfrecord_path=data["tfrecord_path"]
                     if self.n_vis_batch==0:
                         if self.challenge_type == ChallengeType.SCENARIO_GEN:
-                            scenario_rollouts=scenario_rollouts[:32]
+                            scenario_rollouts=scenario_rollouts[:64]
                         if len(scenario_rollouts) > self.para_num:
                             for i in range(np.ceil(len(scenario_rollouts) / self.para_num).astype(int)):  # 64
                                 print(i)# [05:45<00:00] para  [05:27<00:00] resample 64: [06:11<00:00,
