@@ -593,7 +593,7 @@ def compute_advantages(rewards, values,gamma=0.99,lam=0.95,infinite_horizon=Fals
 
     returns = advantages + v_detach
 
-    value_loss = (returns - values).square().clamp(min=0, max=100).mean()
+    value_loss = (returns - values).square().clamp(min=0, max=100) #.mean()
 
     return advantages,value_loss
 
