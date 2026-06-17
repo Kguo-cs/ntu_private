@@ -65,8 +65,6 @@ class ScaleFlow(nn.Module):
         self.diff_type = args.diff_type
         self.guid_sampling = args.guid_sampling
 
-        self.mean_flow=False
-
         self.hidden_dim=args.hidden_dim
 
         self.use_dit=False
@@ -94,7 +92,7 @@ class ScaleFlow(nn.Module):
                 dropout=args.dropout,
                 diff_type=args.diff_type,
                 m_dim=args.m_dim,
-                mean_flow=self.mean_flow,
+                mean_flow=False,
                 x_pred=self.x_pred
             )
 
@@ -149,26 +147,6 @@ class ScaleFlow(nn.Module):
 
         if self.learn_noise:
             self.noise_model = DiT(256)
-            # self.noise_model = InitDenoiser(
-            #     token_processor,
-            #     dataset=args.dataset,
-            #     input_dim=args.input_dim,
-            #     hidden_dim=args.hidden_dim,
-            #     output_dim=args.output_dim,
-            #     output_head=args.output_head,
-            #     init_timestep=args.init_timestep,
-            #     num_freq_bands=args.num_freq_bands,
-            #     num_layers=1,
-            #     num_heads=args.num_heads,
-            #     head_dim=args.head_dim,
-            #     dropout=args.dropout,
-            #     diff_type=args.diff_type,
-            #     m_dim=args.m_dim,
-            #     mean_flow=self.mean_flow,
-            #     x_pred=self.x_pred,
-            #     learn_noise=self.learn_noise
-            # )
-            #
 
         self.pred_all_pos=token_processor.pred_all_pos
 
@@ -188,7 +166,7 @@ class ScaleFlow(nn.Module):
                 dropout=args.dropout,
                 diff_type=args.diff_type,
                 m_dim=args.m_dim,
-                mean_flow=self.mean_flow,
+                mean_flow=False,
                 x_pred=self.x_pred,
                 learn_noise=self.learn_noise,
                 pred_all_pos=True
@@ -385,21 +363,24 @@ class ScaleFlow(nn.Module):
                 self.global_step+=1
 
             if self.use_kl:
+                model_tokenized_agent = tokenized_agent
                 t_all = t_n_sampled
-
                 z_all = z_sampled
-
             else:
-                t_all=torch.cat((t_n_sampled,t),dim=0)
+                t_all = torch.cat((t_n_sampled, t), dim=0)
+                z_all = torch.cat((z_sampled, z), dim=0)
 
-                z_all=torch.cat((z_sampled,z),dim=0)
+                model_tokenized_agent = self.repeat_input_copy(
+                    tokenized_agent,
+                    self.mc_num + 1,
+                )
 
-                tokenized_agent=self.repeat_input(tokenized_agent,self.mc_num+1)
-
-            if self.model.use_return_conditioned:
-                tokenized_agent["advantages"]=torch.cat((advantages,torch.ones_like(advantages)),dim=0)
-
-            x_pred_all = self.model(z_all, t_all, tokenized_agent, initial_map_feature)
+            x_pred_all = self.model(
+                z_all,
+                t_all,
+                model_tokenized_agent,
+                initial_map_feature,
+            )
 
             if self.model.use_return_conditioned:
                 x_pred=x_pred_all
@@ -908,75 +889,67 @@ class ScaleFlow(nn.Module):
         else:
             steps=infer_steps
 
-        if self.mean_flow:
-            t = torch.ones(num_agents, device=agent_batch.device)[:,None]
-            r = torch.zeros(num_agents, device=agent_batch.device)[:,None]
-            beta = torch.cat([t, r], dim=-1)
+        timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)  # .pow(2/3)
 
-            z = self.model(z, beta, tokenized_agent, initial_map_feature, eval_mask)
-            t_n = t
-        else:
-            timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)  # .pow(2/3)
+        noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 
-            noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
+        if self.use_sde:
+            t_rand = torch.randint(0, steps, (num_graphs,), device=agent_batch.device)
 
-            if self.use_sde:
-                t_rand = torch.randint(0, steps, (num_graphs,), device=agent_batch.device)
+            t_rand=t_rand[agent_batch]
 
-                t_rand=t_rand[agent_batch]
+            noise_level[
+                torch.arange(num_agents, device=agent_batch.device), t_rand, 0
+            ] = self.noise_level
 
-                noise_level[
-                    torch.arange(num_agents, device=agent_batch.device), t_rand, 0
-                ] = self.noise_level
+            noise_mask=noise_level[:,:,0] > 0
 
-                noise_mask=noise_level[:,:,0] > 0
+            noise_level=noise_level[:,:,None]
 
-                noise_level=noise_level[:,:,None]
+        for i in range(steps):# - 1
+            t = timesteps[i]
+            t_next = timesteps[i + 1]
 
-            for i in range(steps):# - 1
-                t = timesteps[i]
-                t_next = timesteps[i + 1]
+            if self.use_scale:
+                schedule_i=schedule[:,i]
+                schedule_i1=schedule[:,i+1]
 
-                if self.use_scale:
-                    schedule_i=schedule[:,i]
-                    schedule_i1=schedule[:,i+1]
+                k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
+                k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
 
-                    k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
-                    k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
+                eval_mask = rank <= k1
 
-                    eval_mask = rank <= k1
+                padding_mask = (eval_mask &  (rank> k))[eval_mask]
 
-                    padding_mask = (eval_mask &  (rank> k))[eval_mask]
+                tokenized_agent['padding_mask'] = padding_mask
 
-                    tokenized_agent['padding_mask'] = padding_mask
+                if self.use_cluster:
+                    tokenized_agent["increasing"] = (schedule_i != schedule_i1)[agent_batch][eval_mask]
 
-                    if self.use_cluster:
-                        tokenized_agent["increasing"] = (schedule_i != schedule_i1)[agent_batch][eval_mask]
+                    t=noise_scedule[:,i][agent_batch][eval_mask]
+                    t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
 
-                        t=noise_scedule[:,i][agent_batch][eval_mask]
-                        t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
+                z[eval_mask], x_cond, t_n, log_prob = self._euler_step(
+                    z[eval_mask],
+                    t,
+                    t_next,
+                    (tokenized_agent, initial_map_feature, eval_mask),
+                    noise_level[eval_mask, i],
+                )
 
-                    z[eval_mask], x_cond, t_n, log_prob = self._euler_step(
-                        z[eval_mask],
-                        t,
-                        t_next,
-                        (tokenized_agent, initial_map_feature, eval_mask),
-                        noise_level[eval_mask, i],
-                    )
+            else:
+                z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
 
-                else:
-                    z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
+            z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
-                z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
+            x_list.append(x_cond)
+            z_list.append(z)
+            t_list.append(t_n)
+            log_prob_list.append(log_prob)
 
-                x_list.append(x_cond)
-                z_list.append(z)
-                t_list.append(t_n)
-                log_prob_list.append(log_prob)
+            # tokenized_agent["prev_x"]=x_cond[:,0]
 
-                # tokenized_agent["prev_x"]=x_cond[:,0]
-
-              #  feat_list.append(tokenized_agent["noise_feat"])
+          #  feat_list.append(tokenized_agent["noise_feat"])
 
         t_list.append(torch.ones_like(t_n))
         tokenized_agent["pred_init"] = z[:, 0]
@@ -1072,36 +1045,35 @@ class ScaleFlow(nn.Module):
             return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
-    def repeat_input(self,tokenized_agent,n_step):
-        num_graphs=tokenized_agent["num_graphs"]
+    def repeat_input_copy(self, tokenized_agent, n_step):
+        out = tokenized_agent #dict(tokenized_agent)
 
+        num_graphs = tokenized_agent["num_graphs"]
         batch = tokenized_agent["nonego_batch"]
 
-        tokenized_agent["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)  # n_agent ,n_step
+        out["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)
 
-        batch = torch.stack(
-            [
-                batch + num_graphs * t
-                for t in range(n_step)
-            ],
+        repeated_batch = torch.stack(
+            [batch + num_graphs * k for k in range(n_step)],
             dim=1,
-        ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
+        ).transpose(0, 1).flatten(0, 1)
 
-        tokenized_agent["nonego_batch"] = batch
-
-        tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(n_step, 1).flatten(0,
-                                                                                                        1)
-
-        tokenized_agent["num_graphs"] = num_graphs * n_step
+        out["nonego_batch"] = repeated_batch
+        out["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(
+            n_step, 1
+        ).flatten(0, 1)
+        out["num_graphs"] = num_graphs * n_step
 
         if self.model.use_rel_ego:
-            tokenized_agent["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(n_step, 1, 1).flatten(0, 1)
+            out["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(
+                n_step, 1, 1
+            ).flatten(0, 1)
         else:
-            tokenized_agent["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(n_step, 1,
-                                                                                             1).flatten(0, 1)
+            out["ego_embedding"] = tokenized_agent["ego_embedding"][None].repeat(
+                n_step, 1, 1
+            ).flatten(0, 1)
 
-        return tokenized_agent
-
+        return out
 
 
 def return_decay(step, decay_type):

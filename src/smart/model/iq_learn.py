@@ -178,8 +178,8 @@ class IQ_SoftQ(LightningModule):
 
             action_nll=-log_prob.mean()
 
-            self.log("train/" + key + "_nll", action_nll.detach(), on_step=True, batch_size=1)
-            self.log("train/" + key + "_entropy", entropy.mean().detach(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_nll", action_nll, on_step=True, batch_size=1)
+            self.log("train/" + key + "_entropy", entropy.mean(), on_step=True, batch_size=1)
         else:
             action_nll=log_prob=0
 
@@ -531,7 +531,7 @@ class IQ_SoftQ(LightningModule):
         else:
             critic_loss = tokenized_agent_rollout["sampled_pos"].new_zeros(())
 
-        self.log("train/critic_loss", critic_loss.detach(), on_step=True, batch_size=1)
+        self.log("train/critic_loss", critic_loss, on_step=True, batch_size=1)
 
         if self.token_processor.learn_init:
             actor_optimizer, discriminator_optimizer, init_optimizer = self.optimizers()
@@ -567,23 +567,25 @@ class IQ_SoftQ(LightningModule):
 
             value=torch.cat([intial_value[None],value],dim=0)
 
-        advantages, value_loss=compute_advantages(agent_rewards[-len(value):], value)#[max(0,1-self.gail_start_step):]
+        advantages_2d, value_loss = compute_advantages(
+            agent_rewards[-len(value):],
+            value,
+        )
 
-        #advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
+        # Normalize dense advantages.
+        advantages_flat = advantages_2d.reshape(-1)
+        self.return_meanstd.update(advantages_flat.detach())
+        advantages_flat = self.return_meanstd.normalize(advantages_flat)
 
-        advantages=advantages.reshape(-1)
-
-        self.return_meanstd.update(advantages.detach())
-
-        advantages = self.return_meanstd.normalize(advantages)
-
-        ppo_loss = -(agent_log_prob * advantages[-len(agent_log_prob):]).mean()
+        # For PPO action-token update.
+        ppo_advantages = advantages_flat[-len(agent_log_prob):]
+        ppo_loss = -(agent_log_prob * ppo_advantages).mean()
 
         self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var, on_step=True, batch_size=1)
-        self.log("train/ppo_loss", ppo_loss.detach(), on_step=True, batch_size=1)
-        self.log("train/advantages", advantages.mean().detach(), on_step=True, batch_size=1)
-        self.log("train/value_loss", value_loss.detach(), on_step=True, batch_size=1)
+        self.log("train/ppo_loss", ppo_loss, on_step=True, batch_size=1)
+        self.log("train/advantages", ppo_advantages.mean(), on_step=True, batch_size=1)
+        self.log("train/value_loss", value_loss, on_step=True, batch_size=1)
 
         policy_loss = expert_nll + ppo_loss + 1e-2 * value_loss  # - 0.01 * agent_entropy.mean()
 
@@ -598,22 +600,19 @@ class IQ_SoftQ(LightningModule):
             #
             # self.log('train/noncol_rate', noncol_rate.mean(), on_step=True, batch_size=1)
 
-            init_advantages=advantages[:-len(agent_log_prob)]#[~tokenized_agent_rollout["ego_mask"]]
+            # For learn_init update: use the initial-state row explicitly.
+            advantages_2d_norm = advantages_flat.view_as(advantages_2d)
+            init_advantages = advantages_2d_norm[0].detach()
 
-            self.log('train/init_advantages', init_advantages.mean(), on_step=True, batch_size=1)
+            # Optional: normalize only non-ego init advantages.
+            # non_ego = ~tokenized_agent_rollout["ego_mask"]
+            # init_adv_non_ego = init_advantages[non_ego]
+            # init_advantages = init_advantages.clone()
+            # init_advantages[non_ego] = (
+            #                                    init_adv_non_ego - init_adv_non_ego.mean()
+            #                            ) / init_adv_non_ego.std(unbiased=False).clamp_min(1e-8)
 
-            init_advantages = (
-                init_advantages - init_advantages.mean()
-            ) / init_advantages.std(unbiased=False).clamp_min(1e-8)
-
-            tokenized_agent["advantages"]=init_advantages
-
-            # z_list=tokenized_agent["z_list"]
-            # t_list=tokenized_agent["t_list"]
-            #
-            # g_loss = self.encoder.agent_encoder.init_decoder.G.get_g_loss( tokenized_agent,  z_list, t_list, advantages)
-            #
-            # self.log('train/g_loss', g_loss.detach(), on_step=True, batch_size=1)
+            tokenized_agent["advantages"] = init_advantages
 
             match_loss, g_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent)
 
