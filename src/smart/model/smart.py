@@ -89,7 +89,7 @@ class SMART(LightningModule):
             # for p in self.encoder.agent_encoder.parameters():
             #     p.requires_grad = True
             #
-            if self.encoder.learn_dis and self.encoder.gail:
+            if self.encoder.gail:
                 for p in self.encoder.discriminator.parameters():
                     p.requires_grad = True
 
@@ -119,6 +119,9 @@ class SMART(LightningModule):
                 if self.encoder.sep_map:
                     for p in self.encoder.map_encoder1.parameters():
                         p.requires_grad = True
+            else:
+                for p in self.encoder.agent_encoder.init_decoder.parameters():
+                    p.requires_grad = False
 
         self.n_vis_batch = model_config.n_vis_batch
         self.n_vis_scenario = model_config.n_vis_scenario

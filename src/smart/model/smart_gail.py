@@ -118,7 +118,14 @@ class SMART_IQ(IQ_SoftQ, SMART):
                     return [actor_optimizer,discriminator_optimizer, init_optimizer]
 
                 else:
-                    actor_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())  +list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
+                    if self.pred_init:
+                        actor_optimizer = torch.optim.AdamW(
+                            list(self.encoder.agent_encoder.agent_token_embedding.parameters()) + list(
+                                self.encoder.agent_encoder.interative_decoder.parameters()) + list(
+                                self.encoder.value_network.parameters()), lr=self.lr)
+
+                    else:
+                        actor_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())  +list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
 
             else:
                 actor_optimizer=torch.optim.AdamW(self.encoder.agent_encoder.init_decoder.G1.parameters(), lr=self.lr)#,betas=(0.0,0.0)
