@@ -123,6 +123,9 @@ class ScaleFlow(nn.Module):
 
         self.use_sde=True
 
+        if not token_processor.learn_init:
+            self.use_sde=False
+
         self.noise_level=0.7
 
         self.rationorm=False
