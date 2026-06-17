@@ -591,7 +591,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/value_loss", value_loss, on_step=True, batch_size=1)
         self.log("train/init_value_loss", init_value_loss, on_step=True, batch_size=1)
 
-        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss+init_value_loss  # - 0.01 * agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 1e-2 * value_loss+init_value_loss  # - 0.01 * agent_entropy.mean()
 
         actor_optimizer.zero_grad()
 
