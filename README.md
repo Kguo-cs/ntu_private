@@ -25,7 +25,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/model22_logitgp001_gpinter2_t10/2026-06-15_13-16-09/checkpoints/epoch=4-step=199232-valmeta=0.6697.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/model22_t10_gp8_logitgp01_r10/2026-06-16_02-27-48/checkpoints/epoch=3-step=143890-valmeta=0.6693.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all24_t10r10_gp8_logit01_noinit_sde07/2026-06-17_03-10-36/checkpoints/epoch=1-step=85224-valmeta=0.6641.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
