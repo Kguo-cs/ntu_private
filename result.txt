@@ -865,6 +865,7 @@ model22_logitgp001_gpinter2_t10_epoch=4-step=199232-valmeta=0.6697.ckpt
 
 /home/ke/code/sim/src/waymo_data/model22_logitgp001_t10_epoch=3-step=143890-valmeta=0.6671.ckpt
 
+0.6478
 
 /home/ke/code/sim/src/waymo_data/model22_t10_gp8_logitgp01_r10_epoch=3-step=143890-valmeta=0.6693.ckpt
 
