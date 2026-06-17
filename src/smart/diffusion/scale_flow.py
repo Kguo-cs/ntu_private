@@ -1046,7 +1046,7 @@ class ScaleFlow(nn.Module):
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     def repeat_input_copy(self, tokenized_agent, n_step):
-        out = tokenized_agent #dict(tokenized_agent)
+        out = dict(tokenized_agent)
 
         num_graphs = tokenized_agent["num_graphs"]
         batch = tokenized_agent["nonego_batch"]
