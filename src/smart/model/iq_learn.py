@@ -558,7 +558,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        feat_a = tokenized_agent_rollout["feat_a"].detach()
+        feat_a = tokenized_agent_rollout["feat_a"] #.detach()
 
         value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
 
@@ -591,7 +591,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/value_loss", value_loss, on_step=True, batch_size=1)
         self.log("train/init_value_loss", init_value_loss, on_step=True, batch_size=1)
 
-        policy_loss = expert_nll + ppo_loss + value_loss+init_value_loss  # - 0.01 * agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 0.01 *value_loss+init_value_loss  # -  agent_entropy.mean()
 
         actor_optimizer.zero_grad()
 
