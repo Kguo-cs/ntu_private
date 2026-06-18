@@ -6,9 +6,9 @@ defaults:
 
 model:
   model_config:
-    n_vis_batch: 0
-    n_vis_scenario: 0
-    n_vis_rollout: 0
+    n_vis_batch: 1
+    n_vis_scenario: 64
+    n_vis_rollout: 1
     n_batch_wosac_metric: 0
     val_open_loop: false
     val_closed_loop: true
@@ -16,14 +16,6 @@ model:
       criterium: topk_prob
       num_k: 2048 #2048 #48 # for k most likely
       temp: 1.0
-    wosac_submission:
-      is_active: true
-      method_name: "ScaleFlow"
-      authors: Ke Guo
-      affiliation: ntu
-      description: Tro
-      method_link: anonymous
-      account_name: anonymous
 
     finetune: true
     smart : false
@@ -36,7 +28,7 @@ model:
 
     token_processor:
       pred_init: True
-      learn_init: True
+      learn_init: False
 
 
 ckpt_path: "/home/ke/code/sim/src/waymo_data/model24_t10r10_gp8_logit01_value_val64_epoch=4-step=202920-valmeta=0.6519.ckpt"
@@ -49,7 +41,7 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 128
+  val_batch_size: 64
   test_batch_size: 128
   num_workers: 32
   shuffle: false

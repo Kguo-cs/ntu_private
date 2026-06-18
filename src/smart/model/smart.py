@@ -263,68 +263,6 @@ class SMART(LightningModule):
                 pred_z=pred_z[:,:,-80:]
                 pred_head=pred_head[:,:,-80:]
 
-            if self.token_processor.use_bird :
-                save_path = self.video_dir / f"step_{self.global_step}_batch_{batch_idx:02d}"
-
-                if batch_idx < self.n_vis_batch:
-                    batch=pred["batch"]
-                    plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
-                              data["agent"]["position"][:,self.num_historical_steps :][batch==0], data["agent"]["valid_mask"][:,self.num_historical_steps :][batch==0],
-                                           show=False,      save_path=save_path
-                              )
-
-                (heading_likelihoods,polar_likelihoods,distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods,
-                 angular_acceleration_likelihoods,num_diff,num_entry_diff, num_exit_diff)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
-                                     data["agent"]["valid_mask"][:,self.num_historical_steps :],
-                                        tokenized_agent["batch"],batch_idx < self.n_vis_batch,save_path=save_path)
-
-                target = data["agent"]["position"][
-                         :, self.num_historical_steps:, : pred_traj.shape[-1]
-                         ]
-                target_valid = data["agent"]["valid_mask"][
-                               :, self.num_historical_steps:
-                               ]
-
-                current_valid=target_valid[:,0]
-
-                pred=pred_traj[current_valid]
-                target=target[current_valid]
-                target_valid=target_valid[current_valid]
-
-                pred_valid_mask = (pred!=10000).any(dim=-1).any(dim=1) #any false
-
-                target_valid = target_valid & pred_valid_mask
-
-                dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)
-                dist2 = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
-
-                self.minADE0 += (dist2 / (target_valid.sum(-1) + 1e-6)).sum() # [n_agent]
-                self.minADE0_num+=len(dist2)
-
-                metric_dict = {
-                    "linear_speed_likelihood1": linear_speed_likelihoods[1].mean().item(),
-                    "linear_acceleration_likelihood1": linear_acc_likelihoods[1].mean().item(),
-                    "angular_speed_likelihood1": angular_speed_likelihoods[1].mean().item(),
-                    "angular_acceleration_likelihood1": angular_acceleration_likelihoods[1].mean().item(),
-                    "heading_likelihood1": heading_likelihoods[1].mean().item(),
-                    "polar_likelihood1": polar_likelihoods[1].mean().item(),
-                    "distance_likelihood1": distance_likelihoods[1].mean().item(),
-
-                    "linear_speed_emd": linear_speed_likelihoods[2].mean().item(),
-                    "linear_acceleration_emd": linear_acc_likelihoods[2].mean().item(),
-                    "angular_speed_emd": angular_speed_likelihoods[2].mean().item(),
-                    "angular_acceleration_emd": angular_acceleration_likelihoods[2].mean().item(),
-                    "heading_emd": heading_likelihoods[2].mean().item(),
-                    "polar_emd": polar_likelihoods[2].mean().item(),
-                    "distance_emd": distance_likelihoods[2].mean().item(),
-
-                    "num_diff_mean": num_diff.mean().item(),
-                    "num_entry_diff_mean": num_entry_diff.mean().item(),
-                    "num_exit_diff_mean": num_exit_diff.mean().item(),
-                }
-
-                self.metric_logger.update(metric_dict)
-
             # ! WOSAC
             scenario_rollouts = None
             if self.wosac_submission.is_active:  # ! save WOSAC submission

@@ -11,10 +11,10 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.c
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/autoenc_map80_6040_l1_pos3/2026-04-16_14-55-34/bc/h771hil6/checkpoints/epoch=63-step=121792.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp8_logit01_value_val64/2026-06-17_17-13-00/checkpoints/epoch=4-step=202920-valmeta=0.6519.ckpt ./
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model22_logitgp001/2026-06-15_10-04-57/bc/zpzkogvm/checkpoints/last.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp8_logit01_value_val64/2026-06-17_17-13-00/checkpoints/last.ckpt ./
 
 rsync -avz -e "ssh -p 32884" /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  guoke@sprl-server9.dynip.ntu.edu.sg:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 

@@ -873,7 +873,7 @@ model22_logitgp001_gpinter2_t10_epoch=4-step=199232-valmeta=0.6697.ckpt
 
 /home/ke/code/sim/src/waymo_data/all24_t10r10_gp8_logit01_noinit_sde07_epoch=1-step=85224-valmeta=0.6641.ckpt
 
-
+/home/ke/code/sim/src/waymo_data/model24_t10r10_gp8_logit01_value_val64_epoch=4-step=202920-valmeta=0.6519.ckpt
 
 
 take all position for generation
