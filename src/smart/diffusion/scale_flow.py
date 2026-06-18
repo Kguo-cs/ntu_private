@@ -310,14 +310,10 @@ class ScaleFlow(nn.Module):
 
             if self.use_sde:
 
-                z_list=tokenized_agent["z_list"]
-
-                t_list=tokenized_agent["t_list"]
-
-                z_sampled, prev_sample, log = z_list
-                t_n_sampled, t_next_sampled = t_list
+                z_sampled, prev_sample, log = tokenized_agent["gen_z"]
+                t_n_sampled, t_next_sampled = tokenized_agent["gen_t"]
             else:
-                x_sampled=tokenized_agent["z_list"][None].repeat(self.mc_num, 1,1,1).flatten(0,1)
+                x_sampled=tokenized_agent["gen_z"][None].repeat(self.mc_num, 1,1,1).flatten(0,1)
                 e_sampled=torch.randn_like(e[None].repeat(self.mc_num, 1,1,1).flatten(0,1))
 
                 agent_batch = torch.stack(
@@ -955,23 +951,24 @@ class ScaleFlow(nn.Module):
           #  feat_list.append(tokenized_agent["noise_feat"])
 
         t_list.append(torch.ones_like(t_n))
-        tokenized_agent["pred_init"] = z[:, 0]
+        #tokenized_agent["pred_init"] = z[:, 0]
 
         if self.use_sde:
            # log_prob_list=torch.stack(log_prob_list,dim=1)
             #log_prob_list=log_prob_list[noise_mask]
+            z_list = torch.stack(z_list, dim=1)
 
-            z_list=torch.stack(z_list,dim=1)
-            z_list=(z_list[:,:-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
+            gen_z = (z_list[:, :-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
             t_list=torch.stack(t_list,dim=1)
-            t_list=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
+            gen_t=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
 
            # tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
 
-            tokenized_agent["z_list"]=z_list
-            tokenized_agent["t_list"]=t_list
+            tokenized_agent["gen_z"]=gen_z
+            tokenized_agent["gen_t"]=gen_t
         else:
-            tokenized_agent["z_list"]=z
+            tokenized_agent["pred_z_list"]=torch.cat(z_list, dim=1)
+            tokenized_agent["gen_z"]=z
 
         # inv_real_idx = torch.empty_like(real_idx)
         # inv_real_idx[real_idx] = torch.arange(real_idx.numel(), device=real_idx.device)

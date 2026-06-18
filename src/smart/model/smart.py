@@ -45,7 +45,8 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
     angle_between_2d_vectors,
-    weight_init
+    weight_init,
+    rotate_to_global
 )
 import os
 
@@ -212,7 +213,8 @@ class SMART(LightningModule):
 
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
-            pred_traj, pred_z, pred_head,pred_sizes,pred_vels = [], [], [],[],[]
+            pred_traj, pred_z, pred_head, pred_sizes, pred_vels = [], [], [], [], []
+            pred_z_list_for_vis = []
             if self.encoder.sep_map:
                 map_feature = self.encoder.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
             # else:
@@ -234,6 +236,16 @@ class SMART(LightningModule):
 
                 pred_traj.append(pred["pred_traj_10hz"])
 
+                if self.n_vis_batch > 0 and "pred_z_list" in tokenized_agent:
+                    pred_z_list_global = self._pred_z_list_ego_local_to_global(
+                        pred_z_list=tokenized_agent["pred_z_list"],
+                        tokenized_agent=tokenized_agent,
+                    )
+
+                    pred_z_list_for_vis.append(
+                        pred_z_list_global.detach().cpu()
+                    )
+
                 if not self.token_processor.use_bird:
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
@@ -245,6 +257,11 @@ class SMART(LightningModule):
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
             pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+            if len(pred_z_list_for_vis) > 0:
+                # [N_agent, N_rollout, N_gen_step, D]
+                pred_z_list_for_vis = torch.stack(pred_z_list_for_vis, dim=1)
+            else:
+                pred_z_list_for_vis = None
 
             if self.challenge_type == ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
@@ -338,8 +355,25 @@ class SMART(LightningModule):
                             save_dir=self.video_dir
                             / f"step_{self.global_step}_batch_{batch_idx:02d}-scenario_{_i_sc:02d}",
                         )
+                        # _vis.save_video_scenario_rollout(
+                        #     scenario_rollouts[_i_sc], self.n_vis_rollout,
+                        # )
+
+                        scenario_pred_z_list = None
+
+                        if pred_z_list_for_vis is not None:
+                            agent_batch = data["agent"]["batch"].detach().cpu()
+                            scenario_agent_mask = agent_batch == _i_sc
+
+                            scenario_pred_z_list = pred_z_list_for_vis[scenario_agent_mask]
+                            # shape: [N_agent_in_scenario, N_rollout, N_gen_step, D]
+
                         _vis.save_video_scenario_rollout(
-                            scenario_rollouts[_i_sc], self.n_vis_rollout,
+                            scenario_rollouts[_i_sc],
+                            self.n_vis_rollout,
+                            pred_z_list=scenario_pred_z_list,
+                            crop_size_m=200.0,
+                            add_subtitle=True,
                         )
 
     def on_validation_epoch_end(self):
@@ -486,6 +520,154 @@ class SMART(LightningModule):
             self.wosac_submission.aggregate_rollouts(scenario_rollouts)
         self.wosac_submission.reset()
 
+    def _pred_z_list_ego_local_to_global(self, pred_z_list, tokenized_agent):
+        """
+        Convert generated initial states from ego-local coordinates to Waymo global coordinates.
+
+        Args:
+            pred_z_list:
+                [N_agent, N_gen_step, D] or [N_agent, N_rollout, N_gen_step, D]
+
+                Expected layout for D >= 4:
+                    0: x_local
+                    1: y_local
+                    2: cos(local_heading)
+                    3: sin(local_heading)
+                    4: length
+                    5: width
+                    6: vx
+                    7: vy
+
+            tokenized_agent:
+                Must contain per-agent scene index and per-scene ego pose.
+
+        Returns:
+            pred_z_list_global:
+                Same shape as pred_z_list, but position and heading are global.
+        """
+        z = pred_z_list.clone()
+
+        if z.numel() == 0:
+            return z
+
+        # ------------------------------------------------------------
+        # 1. Find each generated agent's scene index.
+        # ------------------------------------------------------------
+        if "nonego_batch" in tokenized_agent:
+            agent_batch = tokenized_agent["nonego_batch"]
+        elif "batch" in tokenized_agent:
+            agent_batch = tokenized_agent["batch"]
+        else:
+            raise KeyError(
+                "Cannot transform pred_z_list to global coordinates: "
+                "tokenized_agent must contain 'nonego_batch' or 'batch'."
+            )
+
+        # ------------------------------------------------------------
+        # 2. Find ego pose per scene.
+        #
+        # Prefer batch_ego_pos / batch_ego_heading if your tokenizer stores them.
+        # These should be:
+        #     batch_ego_pos:     [num_graphs, 2]
+        #     batch_ego_heading: [num_graphs]
+        # ------------------------------------------------------------
+        if "batch_ego_pos" in tokenized_agent:
+            ego_pos = tokenized_agent["batch_ego_pos"][..., :2]
+        elif "ego_pos" in tokenized_agent:
+            ego_pos = tokenized_agent["ego_pos"][..., :2][agent_batch]
+        else:
+            raise KeyError(
+                "Cannot transform pred_z_list to global coordinates: "
+                "tokenized_agent must contain 'batch_ego_pos' or 'ego_pos'."
+            )
+
+        if "batch_ego_heading" in tokenized_agent:
+            ego_heading = tokenized_agent["batch_ego_heading"]
+        elif "ego_heading" in tokenized_agent:
+            ego_heading = tokenized_agent["ego_heading"][agent_batch]
+        else:
+            raise KeyError(
+                "Cannot transform pred_z_list to global coordinates: "
+                "tokenized_agent must contain 'batch_ego_heading' or 'ego_heading'."
+            )
+
+        # ------------------------------------------------------------
+        # 3. Convert position.
+        # ------------------------------------------------------------
+        if z.ndim == 3:
+            # [N_agent, N_gen_step, D]
+            local_pos = z[..., :2]  # [N, G, 2]
+
+            global_pos = transform_to_global(
+                pos_local=local_pos,
+                head_local=None,
+                pos_now=ego_pos,
+                head_now=ego_heading,
+            )[0]
+
+            z[..., :2] = global_pos
+
+            # --------------------------------------------------------
+            # 4. Convert heading cos/sin.
+            # --------------------------------------------------------
+            if z.shape[-1] >= 4:
+                local_heading = torch.atan2(z[..., 3], z[..., 2])
+                global_heading = wrap_angle(local_heading + ego_heading[:, None])
+
+                z[..., 2] = torch.cos(global_heading)
+                z[..., 3] = torch.sin(global_heading)
+
+            # --------------------------------------------------------
+            # 5. Optional: convert velocity if vx/vy are ego-local.
+            # --------------------------------------------------------
+            if z.shape[-1] >= 8:
+                local_vel = z[..., 6:8]  # [N, G, 2]
+                global_vel = rotate_to_global(
+                    local_vel,
+                    ego_heading[:, None],
+                )
+                z[..., 6:8] = global_vel
+
+        elif z.ndim == 4:
+            # [N_agent, N_rollout, N_gen_step, D]
+            n_agent, n_rollout, n_gen_step, dim = z.shape
+
+            z_flat = z.reshape(n_agent, n_rollout * n_gen_step, dim)
+
+            local_pos = z_flat[..., :2]
+
+            global_pos = transform_to_global(
+                pos_local=local_pos,
+                head_local=None,
+                pos_now=ego_pos,
+                head_now=ego_heading,
+            )[0]
+
+            z_flat[..., :2] = global_pos
+
+            if dim >= 4:
+                local_heading = torch.atan2(z_flat[..., 3], z_flat[..., 2])
+                global_heading = wrap_angle(local_heading + ego_heading[:, None])
+
+                z_flat[..., 2] = torch.cos(global_heading)
+                z_flat[..., 3] = torch.sin(global_heading)
+
+            if dim >= 8:
+                local_vel = z_flat[..., 6:8]
+                global_vel = rotate_to_global(
+                    local_vel,
+                    ego_heading[:, None],
+                )
+                z_flat[..., 6:8] = global_vel
+
+            z = z_flat.reshape(n_agent, n_rollout, n_gen_step, dim)
+
+        else:
+            raise ValueError(
+                f"pred_z_list must have shape [N,G,D] or [N,R,G,D], got {z.shape}"
+            )
+
+        return z
     def on_test_epoch_end(self):
         if self.global_rank == 0:
             self.wosac_submission.save_sub_file()
