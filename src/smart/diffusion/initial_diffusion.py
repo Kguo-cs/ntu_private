@@ -10,9 +10,6 @@ from src.smart.utils import (
     rotate_to_global,
     rotate_to_local,
 )
-from src.smart.loss.earth_match import get_matching_loss
-from src.smart.metrics.gen_metrics import plot_scene
-from src.smart.layers import MLPLayer
 from src.smart.gan.discriminator import InitDiscriminator
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
     get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
@@ -41,7 +38,7 @@ class InitDiffusion(nn.Module):
 
         self.learn_autoencoder = False
         self.latent_diffusion = False
-        self.sep_map=False
+        self.sep_map=True
 
         if self.learn_autoencoder or self.latent_diffusion:
 

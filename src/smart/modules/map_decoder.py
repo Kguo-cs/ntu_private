@@ -92,14 +92,6 @@ class SMARTMapDecoder(nn.Module):
 
     def forward(self, tokenized_map: Dict,tokenized_agent=None):
 
-        if self.token_processor.use_bird:
-
-            # pt_token=self.pt_embed.weight.repeat(len(tokenized_map["position"]), 1)
-            #
-            # tokenized_map["pt_token"]=pt_token
-
-            return tokenized_map
-
         map_type=tokenized_map["type"].long()
         # map_type[map_type>9] = 9
         
@@ -154,7 +146,7 @@ class SMARTMapDecoder(nn.Module):
             token_idx=token_idx[dist_mask]
             light_type=light_type[dist_mask]
             map_type=map_type[dist_mask]
-            mask = ((map_type == 4) | (map_type == 5)) & (dist[dist_mask]<100)
+            mask = (dist[dist_mask]<100) #& ((map_type == 4) | (map_type == 5))
             #mask=torch.ones_like(map_type).to(torch.bool)
 
         if self.my_map:
