@@ -282,20 +282,15 @@ class IQ_SoftQ(LightningModule):
 
         use_gp_this_step = (
                 self.use_gradient_penalty
-                and key == "agent"
+                and key == "expert"
                 and self.global_step % 4 == 0
         )
 
         # The critic update must not backpropagate through rollout generation.
-        if key == "agent":
-            sampled_pos = sampled_pos.detach()
-            sampled_heading = sampled_heading.detach()
-            shape = shape.detach()
-
-            if use_gp_this_step:
-                sampled_pos.requires_grad_(True)
-                sampled_heading.requires_grad_(True)
-                shape.requires_grad_(True)
+        if use_gp_this_step:
+            sampled_pos = sampled_pos.detach().requires_grad_(True)
+            sampled_heading = sampled_heading.detach().requires_grad_(True)
+            shape = shape.detach().requires_grad_(True)
 
         disc_out = discriminator.predict_agent(
             tokenized_agent["sampled_idx"],
@@ -558,7 +553,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        feat_a = tokenized_agent_rollout["feat_a"].detach()
+        feat_a = tokenized_agent_rollout["feat_a"] #.detach()
 
         value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
 
@@ -595,7 +590,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/advantages", ppo_advantages.mean(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss, on_step=True, batch_size=1)
 
-        policy_loss = expert_nll + ppo_loss + value_loss+init_value_loss  # 1e-3 *-  agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 1e-2 *value_loss+init_value_loss  # -  agent_entropy.mean()
 
         actor_optimizer.zero_grad()
 
