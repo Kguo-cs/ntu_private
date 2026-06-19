@@ -1,78 +1,193 @@
 import math
 import copy
-from xml.sax.handler import all_features
-
-import numpy as np
-
-from typing import Dict, Mapping, Optional
-
+from typing import Mapping, Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch_cluster import radius
-from torch_geometric.data import Batch
-from torch_geometric.data import HeteroData
-from torch.nn.utils.rnn import pad_sequence
-from torch.distributions import Bernoulli
-from src.smart.layers.fourier_embedding import FourierEmbedding
 
+from src.smart.layers import MLPLayer
+from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
+from src.smart.layers.attention_layer import AttentionLayer
+from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.utils import (
-    cal_polygon_contour,
     transform_to_global,
     transform_to_local,
     wrap_angle,
     rotate_to_global,
     rotate_to_local,
-    weight_init
+    weight_init,
 )
-import warnings
-from torch.nn.modules.container import ModuleList
-import copy
-from src.smart.layers.relative_transformer import RoFormerBlock,RoFormerDecoder
-from src.smart.layers import MLPLayer
-from src.smart.layers.relative_transformer import RoFormerBlock, padding
-from torch.func import functional_call, jvp
-from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
-from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
-from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges,project_to_local_frame
-from src.smart.layers.relative_transformer import padding
-from src.smart.utils.cluster import cluster_point_per_type,batch_histogram_categorical
-from torch_scatter import scatter_sum
-from .diffusion_planner.decoder import  DiT
-from src.smart.modules.interative_decoder import InterativeDecoder
-from src.smart.utils.edge_utils import build_batch
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return
+from .diffusion_planner.decoder import DiT
 from .noise_schedule import LearnableGroupedPowerSchedule
-# from .cdtd import CDTDGroupedWarp,SceneStateGroups
-# from .MuLAN import AdaptiveGroupedPolynomialSchedule
 
 
-#different dimension take different schedule noise
+class DenoiserStateEmbedder(nn.Module):
+    """AgentTokenEncoder-style embedding block for the initial-state denoiser.
+
+    The old denoiser mixed state projection, type embedding, noise embedding,
+    and ego embedding directly inside ``InitDenoiser.forward``. This module
+    follows the same structure as ``AgentTokenEncoder``:
+
+        1. build continuous state features;
+        2. build categorical type/shape embeddings;
+        3. embed continuous features with ``FourierEmbedding``;
+        4. fuse state embedding with diffusion-time/noise embedding.
+
+    For the default state layout:
+        [x, y, heading_cos, heading_sin, length, width, vel_x, vel_y]
+
+    shape uses dims 4:6 as categorical/context embedding, while the remaining
+    continuous state uses dims [:4] and [6:].
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_freq_bands: int,
+        m_delta_dim: int,
+        num_classes: int = 3,
+        shape_dim: int = 2,
+    ) -> None:
+        super().__init__()
+
+        if m_delta_dim < 8:
+            raise ValueError(
+                f"InitDenoiser expects state dim >= 8, got m_delta_dim={m_delta_dim}."
+            )
+
+        self.hidden_dim = hidden_dim
+        self.m_delta_dim = m_delta_dim
+        self.num_classes = num_classes
+        self.shape_dim = shape_dim
+
+        # Same categorical style as AgentTokenEncoder:
+        # type embedding + shape embedding are injected into FourierEmbedding.
+        self.type_a_emb = nn.Embedding(num_classes + 1, hidden_dim)
+        self.shape_emb = MLPLayer(shape_dim, hidden_dim, hidden_dim)
+
+        # Continuous state excludes [length, width], because shape is handled
+        # as a categorical/context embedding, like AgentTokenEncoder.
+        self.state_feature_dim = m_delta_dim - shape_dim
+
+        self.x_a_emb = FourierEmbedding(
+            input_dim=self.state_feature_dim,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
+
+        self.beta_emb = FourierEmbedding(
+            input_dim=m_delta_dim,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
+
+        self.fusion_emb = MLPEmbedding(
+            input_dim=hidden_dim * 2,
+            hidden_dim=hidden_dim,
+        )
+
+    def _state_continuous_feature(self, m_delta: torch.Tensor) -> torch.Tensor:
+        """Return continuous denoising features excluding shape dims 4:6."""
+        return torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)
+
+    def _format_beta(self, beta: torch.Tensor, target_dim: int) -> torch.Tensor:
+        """Accept beta as [N], [N, D], or [N, 1, D] and return [N, D]."""
+        if beta.ndim == 3:
+            beta = beta[:, 0]
+        elif beta.ndim == 1:
+            beta = beta[:, None]
+
+        if beta.shape[-1] == 1:
+            beta = beta.expand(-1, target_dim)
+
+        if beta.shape[-1] != target_dim:
+            raise ValueError(
+                f"beta last dim must be {target_dim}, got beta.shape={tuple(beta.shape)}."
+            )
+
+        return beta
+
+    def get_embedding(
+        self,
+        m_delta: torch.Tensor,
+        beta: torch.Tensor,
+        agent_type: torch.Tensor,
+    ) -> torch.Tensor:
+        """AgentTokenEncoder-like embedding entry point."""
+        beta = self._format_beta(beta, self.m_delta_dim)
+
+        state_feature = self._state_continuous_feature(m_delta)
+        agent_shape = m_delta[:, 4:6]
+
+        categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
+            agent_shape[..., : self.shape_dim]
+        )
+
+        state_emb = self.x_a_emb(
+            continuous_inputs=state_feature,
+            categorical_embs=categorical_embs,
+        )
+
+        beta_emb = self.beta_emb(
+            continuous_inputs=beta,
+        )
+
+        return self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
+
+    def forward(
+        self,
+        m_delta: torch.Tensor,
+        beta: torch.Tensor,
+        agent_type: torch.Tensor,
+    ) -> torch.Tensor:
+        return self.get_embedding(m_delta, beta, agent_type)
+
 
 class InitDenoiser(nn.Module):
+    """Cleaned initial-state denoiser.
 
-    def __init__(self,
-                 token_processor,
-                 dataset: str,
-                 input_dim: int,
-                 hidden_dim: int,
-                 output_dim: int,
-                 output_head: bool,
-                 init_timestep: int,
-                 num_freq_bands: int,
-                 num_layers: int,
-                 num_heads: int,
-                 head_dim: int,
-                 dropout: float,
-                 diff_type: str,
-                 m_dim: int,
-                 mean_flow=False,
-                 x_pred=True,
-                 learn_noise=False,
-                 pred_all_pos=False
-                 ) -> None:
-        super(InitDenoiser, self).__init__()
+    Kept public API:
+        - normalize
+        - denormalize
+        - get_input
+        - forward
+        - get_output
+
+    Removed unsupported/dead branches from the previous implementation:
+        - DiT path
+        - use_all_pos path
+        - bin-normalization path
+        - non-RoFormer path
+        - previous-heading/speed/condition branches
+        - return/cfg conditioning branches
+        - unused padding/SkipMLP/ExploreNoiseNet code
+
+    The embedding path is now explicit and close to AgentTokenEncoder.
+    """
+
+    def __init__(
+        self,
+        token_processor,
+        dataset: str,
+        input_dim: int,
+        hidden_dim: int,
+        output_dim: int,
+        output_head: bool,
+        init_timestep: int,
+        num_freq_bands: int,
+        num_layers: int,
+        num_heads: int,
+        head_dim: int,
+        dropout: float,
+        diff_type: str,
+        m_dim: int,
+        mean_flow: bool = False,
+        x_pred: bool = True,
+        learn_noise: bool = False,
+        pred_all_pos: bool = False,
+    ) -> None:
+        super().__init__()
+
         self.dataset = dataset
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -84,993 +199,583 @@ class InitDenoiser(nn.Module):
         self.dropout = dropout
         self.diff_type = diff_type
         self.m_dim = m_dim
+        self.x_pred = x_pred
+        self.token_processor = token_processor
 
-        self.use_roformer=True
-        self.use_padding=True
-        self.use_all_type=False
-
-        self.x_pred=x_pred
-
-        self.num_classes=3
-
-        if self.use_all_type:
-            m_delta_dim = 11
-        else:
-            self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)#
-            m_delta_dim = 8
-
-        if token_processor.pred_2step:
-            m_delta_dim=10
-
-        self.use_graph=True
+        # Keep attributes used by ScaleFlow.
+        self.use_roformer = True
+        self.use_graph = True
+        self.use_padding = False
+        self.use_rel_ego = True
         self.ego_rel = True
-        self.use_scale=False
-        self.use_dit=False
+        self.use_scale = False
+        self.use_all_type = False
+        self.use_all_pos = False
+        self.use_dit = False
+        self.use_bin = False
+        self.learn_noise = False
+        self.pred_gmm = False
+        self.schedule_loss = False
+        self.use_return_conditioned = False
+        self.use_prev_condition = False
+        self.use_cfg_cond = False
+        self.label_drop_prob = 0.0
 
-        noise_dim = 1
         if mean_flow:
-            noise_dim = 2
-            self.use_padding = True
-
-        self.use_all_pos=token_processor.use_all_pos
-        self.token_processor=token_processor
-
-        self.use_prev_head=False
-        self.use_speed=False
-
-        if self.use_speed:
-            m_delta_dim = m_delta_dim-1
-
-        if self.use_prev_head:
-            m_delta_dim=m_delta_dim+2
-
-        if self.use_all_pos:
-            m_delta_dim=m_delta_dim+94*4-2
-
-        self.learn_noise=learn_noise
-
-        self.m_delta_dim=m_delta_dim
+            raise NotImplementedError("mean_flow=True was removed from the cleaned InitDenoiser.")
 
         if learn_noise:
-            self.output_dim=m_delta_dim*2
-        else:
-            self.output_dim=m_delta_dim
-           # self.noise_embed = MLPLayer(m_delta_dim*2, self.hidden_dim, self.hidden_dim)
+            raise NotImplementedError("learn_noise=True was removed from the cleaned InitDenoiser.")
 
-        self.schedule_loss=False
-
-        if self.schedule_loss:
+        if pred_all_pos or getattr(token_processor, "pred_all_pos", False):
             raise NotImplementedError(
-                "schedule_loss requires the optional CDTDGroupedWarp implementation."
+                "pred_all_pos/use_all_pos was removed from the cleaned InitDenoiser. "
+                "Use the standard 8D initial state layout instead."
             )
-        schedule_group_dims = (2, 2, 2, max(2, m_delta_dim - 6))
-        self.schedule = LearnableGroupedPowerSchedule(group_dims=schedule_group_dims)
 
-        self.pred_gmm=False
+        if getattr(token_processor, "pred_2step", False):
+            # The embedding module supports D > 8, but get_output semantics for
+            # two-step prediction depend on the old branch. Keep it explicit.
+            raise NotImplementedError(
+                "token_processor.pred_2step=True needs a separate get_output definition."
+            )
 
-        if self.pred_gmm:
-            self.output_dim=m_delta_dim*8+8+m_delta_dim
+        self.num_classes = 3
+        self.shape_dim = 2
+        self.m_delta_dim = 8
+        self.output_dim = self.m_delta_dim
 
-        if pred_all_pos:
-            self.output_dim=10*3
+        self.register_buffer("normal_mean", torch.zeros(1, self.m_delta_dim))
+        self.register_buffer("normal_scale", torch.ones(1, self.m_delta_dim))
 
-        self.label_drop_prob=0
+        # Different groups can still use different schedules.
+        self.schedule = LearnableGroupedPowerSchedule(
+            group_dims=(2, 2, 2, self.m_delta_dim - 6)
+        )
 
-        self.use_bin=False
+        # AgentTokenEncoder-style state/noise/type/shape embedding.
+        self.state_embedder = DenoiserStateEmbedder(
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+            m_delta_dim=self.m_delta_dim,
+            num_classes=self.num_classes,
+            shape_dim=self.shape_dim,
+        )
 
-        if self.use_bin:
-            self.bin_num=100
-            self.register_buffer("normal_mean", torch.zeros(m_delta_dim, self.bin_num))
-            self.register_buffer("init_min", torch.zeros(m_delta_dim))
-            self.register_buffer("init_max", torch.zeros(m_delta_dim))
+        # Ego-context embedding. The input is:
+        #   local ego poses relative to the generated agent + per-scene type count.
+        # For the current tokenization, ego pose part is 9 and type-count part is 3.
+        self.ego_dim = 9
+        self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
 
-        else:
-            self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
-            self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
+        self.edge_encoder = EdgeEncoder(
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+            use_a2a=True,
+            use_pl2a=True,
+        )
 
-        if self.use_all_pos:
-            m_delta_dim=6+4*4
+        self.lane_embed = MLPLayer(128, hidden_dim, hidden_dim)
 
-        self.use_rel_ego=True
-
-        if self.use_rel_ego:
-            self.ego_dim=9 #9
-
-            self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
-
-        self.use_return_conditioned = False
-
-        if self.use_return_conditioned:
-            self.return_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
-
-        self.use_prev_condition=False
-
-        if self.use_prev_condition:
-            self.condition_embed = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
-
-
-
-        self.use_cfg_cond=False
-
-        # if self.use_cfg_cond:
-        #     self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
-
-        self.use_pos=False
-
-        if self.use_roformer:
-            if self.use_dit:
-                self.map_embed= MLPLayer(128+2+2, hidden_dim, hidden_dim)
-
-                self.dit = DiT(
-                    sde=None,
-                    route_encoder=None,
-                    # route_encoder=RouteEncoder(config.route_num, config.lane_len, drop_path_rate=config.encoder_drop_path_rate,
-                    #                            hidden_dim=config.hidden_dim),
-                    depth=3,
-                    output_dim=8,  # x, y, cos, sin
+        self.a2a_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
                     hidden_dim=hidden_dim,
-                    heads=num_heads,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
                     dropout=0,
-                    model_type='x_start',
-                    future_length=None
+                    bipartite=False,
+                    has_pos_emb=True,
                 )
-            else:
-                self.noise_embedding = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
-                if self.ego_rel:
-                    self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
-                else:
-                    self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
+                for _ in range(num_layers)
+            ]
+        )
 
-                if self.use_graph:
-                    self.use_padding = False
+        self.pt2a_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=0,
+                    bipartite=True,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
 
-                    if self.use_all_pos:
-                        self.interative_decoder = InterativeDecoder(hidden_dim,
-                                                                    60,
-                                                                    40, 60, num_freq_bands,
-                                                                    num_layers, num_heads, head_dim,
-                                                                    dropout, 0, m_delta_dim,
-                                                                    20, 20,
-                                                                    token_processor,
-                                                                    )
-
-                    else:
-
-                        self.edge_encoder = EdgeEncoder(hidden_dim,
-                                                        num_freq_bands,
-                                                        use_a2a=True,
-                                                        use_pl2a=True,
-                                                       # differentiable_edge=False
-                                                        )
-                        self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
-
-                        self.pt2a_attn_layers = nn.ModuleList(
-                            [
-                                AttentionLayer(
-                                    hidden_dim=hidden_dim,
-                                    num_heads=num_heads,
-                                    head_dim=head_dim,
-                                    dropout=0,
-                                    bipartite=True,
-                                    has_pos_emb=True,
-                                )
-                                for _ in range(num_layers)
-                            ]
-                        )
-
-                        self.a2a_attn_layers = nn.ModuleList(
-                            [
-                                AttentionLayer(
-                                    hidden_dim=hidden_dim,
-                                    num_heads=num_heads,
-                                    head_dim=head_dim,
-                                    dropout=0,
-                                    bipartite=False,
-                                    has_pos_emb=True,
-                                )
-                                for _ in range(num_layers)
-                            ]
-                        )
-                else:
-                    module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                                      hist_len=1000000)  # replace with gnn
-                    self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
-        else:
-
-            self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
-
-            self.proj_in_m_delta_2 = nn.Sequential(
-                nn.LayerNorm(hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, hidden_dim),
-            )
-
-            self.proj_out_m_delta = nn.Sequential(
-                nn.LayerNorm(hidden_dim),
-                nn.Linear(self.hidden_dim, self.output_dim),
-            )
-
-            self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
-                                              num_freq_bands=num_freq_bands)
-
-            # self.interact_pt2m = nn.ModuleList(
-            #     [TransformerDecoderLayerDiff(
-            #         n_embd=hidden_dim,
-            #         n_head=num_heads,
-            #         ff_dim=4 * hidden_dim,
-            #         dropout=0,
-            #         layer_id=i,
-            #     ) for i in range(num_layers)])
-            module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                                  hist_len=1000000)  # replace with gnn
-            self.interact_pt2m = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
-            self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
-
-        self.use_noise=False
-        self.hidden_dim=hidden_dim
-
-        self.lane_embed=MLPLayer(128,hidden_dim,hidden_dim)
+        self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
 
         self.apply(weight_init)
 
+    # ---------------------------------------------------------------------
+    # Normalization
+    # ---------------------------------------------------------------------
+    def normalize(self, input: torch.Tensor) -> torch.Tensor:
+        scale = self.normal_scale.clamp_min(1e-6)
+        return (input - self.normal_mean[None]) / scale[None]
+
+    def denormalize(self, input: torch.Tensor, nonego_type=None) -> torch.Tensor:
+        scale = self.normal_scale.clamp_min(1e-6)
+        return input * scale[None] + self.normal_mean[None]
+
+    def _maybe_init_normalizer(self, diff_output: torch.Tensor) -> None:
+        if not torch.all(self.normal_mean == 0):
+            return
+
+        with torch.no_grad():
+            self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
+
+            scale = torch.std(
+                diff_output,
+                dim=0,
+                keepdim=True,
+                unbiased=False,
+            ).clamp_min(1e-6)
+
+            # Keep the old scaling heuristic.
+            scale[:, 2:6] = scale[:, 2:6] * 2.0
+            scale[:, :2] = scale[:, :2] * 0.5
+
+            self.normal_scale.copy_(scale)
+
+    # ---------------------------------------------------------------------
+    # Tokenized-agent input construction
+    # ---------------------------------------------------------------------
+    def get_input(self, tokenized_agent) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Build local non-ego initial state.
+
+        Returns:
+            diff_input:
+                Initial state used as source distribution input.
+            diff_output:
+                Target state to reconstruct / generate.
+
+        Both have shape [N_non_ego, 8]:
+            [local_x, local_y, cos(local_heading), sin(local_heading),
+             length, width, local_vx, local_vy]
+        """
+        if "ego_mask" not in tokenized_agent:
+            batch = tokenized_agent["batch"]
+            ego_mask = torch.ones_like(batch, dtype=torch.bool)
+            ego_mask[:-1] = batch[:-1] != batch[1:]
+            tokenized_agent["ego_mask"] = ego_mask
+
+        non_ego = ~tokenized_agent["ego_mask"]
+        tokenized_agent["non_ego"] = non_ego
 
-    def normalize(self,input):
-        return (input - self.normal_mean[None]) / self.normal_scale[None]
-
-    def denormalize(self,input,nonego_type=None):
-        # input=input* self.normal_scale[None]+self.normal_mean[None]
-
-        if self.use_bin:
-
-            D, K = self.normal_mean.shape
-
-            idx = torch.multinomial(self.normal_mean, len(input),replacement=True).transpose(0,1)#.squeeze(-1)
-            u = torch.rand((len(input),D), device=input.device)
-
-            width = (self.init_max - self.init_min) / K
-
-            input = self.init_min[None] + (idx.float() + u) * width[None]
-
-            input=input[:,None]
-        else:
-            input = input * self.normal_scale[None] + self.normal_mean[None]
-
-        return input#[:,None]
-
-    def drop_labels(self, labels,mode):
-
-        if mode==1:
-            drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
-            out = torch.where(drop, torch.full_like(labels, self.num_classes), labels)
-        else:
-            out=torch.full_like(labels, self.num_classes)
-
-        return out
-
-    def padding(self, pos, heading, feature, batch, batch_num):
-        lengths = torch.bincount(batch, minlength=batch_num).tolist()
-
-        padding_pos_a = padding(pos, lengths, padding_value=0)  # b, n, d
-        padding_heading_a = padding(heading, lengths, padding_value=0)  # b, n, d
-        padding_features_a = padding(feature, lengths, padding_value=0)  # b, n, d
-
-        mask = torch.any(padding_features_a != 0, dim=-1)
-
-        return padding_pos_a, padding_heading_a, padding_features_a,mask
-
-    def get_input(self,tokenized_agent):
-
-        batch_ego_pos=tokenized_agent["batch_ego_pos"]
-        batch_ego_heading=tokenized_agent["batch_ego_heading"]
-        non_ego=tokenized_agent["non_ego"]
-
-        initial_shape = tokenized_agent["initial_shape"][non_ego]
-        non_ego_pos=tokenized_agent["initial_pos"][non_ego]
-        non_ego_head=tokenized_agent["initial_heading"][non_ego]
-
-        if self.use_all_pos :
-            local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"],
-                                           tokenized_agent["all_heading"],
-                                           batch_ego_pos,
-                                           batch_ego_heading)
-
-            local_allpos=local_allpos.reshape(-1,19,5,2)
-
-            local_allheading=local_allheading.reshape(-1,19,5)
-
-            inter_pos=local_allpos[:,:,0]
-
-            inter_heading=local_allheading[:,:,0]
-
-            rel_pos,rel_heading=transform_to_local(
-                local_allpos[:,:,1:].flatten(0,1),
-                local_allheading[:,:,1:].flatten(0,1),
-                inter_pos.flatten(0,1),
-                inter_heading.flatten(0,1)
-            )
-
-            rel_pos=rel_pos.reshape(-1,19,4,2)
-
-            rel_heading=rel_heading.reshape(-1,19,4)
-
-            n_agent=len(rel_pos)
-
-            m_init = torch.cat([inter_pos.reshape(n_agent,-1), inter_heading.reshape(n_agent,-1).cos(),inter_heading.reshape(n_agent,-1).sin(),
-                                rel_pos.reshape(n_agent, -1), rel_heading.reshape(n_agent, -1).cos(),rel_heading.reshape(n_agent, -1).sin(),
-                                    initial_shape[:, :2]], dim=-1)
-        else:
-            if self.token_processor.pred_all_pos and self.training:
-                local_allpos, local_allheading = transform_to_local(tokenized_agent["all_pos"],
-                                                                    tokenized_agent["all_heading"],
-                                                                    non_ego_pos,
-                                                                    non_ego_head)
-
-                tokenized_agent["local_allpos"] = local_allpos
-                tokenized_agent["local_allheading"] = local_allheading
-
-            local_pos, local_heading = transform_to_local(non_ego_pos,
-                                                          non_ego_head,
-                                                          batch_ego_pos,
-                                                          batch_ego_heading,
-                                                          )
-
-            head_cosine = torch.cat([local_heading.cos().unsqueeze(-1), local_heading.sin().unsqueeze(-1)],
-                                    dim=-1)  # [0,2]
-
-            if "local_vel" in tokenized_agent.keys():
-                local_vel=tokenized_agent["local_vel"][non_ego]
-            else:
-                local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
-
-            if self.use_prev_head:
-                prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],non_ego_head)
-
-                local_vel = torch.cat([local_vel, prev_heading.cos()[:,None],prev_heading.sin()[:,None]], dim=-1)
-
-            m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
-
-            if "prev_vel" in tokenized_agent.keys():
-                m_init = torch.cat([m_init, tokenized_agent["prev_vel"][non_ego]], dim=-1)
-
-        if self.use_scale:
-            diff_input, diff_output , nonego_batch= cluster_point_per_type(m_init,  tokenized_agent)
-            tokenized_agent["nonego_batch"] = nonego_batch
-        else:
-            diff_input =diff_output= m_init
-
-        if torch.all(self.normal_mean==0):
-            # min_v=torch.amin(diff_output, dim=0, keepdim=True)
-            # max_v=torch.amax(diff_output, dim=0, keepdim=True)
-            # self.normal_mean.copy_((min_v+max_v)/2)
-            # self.normal_scale.copy_((max_v-min_v)/2)
-
-            if self.use_bin :
-
-                probs=batch_histogram_categorical(m_init,bins=self.bin_num)
-                self.normal_mean.copy_(probs)
-                self.init_min.copy_(m_init.amin(0))
-                self.init_max.copy_(m_init.amax(0))
-            else:
-                # min_v=torch.amin(diff_output, dim=0, keepdim=True)
-                # max_v=torch.amax(diff_output, dim=0, keepdim=True)
-                # self.normal_mean.copy_((min_v+max_v)/2)
-                #
-                # self.normal_mean[:,:2]=0
-
-                self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
-                self.normal_scale.copy_(
-                    torch.std(diff_output, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
-                )
-                #
-                # self.normal_scale[:,4:6]=self.normal_scale[:,4:6]*2#self.normal_mean[:,4:6]#
-                # self.normal_scale[:,:2]=30#self.normal_scale[:,:2]*1
-                #self.normal_scale[:,6:]=self.normal_scale[:,6:]*0.5
-                #self.normal_mean[:,2:4]=0
-                #self.normal_scale[:,6:8]=self.normal_scale[:,6:8]*2
-
-                self.normal_scale[:,2:6]=self.normal_scale[:,2:6]*2
-                self.normal_scale[:,:2]=self.normal_scale[:,:2]*0.5
-                #self.normal_scale[:,2:4]=1#self.normal_scale[:,2:4]*2
-
-
-        return diff_input,diff_output
-
-    def forward(self,
-                m_delta,
-                beta,
-                tokenized_agent: HeteroData,
-                map_feature: Mapping[str, torch.Tensor],
-                eval_mask=None,
-                mode=1
-                ) -> Dict[str, torch.Tensor]:
-
-        device = m_delta.device
-        batch = tokenized_agent["nonego_batch"]
-        type = tokenized_agent["nonego_type"]
-        num_graphs = tokenized_agent["num_graphs"]
-
-        if not self.use_rel_ego:
-            ego_embedding = tokenized_agent["ego_embedding"]
-        else:
-            ego_feat=tokenized_agent["ego_feat"]
-
-        if eval_mask is not None:
-            batch=batch[eval_mask]
-            type=type[eval_mask]
-            if not self.use_rel_ego:
-                ego_embedding=ego_embedding[eval_mask]
-
-        if self.label_drop_prob>0:
-            if self.training:
-                type = self.drop_labels(type,mode)
-            elif mode==0:
-                type=torch.full_like(type, self.num_classes)
-
-        if self.use_roformer:
-            m_delta=m_delta.reshape(m_delta.shape[0],-1)
-            if self.use_dit:
-                raise NotImplementedError(
-                    "InitDenoiser.use_dit=True is not implemented for the current map-feature format."
-                )
-            else:
-
-                beta_emb_m = self.noise_embedding(beta[:,0]) +self.type_a_emb(type)
-
-                if self.use_all_pos:
-                    shape=m_delta[:,-2:]
-
-                    n_step=19
-
-                    pos_a=m_delta[:,:2*n_step].reshape(-1,n_step,2)
-
-                    inter_heading_cos=m_delta[:,2*n_step:3*n_step]
-
-                    inter_heading_sin=m_delta[:,3*n_step:4*n_step]
-
-                    head_a=torch.atan2(inter_heading_sin,inter_heading_cos)
-
-                    rel_pos=m_delta[:,4*n_step:12*n_step].reshape(-1,n_step,4,2)
-
-                    rel_heading_cos=m_delta[:,12*n_step:16*n_step].reshape(-1,n_step,4)
-
-                    rel_heading_sin=m_delta[:,16*n_step:20*n_step].reshape(-1,n_step,4)
-
-                    n_step=pos_a.shape[1]
-                    n_agent=pos_a.shape[0]
-
-                    local_traj=torch.cat([rel_pos,rel_heading_cos[...,None],rel_heading_sin[...,None]],dim=-1).reshape(-1,n_step,16)
-
-                    local_traj[torch.isnan(local_traj)]=-100
-
-                    mask_a=~torch.isnan(head_a)#t,a
-
-                    mask_t=mask_a.transpose(0,1)
-
-                    head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
-
-                    beta_emb_m=beta_emb_m[None].repeat(n_step,1,1)[mask_t]
-
-                    shape=shape[:,None].repeat(1,n_step,1)
-
-                    input_feature = torch.cat([shape,local_traj],dim=-1)
-
-                    feat_a = self.proj_in_m_delta(input_feature).transpose(0,1)[mask_t]
-
-                    feat_a_token = feat_a + beta_emb_m
-
-                    agent_token_emb=None
-
-                    batch_a = tokenized_agent["batch"]
-                    batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
-
-                    batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1,
-                                                                                                  n_agent).transpose(0,
-                                                                                                                     1)
-
-                    all_features = [pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s]
-
-                    res, feat_a, rewards, weight, a2a_feature = self.interative_decoder(all_features,
-                                                                                      feat_a_token,
-                                                                                      agent_token_emb,
-                                                                                      map_feature,
-                                                                                      None,
-                                                                                      0,
-                                                                                      tokenized_agent)
-                    pos_s=pos_a.transpose(0,1)[mask_t]
-
-                    theta=head_a.transpose(0,1)[mask_t]
-
-                else:
-                    theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
-
-                    pos_s = m_delta[:, :2]
-
-                    if self.ego_rel:
-                        feat_a=self.proj_in_m_delta(m_delta[:,4:])
-                    else:
-                        feat_a=self.proj_in_m_delta(m_delta)
-
-                    if self.use_rel_ego:
-                        ego_pose= ego_feat[:,:-3]
-                        type_count=ego_feat[:,-3:][batch]
-
-                        if ego_pose.shape[-1]==9:
-
-                            ego_pose= ego_pose.reshape(-1,3,3)
-
-                            all_head=ego_pose[:,:,2][batch]
-                        else:
-                            ego_pose= ego_pose.reshape(-1,10,2)
-                            all_head=None
-
-                        all_pos=ego_pose[:,:,:2][batch]
-
-                        local_ego_pos,local_ego_head=transform_to_local(
-                            all_pos,
-                            all_head,
-                            pos_s,
-                            theta
-                        )
-
-                        if local_ego_head is None:
-                            all_features=torch.cat([local_ego_pos.flatten(1,2),type_count],dim=-1)
-                        else:
-                            all_features=torch.cat([local_ego_pos.flatten(1,2),local_ego_head,type_count],dim=-1)
-
-                        ego_embedding=self.ego_embed(all_features)
-
-                    feat_a = feat_a + beta_emb_m+ego_embedding
-
-                    if self.use_prev_condition and "prev_x" in tokenized_agent.keys():
-                        prev_x = tokenized_agent["prev_x"]
-
-                        local_prev_pos,local_prev_head = transform_to_local(
-                            prev_x[:,:2],
-                            torch.atan2(prev_x[:, 3], prev_x[:, 2]),
-                            pos_s,
-                            theta
-                        )
-
-                        prev_x_embed =self.condition_embed(torch.cat([local_prev_pos,local_prev_head.cos()[:,None],local_prev_head.sin()[:,None] , prev_x[:,4:]],dim=-1))
-
-                        feat_a=feat_a+prev_x_embed
-
-                    if self.use_pos:
-
-                        # gid = batch * 3 + type
-                        # score = pos_s[:, 0] + pos_s[:, 1]  # key inside each (batch, type) group
-                        #
-                        # # stable lexicographic sort by (gid, score):
-                        # # 1) sort by secondary key (score)
-                        # perm = torch.argsort(score, stable=True)
-                        # # 2) stable sort by primary key (gid), preserving score order within gid
-                        # perm = perm[torch.argsort(gid[perm], stable=True)]
-                        #
-                        # gid_sorted = gid[perm]
-                        #
-                        # group_change = torch.ones_like(gid_sorted, dtype=torch.bool)
-                        # group_change[1:] = gid_sorted[1:] != gid_sorted[:-1]
-                        #
-                        # pos = torch.arange(gid_sorted.numel(), device=gid_sorted.device)
-                        # group_start = torch.where(group_change, pos, 0)
-                        # group_start = torch.cummax(group_start, dim=0).values
-                        #
-                        # sorted_rank = pos - group_start
-                        #
-                        # # back to original order
-                        # pos_idx = torch.empty_like(sorted_rank)
-                        # pos_idx[perm] = sorted_rank
-
-                        # counts = torch.bincount(batch, minlength=num_graphs)
-                        #
-                        # pos_idx = torch.arange(batch.size(0), device=batch.device) - torch.repeat_interleave(
-                        #     torch.cumsum(counts, 0) - counts, counts)
-                        pos_feat=tokenized_agent["pos_feat"]
-
-                        feat_a = feat_a+pos_feat
-
-                    # if  not self.learn_noise:
-                    #     x_pred_noise=tokenized_agent["x_pred_noise"][:,0]
-                    #
-                    #     feat_a=feat_a+self.noise_embed(x_pred_noise)
-                    #
-
-                    # if self.use_cfg_cond:
-                    #     cfg=tokenized_agent["cfg"]
-                    #
-                    #     cfg_embed =self.cfg_embed(cfg[:,None])[batch]
-                    #
-                    #     feat_a=feat_a+cfg_embed
-
-                    # if self.use_return_conditioned:
-                    #     adv_embed=self.return_embed(cfg[:,None])
-                    #
-                    #     feat_a=feat_a+adv_embed
-
-                    if self.use_graph:
-
-                        batch_pl = map_feature["batch"]
-                        pos_pl = map_feature["position"]
-                        orient_pl = map_feature["orientation"]
-                        feat_map = map_feature["pt_token"]
-
-                        feat_map = self.lane_embed(feat_map)
-
-                        head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
-
-                        edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
-                            pos_s=pos_s,  # [n_agent, n_step, 2]
-                            head_s=theta,  # [n_agent, n_step]
-                            head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
-                            batch_s=batch,  # [n_agent*n_step]
-                            mask=None,  # [n_agent, n_step]
-                            max_radius=60,
-                            max_num_neighbors=20,
-                            agent_train_mask=None,
-                            layer_num=self.num_layers,
-                            counter_feat_a=None,
-                            dis_edge_mask=None
-                        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
-                        
-                        if batch_pl.max().item() != num_graphs - 1:
-                            if "non_ego_valid" not in tokenized_agent.keys():
-                                batch = tokenized_agent["repeat_batch"]
-
-                                n_step = batch.shape[1]
-
-                                pos_b = pos_s.reshape(n_step, -1, 2)
-                                theta_b = theta.reshape(n_step, -1)
-
-                                mask = torch.ones_like(batch).to(torch.bool)
-                            else:
-
-                                valid=tokenized_agent["non_ego_valid"]
-                                n_step=valid.shape[0]
-
-                                pos_global,theta_global=transform_to_global(
-                                    pos_s,
-                                    theta,
-                                    tokenized_agent["batch_ego_pos"],
-                                    tokenized_agent["batch_ego_heading"]
-                                )
-
-                                pos_b=torch.zeros([valid.shape[0],valid.shape[1],2],device=device)
-                                theta_b=torch.zeros([valid.shape[0],valid.shape[1]],device=device)
-
-                                pos_b[valid]=pos_global
-                                theta_b[valid]=theta_global
-                                mask=valid.transpose(0,1)
-                                batch=tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
-
-                            pos_s=pos_b.transpose(0,1)
-                            theta=theta_b.transpose(0,1)
-
-                            head_vector_s=torch.stack([theta.cos(), theta.sin()], dim=-1)
-
-                        else:
-                            mask=None
-
-                        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-                            pos_pl=pos_pl,  # [n_pl, 2]
-                            orient_pl=orient_pl,  # [n_pl]
-                            pos_a=pos_s,  # [n_agent, n_step, 2]
-                            head_a=theta,  # [n_agent, n_step]
-                            head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
-                            mask=mask,  # [n_agent, n_step]
-                            batch_s=batch,  # [n_agent,n_step]
-                            batch_pl=batch_pl,  # [n_pl*n_step]
-                            pl2a_radius=40,
-                            max_num_neighbors=20,
-                            agent_train_mask=None,
-                            layer_num=self.num_layers
-                        )
-
-                        for layer_i in range(self.num_layers):
-                            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-
-                            feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-
-                        res=self.to_out_m_delta(feat_a)
-
-                    else:
-                        pos_pl, orient_pl, map_emb,map_mask=map_feature
-
-                        pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.padding(pos_s, theta, feat_a, batch,
-                                                                                num_graphs)  # b, n, d
-
-                        for mod in self.entry_formers:
-                            feat_a_b = mod(feat_a_b, pos_a_b,
-                                           heading_a_b, mask_a_b,
-                                           map_emb,
-                                           pos_pl,
-                                           orient_pl, map_mask
-                                           )
-
-                        feat_a = feat_a_b[mask_a_b]
-
-                res_theta=torch.atan2(res[:,3],res[:,2])
-
-                if "non_ego_valid" not in tokenized_agent.keys():
-                    if self.x_pred:
-                        pos_s = m_delta[:, :2]
-                    else:
-                        pos_s = torch.zeros_like(m_delta[:, :2])
-                    theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
-
-                local_pos,local_theta = transform_to_global(
-                    res[:,:2],
-                    res_theta,
-                    pos_s,
-                    theta,
-                )
-
-
-
-
-                if self.use_all_pos:
-                    new_pos = torch.zeros([n_step, n_agent, 2], device=device)
-                    new_shape = torch.zeros_like(new_pos)
-                    new_theta = torch.zeros([n_step, n_agent], device=device)
-
-                    new_pos[mask_t]=local_pos
-                    new_theta[mask_t]=local_theta
-
-                    new_shape[mask_t]=res[:,4:6]
-
-                    mean_shape=new_shape.sum(dim=0)/mask_t.sum(dim=0)[:,None]
-
-                    local_traj=torch.zeros([n_step,n_agent,16],device=device)
-
-                    local_traj[mask_t]=res[:,6:]
-
-                    rel_pos=local_traj[:,:,:8]
-
-                    rel_heading_cos=local_traj[:,:,8:12]
-
-                    rel_heading_sin=local_traj[:,:,12:]
-
-                    res = torch.cat([new_pos.transpose(0,1).reshape(n_agent, -1), new_theta.transpose(0,1).reshape(n_agent, -1).cos(),
-                                        new_theta.transpose(0,1).reshape(n_agent, -1).sin(),
-                                        rel_pos.transpose(0,1).reshape(n_agent, -1), rel_heading_cos.transpose(0,1).reshape(n_agent, -1),
-                                        rel_heading_sin.transpose(0,1).reshape(n_agent, -1).sin(),
-                                        mean_shape], dim=-1)[:, None]
-
-                else:
-                    res = torch.cat(
-                        [local_pos, torch.cos(local_theta)[:, None], torch.sin(local_theta)[:, None], res[:, 4:]], dim=-1)[:, None]
-        else:
-            raise NotImplementedError(
-                "InitDenoiser.use_roformer=False is not implemented in this module."
-            )
-
-        if torch.all(beta[:len(tokenized_agent["ego_mask"])][~tokenized_agent["ego_mask"]]==0):
-            tokenized_agent["noise_feat"] = feat_a
-
-        return res
-
-    def get_output(self, pred_init, tokenized_agent):
-        non_ego=tokenized_agent["non_ego"]
-        gt_initial_pos = tokenized_agent["initial_pos"].clone()
-        gt_initial_heading = tokenized_agent["initial_heading"].clone()
-
-        shape = tokenized_agent["initial_shape"].clone()
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
-        if self.use_all_pos:
-            n_step=19
+        initial_shape = tokenized_agent["initial_shape"][non_ego]
+        non_ego_pos = tokenized_agent["initial_pos"][non_ego]
+        non_ego_head = tokenized_agent["initial_heading"][non_ego]
 
-            shape[non_ego, :2] = pred_init[:, -2:]
+        local_pos, local_heading = transform_to_local(
+            non_ego_pos,
+            non_ego_head,
+            batch_ego_pos,
+            batch_ego_heading,
+        )
 
-            pos_a = pred_init[:, :2 * n_step].reshape(-1, n_step, 2)
+        heading_vec = torch.stack(
+            [local_heading.cos(), local_heading.sin()],
+            dim=-1,
+        )
 
-            inter_heading_cos = pred_init[:, 2 * n_step:3 * n_step]
-
-            inter_heading_sin = pred_init[:, 3 * n_step:4 * n_step]
-
-            head_a = torch.atan2(inter_heading_sin, inter_heading_cos)
-
-            rel_pos = pred_init[:, 4 * n_step:12 * n_step].reshape(-1, n_step, 4, 2)
-
-            rel_heading_cos = pred_init[:, 12 * n_step:16 * n_step].reshape(-1, n_step, 4)
-
-            rel_heading_sin = pred_init[:, 16 * n_step:20 * n_step].reshape(-1, n_step, 4)
-
-            rel_heading = torch.atan2(rel_heading_sin, rel_heading_cos)
-
-
-            all_pos,all_heading=transform_to_global(
-                pos_a,
-                head_a,
-                batch_ego_pos,
-                batch_ego_heading,
-            )
-
-            rel_pos,rel_heading=transform_to_global(
-                rel_pos.flatten(0,1),
-                rel_heading.flatten(0,1),
-                all_pos.flatten(0,1),
-                all_heading.flatten(0,1),
-            )
-
-            rel_pos=rel_pos.reshape(-1, n_step, 4, 2)
-            rel_heading=rel_heading.reshape(-1, n_step, 4)
-
-            gt_initial_pos=torch.cat([all_pos[:,:,None],rel_pos],dim=2)
-
-            gt_initial_heading=torch.cat([all_heading[:,:,None],rel_heading],dim=2)
-
-            gt_initial_pos=gt_initial_pos.reshape(-1, n_step*5,2)[:,:-4]
-
-            gt_initial_heading=gt_initial_heading.reshape(-1,n_step*5)[:,:-4]
-
-            gt_initial_vel= (gt_initial_pos[:,15]-gt_initial_pos[:,10])/0.5
-            gt_initial_idx=None
+        if "local_vel" in tokenized_agent:
+            local_vel = tokenized_agent["local_vel"][non_ego]
         else:
-            pred_trans, pred_head, pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4], pred_init[..., 4:6], \
-                pred_init[..., 6:]
-
-            pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-
-            shape[non_ego, :2] = pred_shape[:, :2]
-
-            global_pos,global_heading=transform_to_global(
-                pred_trans,
-                pred_head,
-                batch_ego_pos,
-                batch_ego_heading,
+            # Same convention as the old code: velocity is local to the
+            # generated agent heading.
+            local_vel = rotate_to_local(
+                tokenized_agent["initial_vel"][non_ego],
+                non_ego_head,
             )
 
-            gt_initial_pos[non_ego] = global_pos
-            gt_initial_heading[non_ego] = global_heading
+        m_init = torch.cat(
+            [
+                local_pos,
+                heading_vec,
+                initial_shape[:, :2],
+                local_vel[:, :2],
+            ],
+            dim=-1,
+        )
 
-            if self.token_processor.pred_all_pos:
-                local_allpos, local_allheading = transform_to_global(tokenized_agent["all_pred"][:,:,:2],
-                                                                    tokenized_agent["all_pred"][:,:,2],
-                                                                    gt_initial_pos,
-                                                                    gt_initial_heading)
+        # Ensure forward() has the same agent-level metadata as m_init.
+        if "batch" in tokenized_agent:
+            tokenized_agent["nonego_batch"] = tokenized_agent["batch"][non_ego]
+        if "type" in tokenized_agent:
+            tokenized_agent["nonego_type"] = tokenized_agent["type"][non_ego].long()
 
-                tokenized_agent["local_allpos"]=local_allpos
-                tokenized_agent["local_allheading"]=local_allheading
+        tokenized_agent["num_graphs"] = int(tokenized_agent["batch"].max().item()) + 1
 
+        diff_input = m_init
+        diff_output = m_init
 
+        self._maybe_init_normalizer(diff_output)
 
-            if "local_vel" in tokenized_agent.keys():
-                rel_vel = tokenized_agent["local_vel"].clone()
+        return diff_input, diff_output
 
-                rel_vel[non_ego] = pred_vel[:, :2]
+    # ---------------------------------------------------------------------
+    # Embedding helpers
+    # ---------------------------------------------------------------------
+    def drop_labels(self, labels: torch.Tensor, mode: int) -> torch.Tensor:
+        if mode == 1:
+            drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
+            return torch.where(drop, torch.full_like(labels, self.num_classes), labels)
+        return torch.full_like(labels, self.num_classes)
 
-                gt_initial_vel=rotate_to_global(rel_vel, gt_initial_heading)
+    def _format_beta(self, beta: torch.Tensor, n_agent: int) -> torch.Tensor:
+        if beta.ndim == 3:
+            beta = beta[:, 0]
+        elif beta.ndim == 1:
+            beta = beta[:, None]
 
+        if beta.shape[0] != n_agent:
+            raise ValueError(
+                f"beta first dim must match agents: beta={tuple(beta.shape)}, N={n_agent}."
+            )
+
+        if beta.shape[-1] == 1:
+            beta = beta.expand(-1, self.m_delta_dim)
+
+        return beta
+
+    def _ego_context_embedding(
+        self,
+        pos_s: torch.Tensor,
+        theta: torch.Tensor,
+        batch: torch.Tensor,
+        tokenized_agent,
+    ) -> torch.Tensor:
+        if "ego_feat" not in tokenized_agent:
+            raise KeyError(
+                "tokenized_agent['ego_feat'] is required by InitDenoiser. "
+                "Build it in the tokenizer before calling the denoiser."
+            )
+
+        ego_feat = tokenized_agent["ego_feat"]
+
+        ego_pose = ego_feat[:, :-3]
+        type_count = ego_feat[:, -3:][batch]
+
+        if ego_pose.shape[-1] != self.ego_dim:
+            raise ValueError(
+                f"Expected ego pose dim {self.ego_dim}, got {ego_pose.shape[-1]}."
+            )
+
+        # [num_graphs, 3, 3] -> [N_agent, 3, 3]
+        # Last dim is expected to be [x, y, heading].
+        ego_pose = ego_pose.reshape(-1, 3, 3)
+        all_pos = ego_pose[:, :, :2][batch]
+        all_head = ego_pose[:, :, 2][batch]
+
+        local_ego_pos, local_ego_head = transform_to_local(
+            all_pos,
+            all_head,
+            pos_s,
+            theta,
+        )
+
+        ego_features = torch.cat(
+            [
+                local_ego_pos.flatten(1, 2),
+                local_ego_head,
+                type_count,
+            ],
+            dim=-1,
+        )
+
+        return self.ego_embed(ego_features)
+
+    def _embed_agents(
+        self,
+        m_delta: torch.Tensor,
+        beta: torch.Tensor,
+        agent_type: torch.Tensor,
+        batch: torch.Tensor,
+        tokenized_agent,
+        mode: int,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        if self.label_drop_prob > 0:
+            if self.training:
+                agent_type = self.drop_labels(agent_type, mode)
+            elif mode == 0:
+                agent_type = torch.full_like(agent_type, self.num_classes)
+
+        beta = self._format_beta(beta, m_delta.shape[0])
+
+        theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
+        pos_s = m_delta[:, :2]
+
+        feat_a = self.state_embedder(
+            m_delta=m_delta,
+            beta=beta,
+            agent_type=agent_type,
+        )
+
+        ego_embedding = self._ego_context_embedding(
+            pos_s=pos_s,
+            theta=theta,
+            batch=batch,
+            tokenized_agent=tokenized_agent,
+        )
+
+        feat_a = feat_a + ego_embedding
+
+        return feat_a, pos_s, theta
+
+    # ---------------------------------------------------------------------
+    # Graph denoising
+    # ---------------------------------------------------------------------
+    def _apply_graph_attention(
+        self,
+        feat_a: torch.Tensor,
+        pos_s: torch.Tensor,
+        theta: torch.Tensor,
+        batch: torch.Tensor,
+        tokenized_agent,
+        map_feature: Mapping[str, torch.Tensor],
+        num_graphs: int,
+    ) -> torch.Tensor:
+        batch_pl = map_feature["batch"]
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
+        feat_map = self.lane_embed(map_feature["pt_token"])
+
+        head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
+
+        edge_index_a2a, r_a2a, *_ = self.edge_encoder.build_interaction_edge(
+            pos_s=pos_s,
+            head_s=theta,
+            head_vector_s=head_vector_s,
+            batch_s=batch,
+            mask=None,
+            max_radius=60,
+            max_num_neighbors=20,
+            agent_train_mask=None,
+            layer_num=self.num_layers,
+            counter_feat_a=None,
+            dis_edge_mask=None,
+        )
+
+        # If the agent batch has been repeated for MC/SDE samples, map_feature is
+        # still stored over the original scenes. Reconstruct [N, S] agent tensors
+        # for map-to-agent attention, following the old implementation.
+        if batch_pl.numel() > 0 and int(batch_pl.max().item()) != num_graphs - 1:
+            if "non_ego_valid" not in tokenized_agent:
+                batch_for_map = tokenized_agent["repeat_batch"]
+                n_step = batch_for_map.shape[1]
+
+                pos_for_map = pos_s.reshape(n_step, -1, 2).transpose(0, 1)
+                theta_for_map = theta.reshape(n_step, -1).transpose(0, 1)
+                mask_for_map = torch.ones_like(batch_for_map, dtype=torch.bool)
             else:
-                if self.use_speed:
-                    global_pred_vel = torch.stack([global_heading.cos(), global_heading.sin()], dim=-1) * pred_vel
-                else:
-                    global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
+                valid = tokenized_agent["non_ego_valid"]
+                n_step = valid.shape[0]
 
-                gt_initial_vel = tokenized_agent["initial_vel"].clone()
+                pos_global, theta_global = transform_to_global(
+                    pos_s,
+                    theta,
+                    tokenized_agent["batch_ego_pos"],
+                    tokenized_agent["batch_ego_heading"],
+                )
 
-                gt_initial_vel[non_ego] = global_pred_vel
+                pos_b = torch.zeros(
+                    [valid.shape[0], valid.shape[1], 2],
+                    device=pos_s.device,
+                    dtype=pos_s.dtype,
+                )
+                theta_b = torch.zeros(
+                    [valid.shape[0], valid.shape[1]],
+                    device=theta.device,
+                    dtype=theta.dtype,
+                )
 
-                rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
+                pos_b[valid] = pos_global
+                theta_b[valid] = theta_global
 
-            use_corner = False
+                pos_for_map = pos_b.transpose(0, 1)
+                theta_for_map = theta_b.transpose(0, 1)
+                mask_for_map = valid.transpose(0, 1)
+                batch_for_map = tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
+        else:
+            pos_for_map = pos_s
+            theta_for_map = theta
+            mask_for_map = None
+            batch_for_map = batch
 
-            if use_corner:
-                center_token_traj = tokenized_agent["token_traj"].flatten(1, 2)
-            else:
-                center_token_traj = tokenized_agent["token_traj"].mean(-2)
+        head_vector_for_map = torch.stack(
+            [theta_for_map.cos(), theta_for_map.sin()],
+            dim=-1,
+        )
 
-            if self.use_prev_head:
-                rel_vel_heading=torch.atan2(pred_vel[:, 3], pred_vel[:, 2]) #local heading
+        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+            pos_pl=pos_pl,
+            orient_pl=orient_pl,
+            pos_a=pos_for_map,
+            head_a=theta_for_map,
+            head_vector_a=head_vector_for_map,
+            mask=mask_for_map,
+            batch_s=batch_for_map,
+            batch_pl=batch_pl,
+            pl2a_radius=40,
+            max_num_neighbors=20,
+            agent_train_mask=None,
+            layer_num=self.num_layers,
+        )
 
-                vel_heading = torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
+        for layer_i in range(self.num_layers):
+            feat_a = self.a2a_attn_layers[layer_i](
+                feat_a,
+                r_a2a,
+                edge_index_a2a,
+            )
+            feat_a = self.pt2a_attn_layers[layer_i](
+                (feat_map, feat_a),
+                r_pl2a,
+                edge_index_pl2a,
+            )
 
-                vel_heading[non_ego]=rel_vel_heading # local heading
+        return self.to_out_m_delta(feat_a)
 
-                pred_pos=transform_to_global(
-                    center_token_traj,
-                    None,
-                    - rel_vel*0.5,
-                    vel_heading,
-                )[0]
+    # ---------------------------------------------------------------------
+    # Forward
+    # ---------------------------------------------------------------------
+    def forward(
+        self,
+        m_delta: torch.Tensor,
+        beta: torch.Tensor,
+        tokenized_agent,
+        map_feature: Mapping[str, torch.Tensor],
+        eval_mask: Optional[torch.Tensor] = None,
+        mode: int = 1,
+    ) -> torch.Tensor:
+        m_delta = m_delta.reshape(m_delta.shape[0], -1)
 
-                if use_corner:
-                    token_traj=tokenized_agent["token_traj"]
-                    gt_initial_idx = torch.linalg.norm(pred_pos.reshape(token_traj.shape)-token_traj[:,:1], dim=-1).mean(-1).argmin(-1)
-                else:
-                    gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
-            else:
-                # vel_heading = torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
-                # pred_pos=transform_to_global(
-                #     center_token_traj,
-                #     None,
-                #     - rel_vel*0.5,
-                #     vel_heading,
-                # )[0]
-                # gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
+        batch = tokenized_agent["nonego_batch"]
+        agent_type = tokenized_agent["nonego_type"].long()
+        num_graphs = tokenized_agent["num_graphs"]
 
-                gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)[:, None]
+        if eval_mask is not None:
+            m_delta = m_delta[eval_mask]
+            beta = beta[eval_mask]
+            batch = batch[eval_mask]
+            agent_type = agent_type[eval_mask]
 
-                if pred_vel.shape[-1]>2:
+        feat_a, pos_s, theta = self._embed_agents(
+            m_delta=m_delta,
+            beta=beta,
+            agent_type=agent_type,
+            batch=batch,
+            tokenized_agent=tokenized_agent,
+            mode=mode,
+        )
 
-                    prev_initial_idx = torch.linalg.norm(center_token_traj - pred_vel[:, None,2:4] * 0.5, dim=-1).argmin(-1)[:, None]
+        res = self._apply_graph_attention(
+            feat_a=feat_a,
+            pos_s=pos_s,
+            theta=theta,
+            batch=batch,
+            tokenized_agent=tokenized_agent,
+            map_feature=map_feature,
+            num_graphs=num_graphs,
+        )
 
-                    gt_initial_idx=torch.cat([prev_initial_idx,gt_initial_idx],dim=-1)
+        res_theta = torch.atan2(res[:, 3], res[:, 2])
 
-                # import numpy as np
-                # import matplotlib.pyplot as plt
-                #
-                # plt.scatter(x=center_token_traj[0,:,0].cpu().numpy(),y=center_token_traj[0,:,1].cpu().numpy())
-                # plt.savefig('/home/ke/code/sim/src/1.png')
+        if self.x_pred:
+            base_pos = m_delta[:, :2]
+        else:
+            base_pos = torch.zeros_like(m_delta[:, :2])
 
-            gt_initial_pos,gt_initial_heading=gt_initial_pos[:, None], gt_initial_heading[:, None]
+        base_theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
 
-        return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
+        local_pos, local_theta = transform_to_global(
+            res[:, :2],
+            res_theta,
+            base_pos,
+            base_theta,
+        )
 
+        res = torch.cat(
+            [
+                local_pos,
+                torch.cos(local_theta)[:, None],
+                torch.sin(local_theta)[:, None],
+                res[:, 4:],
+            ],
+            dim=-1,
+        )
 
-class ExploreNoiseNet(nn.Module):
-    '''
-    Neural network to generate learnable exploration noise, conditioned on time embeddings and or state embeddings.
-    sigma(s, t) or sigma(s)
-    '''
+        # Used by learn_init value head / RL loss when beta=0 for non-ego agents.
+        ego_mask = tokenized_agent.get("ego_mask", None)
+        if ego_mask is not None and beta.shape[0] >= int((~ego_mask).sum().item()):
+            try:
+                beta_check = self._format_beta(beta, m_delta.shape[0])
+                if torch.all(beta_check == 0):
+                    tokenized_agent["noise_feat"] = feat_a
+            except Exception:
+                pass
 
-    def __init__(self,
-                 in_dim: int,
-                 out_dim: int,
-                 logprob_denoising_std_range: list,  # [min_std, max_std]
-                 device,
-                 hidden_dims=None,  # [8]  [32],
-                 activation_type='Tanh'
-                 ):
-        super().__init__()
-        self.device = device
-        hidden_dims = [16] if hidden_dims is None else hidden_dims
-        self.mlp_logvar = MLPLayer(in_dim, hidden_dims, out_dim)
+        return res[:, None]
 
-        self.set_noise_range(logprob_denoising_std_range)
+    # ---------------------------------------------------------------------
+    # Convert generated local initial state back to global tokenized fields
+    # ---------------------------------------------------------------------
+    def get_output(self, pred_init: torch.Tensor, tokenized_agent):
+        non_ego = tokenized_agent["non_ego"]
 
-    def set_noise_range(self, logprob_denoising_std_range: list):
-        self.logprob_denoising_std_range = logprob_denoising_std_range
-        min_logprob_denoising_std = self.logprob_denoising_std_range[0]
-        max_logprob_denoising_std = self.logprob_denoising_std_range[1]
-        self.logvar_min = torch.nn.Parameter(
-            torch.log(torch.tensor(min_logprob_denoising_std ** 2, dtype=torch.float32, device=self.device)),
-            requires_grad=False)
-        self.logvar_max = torch.nn.Parameter(
-            torch.log(torch.tensor(max_logprob_denoising_std ** 2, dtype=torch.float32, device=self.device)),
-            requires_grad=False)
+        gt_initial_pos = tokenized_agent["initial_pos"].clone()
+        gt_initial_heading = tokenized_agent["initial_heading"].clone()
+        gt_initial_vel = tokenized_agent["initial_vel"].clone()
+        shape = tokenized_agent["initial_shape"].clone()
 
-    def forward(self, noise_feature: torch.Tensor):
-        '''
-        '''
-        noise_logvar = self.mlp_logvar(noise_feature)
-        noise_std = self.process_noise(noise_logvar)
-        return noise_std
+        batch_ego_pos = tokenized_agent["batch_ego_pos"]
+        batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
-    def process_noise(self, noise_logvar):
-        '''
-        input:
-            torch.Tensor([B, Ta , Da])   log sigma^2
-        output:
-            torch.Tensor([B, 1, Ta * Da]), sigma, floating point values, bounded in [min_logprob_denoising_std, max_logprob_denoising_std]
-        '''
-        noise_logvar = noise_logvar
-        noise_logvar = torch.tanh(noise_logvar)
-        noise_logvar = self.logvar_min + (self.logvar_max - self.logvar_min) * (noise_logvar + 1) / 2.0
-        noise_std = torch.exp(0.5 * noise_logvar)
-        return noise_std
+        pred_trans = pred_init[..., :2]
+        pred_head = pred_init[..., 2:4]
+        pred_shape = pred_init[..., 4:6]
+        pred_vel = pred_init[..., 6:8]
 
+        pred_heading = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
-class SkipMLP(torch.nn.Module):
-    def __init__(self, d_model=128, act_layer=nn.GELU):
-        super().__init__()
-        self.linear = torch.nn.Linear(d_model, d_model)
-        self.ac = act_layer()
-        self.norm1 = nn.LayerNorm([d_model])
-        self.norm2 = nn.LayerNorm([d_model])
+        shape[non_ego, :2] = pred_shape[:, :2]
 
-    def forward(self, x):
-        out = x + self.ac(self.linear(x))
-        out = self.norm2(x + self.norm1(out))
-        return out
+        global_pos, global_heading = transform_to_global(
+            pred_trans,
+            pred_heading,
+            batch_ego_pos,
+            batch_ego_heading,
+        )
+
+        gt_initial_pos[non_ego] = global_pos
+        gt_initial_heading[non_ego] = global_heading
+
+        # pred_vel is local to generated heading.
+        global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
+        gt_initial_vel[non_ego] = global_pred_vel
+
+        rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
+
+        # Map generated velocity to closest token initial index.
+        center_token_traj = tokenized_agent["token_traj"].mean(-2)
+        gt_initial_idx = torch.linalg.norm(
+            center_token_traj - rel_vel[:, None] * 0.5,
+            dim=-1,
+        ).argmin(-1)[:, None]
+
+        gt_initial_pos = gt_initial_pos[:, None]
+        gt_initial_heading = gt_initial_heading[:, None]
+
+        return (
+            gt_initial_pos,
+            gt_initial_heading,
+            shape,
+            gt_initial_vel,
+            gt_initial_idx,
+        )
