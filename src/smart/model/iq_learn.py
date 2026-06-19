@@ -507,8 +507,8 @@ class IQ_SoftQ(LightningModule):
        #  tokenized_agent["pred_mask"] =tokenized_agent["token_mask"].all(1)
         # else:
         #     tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
-        if self.encoder.learn_dis and (self.global_step%4==0) :
-                expert_dis_loss,_,_,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+        if self.encoder.learn_dis: #and (self.global_step%4==0) :
+            expert_dis_loss,_,_,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
         else:
             expert_dis_loss=expert_gp=0
             expert_dis_mask=None
@@ -519,15 +519,15 @@ class IQ_SoftQ(LightningModule):
         # agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step)
 
         if self.encoder.learn_dis:
-            if  (self.global_step%4==0) :
-                agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
-                    tokenized_agent_rollout, "agent", expert_dis_mask
-                )
-            else:
-                with torch.no_grad():
-                    agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
-                        tokenized_agent_rollout, "agent", expert_dis_mask
-                    )
+           # if  (self.global_step%4==0) :
+            agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+                tokenized_agent_rollout, "agent", expert_dis_mask
+            )
+            # else:
+            #     with torch.no_grad():
+            #         agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+            #             tokenized_agent_rollout, "agent", expert_dis_mask
+            #         )
             critic_loss = expert_dis_loss + agent_dis_loss + agent_gp+expert_gp
         else:
             critic_loss = tokenized_agent_rollout["sampled_pos"].new_zeros(())
@@ -539,7 +539,7 @@ class IQ_SoftQ(LightningModule):
         else:
             actor_optimizer, discriminator_optimizer = self.optimizers()
 
-        if self.encoder.learn_dis and (self.global_step%4==0):
+        if self.encoder.learn_dis :#and (self.global_step%4==0):
            # print(self.global_step)
             discriminator_optimizer.zero_grad()
             critic_loss.backward()
