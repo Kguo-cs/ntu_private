@@ -581,17 +581,21 @@ class IQ_SoftQ(LightningModule):
         ppo_advantages = advantages_flat[-len(agent_log_prob):]
         ppo_loss = -(agent_log_prob * ppo_advantages).mean()
 
-        value_loss=all_value_loss.mean()#[1:]
-        init_value_loss=all_value_loss[:1].mean()
+        if self.token_processor.learn_init:
+            value_loss=all_value_loss[1:].mean()
+            init_value_loss=all_value_loss[:1].mean()
+            self.log("train/init_value_loss", init_value_loss, on_step=True, batch_size=1)
+        else:
+            value_loss=all_value_loss.mean()
+            init_value_loss=0
 
         self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var, on_step=True, batch_size=1)
         self.log("train/ppo_loss", ppo_loss, on_step=True, batch_size=1)
         self.log("train/advantages", ppo_advantages.mean(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss, on_step=True, batch_size=1)
-        self.log("train/init_value_loss", init_value_loss, on_step=True, batch_size=1)
 
-        policy_loss = expert_nll + ppo_loss + 0.01 *value_loss#+init_value_loss  # -  agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 1e-2 *value_loss+init_value_loss  # -  agent_entropy.mean()
 
         actor_optimizer.zero_grad()
 
