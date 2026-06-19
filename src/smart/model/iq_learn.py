@@ -539,7 +539,8 @@ class IQ_SoftQ(LightningModule):
         else:
             actor_optimizer, discriminator_optimizer = self.optimizers()
 
-        if self.encoder.learn_dis and (self.global_step%10==0):
+        if self.encoder.learn_dis and (self.global_step%4==0):
+            print(self.global_step)
             discriminator_optimizer.zero_grad()
             critic_loss.backward()
             discriminator_optimizer.step()
