@@ -189,8 +189,8 @@ class ScaleFlow(nn.Module):
                  num_samples=1) :
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
-        agent_batch = tokenized_agent["nonego_batch"]
-        nonego_type=tokenized_agent["nonego_type"]
+        agent_batch = tokenized_agent["init_agent_batch"]
+        init_agent_type=tokenized_agent["init_agent_type"]
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
@@ -199,12 +199,12 @@ class ScaleFlow(nn.Module):
         else:
             e = torch.randn_like(x)
 
-        e=self.model.denormalize(e,nonego_type)
+        e=self.model.denormalize(e,init_agent_type)
 
         # perm = sort_agents_by_xy_keep_last(
         #         pos=x[:,0,:2],
         #         batch=agent_batch,
-        #         agent_type=nonego_type,
+        #         agent_type=init_agent_type,
         #         num_types=3,
         #     )
         #
@@ -656,7 +656,7 @@ class ScaleFlow(nn.Module):
         num_agents = len(z)
 
         if self.model.use_return_conditioned:
-            tokenized_agent["advantages"]=torch.ones_like(tokenized_agent["nonego_batch"]).to(torch.float32)
+            tokenized_agent["advantages"]=torch.ones_like(tokenized_agent["init_agent_batch"]).to(torch.float32)
 
         if self.use_cluster:
             t_n=t_n[:,None,None]
@@ -791,9 +791,9 @@ class ScaleFlow(nn.Module):
     @torch.no_grad()
     def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1):
 
-        agent_batch = tokenized_agent["nonego_batch"]
+        agent_batch = tokenized_agent["init_agent_batch"]
         num_graphs = tokenized_agent["num_graphs"]
-        nonego_type = tokenized_agent["nonego_type"]
+        init_agent_type = tokenized_agent["init_agent_type"]
         num_agents = len(agent_batch)
 
         if self.use_uniform:
@@ -801,7 +801,7 @@ class ScaleFlow(nn.Module):
         else:
             z = torch.randn(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
 
-        z=self.model.denormalize(z,nonego_type)
+        z=self.model.denormalize(z,init_agent_type)
 
         diff_input, diff_output = self.model.get_input(tokenized_agent)
 
@@ -809,10 +809,10 @@ class ScaleFlow(nn.Module):
 
         # real_pos = z[:, 0, 0] + z[:, 0, 1]
         # real_idx = torch.argsort(real_pos, stable=True)
-        # real_idx = real_idx[torch.argsort(nonego_type[real_idx], stable=True)]
+        # real_idx = real_idx[torch.argsort(init_agent_type[real_idx], stable=True)]
         # real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
         #z = z[real_idx]
-        #tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][real_idx]
+        #tokenized_agent["init_agent_type"] = tokenized_agent["init_agent_type"][real_idx]
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=z.device, dtype=torch.float32)
@@ -844,7 +844,7 @@ class ScaleFlow(nn.Module):
         if self.use_scale:
             type_counts=tokenized_agent["type_counts"]
 
-            agent_type = tokenized_agent["nonego_type"]
+            agent_type = tokenized_agent["init_agent_type"]
 
             num_types = 3
 
@@ -972,7 +972,7 @@ class ScaleFlow(nn.Module):
 
         # inv_real_idx = torch.empty_like(real_idx)
         # inv_real_idx[real_idx] = torch.arange(real_idx.numel(), device=real_idx.device)
-        # tokenized_agent["nonego_type"] = tokenized_agent["nonego_type"][inv_real_idx]
+        # tokenized_agent["init_agent_type"] = tokenized_agent["init_agent_type"][inv_real_idx]
         # z=z[inv_real_idx]
 
         if self.pred_all_pos:
@@ -1046,10 +1046,10 @@ class ScaleFlow(nn.Module):
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     def repeat_input_copy(self, tokenized_agent, n_step):
-        out =tokenized_agent # dict(tokenized_agent)
+        out = dict(tokenized_agent)
 
         num_graphs = tokenized_agent["num_graphs"]
-        batch = tokenized_agent["nonego_batch"]
+        batch = tokenized_agent["init_agent_batch"]
 
         out["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)
 
@@ -1058,8 +1058,8 @@ class ScaleFlow(nn.Module):
             dim=1,
         ).transpose(0, 1).flatten(0, 1)
 
-        out["nonego_batch"] = repeated_batch
-        out["nonego_type"] = tokenized_agent["nonego_type"][None].repeat(
+        out["init_agent_batch"] = repeated_batch
+        out["init_agent_type"] = tokenized_agent["init_agent_type"][None].repeat(
             n_step, 1
         ).flatten(0, 1)
         out["num_graphs"] = num_graphs * n_step

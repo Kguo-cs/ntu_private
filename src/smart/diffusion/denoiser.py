@@ -316,7 +316,7 @@ class InitDenoiser(nn.Module):
         scale = self.normal_scale.clamp_min(1e-6)
         return (input - self.normal_mean[None]) / scale[None]
 
-    def denormalize(self, input: torch.Tensor, nonego_type=None) -> torch.Tensor:
+    def denormalize(self, input: torch.Tensor, init_agent_type=None) -> torch.Tensor:
         scale = self.normal_scale.clamp_min(1e-6)
         return input * scale[None] + self.normal_mean[None]
 
@@ -344,7 +344,7 @@ class InitDenoiser(nn.Module):
     # Tokenized-agent input construction
     # ---------------------------------------------------------------------
     def get_input(self, tokenized_agent) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Build local non-ego initial state.
+        """Build local all-agent initial state.
 
         Returns:
             diff_input:
@@ -352,29 +352,27 @@ class InitDenoiser(nn.Module):
             diff_output:
                 Target state to reconstruct / generate.
 
-        Both have shape [N_non_ego, 8]:
+        Both have shape [N_agent, 8]:
             [local_x, local_y, cos(local_heading), sin(local_heading),
              length, width, local_vx, local_vy]
+
+        Notes:
+            The previous implementation used a mask that was immediately
+            set to all True in ``InitDiffusion.forward``. This cleaned version
+            therefore treats every agent as part of the
+            initial-state generation set and uses explicit all-agent metadata:
+                ``init_agent_batch`` and ``init_agent_type``.
         """
-        if "ego_mask" not in tokenized_agent:
-            batch = tokenized_agent["batch"]
-            ego_mask = torch.ones_like(batch, dtype=torch.bool)
-            ego_mask[:-1] = batch[:-1] != batch[1:]
-            tokenized_agent["ego_mask"] = ego_mask
-
-        non_ego = ~tokenized_agent["ego_mask"]
-        tokenized_agent["non_ego"] = non_ego
-
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
-        initial_shape = tokenized_agent["initial_shape"][non_ego]
-        non_ego_pos = tokenized_agent["initial_pos"][non_ego]
-        non_ego_head = tokenized_agent["initial_heading"][non_ego]
+        initial_shape = tokenized_agent["initial_shape"]
+        agent_pos = tokenized_agent["initial_pos"]
+        agent_head = tokenized_agent["initial_heading"]
 
         local_pos, local_heading = transform_to_local(
-            non_ego_pos,
-            non_ego_head,
+            agent_pos,
+            agent_head,
             batch_ego_pos,
             batch_ego_heading,
         )
@@ -385,13 +383,13 @@ class InitDenoiser(nn.Module):
         )
 
         if "local_vel" in tokenized_agent:
-            local_vel = tokenized_agent["local_vel"][non_ego]
+            local_vel = tokenized_agent["local_vel"]
         else:
-            # Same convention as the old code: velocity is local to the
+            # Same convention as the old code: velocity is local to each
             # generated agent heading.
             local_vel = rotate_to_local(
-                tokenized_agent["initial_vel"][non_ego],
-                non_ego_head,
+                tokenized_agent["initial_vel"],
+                agent_head,
             )
 
         m_init = torch.cat(
@@ -405,11 +403,8 @@ class InitDenoiser(nn.Module):
         )
 
         # Ensure forward() has the same agent-level metadata as m_init.
-        if "batch" in tokenized_agent:
-            tokenized_agent["nonego_batch"] = tokenized_agent["batch"][non_ego]
-        if "type" in tokenized_agent:
-            tokenized_agent["nonego_type"] = tokenized_agent["type"][non_ego].long()
-
+        tokenized_agent["init_agent_batch"] = tokenized_agent["batch"]
+        tokenized_agent["init_agent_type"] = tokenized_agent["type"].long()
         tokenized_agent["num_graphs"] = int(tokenized_agent["batch"].max().item()) + 1
 
         diff_input = m_init
@@ -566,7 +561,7 @@ class InitDenoiser(nn.Module):
         # still stored over the original scenes. Reconstruct [N, S] agent tensors
         # for map-to-agent attention, following the old implementation.
         if batch_pl.numel() > 0 and int(batch_pl.max().item()) != num_graphs - 1:
-            if "non_ego_valid" not in tokenized_agent:
+            if "agent_valid" not in tokenized_agent:
                 batch_for_map = tokenized_agent["repeat_batch"]
                 n_step = batch_for_map.shape[1]
 
@@ -574,7 +569,7 @@ class InitDenoiser(nn.Module):
                 theta_for_map = theta.reshape(n_step, -1).transpose(0, 1)
                 mask_for_map = torch.ones_like(batch_for_map, dtype=torch.bool)
             else:
-                valid = tokenized_agent["non_ego_valid"]
+                valid = tokenized_agent["agent_valid"]
                 n_step = valid.shape[0]
 
                 pos_global, theta_global = transform_to_global(
@@ -656,8 +651,8 @@ class InitDenoiser(nn.Module):
     ) -> torch.Tensor:
         m_delta = m_delta.reshape(m_delta.shape[0], -1)
 
-        batch = tokenized_agent["nonego_batch"]
-        agent_type = tokenized_agent["nonego_type"].long()
+        batch = tokenized_agent["init_agent_batch"]
+        agent_type = tokenized_agent["init_agent_type"].long()
         num_graphs = tokenized_agent["num_graphs"]
 
         if eval_mask is not None:
@@ -711,7 +706,7 @@ class InitDenoiser(nn.Module):
             dim=-1,
         )
 
-        # Used by learn_init value head / RL loss when beta=0 for non-ego agents.
+        # Used by learn_init value head / RL loss when beta=0 for all agents.
         ego_mask = tokenized_agent.get("ego_mask", None)
         if ego_mask is not None and beta.shape[0] >= int((~ego_mask).sum().item()):
             try:
@@ -727,8 +722,7 @@ class InitDenoiser(nn.Module):
     # Convert generated local initial state back to global tokenized fields
     # ---------------------------------------------------------------------
     def get_output(self, pred_init: torch.Tensor, tokenized_agent):
-        non_ego = tokenized_agent["non_ego"]
-
+        """Convert generated local all-agent initial state back to global fields."""
         gt_initial_pos = tokenized_agent["initial_pos"].clone()
         gt_initial_heading = tokenized_agent["initial_heading"].clone()
         gt_initial_vel = tokenized_agent["initial_vel"].clone()
@@ -744,7 +738,7 @@ class InitDenoiser(nn.Module):
 
         pred_heading = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
-        shape[non_ego, :2] = pred_shape[:, :2]
+        shape[:, :2] = pred_shape[:, :2]
 
         global_pos, global_heading = transform_to_global(
             pred_trans,
@@ -753,12 +747,12 @@ class InitDenoiser(nn.Module):
             batch_ego_heading,
         )
 
-        gt_initial_pos[non_ego] = global_pos
-        gt_initial_heading[non_ego] = global_heading
+        gt_initial_pos = global_pos
+        gt_initial_heading = global_heading
 
         # pred_vel is local to generated heading.
         global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
-        gt_initial_vel[non_ego] = global_pred_vel
+        gt_initial_vel = global_pred_vel
 
         rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
 
@@ -779,3 +773,4 @@ class InitDenoiser(nn.Module):
             gt_initial_vel,
             gt_initial_idx,
         )
+

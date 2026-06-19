@@ -75,57 +75,62 @@ class InitDiffusion(nn.Module):
         ego_heading = tokenized_agent["initial_heading"][ego_mask]
 
         if "ego_feat" not in tokenized_agent.keys():
-            non_ego = ~ego_mask
+            init_agent_batch = tokenized_agent["batch"]
+            tokenized_agent["init_agent_batch"] = init_agent_batch
 
-           # if self.use_all_pos or self.pred_all_pos:
-            non_ego=torch.ones_like(non_ego)
+            tokenized_agent["batch_ego_pos"] = ego_position[init_agent_batch]
+            tokenized_agent["batch_ego_heading"] = ego_heading[init_agent_batch]
 
-            tokenized_agent["non_ego"]=non_ego
-
-            nonego_batch = tokenized_agent["batch"][non_ego]
-            tokenized_agent["nonego_batch"] = nonego_batch
-            tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
-            tokenized_agent["batch_ego_heading"] = ego_heading[nonego_batch]
-
-            nonego_type = tokenized_agent["type"][non_ego]
-            tokenized_agent['nonego_type'] = nonego_type
+            init_agent_type = tokenized_agent["type"].long()
+            tokenized_agent["init_agent_type"] = init_agent_type
 
             if "ego_traj" not in tokenized_agent.keys():
                 if self.G1.model.use_rel_ego:
-                    ego_pos2=tokenized_agent["ego_pos2"]
-                    ego_heading2=tokenized_agent["ego_heading2"]
+                    ego_pos2 = tokenized_agent["ego_pos2"]
+                    ego_heading2 = tokenized_agent["ego_heading2"]
 
-                    ego_local_pos2, ego_local_heading2=transform_to_local(ego_pos2, ego_heading2, ego_position, ego_heading)
+                    ego_local_pos2, ego_local_heading2 = transform_to_local(
+                        ego_pos2,
+                        ego_heading2,
+                        ego_position,
+                        ego_heading,
+                    )
 
-                    local_ego_traj=torch.cat([ego_local_pos2,ego_local_heading2[:,:,None]],dim=-1).flatten(1,2)
+                    local_ego_traj = torch.cat(
+                        [ego_local_pos2, ego_local_heading2[:, :, None]],
+                        dim=-1,
+                    ).flatten(1, 2)
                 else:
                     local_ego_traj = tokenized_agent["local_ego_traj"]
             else:
-               ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+                ego_traj = tokenized_agent["ego_traj"].reshape(len(ego_position), -1, 2)
 
-               local_ego_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0].flatten(1,2)
+                local_ego_traj = transform_to_local(
+                    ego_traj,
+                    None,
+                    ego_position,
+                    ego_heading,
+                )[0].flatten(1, 2)
 
-            num_types = 3  # since types are 0,1,2
-
-            idx = nonego_batch * num_types + nonego_type
+            num_types = 3
+            idx = init_agent_batch * num_types + init_agent_type
 
             type_counts = torch.bincount(
                 idx,
-                minlength=num_graphs * num_types
+                minlength=num_graphs * num_types,
             ).view(-1, num_types)
 
-            tokenized_agent["type_counts"]=type_counts
+            tokenized_agent["type_counts"] = type_counts
 
-            ego_feat=torch.cat([local_ego_traj,type_counts],dim=-1)
-
-            tokenized_agent["ego_feat"]=ego_feat
+            ego_feat = torch.cat([local_ego_traj, type_counts], dim=-1)
+            tokenized_agent["ego_feat"] = ego_feat
         else:
             ego_feat = tokenized_agent["ego_feat"]
-            nonego_batch=tokenized_agent["nonego_batch"]
+            init_agent_batch = tokenized_agent["init_agent_batch"]
 
         if not self.G1.model.use_rel_ego and not self.learn_autoencoder:
             ego_embedding=self.G1.ego_embedding1(ego_feat)
-            ego_embedding = ego_embedding[nonego_batch]
+            ego_embedding = ego_embedding[init_agent_batch]
 
             tokenized_agent["ego_embedding"] = ego_embedding
 
@@ -169,7 +174,7 @@ class InitDiffusion(nn.Module):
         else:
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
-        # pos_idx = get_type_position_index(nonego_batch, tokenized_agent["nonego_type"], num_types=3)
+        # pos_idx = get_type_position_index(init_agent_batch, tokenized_agent["init_agent_type"], num_types=3)
         #
         # tokenized_agent["pos_feat"] = sinusoidal_embedding(
         #     pos_idx[:, None] + 1, self.G1.hidden_dim
@@ -188,7 +193,7 @@ class InitDiffusion(nn.Module):
                 if self.use_rl:
                     pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
 
-                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init[:,:2], torch.atan2(pred_init[:,3],pred_init[:,2]), pred_init[:,4],pred_init[:,5],tokenized_agent["nonego_batch"])
+                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init[:,:2], torch.atan2(pred_init[:,3],pred_init[:,2]), pred_init[:,4],pred_init[:,5],tokenized_agent["init_agent_batch"])
 
                     N = len(pred_init)
 
@@ -208,7 +213,7 @@ class InitDiffusion(nn.Module):
 
                     col_reward_agent=-col_reward_end-col_reward_start
                     #
-                    # batch=tokenized_agent["nonego_batch"]
+                    # batch=tokenized_agent["init_agent_batch"]
                     #
                     # same_batch = batch[:, None] == batch[None, :]
                     # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
