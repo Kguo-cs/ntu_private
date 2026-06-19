@@ -282,7 +282,7 @@ class IQ_SoftQ(LightningModule):
 
         use_gp_this_step = (
                 self.use_gradient_penalty
-                and key == "expert"
+                and key == "agent"
                 and self.global_step % 4 == 0
         )
 
@@ -507,8 +507,8 @@ class IQ_SoftQ(LightningModule):
        #  tokenized_agent["pred_mask"] =tokenized_agent["token_mask"].all(1)
         # else:
         #     tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
-        if self.encoder.learn_dis:
-            expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+        if self.encoder.learn_dis and (self.global_step%10==0) :
+                expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
         else:
             expert_dis_loss=0
             expert_dis_mask=None
@@ -519,9 +519,15 @@ class IQ_SoftQ(LightningModule):
         # agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step)
 
         if self.encoder.learn_dis:
-            agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
-                tokenized_agent_rollout, "agent", expert_dis_mask
-            )
+            if  (self.global_step%10==0) :
+                agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+                    tokenized_agent_rollout, "agent", expert_dis_mask
+                )
+            else:
+                with torch.no_grad():
+                    agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+                        tokenized_agent_rollout, "agent", expert_dis_mask
+                    )
             critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
         else:
             critic_loss = tokenized_agent_rollout["sampled_pos"].new_zeros(())
@@ -533,7 +539,7 @@ class IQ_SoftQ(LightningModule):
         else:
             actor_optimizer, discriminator_optimizer = self.optimizers()
 
-        if self.encoder.learn_dis:
+        if self.encoder.learn_dis and (self.global_step%10==0):
             discriminator_optimizer.zero_grad()
             critic_loss.backward()
             discriminator_optimizer.step()
@@ -553,7 +559,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        feat_a = tokenized_agent_rollout["feat_a"] #.detach()
+        feat_a = tokenized_agent_rollout["feat_a"].detach()
 
         value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
 
@@ -590,7 +596,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/advantages", ppo_advantages.mean(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss, on_step=True, batch_size=1)
 
-        policy_loss = expert_nll + ppo_loss + 1e-2 *value_loss+init_value_loss  # -  agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + value_loss+init_value_loss  # 1e-2 *-  agent_entropy.mean()
 
         actor_optimizer.zero_grad()
 

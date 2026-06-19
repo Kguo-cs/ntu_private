@@ -863,17 +863,19 @@ model22_logitgp001_gpinter2_t10_epoch=4-step=199232-valmeta=0.6697.ckpt
 
 0.6506
 
-/home/ke/code/sim/src/waymo_data/model22_logitgp001_t10_epoch=3-step=143890-valmeta=0.6671.ckpt
+model22_logitgp001_t10_epoch=3-step=143890-valmeta=0.6671.ckpt
 
 0.6478
 
-/home/ke/code/sim/src/waymo_data/model22_t10_gp8_logitgp01_r10_epoch=3-step=143890-valmeta=0.6693.ckpt
+model22_t10_gp8_logitgp01_r10_epoch=3-step=143890-valmeta=0.6693.ckpt
 
 0.6500
 
-/home/ke/code/sim/src/waymo_data/all24_t10r10_gp8_logit01_noinit_sde07_epoch=1-step=85224-valmeta=0.6641.ckpt
+all24_t10r10_gp8_logit01_noinit_sde07_epoch=1-step=85224-valmeta=0.6641.ckpt
 
-/home/ke/code/sim/src/waymo_data/model24_t10r10_gp8_logit01_value_val64_epoch=4-step=202920-valmeta=0.6519.ckpt
+model24_t10r10_gp8_logit01_value_val64_epoch=4-step=202920-valmeta=0.6519.ckpt
+
+model24_t10r10_gp2_logit001_valuedetach_epoch=4-step=202920-valmeta=0.6515.ckpt
 
 
 take all position for generation
