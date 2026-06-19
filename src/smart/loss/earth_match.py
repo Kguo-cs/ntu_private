@@ -492,7 +492,7 @@ def get_col_rate(tokenized_agent,pred_init):
                                                                                torch.atan2(pred_init[:, 3],
                                                                                            pred_init[:, 2]),
                                                                                pred_init[:, 4], pred_init[:, 5],
-                                                                               tokenized_agent["nonego_batch"])
+                                                                               tokenized_agent["batch"])
 
     N = len(pred_init)
 
@@ -530,8 +530,8 @@ def get_closest_sum_idx(
         batch = tokenized_agent
         groups = [(batch == b) for b in batch.unique()]
     else:
-        batch = tokenized_agent["nonego_batch"][-len(fake_state):]
-        agent_type = tokenized_agent["nonego_type"][-len(fake_state):]
+        batch = tokenized_agent["batch"][-len(fake_state):]
+        agent_type = tokenized_agent["type"][-len(fake_state):]
         groups = [
             (batch == b) & (agent_type == t)
             for b in batch.unique()
@@ -581,7 +581,7 @@ def get_matching_loss(
         #
         # real_state = real_state[t_mask]
         #
-        batch = tokenized_agent["nonego_batch"][-len(fake_state):]#[t_mask]#
+        batch = tokenized_agent["batch"][-len(fake_state):]#[t_mask]#
         denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
         w=1/denom.square()
 
