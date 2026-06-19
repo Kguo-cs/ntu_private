@@ -131,6 +131,7 @@ class SMARTMapDecoder(nn.Module):
                 "batch": batch,
             }
         else:
+            map_range=120
             gt_initial_pos = tokenized_agent["initial_pos"]
             ego_mask = tokenized_agent["ego_mask"]
 
@@ -138,7 +139,7 @@ class SMARTMapDecoder(nn.Module):
 
             dist=torch.norm(ego_position[:,batch]-pos_pt[None],dim=-1).amin(0)
 
-            dist_mask=dist<120
+            dist_mask=dist<map_range+self.pl2pl_radius
 
             batch=batch[dist_mask]
             pos_pt=pos_pt[dist_mask]
@@ -146,7 +147,7 @@ class SMARTMapDecoder(nn.Module):
             token_idx=token_idx[dist_mask]
             light_type=light_type[dist_mask]
             map_type=map_type[dist_mask]
-            mask = (dist[dist_mask]<100) #& ((map_type == 4) | (map_type == 5))
+            mask = (dist[dist_mask]<map_range) & ((map_type == 4) | (map_type == 5))
             #mask=torch.ones_like(map_type).to(torch.bool)
 
         if self.my_map:

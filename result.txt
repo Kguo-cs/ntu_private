@@ -873,9 +873,16 @@ model22_t10_gp8_logitgp01_r10_epoch=3-step=143890-valmeta=0.6693.ckpt
 
 all24_t10r10_gp8_logit01_noinit_sde07_epoch=1-step=85224-valmeta=0.6641.ckpt
 
+0.6475
+
+
 model24_t10r10_gp8_logit01_value_val64_epoch=4-step=202920-valmeta=0.6519.ckpt
 
+0.6500
+
 model24_t10r10_gp2_logit001_valuedetach_epoch=4-step=202920-valmeta=0.6515.ckpt
+
+
 
 model24_t10r10_gp2_logit001_dis5e5_valuedetach_epoch=4-step=202920-valmeta=0.6520.ckpt
 
