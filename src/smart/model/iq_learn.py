@@ -282,7 +282,7 @@ class IQ_SoftQ(LightningModule):
 
         use_gp_this_step = (
                 self.use_gradient_penalty
-                and key == "agent"
+                and key == "expert"
                 and self.global_step % 4 == 0
         )
 
