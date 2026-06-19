@@ -283,7 +283,7 @@ class IQ_SoftQ(LightningModule):
         use_gp_this_step = (
                 self.use_gradient_penalty
                 and key == "agent"
-                and self.global_step % 16 == 0
+                and self.global_step % 4 == 0
         )
 
         # The critic update must not backpropagate through rollout generation.
@@ -451,7 +451,7 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if use_gp_this_step:
-            gamma = 0.1
+            gamma = 0.01
 
             # critic_score = ego_logits.sum()
             # if has_interact_logits:
@@ -581,7 +581,7 @@ class IQ_SoftQ(LightningModule):
         ppo_advantages = advantages_flat[-len(agent_log_prob):]
         ppo_loss = -(agent_log_prob * ppo_advantages).mean()
 
-        value_loss=all_value_loss[1:].mean()
+        value_loss=all_value_loss.mean()#[1:]
         init_value_loss=all_value_loss[:1].mean()
 
         self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
@@ -591,7 +591,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/value_loss", value_loss, on_step=True, batch_size=1)
         self.log("train/init_value_loss", init_value_loss, on_step=True, batch_size=1)
 
-        policy_loss = expert_nll + ppo_loss + 0.01 *value_loss+init_value_loss  # -  agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 0.01 *value_loss#+init_value_loss  # -  agent_entropy.mean()
 
         actor_optimizer.zero_grad()
 
