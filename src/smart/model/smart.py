@@ -610,23 +610,21 @@ class SMART(LightningModule):
             # --------------------------------------------------------
             # 4. Convert heading cos/sin.
             # --------------------------------------------------------
-            if z.shape[-1] >= 4:
-                local_heading = torch.atan2(z[..., 3], z[..., 2])
-                global_heading = wrap_angle(local_heading + ego_heading[:, None])
+            local_heading = torch.atan2(z[..., 3], z[..., 2])
+            global_heading = wrap_angle(local_heading + ego_heading[:, None])
 
-                z[..., 2] = torch.cos(global_heading)
-                z[..., 3] = torch.sin(global_heading)
+            z[..., 2] = torch.cos(global_heading)
+            z[..., 3] = torch.sin(global_heading)
 
             # --------------------------------------------------------
             # 5. Optional: convert velocity if vx/vy are ego-local.
             # --------------------------------------------------------
-            if z.shape[-1] >= 8:
-                local_vel = z[..., 6:8]  # [N, G, 2]
-                global_vel = rotate_to_global(
-                    local_vel,
-                    ego_heading[:, None],
-                )
-                z[..., 6:8] = global_vel
+            local_vel = z[..., 6:8]  # [N, G, 2]
+            global_vel = rotate_to_global(
+                local_vel,
+                global_heading,
+            )
+            z[..., 6:8] = global_vel
 
         elif z.ndim == 4:
             # [N_agent, N_rollout, N_gen_step, D]
@@ -645,20 +643,18 @@ class SMART(LightningModule):
 
             z_flat[..., :2] = global_pos
 
-            if dim >= 4:
-                local_heading = torch.atan2(z_flat[..., 3], z_flat[..., 2])
-                global_heading = wrap_angle(local_heading + ego_heading[:, None])
+            local_heading = torch.atan2(z_flat[..., 3], z_flat[..., 2])
+            global_heading = wrap_angle(local_heading + ego_heading[:, None])
 
-                z_flat[..., 2] = torch.cos(global_heading)
-                z_flat[..., 3] = torch.sin(global_heading)
+            z_flat[..., 2] = torch.cos(global_heading)
+            z_flat[..., 3] = torch.sin(global_heading)
 
-            if dim >= 8:
-                local_vel = z_flat[..., 6:8]
-                global_vel = rotate_to_global(
-                    local_vel,
-                    ego_heading[:, None],
-                )
-                z_flat[..., 6:8] = global_vel
+            local_vel = z_flat[..., 6:8]
+            global_vel = rotate_to_global(
+                local_vel,
+                global_heading[:, None],
+            )
+            z_flat[..., 6:8] = global_vel
 
             z = z_flat.reshape(n_agent, n_rollout, n_gen_step, dim)
 

@@ -11,7 +11,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.c
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp8_logit01_value_val64/2026-06-17_17-13-00/checkpoints/epoch=4-step=202920-valmeta=0.6519.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp2_logit001_dis5e5_valuedetach/2026-06-18_22-54-59/checkpoints/epoch=4-step=202920-valmeta=0.6520.ckpt ./
 
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp8_logit01_value_val64/2026-06-17_17-13-00/checkpoints/last.ckpt ./

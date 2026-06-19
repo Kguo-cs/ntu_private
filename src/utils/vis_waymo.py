@@ -52,15 +52,26 @@ class VisWaymo:
         px_per_m: float = 10.0,
         video_size: int = 960,
         n_step: int = 91,
-        step_current: int = 10,
+        step_current: int = 5,
         vis_ghost_gt: bool = True,
+        interval: int = 1,
     ) -> None:
+        """
+        Args:
+            step_current:
+                Current Waymo timestep. step_current=5 means current time is 0.5 s.
+
+            interval:
+                Visualization interval in timesteps. Use interval=1 for 10 Hz output
+                so subtitles can show t=0.5, 0.6, 0.7, ... exactly.
+        """
         self.px_per_m = px_per_m
         self.video_size = video_size
         self.n_step = n_step
         self.step_current = step_current
         self.px_agent2bottom = video_size // 2
         self.vis_ghost_gt = vis_ghost_gt
+        self.interval = interval
 
         # colors
         self.lane_style = [
@@ -122,7 +133,7 @@ class VisWaymo:
 
         ag_valid, ag_xy, ag_yaw, ag_size, ag_role, ag_id = get_agent_features(
             scenario,
-            step_current=step_current,
+            step_current=10,
         )
 
         self.ag_valid = ag_valid
@@ -134,8 +145,10 @@ class VisWaymo:
 
         sdc_idx = np.where(ag_role[:, 0])[0]
         if len(sdc_idx) > 0:
-            self.ego_current_xy = ag_xy[sdc_idx[0], step_current].copy()
+            self.ego_agent_index = int(sdc_idx[0])
+            self.ego_current_xy = ag_xy[self.ego_agent_index, step_current].copy()
         else:
+            self.ego_agent_index = 0
             self.ego_current_xy = ag_xy[0, step_current].copy()
 
         self.ag_id2size = dict(zip(ag_id, ag_size))
@@ -143,8 +156,6 @@ class VisWaymo:
 
         raster_map, self.top_left_px = self._register_map(mp_xyz, self.px_per_m)
         self._draw_map(raster_map, mp_xyz, mp_type)
-
-        self.interval = 2
 
         im_gt_maps = [raster_map.copy() for _ in range(0, n_step, self.interval)]
 
@@ -192,8 +203,9 @@ class VisWaymo:
                     cv2.addWeighted(im_gt_agents[i], 0.5, im_gt_maps[i], 1, 0)
                 )
         else:
+            current_image_idx = self.step_current // self.interval
             for i in range(len(im_gt_maps)):
-                if i <= self.step_current // self.interval:
+                if i <= current_image_idx:
                     self.im_gt_blended.append(deepcopy(im_gt[i]))
                 else:
                     self.im_gt_blended.append(deepcopy(im_gt_maps[i]))
@@ -241,12 +253,6 @@ class VisWaymo:
         mp_xyz: List[np.ndarray],
         mp_type: np.ndarray,
     ) -> None:
-        """
-        Args:
-            raster_map: image canvas
-            mp_xyz: len=n_pl, list of np array [n_pl_node, 3]
-            mp_type: [n_pl], int
-        """
         for i, _type in enumerate(mp_type):
             color, thickness = self.lane_style[_type]
 
@@ -349,8 +355,8 @@ class VisWaymo:
 
                 cv2.arrowedLine(
                     step_image,
-                    heading_start[i],
-                    heading_end[i],
+                    tuple(heading_start[i].tolist()),
+                    tuple(heading_end[i].tolist()),
                     color=COLOR_BLACK,
                     thickness=4,
                     line_type=cv2.LINE_AA,
@@ -365,53 +371,37 @@ class VisWaymo:
         pred_z_list=None,
         crop_size_m: Optional[float] = 100.0,
         add_subtitle: bool = True,
+        pause_after_generation_sec: float = 1.0,
+        show_rollout_velocity: bool = True,
+        rollout_velocity_dt_scale: float = 0.5,
     ):
         """
         Save one video per rollout.
 
-        If pred_z_list is non-empty, each video contains:
+        Video composition:
+            1. Optional generation frames from pred_z_list.
+            2. Optional pause after the final generation frame.
+            3. Closed-loop rollout frames.
 
-            [initial generation process frames] + [closed-loop rollout frames]
-
-        If pred_z_list is None or empty, the initial generation process is skipped,
-        and the video contains only the rollout frames.
-
-        Args:
-            scenario_rollout:
-                Waymo ScenarioRollouts object.
-
-            n_vis_rollout:
-                Number of rollout samples to visualize.
-
-            new_agent:
-                Kept for backward compatibility.
-
-            pred_z_list:
-                Optional dense generation tensor.
-
-                Supported shapes:
-                    [N_agent, N_rollout, N_gen_step, D]
-                    [N_agent, N_gen_step, D]
-
-                Expected D layout:
-                    [x, y, cos_heading, sin_heading, length, width, vel_x, vel_y]
-
-            crop_size_m:
-                If not None, crop every frame to crop_size_m x crop_size_m meters
-                centered at the ego current position.
-
-                crop_size_m=100.0 means total width/length is 100 meters.
-                Use crop_size_m=200.0 if you want ±100 meters around ego.
-
-            add_subtitle:
-                Whether to draw subtitles on frames.
+        Behavior:
+            - If pred_z_list is None or empty, generation visualization is skipped.
+            - Generation frames show generated velocity arrows from z[..., 6:8].
+            - After generation, the last generation frame is repeated for
+              pause_after_generation_sec seconds.
+            - Rollout frames show finite-difference velocity arrows.
+            - Rollout frames are cropped around the ego vehicle at each frame, so the
+              camera moves with the ego.
+            - Subtitles show real time. With step_current=5, rollout starts at t=0.5 s.
         """
+        t0 = 0.1 * self.step_current
+        fps = max(1, 10 // self.interval)
+        pause_n_frames = max(0, int(round(float(pause_after_generation_sec) * fps)))
+
         for i_rollout in range(n_vis_rollout):
             images = []
 
             # ----------------------------------------------------------
             # 1. Optional initial-generation process frames.
-            #    Skip if pred_z_list / scenario_pred_z_list is empty.
             # ----------------------------------------------------------
             gen_z_i = self._select_generation_rollout(
                 pred_z_list=pred_z_list,
@@ -421,54 +411,112 @@ class VisWaymo:
             if gen_z_i is not None:
                 gen_images = self._make_generation_images_from_z_list(
                     pred_z_list=gen_z_i,
-                    subtitle_prefix="Initial generation",
                     crop_size_m=crop_size_m,
                     add_subtitle=add_subtitle,
                     rollout_idx=i_rollout,
+                    time_sec=t0,
                 )
                 images.extend(gen_images)
 
-            # ----------------------------------------------------------
-            # 2. Existing closed-loop rollout frames.
-            # ----------------------------------------------------------
-            rollout_images = deepcopy(self.im_gt_blended)
+                # ------------------------------------------------------
+                # Pause after generation by holding the final generation
+                # frame. This makes the generated initial state easier to
+                # inspect before rollout starts.
+                # ------------------------------------------------------
+                if len(gen_images) > 0 and pause_n_frames > 0:
+                    pause_frame = gen_images[-1]
+                    if add_subtitle:
+                        pause_frame = self._add_subtitle(
+                            pause_frame,
+                            (
+                                f"Generation complete | rollout {i_rollout:02d} | "
+                                f"hold {pause_after_generation_sec:.1f}s | t={t0:.1f}s"
+                            ),
+                        )
+                    images.extend([pause_frame.copy() for _ in range(pause_n_frames)])
 
+            # ----------------------------------------------------------
+            # 2. Closed-loop rollout frames.
+            # ----------------------------------------------------------
             ag_valid, ag_xy, ag_yaw, ag_size, ag_role = self._get_features_from_trajs(
                 scenario_rollout.joint_scenes[i_rollout].simulated_trajectories
             )
 
-            if len(rollout_images) == ag_valid[:, :: self.interval].shape[1]:
-                self._draw_agents(
-                    rollout_images,
-                    ag_valid[:, :: self.interval],
-                    ag_xy[:, :: self.interval],
-                    ag_yaw[:, :: self.interval],
-                    ag_size,
-                    ag_role,
+            rollout_images, rollout_valid, rollout_xy, rollout_yaw, rollout_times = (
+                self._build_rollout_images_and_states(
+                    ag_valid=ag_valid,
+                    ag_xy=ag_xy,
+                    ag_yaw=ag_yaw,
+                    t0=t0,
                 )
-            else:
-                self._draw_agents(
-                    rollout_images[self.step_current // self.interval + 1 :],
-                    ag_valid[:, self.interval - 1 :: self.interval],
-                    ag_xy[:, self.interval - 1 :: self.interval],
-                    ag_yaw[:, self.interval - 1 :: self.interval],
-                    ag_size,
-                    ag_role,
+            )
+
+            self._draw_agents(
+                rollout_images,
+                rollout_valid,
+                rollout_xy,
+                rollout_yaw,
+                ag_size,
+                ag_role,
+            )
+
+            rollout_vel = None
+            if show_rollout_velocity:
+                rollout_vel = self._estimate_velocity_from_positions(
+                    ag_valid=rollout_valid,
+                    ag_xy=rollout_xy,
+                    dt=0.1 * self.interval,
                 )
+
+            ego_centers = self._get_ego_centers(
+                ag_valid=rollout_valid,
+                ag_xy=rollout_xy,
+                ag_role=ag_role,
+                default_xy=self.ego_current_xy,
+            )
 
             processed_rollout_images = []
 
             for frame_idx, frame in enumerate(rollout_images):
                 frame_out = frame
 
+                ego_speed = None
+                if show_rollout_velocity and rollout_vel is not None:
+                    valid_t = rollout_valid[:, frame_idx]
+                    xy_t = rollout_xy[:, frame_idx]
+                    vel_t = rollout_vel[:, frame_idx]
+
+                    self._draw_velocity_arrows(
+                        image=frame_out,
+                        valid=valid_t,
+                        xy=xy_t.astype(np.float32),
+                        vel=vel_t.astype(np.float32),
+                        color=COLOR_GREEN,
+                        dt_scale=rollout_velocity_dt_scale,
+                    )
+
+                    ego_speed = self._get_ego_speed_from_generation(
+                        valid=valid_t,
+                        vel=vel_t,
+                        role=ag_role,
+                    )
+
                 if crop_size_m is not None:
-                    frame_out = self._crop_around_ego(frame_out, crop_size_m)
+                    frame_out = self._crop_around_world_xy(
+                        image=frame_out,
+                        center_xy_world=ego_centers[frame_idx],
+                        crop_size_m=crop_size_m,
+                    )
 
                 if add_subtitle:
-                    frame_out = self._add_subtitle(
-                        frame_out,
-                        f"Closed-loop rollout | rollout {i_rollout:02d} | frame {frame_idx:03d}",
+                    subtitle = (
+                        f"Rollout | rollout {i_rollout:02d} | "
+                        f"t={rollout_times[frame_idx]:.1f}s"
                     )
+                    if ego_speed is not None:
+                        subtitle += f" | ego v={ego_speed:.2f} m/s"
+
+                    frame_out = self._add_subtitle(frame_out, subtitle)
 
                 processed_rollout_images.append(frame_out)
 
@@ -483,8 +531,76 @@ class VisWaymo:
             save_images_to_mp4(
                 images,
                 _video_path,
-                fps=10 // self.interval,
+                fps=fps,
             )
+
+    def _build_rollout_images_and_states(
+        self,
+        ag_valid: np.ndarray,
+        ag_xy: np.ndarray,
+        ag_yaw: np.ndarray,
+        t0: float,
+    ) -> Tuple[List[np.ndarray], np.ndarray, np.ndarray, np.ndarray, List[float]]:
+        """
+        Build rollout background frames and aligned rollout states.
+
+        Supports two common formats:
+            A. ag_valid has full 91-step timeline.
+            B. ag_valid contains only future rollout states.
+        """
+        current_image_idx = self.step_current // self.interval
+        full_num_frames = len(self.im_gt_blended)
+
+        # Case A: rollout trajectories are full-timeline states.
+        if ag_valid.shape[1] >= full_num_frames:
+            rollout_images = deepcopy(self.im_gt_blended[current_image_idx:])
+
+            step_indices = np.arange(
+                self.step_current,
+                self.step_current + len(rollout_images) * self.interval,
+                self.interval,
+            )
+            step_indices = step_indices[step_indices < ag_valid.shape[1]]
+
+            rollout_images = rollout_images[: len(step_indices)]
+            rollout_valid = ag_valid[:, step_indices]
+            rollout_xy = ag_xy[:, step_indices]
+            rollout_yaw = ag_yaw[:, step_indices]
+            rollout_times = [0.1 * int(s) for s in step_indices]
+
+            return rollout_images, rollout_valid, rollout_xy, rollout_yaw, rollout_times
+
+        # Case B: rollout trajectories contain future states only.
+        # Add current GT frame first, then predicted future states.
+        max_future_frames = ag_valid[:, :: self.interval].shape[1]
+        max_bg_frames = full_num_frames - current_image_idx
+        num_frames = min(max_bg_frames, max_future_frames + 1)
+
+        rollout_images = deepcopy(
+            self.im_gt_blended[current_image_idx : current_image_idx + num_frames]
+        )
+
+        # Current frame uses GT state from the original scenario.
+        current_valid = self.ag_valid[:, self.step_current : self.step_current + 1]
+        current_xy = self.ag_xy[:, self.step_current : self.step_current + 1]
+        current_yaw = self.ag_yaw[:, self.step_current : self.step_current + 1]
+
+        if num_frames > 1:
+            future_valid = ag_valid[:, :: self.interval][:, : num_frames - 1]
+            future_xy = ag_xy[:, :: self.interval][:, : num_frames - 1]
+            future_yaw = ag_yaw[:, :: self.interval][:, : num_frames - 1]
+
+            rollout_valid = np.concatenate([current_valid, future_valid], axis=1)
+            rollout_xy = np.concatenate([current_xy, future_xy], axis=1)
+            rollout_yaw = np.concatenate([current_yaw, future_yaw], axis=1)
+        else:
+            rollout_valid = current_valid
+            rollout_xy = current_xy
+            rollout_yaw = current_yaw
+
+        rollout_times = [t0 + 0.1 * self.interval * k for k in range(num_frames)]
+
+        return rollout_images, rollout_valid, rollout_xy, rollout_yaw, rollout_times
 
     def _select_generation_rollout(self, pred_z_list, i_rollout: int):
         """
@@ -505,7 +621,6 @@ class VisWaymo:
         if pred_z.size == 0:
             return None
 
-        # Empty scenario: [0, ...]
         if pred_z.shape[0] == 0:
             return None
 
@@ -513,25 +628,20 @@ class VisWaymo:
         if pred_z.ndim == 4:
             if pred_z.shape[1] == 0:
                 return None
-
             if i_rollout >= pred_z.shape[1]:
                 return None
-
             gen_z_i = pred_z[:, i_rollout]
 
         # [N_agent, N_gen_step, D]
         elif pred_z.ndim == 3:
             gen_z_i = pred_z
-
         else:
             raise ValueError(
-                f"pred_z_list must have shape [N,R,G,D] or [N,G,D], "
-                f"got {pred_z.shape}"
+                f"pred_z_list must have shape [N,R,G,D] or [N,G,D], got {pred_z.shape}"
             )
 
         if gen_z_i.size == 0:
             return None
-
         if gen_z_i.shape[0] == 0 or gen_z_i.shape[1] == 0:
             return None
 
@@ -540,10 +650,10 @@ class VisWaymo:
     def _make_generation_images_from_z_list(
         self,
         pred_z_list: np.ndarray,
-        subtitle_prefix: str = "Initial generation",
         crop_size_m: Optional[float] = 100.0,
         add_subtitle: bool = True,
         rollout_idx: int = 0,
+        time_sec: float = 0.5,
     ) -> List[np.ndarray]:
         """
         Convert dense generated initial states into video frames.
@@ -552,25 +662,19 @@ class VisWaymo:
             pred_z_list:
                 [N_agent, N_gen_step, D]
 
-            D layout:
-                [x, y, cos_heading, sin_heading, length, width, vel_x, vel_y]
+            Expected D layout:
+                [x, y, cos_heading, sin_heading, length, width, vx, vy]
 
-        Returns:
-            List of rendered frames.
+        Generation is an initial-state generation process, so all generation
+        frames use the same physical time `time_sec`, normally 0.5 s.
         """
         if pred_z_list is None:
             return []
 
         pred_z_list = np.asarray(pred_z_list)
 
-        if pred_z_list.size == 0:
+        if pred_z_list.size == 0 or pred_z_list.ndim != 3:
             return []
-
-        if pred_z_list.ndim != 3:
-            raise ValueError(
-                f"pred_z_list must have shape [N_agent, N_gen_step, D], "
-                f"got {pred_z_list.shape}"
-            )
 
         n_agent, n_gen_step, state_dim = pred_z_list.shape
 
@@ -596,15 +700,12 @@ class VisWaymo:
             z_t = pred_z_list[:, gen_t]
 
             valid = np.isfinite(z_t[:, :2]).all(axis=-1)
-
             xy = z_t[:, None, :2].astype(np.float32)
 
-            # Heading from cos/sin if available.
             if state_dim >= 4:
                 yaw = np.arctan2(z_t[:, 3], z_t[:, 2]).astype(np.float32)
             else:
                 yaw = np.zeros((n_agent,), dtype=np.float32)
-
             yaw = yaw[:, None, None]
 
             size = self._make_generation_agent_size(z_t, n_agent, state_dim)
@@ -619,21 +720,225 @@ class VisWaymo:
                 role,
             )
 
+            ego_speed = None
+            if state_dim >= 8:
+                vel = z_t[:, 6:8].astype(np.float32)
+                self._draw_velocity_arrows(
+                    image=step_image,
+                    valid=valid,
+                    xy=z_t[:, :2].astype(np.float32),
+                    vel=vel,
+                    color=COLOR_GREEN,
+                    dt_scale=0.5,
+                )
+
+                ego_speed = self._get_ego_speed_from_generation(
+                    valid=valid,
+                    vel=vel,
+                    role=role,
+                )
+
             if crop_size_m is not None:
-                step_image = self._crop_around_ego(step_image, crop_size_m)
+                # Generation is centered at the current ego position.
+                step_image = self._crop_around_world_xy(
+                    image=step_image,
+                    center_xy_world=self.ego_current_xy,
+                    crop_size_m=crop_size_m,
+                )
 
             if add_subtitle:
-                step_image = self._add_subtitle(
-                    step_image,
-                    (
-                        f"{subtitle_prefix} | rollout {rollout_idx:02d} | "
-                        f"step {gen_t + 1:02d}/{n_gen_step:02d}"
-                    ),
+                subtitle = (
+                    f"Generation | rollout {rollout_idx:02d} | "
+                    f"step {gen_t + 1:02d}/{n_gen_step:02d} | "
+                    f"t={time_sec:.1f}s"
                 )
+                if ego_speed is not None:
+                    subtitle += f" | ego v={ego_speed:.2f} m/s"
+
+                step_image = self._add_subtitle(step_image, subtitle)
 
             images.append(step_image)
 
         return images
+
+    @staticmethod
+    def _estimate_velocity_from_positions(
+        ag_valid: np.ndarray,
+        ag_xy: np.ndarray,
+        dt: float = 0.1,
+    ) -> np.ndarray:
+        """
+        Estimate per-frame velocity from rollout positions.
+
+        Args:
+            ag_valid: [N_agent, T]
+            ag_xy:    [N_agent, T, 2]
+            dt:       seconds between frames
+
+        Returns:
+            vel: [N_agent, T, 2]
+
+        Uses forward difference for the first frame and backward difference
+        for later frames. Invalid transitions produce zero velocity.
+        """
+        dt = max(float(dt), 1e-6)
+        vel = np.zeros_like(ag_xy, dtype=np.float32)
+
+        if ag_xy.shape[1] <= 1:
+            return vel
+
+        valid_pair = ag_valid[:, 1:] & ag_valid[:, :-1]
+        finite_pair = (
+            np.isfinite(ag_xy[:, 1:]).all(axis=-1)
+            & np.isfinite(ag_xy[:, :-1]).all(axis=-1)
+        )
+        valid_pair = valid_pair & finite_pair
+
+        diff = (ag_xy[:, 1:] - ag_xy[:, :-1]).astype(np.float32) / dt
+        vel[:, 1:][valid_pair] = diff[valid_pair]
+
+        # First frame: copy the first available forward difference.
+        vel[:, 0] = vel[:, 1]
+
+        return vel
+
+    def _draw_velocity_arrows(
+        self,
+        image: np.ndarray,
+        valid: np.ndarray,
+        xy: np.ndarray,
+        vel: np.ndarray,
+        color=COLOR_GREEN,
+        dt_scale: float = 0.5,
+    ):
+        """
+        Draw velocity arrows in world coordinates.
+
+        dt_scale controls arrow length in seconds:
+            end_xy = xy + vel * dt_scale
+        """
+        idx = np.where(valid)[0]
+
+        for i in idx:
+            if not np.isfinite(vel[i]).all():
+                continue
+
+            start_px = self._to_pixel(xy[i : i + 1].copy())[0]
+            end_xy = xy[i] + vel[i] * dt_scale
+            end_px = self._to_pixel(end_xy[None].copy())[0]
+
+            cv2.arrowedLine(
+                image,
+                tuple(start_px.tolist()),
+                tuple(end_px.tolist()),
+                color=color,
+                thickness=2,
+                line_type=cv2.LINE_AA,
+                tipLength=0.3,
+            )
+
+    def _crop_around_world_xy(
+        self,
+        image: np.ndarray,
+        center_xy_world: np.ndarray,
+        crop_size_m: float = 100.0,
+    ) -> np.ndarray:
+        """
+        Crop image to crop_size_m x crop_size_m meters centered at center_xy_world.
+
+        If crop extends outside the raster map, zero-pad the missing area.
+        """
+        crop_px = int(round(crop_size_m * self.px_per_m))
+        crop_px = max(crop_px, 1)
+
+        center_xy_world = np.asarray(center_xy_world, dtype=np.float32).copy()
+        center_px = self._to_pixel(center_xy_world[None])[0]
+        cx, cy = int(center_px[0]), int(center_px[1])
+
+        half = crop_px // 2
+
+        x0 = cx - half
+        x1 = x0 + crop_px
+        y0 = cy - half
+        y1 = y0 + crop_px
+
+        h, w = image.shape[:2]
+
+        src_x0 = max(x0, 0)
+        src_x1 = min(x1, w)
+        src_y0 = max(y0, 0)
+        src_y1 = min(y1, h)
+
+        dst_x0 = src_x0 - x0
+        dst_x1 = dst_x0 + (src_x1 - src_x0)
+        dst_y0 = src_y0 - y0
+        dst_y1 = dst_y0 + (src_y1 - src_y0)
+
+        cropped = np.zeros((crop_px, crop_px, 3), dtype=image.dtype)
+
+        if src_x1 > src_x0 and src_y1 > src_y0:
+            cropped[dst_y0:dst_y1, dst_x0:dst_x1] = image[
+                src_y0:src_y1,
+                src_x0:src_x1,
+            ]
+
+        return cropped
+
+    def _crop_around_ego(
+        self,
+        image: np.ndarray,
+        crop_size_m: float = 100.0,
+    ) -> np.ndarray:
+        """Backward-compatible wrapper around the fixed current ego position."""
+        return self._crop_around_world_xy(
+            image=image,
+            center_xy_world=self.ego_current_xy,
+            crop_size_m=crop_size_m,
+        )
+
+    def _get_ego_centers(
+        self,
+        ag_valid: np.ndarray,
+        ag_xy: np.ndarray,
+        ag_role: np.ndarray,
+        default_xy: np.ndarray,
+    ) -> List[np.ndarray]:
+        """
+        Return one ego center per frame.
+        """
+        centers = []
+        sdc_idx = np.where(ag_role[:, 0])[0]
+
+        for t in range(ag_valid.shape[1]):
+            center_xy = default_xy
+
+            if len(sdc_idx) > 0:
+                i_ego = sdc_idx[0]
+                if i_ego < ag_valid.shape[0] and ag_valid[i_ego, t]:
+                    center_xy = ag_xy[i_ego, t]
+
+            centers.append(np.asarray(center_xy, dtype=np.float32).copy())
+
+        return centers
+
+    def _get_ego_speed_from_generation(
+        self,
+        valid: np.ndarray,
+        vel: np.ndarray,
+        role: np.ndarray,
+    ) -> Optional[float]:
+        """
+        Return ego generated speed if ego exists in the generated set.
+        """
+        sdc_idx = np.where(role[:, 0])[0]
+        if len(sdc_idx) == 0:
+            return None
+
+        i_ego = sdc_idx[0]
+        if i_ego >= len(valid) or not valid[i_ego]:
+            return None
+
+        return float(np.linalg.norm(vel[i_ego]))
 
     def _make_generation_agent_size(
         self,
@@ -665,9 +970,7 @@ class VisWaymo:
 
             size[:, 0] = np.maximum(gen_length, 0.1)
             size[:, 1] = np.maximum(gen_width, 0.1)
-
-            if np.any(size[:, 2] <= 0):
-                size[:, 2] = np.maximum(size[:, 2], 1.5)
+            size[:, 2] = np.maximum(size[:, 2], 1.5)
 
         return size
 
@@ -686,54 +989,6 @@ class VisWaymo:
             role[:n_existing] = self.ag_role[:n_existing]
 
         return role
-
-    def _crop_around_ego(
-        self,
-        image: np.ndarray,
-        crop_size_m: float = 100.0,
-    ) -> np.ndarray:
-        """
-        Crop image to crop_size_m x crop_size_m meters centered at ego current position.
-
-        If crop extends outside the raster map, zero-pad the missing area.
-        """
-        crop_px = int(round(crop_size_m * self.px_per_m))
-        crop_px = max(crop_px, 1)
-
-        center_px = self._to_pixel(self.ego_current_xy[None].copy())[0]
-        cx, cy = int(center_px[0]), int(center_px[1])
-
-        half = crop_px // 2
-
-        x0 = cx - half
-        x1 = x0 + crop_px
-
-        y0 = cy - half
-        y1 = y0 + crop_px
-
-        h, w = image.shape[:2]
-
-        src_x0 = max(x0, 0)
-        src_x1 = min(x1, w)
-
-        src_y0 = max(y0, 0)
-        src_y1 = min(y1, h)
-
-        dst_x0 = src_x0 - x0
-        dst_x1 = dst_x0 + (src_x1 - src_x0)
-
-        dst_y0 = src_y0 - y0
-        dst_y1 = dst_y0 + (src_y1 - src_y0)
-
-        cropped = np.zeros((crop_px, crop_px, 3), dtype=image.dtype)
-
-        if src_x1 > src_x0 and src_y1 > src_y0:
-            cropped[dst_y0:dst_y1, dst_x0:dst_x1] = image[
-                src_y0:src_y1,
-                src_x0:src_x1,
-            ]
-
-        return cropped
 
     def _add_subtitle(self, image: np.ndarray, text: str) -> np.ndarray:
         """
@@ -761,22 +1016,9 @@ class VisWaymo:
         y1 = h
 
         overlay = out.copy()
+        cv2.rectangle(overlay, (0, y0), (w, y1), COLOR_BLACK, -1)
 
-        cv2.rectangle(
-            overlay,
-            (0, y0),
-            (w, y1),
-            COLOR_BLACK,
-            -1,
-        )
-
-        out = cv2.addWeighted(
-            overlay,
-            0.55,
-            out,
-            0.45,
-            0,
-        )
+        out = cv2.addWeighted(overlay, 0.55, out, 0.45, 0)
 
         text_origin = (margin, h - margin)
 
@@ -832,6 +1074,7 @@ class VisWaymo:
         return ag_valid, ag_xy, ag_yaw, ag_size, ag_role
 
     def _to_pixel(self, pos: np.ndarray) -> np.ndarray:
+        pos = np.asarray(pos).copy()
         pos = pos * self.px_per_m
         pos[..., 0] = pos[..., 0] - self.top_left_px[0]
         pos[..., 1] = -pos[..., 1] - self.top_left_px[1]

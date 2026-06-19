@@ -877,6 +877,9 @@ model24_t10r10_gp8_logit01_value_val64_epoch=4-step=202920-valmeta=0.6519.ckpt
 
 model24_t10r10_gp2_logit001_valuedetach_epoch=4-step=202920-valmeta=0.6515.ckpt
 
+model24_t10r10_gp2_logit001_dis5e5_valuedetach_epoch=4-step=202920-valmeta=0.6520.ckpt
+
+
 
 take all position for generation
 simformer: For each
