@@ -148,7 +148,7 @@ class InitDiffusion(nn.Module):
                     ego_pos = ego_position.reshape(-1, num_graphs, 2)
                     dist = torch.norm(ego_pos[:, batch_pl] - pos_pt[None], dim=-1).amin(0)
                     initial_map_feature = {
-                        key: value[dist < 100] for key, value in map_feature.items()
+                        key: value[dist < 80] for key, value in map_feature.items()
                     }
 
             batch_pl = initial_map_feature["batch"]
