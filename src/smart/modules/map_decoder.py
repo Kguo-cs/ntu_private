@@ -138,7 +138,7 @@ class SMARTMapDecoder(nn.Module):
 
             dist=torch.norm(ego_position[:,batch]-pos_pt[None],dim=-1).amin(0)
 
-            dist_mask=dist<self.token_processor.init_map_range+self.pl2pl_radius
+            dist_mask=dist<(self.token_processor.init_map_range+self.pl2pl_radius)
 
             batch=batch[dist_mask]
             pos_pt=pos_pt[dist_mask]

@@ -62,7 +62,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_token=True
         self.use_goal=False
         self.use_all_pos=False
-        self.init_map_range=100
+        self.init_map_range=80
 
 
         self.pred_all_pos=False

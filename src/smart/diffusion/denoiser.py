@@ -19,131 +19,131 @@ from src.smart.utils import (
 )
 from .diffusion_planner.decoder import DiT
 from .noise_schedule import LearnableGroupedPowerSchedule
-
-
-class DenoiserStateEmbedder(nn.Module):
-    """AgentTokenEncoder-style embedding block for the initial-state denoiser.
-
-    The old denoiser mixed state projection, type embedding, noise embedding,
-    and ego embedding directly inside ``InitDenoiser.forward``. This module
-    follows the same structure as ``AgentTokenEncoder``:
-
-        1. build continuous state features;
-        2. build categorical type/shape embeddings;
-        3. embed continuous features with ``FourierEmbedding``;
-        4. fuse state embedding with diffusion-time/noise embedding.
-
-    For the default state layout:
-        [x, y, heading_cos, heading_sin, length, width, vel_x, vel_y]
-
-    shape uses dims 4:6 as categorical/context embedding, while the remaining
-    continuous state uses dims [:4] and [6:].
-    """
-
-    def __init__(
-        self,
-        hidden_dim: int,
-        num_freq_bands: int,
-        m_delta_dim: int,
-        num_classes: int = 3,
-        shape_dim: int = 2,
-    ) -> None:
-        super().__init__()
-
-        if m_delta_dim < 8:
-            raise ValueError(
-                f"InitDenoiser expects state dim >= 8, got m_delta_dim={m_delta_dim}."
-            )
-
-        self.hidden_dim = hidden_dim
-        self.m_delta_dim = m_delta_dim
-        self.num_classes = num_classes
-        self.shape_dim = shape_dim
-
-        # Same categorical style as AgentTokenEncoder:
-        # type embedding + shape embedding are injected into FourierEmbedding.
-        self.type_a_emb = nn.Embedding(num_classes + 1, hidden_dim)
-        self.shape_emb = MLPLayer(shape_dim, hidden_dim, hidden_dim)
-
-        # Continuous state excludes [length, width], because shape is handled
-        # as a categorical/context embedding, like AgentTokenEncoder.
-        self.state_feature_dim =m_delta_dim - shape_dim
-
-        self.x_a_emb = FourierEmbedding(
-            input_dim=self.state_feature_dim,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
-        #self.beta_emb = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
-
-        self.beta_emb = FourierEmbedding(
-            input_dim=m_delta_dim,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
-
-        self.fusion_emb = MLPEmbedding(
-            input_dim=hidden_dim * 2,
-            hidden_dim=hidden_dim,
-        )
-
-    def _state_continuous_feature(self, m_delta: torch.Tensor) -> torch.Tensor:
-        """Return continuous denoising features excluding shape dims 4:6."""
-        return torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)#m_delta[:, 6:]#
-
-    def _format_beta(self, beta: torch.Tensor, target_dim: int) -> torch.Tensor:
-        """Accept beta as [N], [N, D], or [N, 1, D] and return [N, D]."""
-        if beta.ndim == 3:
-            beta = beta[:, 0]
-        elif beta.ndim == 1:
-            beta = beta[:, None]
-
-        if beta.shape[-1] == 1:
-            beta = beta.expand(-1, target_dim)
-
-        if beta.shape[-1] != target_dim:
-            raise ValueError(
-                f"beta last dim must be {target_dim}, got beta.shape={tuple(beta.shape)}."
-            )
-
-        return beta
-
-    def get_embedding(
-        self,
-        m_delta: torch.Tensor,
-        beta: torch.Tensor,
-        agent_type: torch.Tensor,
-    ) -> torch.Tensor:
-        """AgentTokenEncoder-like embedding entry point."""
-        beta = self._format_beta(beta, self.m_delta_dim)
-
-        state_feature = self._state_continuous_feature(m_delta)
-        agent_shape = m_delta[:, 4:6]
-
-        categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
-            agent_shape[..., : self.shape_dim]
-        )#+self.beta_emb( beta )
-
-        state_emb = self.x_a_emb(
-            continuous_inputs=state_feature,
-            categorical_embs=categorical_embs,
-        )
-
-        beta_emb = self.beta_emb(
-            continuous_inputs=beta,
-        )
-
-        state_emb=self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
-
-        return state_emb
-
-    def forward(
-        self,
-        m_delta: torch.Tensor,
-        beta: torch.Tensor,
-        agent_type: torch.Tensor,
-    ) -> torch.Tensor:
-        return self.get_embedding(m_delta, beta, agent_type)
+#
+#
+# class DenoiserStateEmbedder(nn.Module):
+#     """AgentTokenEncoder-style embedding block for the initial-state denoiser.
+#
+#     The old denoiser mixed state projection, type embedding, noise embedding,
+#     and ego embedding directly inside ``InitDenoiser.forward``. This module
+#     follows the same structure as ``AgentTokenEncoder``:
+#
+#         1. build continuous state features;
+#         2. build categorical type/shape embeddings;
+#         3. embed continuous features with ``FourierEmbedding``;
+#         4. fuse state embedding with diffusion-time/noise embedding.
+#
+#     For the default state layout:
+#         [x, y, heading_cos, heading_sin, length, width, vel_x, vel_y]
+#
+#     shape uses dims 4:6 as categorical/context embedding, while the remaining
+#     continuous state uses dims [:4] and [6:].
+#     """
+#
+#     def __init__(
+#         self,
+#         hidden_dim: int,
+#         num_freq_bands: int,
+#         m_delta_dim: int,
+#         num_classes: int = 3,
+#         shape_dim: int = 2,
+#     ) -> None:
+#         super().__init__()
+#
+#         if m_delta_dim < 8:
+#             raise ValueError(
+#                 f"InitDenoiser expects state dim >= 8, got m_delta_dim={m_delta_dim}."
+#             )
+#
+#         self.hidden_dim = hidden_dim
+#         self.m_delta_dim = m_delta_dim
+#         self.num_classes = num_classes
+#         self.shape_dim = shape_dim
+#
+#         # Same categorical style as AgentTokenEncoder:
+#         # type embedding + shape embedding are injected into FourierEmbedding.
+#         self.type_a_emb = nn.Embedding(num_classes + 1, hidden_dim)
+#         self.shape_emb = MLPLayer(shape_dim, hidden_dim, hidden_dim)
+#
+#         # Continuous state excludes [length, width], because shape is handled
+#         # as a categorical/context embedding, like AgentTokenEncoder.
+#         self.state_feature_dim =m_delta_dim - shape_dim
+#
+#         self.x_a_emb = FourierEmbedding(
+#             input_dim=self.state_feature_dim,
+#             hidden_dim=hidden_dim,
+#             num_freq_bands=num_freq_bands,
+#         )
+#         #self.beta_emb = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
+#
+#         self.beta_emb = FourierEmbedding(
+#             input_dim=m_delta_dim,
+#             hidden_dim=hidden_dim,
+#             num_freq_bands=num_freq_bands,
+#         )
+#
+#         self.fusion_emb = MLPEmbedding(
+#             input_dim=hidden_dim * 2,
+#             hidden_dim=hidden_dim,
+#         )
+#
+#     def _state_continuous_feature(self, m_delta: torch.Tensor) -> torch.Tensor:
+#         """Return continuous denoising features excluding shape dims 4:6."""
+#         return torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)#m_delta[:, 6:]#
+#
+#     def _format_beta(self, beta: torch.Tensor, target_dim: int) -> torch.Tensor:
+#         """Accept beta as [N], [N, D], or [N, 1, D] and return [N, D]."""
+#         if beta.ndim == 3:
+#             beta = beta[:, 0]
+#         elif beta.ndim == 1:
+#             beta = beta[:, None]
+#
+#         if beta.shape[-1] == 1:
+#             beta = beta.expand(-1, target_dim)
+#
+#         if beta.shape[-1] != target_dim:
+#             raise ValueError(
+#                 f"beta last dim must be {target_dim}, got beta.shape={tuple(beta.shape)}."
+#             )
+#
+#         return beta
+#
+#     def get_embedding(
+#         self,
+#         m_delta: torch.Tensor,
+#         beta: torch.Tensor,
+#         agent_type: torch.Tensor,
+#     ) -> torch.Tensor:
+#         """AgentTokenEncoder-like embedding entry point."""
+#         beta = self._format_beta(beta, self.m_delta_dim)
+#
+#         state_feature = self._state_continuous_feature(m_delta)
+#         agent_shape = m_delta[:, 4:6]
+#
+#         categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
+#             agent_shape[..., : self.shape_dim]
+#         )#+self.beta_emb( beta )
+#
+#         state_emb = self.x_a_emb(
+#             continuous_inputs=state_feature,
+#             categorical_embs=categorical_embs,
+#         )
+#
+#         beta_emb = self.beta_emb(
+#             continuous_inputs=beta,
+#         )
+#
+#         state_emb=self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
+#
+#         return state_emb
+#
+#     def forward(
+#         self,
+#         m_delta: torch.Tensor,
+#         beta: torch.Tensor,
+#         agent_type: torch.Tensor,
+#     ) -> torch.Tensor:
+#         return self.get_embedding(m_delta, beta, agent_type)
 
 
 class InitDenoiser(nn.Module):
@@ -190,7 +190,7 @@ class InitDenoiser(nn.Module):
         x_pred: bool = True,
         learn_noise: bool = False,
         pred_all_pos: bool = False,
-        init_embedding_mode: str = "new",
+        init_embedding_mode: str = "original",
     ) -> None:
         super().__init__()
 
@@ -269,6 +269,7 @@ class InitDenoiser(nn.Module):
 
             # New path: AgentTokenEncoder-style state/noise/type/shape embedding.
             self.state_embedder = DenoiserStateEmbedder(
+                token_processor=token_processor,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
                 m_delta_dim=self.m_delta_dim,
@@ -286,7 +287,7 @@ class InitDenoiser(nn.Module):
         # Ego-context embedding. The input is:
         #   local ego poses relative to the generated agent + per-scene type count.
         # For the current tokenization, ego pose part is 9 and type-count part is 3.
-        self.ego_dim = 12
+        self.ego_dim = 9
         self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
 
         self.edge_encoder = EdgeEncoder(
@@ -486,11 +487,13 @@ class InitDenoiser(nn.Module):
             theta,
         )
 
+        local_ego_head=wrap_angle(local_ego_head)
+
         ego_features = torch.cat(
             [
                 local_ego_pos.flatten(1, 2),
-                local_ego_head.cos(),
-                local_ego_head.sin(),
+                local_ego_head,#.cos(),
+             #   local_ego_head.sin(),
                 type_count,
             ],
             dim=-1,
@@ -813,3 +816,317 @@ class InitDenoiser(nn.Module):
             gt_initial_idx,
         )
 
+
+class DenoiserStateEmbedder(nn.Module):
+    """AgentTokenEncoder-style embedding block for the initial-state denoiser.
+
+    State layout:
+        [x, y, heading_cos, heading_sin, length, width, ..., vel_x, vel_y]
+
+    Important:
+        - dims 4:6 are shape.
+        - last two dims are local velocity.
+        - velocity is converted to a nearest trajectory token.
+        - continuous state excludes both shape and velocity.
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_freq_bands: int,
+        m_delta_dim: int,
+        token_processor,
+        num_classes: int = 3,
+        shape_dim: int = 2,
+        velocity_token_dt: float | None = None,
+    ) -> None:
+        super().__init__()
+
+        if m_delta_dim < 8:
+            raise ValueError(
+                f"InitDenoiser expects state dim >= 8, got m_delta_dim={m_delta_dim}."
+            )
+
+        self.hidden_dim = hidden_dim
+        self.m_delta_dim = m_delta_dim
+        self.num_classes = num_classes
+        self.shape_dim = shape_dim
+        self.token_processor = token_processor
+
+        # If tokens cover 5 frames at 10 Hz, velocity * 0.5 gives displacement.
+        if velocity_token_dt is None:
+            velocity_token_dt = getattr(token_processor, "shift", 5) * 0.1
+        self.velocity_token_dt = velocity_token_dt
+
+        # ------------------------------------------------------------------
+        # 1. AgentTokenEncoder-style categorical/context embeddings.
+        # ------------------------------------------------------------------
+        self.type_a_emb = nn.Embedding(num_classes + 1, hidden_dim)
+        self.shape_emb = MLPLayer(shape_dim, hidden_dim, hidden_dim)
+
+        # ------------------------------------------------------------------
+        # 2. Type-specific velocity-token embeddings.
+        #
+        # AgentTokenEncoder embeds full trajectory tokens by type:
+        #   token_emb_veh(trajectory_token_veh)
+        #   token_emb_ped(trajectory_token_ped)
+        #   token_emb_cyc(trajectory_token_cyc)
+        #
+        # Here, the denoiser state only has velocity, so we first map velocity
+        # to nearest trajectory-token index, then use the same type-specific
+        # token embedding.
+        # ------------------------------------------------------------------
+        input_dim_token = 8
+
+        self.token_emb_veh = MLPEmbedding(
+            input_dim=input_dim_token,
+            hidden_dim=hidden_dim,
+        )
+        self.token_emb_ped = MLPEmbedding(
+            input_dim=input_dim_token,
+            hidden_dim=hidden_dim,
+        )
+        self.token_emb_cyc = MLPEmbedding(
+            input_dim=input_dim_token,
+            hidden_dim=hidden_dim,
+        )
+
+        # ------------------------------------------------------------------
+        # 3. Continuous denoising state excludes:
+        #       - shape dims 4:6
+        #       - velocity dims -2:
+        #
+        # Default 8D state:
+        #   [x, y, hcos, hsin, length, width, vx, vy]
+        #
+        # continuous feature becomes:
+        #   [x, y, hcos, hsin]
+        # ------------------------------------------------------------------
+        self.state_feature_dim = m_delta_dim - shape_dim - 2
+
+        if self.state_feature_dim <= 0:
+            raise ValueError(
+                f"Invalid state_feature_dim={self.state_feature_dim}. "
+                f"m_delta_dim={m_delta_dim}, shape_dim={shape_dim}."
+            )
+
+        self.x_a_emb = FourierEmbedding(
+            input_dim=self.state_feature_dim,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
+
+        # Keep beta/noise embedding on the original full denoising dimension.
+        self.beta_emb = FourierEmbedding(
+            input_dim=m_delta_dim,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
+
+        # Fuse:
+        #   continuous state embedding
+        #   beta/noise embedding
+        #   velocity-token embedding
+        self.fusion_emb = MLPEmbedding(
+            input_dim=hidden_dim * 3,
+            hidden_dim=hidden_dim,
+        )
+
+    def _state_continuous_feature(self, m_delta: torch.Tensor) -> torch.Tensor:
+        """Return continuous features excluding shape dims 4:6 and velocity dims -2:."""
+        if m_delta.shape[-1] != self.m_delta_dim:
+            raise ValueError(
+                f"Expected m_delta last dim={self.m_delta_dim}, "
+                f"got {m_delta.shape[-1]}."
+            )
+
+        # Keep:
+        #   [:4]      -> x, y, heading_cos, heading_sin
+        #   [6:-2]    -> optional extra continuous dims
+        #
+        # Remove:
+        #   [4:6]     -> shape
+        #   [-2:]     -> velocity, converted to token
+        return torch.cat(
+            [
+                m_delta[:, :4],
+                m_delta[:, 6:-2],
+            ],
+            dim=-1,
+        )
+
+    def _format_beta(self, beta: torch.Tensor, target_dim: int) -> torch.Tensor:
+        """Accept beta as [N], [N, D], or [N, 1, D] and return [N, D]."""
+        if beta.ndim == 3:
+            beta = beta[:, 0]
+        elif beta.ndim == 1:
+            beta = beta[:, None]
+
+        if beta.shape[-1] == 1:
+            beta = beta.expand(-1, target_dim)
+
+        if beta.shape[-1] != target_dim:
+            raise ValueError(
+                f"beta last dim must be {target_dim}, "
+                f"got beta.shape={tuple(beta.shape)}."
+            )
+
+        return beta
+
+    def _token_table_to_center(self, token_table: torch.Tensor) -> torch.Tensor:
+        """Convert flattened [K, 8] token contours to center displacement [K, 2]."""
+        if token_table.ndim != 2 or token_table.shape[-1] != 8:
+            raise ValueError(
+                f"Expected token table shape [K, 8], got {tuple(token_table.shape)}."
+            )
+
+        token_contour = token_table.reshape(token_table.shape[0], 4, 2)
+        return token_contour.mean(dim=1)
+
+    def _nearest_velocity_token_index(
+        self,
+        local_vel: torch.Tensor,
+        token_table: torch.Tensor,
+    ) -> torch.Tensor:
+        """Map local velocity [N, 2] to nearest trajectory-token index [N]."""
+        token_table = token_table.to(
+            device=local_vel.device,
+            dtype=local_vel.dtype,
+        )
+
+        token_center = self._token_table_to_center(token_table)  # [K, 2]
+
+        # Velocity is in m/s. Tokens encode displacement over shift frames.
+        # For shift=5 at 10Hz, displacement = velocity * 0.5.
+        vel_disp = local_vel * self.velocity_token_dt  # [N, 2]
+
+        dist = torch.linalg.norm(
+            token_center[None] - vel_disp[:, None],
+            dim=-1,
+        )  # [N, K]
+
+        return dist.argmin(dim=-1)
+
+    def _velocity_token_embedding(
+        self,
+        local_vel: torch.Tensor,
+        agent_type: torch.Tensor,
+    ) -> torch.Tensor:
+        """Embed local velocity by converting it to nearest type-specific token."""
+        device = local_vel.device
+        dtype = local_vel.dtype
+        n_agent = local_vel.shape[0]
+
+        token_emb = local_vel.new_zeros(n_agent, self.hidden_dim)
+
+        veh_mask = agent_type == 0
+        ped_mask = agent_type == 1
+        cyc_mask = agent_type == 2
+
+        # Precompute full token embeddings by type.
+        traj_veh = self.token_processor.trajectory_token_veh.to(
+            device=device,
+            dtype=dtype,
+        )
+        traj_ped = self.token_processor.trajectory_token_ped.to(
+            device=device,
+            dtype=dtype,
+        )
+        traj_cyc = self.token_processor.trajectory_token_cyc.to(
+            device=device,
+            dtype=dtype,
+        )
+
+        token_emb_veh_all = self.token_emb_veh(traj_veh)  # [K_veh, H]
+        token_emb_ped_all = self.token_emb_ped(traj_ped)  # [K_ped, H]
+        token_emb_cyc_all = self.token_emb_cyc(traj_cyc)  # [K_cyc, H]
+
+        if veh_mask.any():
+            idx_veh = self._nearest_velocity_token_index(
+                local_vel[veh_mask],
+                traj_veh,
+            )
+            token_emb[veh_mask] = token_emb_veh_all[idx_veh]
+
+        if ped_mask.any():
+            idx_ped = self._nearest_velocity_token_index(
+                local_vel[ped_mask],
+                traj_ped,
+            )
+            token_emb[ped_mask] = token_emb_ped_all[idx_ped]
+
+        if cyc_mask.any():
+            idx_cyc = self._nearest_velocity_token_index(
+                local_vel[cyc_mask],
+                traj_cyc,
+            )
+            token_emb[cyc_mask] = token_emb_cyc_all[idx_cyc]
+
+        return token_emb
+
+    def get_embedding(
+        self,
+        m_delta: torch.Tensor,
+        beta: torch.Tensor,
+        agent_type: torch.Tensor,
+    ) -> torch.Tensor:
+        """AgentTokenEncoder-like embedding entry point."""
+        if m_delta.ndim != 2:
+            raise ValueError(
+                f"m_delta must have shape [N, D], got {tuple(m_delta.shape)}."
+            )
+
+        beta = self._format_beta(beta, self.m_delta_dim)
+
+        agent_type = agent_type.long()
+        agent_type = agent_type.clamp(min=0, max=self.num_classes)
+
+        state_feature = self._state_continuous_feature(m_delta)
+
+        if state_feature.shape[-1] != self.state_feature_dim:
+            raise RuntimeError(
+                f"state_feature dim mismatch: expected {self.state_feature_dim}, "
+                f"got {state_feature.shape[-1]}."
+            )
+
+        agent_shape = m_delta[:, 4:6]
+        local_vel = m_delta[:, -2:]
+
+        categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
+            agent_shape[..., : self.shape_dim]
+        )
+
+        state_emb = self.x_a_emb(
+            continuous_inputs=state_feature,
+            categorical_embs=categorical_embs,
+        )
+
+        beta_emb = self.beta_emb(
+            continuous_inputs=beta,
+        )
+
+        vel_token_emb = self._velocity_token_embedding(
+            local_vel=local_vel,
+            agent_type=agent_type,
+        )
+
+        out = self.fusion_emb(
+            torch.cat(
+                [
+                    state_emb,
+                    beta_emb,
+                    vel_token_emb,
+                ],
+                dim=-1,
+            )
+        )
+
+        return out
+
+    def forward(
+        self,
+        m_delta: torch.Tensor,
+        beta: torch.Tensor,
+        agent_type: torch.Tensor,
+    ) -> torch.Tensor:
+        return self.get_embedding(m_delta, beta, agent_type)
