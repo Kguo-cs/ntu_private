@@ -74,13 +74,13 @@ class DenoiserStateEmbedder(nn.Module):
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
-        self.beta_emb = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
+        #self.beta_emb = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
 
-        # self.beta_emb = FourierEmbedding(
-        #     input_dim=m_delta_dim,
-        #     hidden_dim=hidden_dim,
-        #     num_freq_bands=num_freq_bands,
-        # )
+        self.beta_emb = FourierEmbedding(
+            input_dim=m_delta_dim,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
 
         self.fusion_emb = MLPEmbedding(
             input_dim=hidden_dim * 2,
@@ -120,22 +120,22 @@ class DenoiserStateEmbedder(nn.Module):
         state_feature = self._state_continuous_feature(m_delta)
         agent_shape = m_delta[:, 4:6]
 
-
-
         categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
             agent_shape[..., : self.shape_dim]
-        )+self.beta_emb( beta )
+        )#+self.beta_emb( beta )
 
         state_emb = self.x_a_emb(
             continuous_inputs=state_feature,
             categorical_embs=categorical_embs,
         )
 
-        # beta_emb = self.beta_emb(
-        #     continuous_inputs=beta,
-        # )
+        beta_emb = self.beta_emb(
+            continuous_inputs=beta,
+        )
 
-        return state_emb #self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
+        state_emb=self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
+
+        return state_emb
 
     def forward(
         self,
@@ -286,7 +286,7 @@ class InitDenoiser(nn.Module):
         # Ego-context embedding. The input is:
         #   local ego poses relative to the generated agent + per-scene type count.
         # For the current tokenization, ego pose part is 9 and type-count part is 3.
-        self.ego_dim = 0
+        self.ego_dim = 12
         self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
 
         self.edge_encoder = EdgeEncoder(
@@ -467,43 +467,35 @@ class InitDenoiser(nn.Module):
         batch: torch.Tensor,
         tokenized_agent,
     ) -> torch.Tensor:
-        # if "ego_feat" not in tokenized_agent:
-        #     raise KeyError(
-        #         "tokenized_agent['ego_feat'] is required by InitDenoiser. "
-        #         "Build it in the tokenizer before calling the denoiser."
-        #     )
-        #
+
         ego_feat = tokenized_agent["ego_feat"]
-        #
-        # ego_pose = ego_feat[:, :-3]
+
+        ego_pose = ego_feat[:, :-3]
         type_count = ego_feat[:, -3:][batch]
-        #
-        # if ego_pose.shape[-1] != self.ego_dim:
-        #     raise ValueError(
-        #         f"Expected ego pose dim {self.ego_dim}, got {ego_pose.shape[-1]}."
-        #     )
-        #
-        # # [num_graphs, 3, 3] -> [N_agent, 3, 3]
-        # # Last dim is expected to be [x, y, heading].
-        # ego_pose = ego_pose.reshape(-1, 3, 3)
-        # all_pos = ego_pose[:, :, :2][batch]
-        # all_head = ego_pose[:, :, 2][batch]
-        #
-        # local_ego_pos, local_ego_head = transform_to_local(
-        #     all_pos,
-        #     all_head,
-        #     pos_s,
-        #     theta,
-        # )
-        # ego_features = torch.cat(
-        #     [
-        #         local_ego_pos.flatten(1, 2),
-        #         local_ego_head,
-        #         type_count,
-        #     ],
-        #     dim=-1,
-        # )
-        ego_features =type_count
+
+        # [num_graphs, 3, 3] -> [N_agent, 3, 3]
+        # Last dim is expected to be [x, y, heading].
+        ego_pose = ego_pose.reshape(-1, 3, 3)
+        all_pos = ego_pose[:, :, :2][batch]
+        all_head = ego_pose[:, :, 2][batch]
+
+        local_ego_pos, local_ego_head = transform_to_local(
+            all_pos,
+            all_head,
+            pos_s,
+            theta,
+        )
+
+        ego_features = torch.cat(
+            [
+                local_ego_pos.flatten(1, 2),
+                local_ego_head.cos(),
+                local_ego_head.sin(),
+                type_count,
+            ],
+            dim=-1,
+        )
+        #ego_features =type_count
 
         return self.ego_embed(ego_features)
 
