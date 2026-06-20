@@ -67,7 +67,7 @@ class DenoiserStateEmbedder(nn.Module):
 
         # Continuous state excludes [length, width], because shape is handled
         # as a categorical/context embedding, like AgentTokenEncoder.
-        self.state_feature_dim = m_delta_dim - shape_dim
+        self.state_feature_dim =2 #m_delta_dim - shape_dim
 
         self.x_a_emb = FourierEmbedding(
             input_dim=self.state_feature_dim,
@@ -88,7 +88,7 @@ class DenoiserStateEmbedder(nn.Module):
 
     def _state_continuous_feature(self, m_delta: torch.Tensor) -> torch.Tensor:
         """Return continuous denoising features excluding shape dims 4:6."""
-        return torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)
+        return m_delta[:, 6:]#torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)
 
     def _format_beta(self, beta: torch.Tensor, target_dim: int) -> torch.Tensor:
         """Accept beta as [N], [N, D], or [N, 1, D] and return [N, D]."""
