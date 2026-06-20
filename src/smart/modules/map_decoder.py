@@ -131,7 +131,7 @@ class SMARTMapDecoder(nn.Module):
                 "batch": batch,
             }
         else:
-            map_range=120
+            map_range=100
             gt_initial_pos = tokenized_agent["initial_pos"]
             ego_mask = tokenized_agent["ego_mask"]
 
