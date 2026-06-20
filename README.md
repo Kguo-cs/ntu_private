@@ -7,7 +7,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 
