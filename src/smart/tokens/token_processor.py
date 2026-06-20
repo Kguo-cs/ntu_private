@@ -62,7 +62,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_token=True
         self.use_goal=False
         self.use_all_pos=False
-        self.init_map_range=80
+        self.init_map_range=100
 
 
         self.pred_all_pos=False
@@ -70,7 +70,7 @@ class TokenProcessor(torch.nn.Module):
         self.pred_2step=False
 
         self.traj_diffusion=False
-        self.use_gradient_penalty = True
+        self.use_gradient_penalty = False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
