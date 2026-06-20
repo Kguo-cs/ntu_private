@@ -67,19 +67,20 @@ class DenoiserStateEmbedder(nn.Module):
 
         # Continuous state excludes [length, width], because shape is handled
         # as a categorical/context embedding, like AgentTokenEncoder.
-        self.state_feature_dim =2 #m_delta_dim - shape_dim
+        self.state_feature_dim =m_delta_dim - shape_dim
 
         self.x_a_emb = FourierEmbedding(
             input_dim=self.state_feature_dim,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
+        self.beta_emb = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
 
-        self.beta_emb = FourierEmbedding(
-            input_dim=m_delta_dim,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
+        # self.beta_emb = FourierEmbedding(
+        #     input_dim=m_delta_dim,
+        #     hidden_dim=hidden_dim,
+        #     num_freq_bands=num_freq_bands,
+        # )
 
         self.fusion_emb = MLPEmbedding(
             input_dim=hidden_dim * 2,
@@ -88,7 +89,7 @@ class DenoiserStateEmbedder(nn.Module):
 
     def _state_continuous_feature(self, m_delta: torch.Tensor) -> torch.Tensor:
         """Return continuous denoising features excluding shape dims 4:6."""
-        return m_delta[:, 6:]#torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)
+        return torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)#m_delta[:, 6:]#
 
     def _format_beta(self, beta: torch.Tensor, target_dim: int) -> torch.Tensor:
         """Accept beta as [N], [N, D], or [N, 1, D] and return [N, D]."""
@@ -119,20 +120,22 @@ class DenoiserStateEmbedder(nn.Module):
         state_feature = self._state_continuous_feature(m_delta)
         agent_shape = m_delta[:, 4:6]
 
+
+
         categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
             agent_shape[..., : self.shape_dim]
-        )
+        )+self.beta_emb( beta )
 
         state_emb = self.x_a_emb(
             continuous_inputs=state_feature,
             categorical_embs=categorical_embs,
         )
 
-        beta_emb = self.beta_emb(
-            continuous_inputs=beta,
-        )
+        # beta_emb = self.beta_emb(
+        #     continuous_inputs=beta,
+        # )
 
-        return self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
+        return state_emb #self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
 
     def forward(
         self,
@@ -187,7 +190,7 @@ class InitDenoiser(nn.Module):
         x_pred: bool = True,
         learn_noise: bool = False,
         pred_all_pos: bool = False,
-        init_embedding_mode: str = "original",
+        init_embedding_mode: str = "new",
     ) -> None:
         super().__init__()
 
