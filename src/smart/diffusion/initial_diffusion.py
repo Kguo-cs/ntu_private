@@ -31,6 +31,7 @@ class InitDiffusion(nn.Module):
 
         self.use_all_pos=token_processor.use_all_pos
         self.pred_all_pos=token_processor.pred_all_pos
+        self.token_processor=token_processor
 
         parser = ArgumentParser()
         self.add_model_specific_args(parser)
@@ -148,7 +149,7 @@ class InitDiffusion(nn.Module):
                     ego_pos = ego_position.reshape(-1, num_graphs, 2)
                     dist = torch.norm(ego_pos[:, batch_pl] - pos_pt[None], dim=-1).amin(0)
                     initial_map_feature = {
-                        key: value[dist < 80] for key, value in map_feature.items()
+                        key: value[dist < self.token_processor.init_map_range] for key, value in map_feature.items()
                     }
 
             batch_pl = initial_map_feature["batch"]

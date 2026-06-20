@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 1e-4
+    lr: 0 #1e-4
     lr_min_ratio: 0.05
     token_processor:
       map_token_sampling: # open-loop
@@ -36,10 +36,11 @@ model:
       reward_decay: 2.5
 
 #ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
-ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
+#ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
 #ckpt_path: './waymo_data/xflow256_val4_epoch=63-step=121792.ckpt'
+ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
 
-task_name: model24_value1e3_expert #_dis2_val64 #_noinitsde_val642 #_val64 #_decay103 #_initfeat_01nll_disa10 #_mean #_Sumpos_max100_gp001@all_fix #_expertall #_disr10plr10 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
+task_name: model24_value1e3_expert_newpoint #_dis2_val64 #_noinitsde_val642 #_val64 #_decay103 #_initfeat_01nll_disa10 #_mean #_Sumpos_max100_gp001@all_fix #_expertall #_disr10plr10 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
 
 
 trainer:

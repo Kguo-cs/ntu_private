@@ -162,7 +162,9 @@ class InitDenoiser(nn.Module):
         - return/cfg conditioning branches
         - unused padding/SkipMLP/ExploreNoiseNet code
 
-    The embedding path is now explicit and close to AgentTokenEncoder.
+    The embedding path can be selected by ``init_embedding_mode``:
+        - "new": AgentTokenEncoder-style Fourier/categorical fusion.
+        - "original": old denoiser MLP-addition embedding.
     """
 
     def __init__(
@@ -185,6 +187,7 @@ class InitDenoiser(nn.Module):
         x_pred: bool = True,
         learn_noise: bool = False,
         pred_all_pos: bool = False,
+        init_embedding_mode: str = "original",
     ) -> None:
         super().__init__()
 
@@ -201,6 +204,12 @@ class InitDenoiser(nn.Module):
         self.m_dim = m_dim
         self.x_pred = x_pred
         self.token_processor = token_processor
+        if init_embedding_mode not in {"new", "original"}:
+            raise ValueError(
+                "init_embedding_mode must be either 'new' or 'original', "
+                f"got {init_embedding_mode!r}."
+            )
+        self.init_embedding_mode = init_embedding_mode
 
         # Keep attributes used by ScaleFlow.
         self.use_roformer = True
@@ -253,14 +262,23 @@ class InitDenoiser(nn.Module):
             group_dims=(2, 2, 2, self.m_delta_dim - 6)
         )
 
-        # AgentTokenEncoder-style state/noise/type/shape embedding.
-        self.state_embedder = DenoiserStateEmbedder(
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-            m_delta_dim=self.m_delta_dim,
-            num_classes=self.num_classes,
-            shape_dim=self.shape_dim,
-        )
+        if self.init_embedding_mode == "new":
+
+            # New path: AgentTokenEncoder-style state/noise/type/shape embedding.
+            self.state_embedder = DenoiserStateEmbedder(
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+                m_delta_dim=self.m_delta_dim,
+                num_classes=self.num_classes,
+                shape_dim=self.shape_dim,
+            )
+        else:
+            # Original path: old denoiser embedding style.
+            # It projects m_delta[:, 4:] with a Linear layer and adds
+            # noise embedding + type embedding directly.
+            self.type_a_emb = nn.Embedding(self.num_classes + 1, hidden_dim)
+            self.noise_embedding = MLPLayer(self.m_delta_dim, hidden_dim, hidden_dim)
+            self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
 
         # Ego-context embedding. The input is:
         #   local ego poses relative to the generated agent + per-scene type count.
@@ -486,6 +504,28 @@ class InitDenoiser(nn.Module):
 
         return self.ego_embed(ego_features)
 
+    def _original_state_embedding(
+        self,
+        m_delta: torch.Tensor,
+        beta: torch.Tensor,
+        agent_type: torch.Tensor,
+    ) -> torch.Tensor:
+        """Original InitDenoiser embedding style.
+
+        This follows the old implementation:
+            feat_a = Linear(m_delta[:, 4:])
+            feat_a = feat_a + noise_embedding(beta) + type_embedding(type)
+
+        It does not inject shape via ``FourierEmbedding``. Shape is part of
+        the projected continuous state ``m_delta[:, 4:]``.
+        """
+        beta = self._format_beta(beta, m_delta.shape[0])
+
+        feat_a = self.proj_in_m_delta(m_delta[:, 4:])
+        feat_a = feat_a + self.noise_embedding(beta)
+        feat_a = feat_a + self.type_a_emb(agent_type)
+        return feat_a
+
     def _embed_agents(
         self,
         m_delta: torch.Tensor,
@@ -506,11 +546,18 @@ class InitDenoiser(nn.Module):
         theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
         pos_s = m_delta[:, :2]
 
-        feat_a = self.state_embedder(
-            m_delta=m_delta,
-            beta=beta,
-            agent_type=agent_type,
-        )
+        if self.init_embedding_mode == "new":
+            feat_a = self.state_embedder(
+                m_delta=m_delta,
+                beta=beta,
+                agent_type=agent_type,
+            )
+        else:
+            feat_a = self._original_state_embedding(
+                m_delta=m_delta,
+                beta=beta,
+                agent_type=agent_type,
+            )
 
         ego_embedding = self._ego_context_embedding(
             pos_s=pos_s,
@@ -722,6 +769,7 @@ class InitDenoiser(nn.Module):
     # Convert generated local initial state back to global tokenized fields
     # ---------------------------------------------------------------------
     def get_output(self, pred_init: torch.Tensor, tokenized_agent):
+        """Convert generated local all-agent initial state back to global fields."""
         shape = tokenized_agent["initial_shape"].clone()
 
         batch_ego_pos = tokenized_agent["batch_ego_pos"]

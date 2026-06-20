@@ -5,7 +5,7 @@ rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val4_epoch=63-step=121792.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
@@ -14,7 +14,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp2_logit001_dis5e5_valuedetach/2026-06-18_22-54-59/checkpoints/epoch=4-step=202920-valmeta=0.6520.ckpt ./
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp8_logit01_value_val64/2026-06-17_17-13-00/checkpoints/last.ckpt ./
+rsync -avz ke@10.87.114.128:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=57-step=110374-valmeta=0.6447.ckpt ./
 
 rsync -avz -e "ssh -p 32884" /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  guoke@sprl-server9.dynip.ntu.edu.sg:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
@@ -22,7 +22,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 
 rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  zs@10.87.225.106:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/model24_t10r10_gp2_logit001_valuedetach/2026-06-18_13-06-40/checkpoints/epoch=4-step=202920-valmeta=0.6515.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=57-step=110374-valmeta=0.6447.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all24_t10r10_gp8_logit01_noinit_sde07/2026-06-17_03-10-36/checkpoints/epoch=1-step=85224-valmeta=0.6641.ckpt ./
