@@ -187,7 +187,7 @@ class InitDenoiser(nn.Module):
         x_pred: bool = True,
         learn_noise: bool = False,
         pred_all_pos: bool = False,
-        init_embedding_mode: str = "original",
+        init_embedding_mode: str = "new",
     ) -> None:
         super().__init__()
 
