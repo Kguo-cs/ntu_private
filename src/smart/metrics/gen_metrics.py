@@ -170,8 +170,8 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
     pred_vel = torch.stack(pred_vel, dim=1)
 
     pred_speeds=pred_vel.norm(dim=-1)
-    gt_init_timestep=10
-    gen_init_timestep=10
+    gt_init_timestep=5
+    gen_init_timestep=5
 
     batch = tokenized_agent["batch"]
     cos = torch.cos(pred_head[:, :, gen_init_timestep])
