@@ -888,6 +888,10 @@ model24_t10r10_gp2_logit001_valuedetach_epoch=4-step=202920-valmeta=0.6515.ckpt
 
 model24_valuedetach_dis2_expert_epoch=2-step=64934-valmeta=0.6521.ckpt
 
+xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt
+
+
+
 
 
 take all position for generation
