@@ -314,6 +314,134 @@ def compute_gp(
 import torch
 import torch.nn.functional as F
 
+def _masked_gradient_cap_penalty(
+    gradient,
+    mask,
+    cap,
+    reference,
+):
+    if gradient is None or mask is None or not torch.any(mask):
+        return reference.new_zeros(())
+
+    mask = mask.bool()
+
+    grad = gradient[mask]
+    grad_norm = grad.reshape(grad.shape[0], -1).square().sum(dim=-1).sqrt()
+
+    cap = cap[mask].to(dtype=grad_norm.dtype)
+    cap = cap.clamp_min(1e-6)
+
+    penalty = torch.relu(grad_norm - cap).square()
+
+    return penalty.mean()
+
+def ConfidenceAdaptiveGradientCapGP(
+        sampled_pos,
+        sampled_heading,
+        shape,
+        critic_score,
+        valid_mask,
+        gamma=0.01,
+        tau=1.0,
+        cap_far=0.5,
+        cap_boundary=5.0,
+        w_pos=1.0,
+        w_heading=0.2,
+        w_shape=0.01,
+):
+    """
+    Rule-free GP for traffic discriminator.
+
+    Does not force gradient to zero.
+    It only prevents gradient explosion.
+
+    Near discriminator decision boundary:
+        large cap -> allows sharp reward.
+
+    Far from decision boundary:
+        small cap -> enforces smoothness.
+    """
+
+    valid_mask = valid_mask.bool()
+    valid_agent_mask = valid_mask.any(dim=-1)
+
+    if critic_score.ndim > 0:
+        grad_outputs = torch.ones_like(critic_score)
+    else:
+        grad_outputs = None
+
+    gradients = torch.autograd.grad(
+        outputs=critic_score,
+        inputs=(sampled_pos, sampled_heading, shape),
+        grad_outputs=grad_outputs,
+        create_graph=True,
+        retain_graph=True,
+        allow_unused=True,
+    )
+
+    grad_pos, grad_heading, grad_shape = gradients
+
+    with torch.no_grad():
+        score = critic_score.detach()
+
+        if score.shape == valid_mask.shape:
+            score_t = score
+
+        elif score.numel() == int(valid_mask.sum().item()):
+            score_t = sampled_pos.new_zeros(valid_mask.shape)
+            score_t[valid_mask] = score.to(dtype=sampled_pos.dtype)
+
+        else:
+            # If critic_score is scalar, cannot infer local uncertainty.
+            # Use conservative middle cap.
+            score_t = sampled_pos.new_zeros(valid_mask.shape)
+
+        uncertainty = torch.exp(-score_t.abs() / tau)
+
+        cap_t = cap_far + (cap_boundary - cap_far) * uncertainty
+        cap_t = cap_t * valid_mask.float()
+
+        cap_agent = (
+            cap_t.sum(dim=-1)
+            / valid_mask.float().sum(dim=-1).clamp_min(1.0)
+        )
+
+    pos_penalty = _masked_gradient_cap_penalty(
+        grad_pos,
+        valid_mask,
+        cap_t,
+        critic_score,
+    )
+
+    heading_penalty = _masked_gradient_cap_penalty(
+        grad_heading,
+        valid_mask,
+        cap_t,
+        critic_score,
+    )
+
+    shape_penalty = _masked_gradient_cap_penalty(
+        grad_shape,
+        valid_agent_mask,
+        cap_agent,
+        critic_score,
+    )
+
+    total = (
+        w_pos * pos_penalty
+        + w_heading * heading_penalty
+        + w_shape * shape_penalty
+    )
+
+    scale = gamma / 2.0
+
+    return (
+        scale * total,
+        scale * pos_penalty,
+        scale * heading_penalty,
+        scale * shape_penalty,
+    )
+
 def _masked_square_norm_mean(gradient, mask, reference):
     """Mean squared gradient norm over valid entries only."""
     if gradient is None or mask is None or not torch.any(mask):
