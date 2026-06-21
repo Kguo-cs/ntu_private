@@ -9,7 +9,7 @@ import random
 import copy
 
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
-from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,ZeroCenteredGradientPenalty,ConfidenceAdaptiveGradientCapGP
+from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,ZeroCenteredGradientPenalty
 from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,get_col_rate
 from torch_scatter import scatter_sum,scatter_mean
 
