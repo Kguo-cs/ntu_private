@@ -535,8 +535,8 @@ def _weighted_bce_with_logits(
     #     reduction="mean",
     # )
 
-    # elementwise_loss=(F.relu(1+(1-2*targets)*logits)*weight).mean()
-    elementwise_loss=(((2*targets-1)-logits).square()*weight).mean()
+    elementwise_loss=(F.relu(1+(1-2*targets)*logits)*weight).mean()
+   # elementwise_loss=(((2*targets-1)-logits).square()*weight).mean()
 
     return elementwise_loss #.sum() / weight.sum().clamp_min(eps)
 
