@@ -53,7 +53,7 @@ def ZeroCenteredGradientPenalty(
 
     scale = gamma / 2.0
     return (
-        scale * (pos_penalty + heading_penalty + shape_penalty*10),
+        scale * (pos_penalty + heading_penalty + shape_penalty),
         scale * pos_penalty,
         scale * heading_penalty,
         scale * shape_penalty,
@@ -446,7 +446,7 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if use_gp_this_step:
-            gamma = 0.01
+            gamma = 0.1
 
             # critic_score = ego_logits.sum()
             # if has_interact_logits:
