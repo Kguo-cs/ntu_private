@@ -382,7 +382,7 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if use_gp_this_step:
-            gamma = 0.1 #l1 loss
+            gamma = 0.01 #l1 loss
 
             # critic_score = ego_logits.sum()
             # if has_interact_logits:
@@ -395,7 +395,7 @@ class IQ_SoftQ(LightningModule):
                 penalty_pos,
                 penalty_head,
                 penalty_shape,
-            ) = ConfidenceAdaptiveGradientCapGP(
+            ) = ZeroCenteredGradientPenalty(
                 sampled_pos=sampled_pos,
                 sampled_heading=sampled_heading,
                 shape=shape,
