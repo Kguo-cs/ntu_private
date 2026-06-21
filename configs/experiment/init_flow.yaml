@@ -13,8 +13,7 @@ model:
     finetune: true
     #n_batch_wosac_metric: 0
 
-#ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
-ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
+ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 
 task_name: xflow512_val64_map100_wrap_eval5 #_stateembedtype
 

@@ -31,15 +31,15 @@ model:
     decoder:
       #hist_drop_prob: 0.1 #0.1 #0.1
 
-      dis_a2a_radius: 0
+      dis_a2a_radius: 10
       dis_a2a_neighbor: 20
 
     token_processor:
       pred_init: True
-      learn_init: True
+      learn_init: False
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/model24_value1e3_expert_newpoint_epoch=1-step=58440-valmeta=0.6548.ckpt"
 
 trainer:
   limit_train_batches: 1.0
