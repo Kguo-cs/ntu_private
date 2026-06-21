@@ -40,7 +40,7 @@ model:
 #ckpt_path: './waymo_data/xflow256_val4_epoch=63-step=121792.ckpt'
 ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
 
-task_name: model24_valuedetach_gp01_dis5e5 #_shape10_newpoint2 #_expert_dis2_val64 #_noinitsde_val642 #_val64 #_decay103 #_initfeat_01nll_disa10 #_mean #_Sumpos_max100_gp001@all_fix #_expertall #_disr10plr10 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
+task_name: model32_valuedetach_gp01_dis5e5 #_shape10_newpoint2 #_expert_dis2_val64 #_noinitsde_val642 #_val64 #_decay103 #_initfeat_01nll_disa10 #_mean #_Sumpos_max100_gp001@all_fix #_expertall #_disr10plr10 #_01ppovalue1e3_nodec #_bclen1001_ppo01value03 #01 #_meanweight #_gp #_noise01001_nodecompdiff #_noise1e2 #_grad_dis5e5
 
 
 trainer:
@@ -55,7 +55,7 @@ trainer:
 
 
 data:
-  train_batch_size: 25 #6
+  train_batch_size: 32 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8
