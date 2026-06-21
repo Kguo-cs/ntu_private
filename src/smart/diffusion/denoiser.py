@@ -487,7 +487,7 @@ class InitDenoiser(nn.Module):
             theta,
         )
 
-        local_ego_head=wrap_angle(local_ego_head)
+        #local_ego_head=wrap_angle(local_ego_head)
 
         ego_features = torch.cat(
             [

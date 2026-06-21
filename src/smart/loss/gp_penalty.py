@@ -314,6 +314,72 @@ def compute_gp(
 import torch
 import torch.nn.functional as F
 
+def _masked_square_norm_mean(gradient, mask, reference):
+    """Mean squared gradient norm over valid entries only."""
+    if gradient is None or mask is None or not torch.any(mask):
+        return reference.new_zeros(())
+
+    valid_gradient = gradient[mask]
+    return valid_gradient.reshape(valid_gradient.shape[0], -1).sum(dim=-1).mean()#.square()
+
+
+def ZeroCenteredGradientPenalty(
+        sampled_pos,
+        sampled_heading,
+        shape,
+        critic_score,
+        valid_mask,
+        gamma=0.01,
+):
+    """Zero-centered R2 penalty on generated trajectories.
+
+    The discriminator locally differentiates through the fixed graph topology.
+    Padding entries are excluded from the normalization.
+    """
+    gradients = torch.autograd.grad(
+        outputs=critic_score,
+        inputs=(sampled_pos, sampled_heading, shape),
+        create_graph=True,
+        retain_graph=True,
+        allow_unused=True,
+    )
+
+    grad_pos, grad_heading, grad_shape = gradients
+    valid_mask = valid_mask.bool()
+    valid_agent_mask = valid_mask.any(dim=-1)
+
+    pos_penalty = _masked_square_norm_mean(grad_pos, valid_mask, critic_score)
+    heading_penalty = _masked_square_norm_mean(grad_heading, valid_mask, critic_score)
+    shape_penalty = _masked_square_norm_mean(grad_shape, valid_agent_mask, critic_score)
+
+    scale = gamma / 2.0
+    return (
+        scale * (pos_penalty + heading_penalty + shape_penalty),
+        scale * pos_penalty,
+        scale * heading_penalty,
+        scale * shape_penalty,
+    )
+
+
+def _reshape_valid_rewards(rewards, mask_t, name):
+    """Restore compressed valid-node rewards to a dense [T, A] tensor."""
+    if not torch.is_tensor(rewards):
+        raise TypeError(f"{name} must be a tensor, got {type(rewards)}")
+
+    if rewards.numel() == mask_t.numel():
+        return rewards.reshape(mask_t.shape)
+
+    valid_count = int(mask_t.sum().item())
+    if rewards.numel() != valid_count:
+        raise ValueError(
+            f"Cannot align {name} with mask_t: rewards.numel()={rewards.numel()}, "
+            f"mask_t.numel()={mask_t.numel()}, mask_t.sum()={valid_count}."
+        )
+
+    dense_rewards = rewards.new_zeros(mask_t.shape)
+    dense_rewards[mask_t] = rewards
+    return dense_rewards
+
 
 def _has_elements(x) -> bool:
     """Return True only for a non-empty tensor."""
@@ -353,10 +419,6 @@ def _weighted_bce_with_logits(
         reduction="mean",
     )
     return elementwise_loss #.sum() / weight.sum().clamp_min(eps)
-
-def ZeroCenteredGradientPenalty(Samples, Critics):
-    Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
-    return Gradient.square()#.sum([-1])
 
 def get_reward(self, tokenized_agent, key, dis_mask=None):
 
