@@ -1,12 +1,11 @@
 # @package _global_
 
 defaults:
-  # - override /trainer: ddp
   - override /model: smart_fast
 
 model:
   model_config:
-    lr: 0 #1e-4
+    lr: 1e-4
     lr_min_ratio: 0.05
     token_processor:
       pred_init: True
@@ -18,16 +17,13 @@ model:
       dis_weight: 20
       dist_decay: 3
 
-#ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
-#ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
-#ckpt_path: './waymo_data/xflow256_val4_epoch=63-step=121792.ckpt'
 ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
 
-task_name: model32_valuedetach_gp01_dis5e5
+task_name: model32_valuedetach_gp01l1_dis5e5
 
 trainer:
-  #val_check_interval: 0.25
-  val_check_interval: 0.000002
+  val_check_interval: 0.25
+  #val_check_interval: 0.000002
   max_epochs: 5
   gradient_clip_val: 0.0
 
@@ -35,6 +31,4 @@ data:
   train_batch_size: 32 #6
   val_batch_size: 256
 
-action: validate
-#action: finetune
-# nohup python run.py > 1.txt 2>&1 &
+action: finetune
