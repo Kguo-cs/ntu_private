@@ -894,6 +894,8 @@ xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt
 
 
 
+
+
 take all position for generation
 simformer: For each
 agent, it sequentially predicts (a) an agent type token,

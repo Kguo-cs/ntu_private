@@ -183,6 +183,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
     type = tokenized_agent["type"]
 
     if gt_dist is None:
+        valid=data["agent"]["valid_mask"][:, gt_init_timestep]#9051
 
         gt_vel =data["agent"]["velocity"][:, gt_init_timestep]
         gt_speed = gt_vel.norm(dim=-1)
@@ -190,8 +191,8 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
         gt_sin = torch.sin(data["agent"]["heading"][:, gt_init_timestep])
         gt_shape = data["agent"]["shape"]
         gt_pos = data["agent"]["position"][:, gt_init_timestep, :2]
-        gt_type= data["agent"]["type"]
-        valid=data["agent"]["valid_mask"][:, gt_init_timestep]#9051
+        gt_type= data["agent"]["type"][valid]
+        gt_batch=batch[valid]
 
         real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2],gt_vel],
                                dim=-1)[valid]  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
@@ -271,7 +272,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             # }
             # samples.append(unified_data)
 
-            real_vehicles = real_state[(batch == b) & (gt_type == 0)].cpu().numpy()
+            real_vehicles = real_state[(gt_batch == b) & (gt_type == 0)].cpu().numpy()
 
             unified_data = {
                 'lanes': compact_centerlines,  # [num_lanes, 20, 2]

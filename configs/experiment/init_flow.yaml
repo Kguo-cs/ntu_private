@@ -11,7 +11,7 @@ model:
       learn_init: True
 
     finetune: true
-    n_batch_wosac_metric: 0
+    #n_batch_wosac_metric: 0
 
 #ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
@@ -28,4 +28,4 @@ data:
   val_batch_size: 256
   train_raw_dir: ${paths.cache_root}/training_map2_init5 #init0_light #init0_light  #init10_inter
 
-action: validate
+action: finetune
