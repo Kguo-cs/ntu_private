@@ -18,7 +18,6 @@ task_name: xflow512_val64_map100_wrap_eval5
 
 trainer:
   check_val_every_n_epoch: 4
-  #val_check_interval: 2
   #val_check_interval: 0.0000002
 
 data:
