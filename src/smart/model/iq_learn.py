@@ -264,6 +264,7 @@ class IQ_SoftQ(LightningModule):
         ego_bce_loss = _weighted_bce_with_logits(
             logits=ego_logits,
             target=target,
+            weight=torch.ones_like(ego_logits)
         )
 
         has_nei_rewards = _has_elements(nei_rewards)

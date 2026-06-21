@@ -528,19 +528,6 @@ def _weighted_bce_with_logits(
     average interaction weight changes across batches.
     """
     targets = torch.full_like(logits, fill_value=target)
-
-    if logits.numel() == 0:
-        return logits.new_zeros(())
-
-    if weight is None:
-        return F.relu(1+(1-2*targets)*logits).mean()
-        # return F.binary_cross_entropy_with_logits(
-        #     logits,
-        #     targets,
-        #     reduction="mean",
-        # )
-
-    weight = weight.to(dtype=logits.dtype)
     # elementwise_loss = F.binary_cross_entropy_with_logits(
     #     logits,
     #     targets,
@@ -548,7 +535,8 @@ def _weighted_bce_with_logits(
     #     reduction="mean",
     # )
 
-    elementwise_loss=(F.relu(1+(1-2*targets)*logits)*weight).mean()
+    # elementwise_loss=(F.relu(1+(1-2*targets)*logits)*weight).mean()
+    elementwise_loss=((targets-logits).square()*weight).mean()
 
     return elementwise_loss #.sum() / weight.sum().clamp_min(eps)
 
