@@ -533,7 +533,7 @@ def _weighted_bce_with_logits(
         return logits.new_zeros(())
 
     if weight is None:
-        return ((1-2*targets)*logits).mean()
+        return F.relu(1+(1-2*targets)*logits).mean()
         # return F.binary_cross_entropy_with_logits(
         #     logits,
         #     targets,
@@ -548,7 +548,7 @@ def _weighted_bce_with_logits(
     #     reduction="mean",
     # )
 
-    elementwise_loss=((1-2*targets)*logits*weight).mean()
+    elementwise_loss=(F.relu(1+(1-2*targets)*logits)*weight).mean()
 
     return elementwise_loss #.sum() / weight.sum().clamp_min(eps)
 
