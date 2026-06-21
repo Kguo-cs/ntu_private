@@ -320,7 +320,7 @@ def _masked_square_norm_mean(gradient, mask, reference):
         return reference.new_zeros(())
 
     valid_gradient = gradient[mask]
-    return valid_gradient.reshape(valid_gradient.shape[0], -1).sum(dim=-1).mean()#.square()
+    return valid_gradient.reshape(valid_gradient.shape[0], -1).abs().sum(dim=-1).mean()#.square()
 
 
 def ZeroCenteredGradientPenalty(
