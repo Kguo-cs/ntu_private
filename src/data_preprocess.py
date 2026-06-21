@@ -409,7 +409,7 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                             map_infos["lane"][_i]["type"] = 2
                 # not necessary found, some stop sign lanes are for lane with length 1
                 # assert is_found
-    map_infos["all_polylines_list"] = polylines
+    #map_infos["all_polylines_list"] = polylines
     #map_infos["road_edge_list"]=road_edge_list
 
     try:

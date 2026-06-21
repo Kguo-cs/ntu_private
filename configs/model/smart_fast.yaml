@@ -4,7 +4,12 @@ defaults:
   - smart
 
 model_config:
-  n_batch_wosac_metric: 2
+  val_open_loop: False
+  token_processor:
+    pred_init: False
+    learn_init: False
+    learn_autoencoder: False
+  n_batch_wosac_metric: 1
   n_vis_batch: 0
   n_vis_scenario: 40
   n_vis_rollout: 32
@@ -27,3 +32,6 @@ model_config:
     dist_decay: 3
     reward_weight: 0
     reward_decay: 2.5
+
+
+

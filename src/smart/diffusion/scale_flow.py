@@ -121,7 +121,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster=False
 
-        self.use_sde=True
+        self.use_sde=False
 
         if not token_processor.learn_init:
             self.use_sde=False

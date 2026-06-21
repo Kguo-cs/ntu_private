@@ -49,6 +49,8 @@ from src.smart.utils import (
     rotate_to_global
 )
 import os
+from src.smart.tokens.token_processor import TokenProcessor
+
 
 class SMART(LightningModule):
 
@@ -63,25 +65,11 @@ class SMART(LightningModule):
         self.log_epoch = -1
         self.val_open_loop = model_config.val_open_loop
         self.val_closed_loop = model_config.val_closed_loop
-
-        self.use_smart=model_config.smart
-        self.use_bird=model_config.bird
-
-        if self.use_smart:
-            from src.smart.tokens.smart_token_processsor import TokenProcessor
-        elif self.use_bird:
-            from src.smart.tokens.token_bird_processor import TokenProcessor
-        else:
-            from src.smart.tokens.token_processor import TokenProcessor
-
         self.token_processor = TokenProcessor(**model_config.token_processor)
 
         self.encoder = SMARTDecoder(
             **model_config.decoder,token_processor=self.token_processor, n_token_agent=self.token_processor.n_token_agent
         )
-
-        if self.use_smart:
-            set_model_for_finetuning(self.encoder, model_config.finetune)
 
         if  self.token_processor.pred_init:
             for p in self.encoder.parameters():

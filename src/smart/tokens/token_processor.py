@@ -43,7 +43,6 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
-        pred_entry=False,
         pred_init=False,
         learn_init=False,
         learn_autoencoder=False
@@ -56,9 +55,8 @@ class TokenProcessor(torch.nn.Module):
         self.learn_init=learn_init
         self.learn_autoencoder = learn_autoencoder
 
-        self.use_smart=False
-        self.use_bird=False
         self.noise=False
+        self.use_bird=False
         self.use_token=True
         self.use_goal=False
         self.use_all_pos=False

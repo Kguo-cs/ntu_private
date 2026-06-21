@@ -170,28 +170,31 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
     pred_vel = torch.stack(pred_vel, dim=1)
 
     pred_speeds=pred_vel.norm(dim=-1)
+    gt_init_timestep=10
+    gen_init_timestep=10
 
     batch = tokenized_agent["batch"]
-    cos = torch.cos(pred_head[:, :, 10])
-    sin = torch.sin(pred_head[:, :, 10])
+    cos = torch.cos(pred_head[:, :, gen_init_timestep])
+    sin = torch.sin(pred_head[:, :, gen_init_timestep])
 
     state = torch.cat(
-        [pred_traj[:, :, 10], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, 10, :2],pred_vel],
+        [pred_traj[:, :, gen_init_timestep], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, gen_init_timestep, :2],pred_vel],
         dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
     type = tokenized_agent["type"]
 
     if gt_dist is None:
 
-        gt_vel =data["agent"]["velocity"][:, 10]
+        gt_vel =data["agent"]["velocity"][:, gt_init_timestep]
         gt_speed = gt_vel.norm(dim=-1)
-        gt_cos = torch.cos(data["agent"]["heading"][:, 10])
-        gt_sin = torch.sin(data["agent"]["heading"][:, 10])
+        gt_cos = torch.cos(data["agent"]["heading"][:, gt_init_timestep])
+        gt_sin = torch.sin(data["agent"]["heading"][:, gt_init_timestep])
         gt_shape = data["agent"]["shape"]
-        gt_pos = data["agent"]["position"][:, 10, :2]
+        gt_pos = data["agent"]["position"][:, gt_init_timestep, :2]
         gt_type= data["agent"]["type"]
+        valid=data["agent"]["valid_mask"][:, gt_init_timestep]#9051
 
         real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2],gt_vel],
-                               dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+                               dim=-1)[valid]  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
 
     for b in range(data.num_graphs):
         vehicles = state[(batch == b) & (type == 0)].cpu().numpy()

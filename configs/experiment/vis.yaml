@@ -2,7 +2,7 @@
 
 defaults:
   # - override /trainer: ddp
-  - override /model: smart_iq
+  - override /model: smart_fast
 
 model:
   model_config:
@@ -43,7 +43,7 @@ data:
   train_batch_size: 2
   val_batch_size: 64
   test_batch_size: 128
-  num_workers: 32
+  num_workers: 8
   shuffle: false
   pin_memory: false
 

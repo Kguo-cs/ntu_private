@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - override /model: smart_iq
+  - override /model: smart_fast
 
 model:
   model_config:

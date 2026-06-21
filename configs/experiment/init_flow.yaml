@@ -1,0 +1,31 @@
+# @package _global_
+
+defaults:
+  - override /model: smart_fast
+
+model:
+  model_config:
+    lr: 0 #5e-4
+    token_processor:
+      pred_init: True
+      learn_init: True
+
+    finetune: true
+    n_batch_wosac_metric: 0
+
+#ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
+ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
+
+task_name: xflow256_val64_map100_wrap #_stateembedtype
+
+trainer:
+  check_val_every_n_epoch: 4
+  #val_check_interval: 2
+  #val_check_interval: 0.0000002
+
+data:
+  train_batch_size: 256
+  val_batch_size: 256
+  train_raw_dir: ${paths.cache_root}/training_map2_init5 #init0_light #init0_light  #init10_inter
+
+action: validate

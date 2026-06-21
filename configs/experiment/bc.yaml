@@ -2,7 +2,7 @@
 
 defaults:
   # - override /trainer: ddp
-  - override /model: smart_iq
+  - override /model: smart_fast
 
 model:
   model_config:
@@ -68,7 +68,7 @@ data:
   train_batch_size: 48
   val_batch_size: 64
   test_batch_size: 10
-  num_workers: 1
+  num_workers: 8
 
 #  train_raw_dir: ${paths.cache_root}/training_map2_a_light
 
