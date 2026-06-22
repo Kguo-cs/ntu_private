@@ -3,11 +3,11 @@ export PBS_JOBID=118609.pbs111
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/validation_map2light  ./
 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 
