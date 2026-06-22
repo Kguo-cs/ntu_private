@@ -357,7 +357,7 @@ class EdgeEncoder(nn.Module):
             selector_agent_feat_dim: Optional[int] = None,
             selector_map_feat_dim: Optional[int] = None,
             selector_selection_mode: str = "global_ratio",
-            selector_global_keep_ratio: Optional[float] = None,
+            selector_global_keep_ratio: Optional[float] = 0.1,
             selector_min_keep_edges: int = 1,
             return_selector_info: bool = False,
     ) -> None:
