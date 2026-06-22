@@ -54,7 +54,8 @@ class LearnableTopKEdgeSelector(nn.Module):
       1) score low-dimensional raw edge features before FourierEmbedding;
       2) support global top-ratio selection over all candidate edges, avoiding
          per-agent group top-k;
-      3) return gate values so the caller only embeds selected edges.
+      3) support adaptive global keep-ratio based on score uncertainty;
+      4) return gate values so the caller only embeds selected edges.
     """
 
     def __init__(
@@ -72,6 +73,10 @@ class LearnableTopKEdgeSelector(nn.Module):
             selection_mode: str = "global_ratio",
             global_keep_ratio: Optional[float] = None,
             min_keep_edges: int = 1,
+            adaptive_min_keep_ratio: float = 0.25,
+            adaptive_max_keep_ratio: float = 0.75,
+            adaptive_score_std_scale: float = 1.0,
+            adaptive_strength: float = 1.0,
     ) -> None:
         super().__init__()
         selector_hidden_dim = selector_hidden_dim or max(hidden_dim // 2, 16)
@@ -83,6 +88,10 @@ class LearnableTopKEdgeSelector(nn.Module):
         self.selection_mode = selection_mode
         self.global_keep_ratio = global_keep_ratio
         self.min_keep_edges = int(min_keep_edges)
+        self.adaptive_min_keep_ratio = float(adaptive_min_keep_ratio)
+        self.adaptive_max_keep_ratio = float(adaptive_max_keep_ratio)
+        self.adaptive_score_std_scale = max(float(adaptive_score_std_scale), 1e-6)
+        self.adaptive_strength = float(adaptive_strength)
 
         self.edge_feat_proj = nn.Linear(edge_input_dim, hidden_dim, bias=False)
         self.src_feat_proj = _FeatureProjector(agent_feat_dim, hidden_dim)
@@ -161,6 +170,46 @@ class LearnableTopKEdgeSelector(nn.Module):
         selected = torch.topk(scores, k=k, largest=True).indices
         keep_mask[selected] = True
         return keep_mask
+
+    def _adaptive_global_keep_ratio(
+            self,
+            route_scores: torch.Tensor,
+            base_keep_ratio: Optional[float],
+    ) -> float:
+        """Compute one adaptive keep ratio for the whole candidate edge pool.
+
+        Low score spread means the selector is uncertain, so keep more edges.
+        High score spread means routing is confident, so keep fewer edges. The
+        returned scalar is detached because top-k needs an integer k.
+        """
+        if route_scores.numel() == 0:
+            return 0.0
+
+        if base_keep_ratio is None:
+            base_keep_ratio = self.global_keep_ratio
+        if base_keep_ratio is None:
+            base_keep_ratio = 1.0
+
+        min_ratio = max(0.0, min(1.0, self.adaptive_min_keep_ratio))
+        max_ratio = max(0.0, min(1.0, self.adaptive_max_keep_ratio))
+        if min_ratio > max_ratio:
+            min_ratio, max_ratio = max_ratio, min_ratio
+
+        # Use detached scores: the discrete number of kept edges is not a useful
+        # gradient path, while selected edges still train the score/gate network.
+        s = route_scores.detach().float()
+        if s.numel() <= 1:
+            uncertainty = s.new_tensor(1.0)
+        else:
+            score_std = s.std(unbiased=False)
+            confidence = torch.tanh(score_std / self.adaptive_score_std_scale).clamp(0.0, 1.0)
+            uncertainty = 1.0 - confidence
+
+        adaptive_ratio = min_ratio + (max_ratio - min_ratio) * uncertainty
+        base = adaptive_ratio.new_tensor(float(base_keep_ratio)).clamp(0.0, 1.0)
+        strength = adaptive_ratio.new_tensor(self.adaptive_strength).clamp(0.0, 1.0)
+        ratio = (1.0 - strength) * base + strength * adaptive_ratio
+        return float(ratio.clamp(0.0, 1.0).item())
 
     @staticmethod
     def _group_topk_mask_dense(
@@ -298,6 +347,16 @@ class LearnableTopKEdgeSelector(nn.Module):
                 keep_ratio=keep_ratio if keep_ratio is not None else self.global_keep_ratio,
                 min_keep_edges=self.min_keep_edges,
             )
+        elif self.selection_mode == "adaptive_global_ratio":
+            adaptive_keep_ratio = self._adaptive_global_keep_ratio(
+                route_scores,
+                base_keep_ratio=keep_ratio if keep_ratio is not None else self.global_keep_ratio,
+            )
+            keep_mask = self._global_top_ratio_mask(
+                route_scores,
+                keep_ratio=adaptive_keep_ratio,
+                min_keep_edges=self.min_keep_edges,
+            )
         elif self.selection_mode == "per_receiver":
             # Fallback compatible with the older behavior: top-k incoming edges
             # for every receiver/center node.
@@ -314,7 +373,7 @@ class LearnableTopKEdgeSelector(nn.Module):
         else:
             raise ValueError(
                 f"Unknown selection_mode={self.selection_mode!r}. "
-                "Use 'global_ratio' or 'per_receiver'."
+                "Use 'global_ratio', 'adaptive_global_ratio', or 'per_receiver'."
             )
 
         selected_edge_index = edge_index[:, keep_mask]
@@ -349,7 +408,7 @@ class EdgeEncoder(nn.Module):
             learnable_edge_selector=True,
             learnable_pl2a_selector: Optional[bool] = None,
             selector_topk: Optional[int] = None,
-            selector_candidate_factor: int = 4,
+            selector_candidate_factor: int = 2,
             selector_temperature: float = 1.0,
             selector_use_gumbel: bool = False,
             selector_gate_edges: bool = True,
@@ -357,8 +416,12 @@ class EdgeEncoder(nn.Module):
             selector_agent_feat_dim: Optional[int] = None,
             selector_map_feat_dim: Optional[int] = None,
             selector_selection_mode: str = "global_ratio",
-            selector_global_keep_ratio: Optional[float] = 0.1,
+            selector_global_keep_ratio: Optional[float] = None,
             selector_min_keep_edges: int = 1,
+            selector_adaptive_min_keep_ratio: float = 0.25,
+            selector_adaptive_max_keep_ratio: float = 0.75,
+            selector_adaptive_score_std_scale: float = 1.0,
+            selector_adaptive_strength: float = 1.0,
             return_selector_info: bool = False,
     ) -> None:
         super(EdgeEncoder, self).__init__()
@@ -378,6 +441,10 @@ class EdgeEncoder(nn.Module):
         self.selector_selection_mode = selector_selection_mode
         self.selector_global_keep_ratio = selector_global_keep_ratio
         self.selector_min_keep_edges = int(selector_min_keep_edges)
+        self.selector_adaptive_min_keep_ratio = float(selector_adaptive_min_keep_ratio)
+        self.selector_adaptive_max_keep_ratio = float(selector_adaptive_max_keep_ratio)
+        self.selector_adaptive_score_std_scale = float(selector_adaptive_score_std_scale)
+        self.selector_adaptive_strength = float(selector_adaptive_strength)
         self.return_selector_info = return_selector_info
         if learnable_pl2a_selector is None:
             learnable_pl2a_selector = learnable_edge_selector
@@ -424,6 +491,10 @@ class EdgeEncoder(nn.Module):
                 selection_mode=selector_selection_mode,
                 global_keep_ratio=selector_global_keep_ratio,
                 min_keep_edges=selector_min_keep_edges,
+                adaptive_min_keep_ratio=selector_adaptive_min_keep_ratio,
+                adaptive_max_keep_ratio=selector_adaptive_max_keep_ratio,
+                adaptive_score_std_scale=selector_adaptive_score_std_scale,
+                adaptive_strength=selector_adaptive_strength,
             )
             if learnable_edge_selector and use_a2a
             else None
@@ -441,6 +512,10 @@ class EdgeEncoder(nn.Module):
                 selection_mode=selector_selection_mode,
                 global_keep_ratio=selector_global_keep_ratio,
                 min_keep_edges=selector_min_keep_edges,
+                adaptive_min_keep_ratio=selector_adaptive_min_keep_ratio,
+                adaptive_max_keep_ratio=selector_adaptive_max_keep_ratio,
+                adaptive_score_std_scale=selector_adaptive_score_std_scale,
+                adaptive_strength=selector_adaptive_strength,
             )
             if learnable_edge_selector and learnable_pl2a_selector and use_pl2a
             else None
