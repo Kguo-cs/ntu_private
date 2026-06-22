@@ -512,7 +512,7 @@ class EdgeEncoder(nn.Module):
             selector_adaptive_strength: float = 1.0,
             selector_threshold_type: str = "zscore",
             selector_score_threshold: float = 0.0,
-            selector_prob_threshold: float = 0.5,
+            selector_prob_threshold: float = 0.25,
             selector_threshold_max_keep_ratio: Optional[float] = None,
             return_selector_info: bool = False,
     ) -> None:

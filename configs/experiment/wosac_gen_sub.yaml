@@ -39,7 +39,7 @@ model:
       learn_init: False
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/model24_value1e3_newpoint_gp_shape10_epoch=1-step=58440-valmeta=0.6533.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt"
 
 trainer:
   limit_train_batches: 1.0

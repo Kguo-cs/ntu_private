@@ -8,7 +8,7 @@ import torch.nn as nn
 from src.smart.layers import MLPLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers.attention_layer import AttentionLayer
-from src.smart.modules.edge_encoder_learnable_topk import EdgeEncoder
+from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.utils import (
     transform_to_global,
     transform_to_local,
@@ -594,13 +594,13 @@ class InitDenoiser(nn.Module):
             head_vector_s=head_vector_s,
             batch_s=batch,
             mask=None,
-            max_radius=60,
+            max_radius=80,
             max_num_neighbors=20,
             agent_train_mask=None,
             layer_num=self.num_layers,
             counter_feat_a=None,
             dis_edge_mask=None,
-            feat_a=feat_a,
+           # feat_a=feat_a,
         )
 
         # If the agent batch has been repeated for MC/SDE samples, map_feature is
@@ -663,12 +663,12 @@ class InitDenoiser(nn.Module):
             mask=mask_for_map,
             batch_s=batch_for_map,
             batch_pl=batch_pl,
-            pl2a_radius=40,
+            pl2a_radius=60,
             max_num_neighbors=20,
             agent_train_mask=None,
             layer_num=self.num_layers,
-            feat_a=feat_a,
-            feat_map=feat_map
+            #feat_a=feat_a,
+            #feat_map=feat_map
         )
 
         for layer_i in range(self.num_layers):
