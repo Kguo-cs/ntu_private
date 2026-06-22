@@ -55,7 +55,8 @@ class LearnableTopKEdgeSelector(nn.Module):
       2) support global top-ratio selection over all candidate edges, avoiding
          per-agent group top-k;
       3) support adaptive global keep-ratio based on score uncertainty;
-      4) return gate values so the caller only embeds selected edges.
+      4) support global threshold selection, where the number of kept edges is data-dependent;
+      5) return gate values so the caller only embeds selected edges.
     """
 
     def __init__(
@@ -77,6 +78,10 @@ class LearnableTopKEdgeSelector(nn.Module):
             adaptive_max_keep_ratio: float = 0.75,
             adaptive_score_std_scale: float = 1.0,
             adaptive_strength: float = 1.0,
+            threshold_type: str = "zscore",
+            score_threshold: float = 0.0,
+            prob_threshold: float = 0.5,
+            threshold_max_keep_ratio: Optional[float] = None,
     ) -> None:
         super().__init__()
         selector_hidden_dim = selector_hidden_dim or max(hidden_dim // 2, 16)
@@ -92,6 +97,10 @@ class LearnableTopKEdgeSelector(nn.Module):
         self.adaptive_max_keep_ratio = float(adaptive_max_keep_ratio)
         self.adaptive_score_std_scale = max(float(adaptive_score_std_scale), 1e-6)
         self.adaptive_strength = float(adaptive_strength)
+        self.threshold_type = threshold_type
+        self.score_threshold = float(score_threshold)
+        self.prob_threshold = float(prob_threshold)
+        self.threshold_max_keep_ratio = threshold_max_keep_ratio
 
         self.edge_feat_proj = nn.Linear(edge_input_dim, hidden_dim, bias=False)
         self.src_feat_proj = _FeatureProjector(agent_feat_dim, hidden_dim)
@@ -210,6 +219,72 @@ class LearnableTopKEdgeSelector(nn.Module):
         strength = adaptive_ratio.new_tensor(self.adaptive_strength).clamp(0.0, 1.0)
         ratio = (1.0 - strength) * base + strength * adaptive_ratio
         return float(ratio.clamp(0.0, 1.0).item())
+
+    def _global_threshold_mask(
+            self,
+            route_scores: torch.Tensor,
+            min_keep_edges: int = 1,
+    ) -> torch.Tensor:
+        """Select edges whose routing score passes a fixed global threshold.
+
+        This mode does not choose a fixed keep ratio. The kept edge count is
+        determined by the learned score distribution and the threshold.
+
+        threshold_type:
+          - "score": raw selector score >= score_threshold;
+          - "prob": sigmoid(score / temperature) >= prob_threshold;
+          - "zscore": normalized score z >= score_threshold. This is usually
+            the most stable option because raw scores may drift during training.
+        """
+        E = route_scores.size(0)
+        keep_mask = torch.zeros(E, dtype=torch.bool, device=route_scores.device)
+        if E == 0:
+            return keep_mask
+
+        threshold_type = str(self.threshold_type).lower()
+        if threshold_type == "score":
+            values = route_scores
+            threshold = route_scores.new_tensor(self.score_threshold)
+        elif threshold_type == "prob":
+            values = torch.sigmoid(route_scores / self.temperature)
+            threshold = route_scores.new_tensor(self.prob_threshold)
+        elif threshold_type == "zscore":
+            if E <= 1:
+                values = torch.zeros_like(route_scores)
+            else:
+                s = route_scores.float()
+                values = ((s - s.mean()) / s.std(unbiased=False).clamp_min(1e-6)).to(route_scores.dtype)
+            threshold = route_scores.new_tensor(self.score_threshold)
+        else:
+            raise ValueError(
+                f"Unknown threshold_type={self.threshold_type!r}. "
+                "Use 'score', 'prob', or 'zscore'."
+            )
+
+        keep_mask = values >= threshold
+
+        # Safety 1: never return an empty edge set unless explicitly requested.
+        min_keep_edges = max(int(min_keep_edges), 0)
+        if min_keep_edges > 0 and int(keep_mask.sum().item()) < min_keep_edges:
+            k = min(min_keep_edges, E)
+            fallback = torch.topk(route_scores, k=k, largest=True).indices
+            keep_mask[fallback] = True
+
+        # Safety 2: optional cap to avoid a threshold that keeps almost all
+        # candidate edges. This is only a cap; it is not the selection rule.
+        if self.threshold_max_keep_ratio is not None:
+            max_keep_ratio = float(self.threshold_max_keep_ratio)
+            if max_keep_ratio < 1.0:
+                max_keep = max(min_keep_edges, int(math.ceil(E * max_keep_ratio)))
+                max_keep = min(max_keep, E)
+                if int(keep_mask.sum().item()) > max_keep:
+                    # Keep the highest-scoring edges among all candidates.
+                    selected = torch.topk(route_scores, k=max_keep, largest=True).indices
+                    capped_mask = torch.zeros_like(keep_mask)
+                    capped_mask[selected] = True
+                    keep_mask = capped_mask
+
+        return keep_mask
 
     @staticmethod
     def _group_topk_mask_dense(
@@ -357,6 +432,11 @@ class LearnableTopKEdgeSelector(nn.Module):
                 keep_ratio=adaptive_keep_ratio,
                 min_keep_edges=self.min_keep_edges,
             )
+        elif self.selection_mode == "global_threshold":
+            keep_mask = self._global_threshold_mask(
+                route_scores,
+                min_keep_edges=self.min_keep_edges,
+            )
         elif self.selection_mode == "per_receiver":
             # Fallback compatible with the older behavior: top-k incoming edges
             # for every receiver/center node.
@@ -373,7 +453,7 @@ class LearnableTopKEdgeSelector(nn.Module):
         else:
             raise ValueError(
                 f"Unknown selection_mode={self.selection_mode!r}. "
-                "Use 'global_ratio', 'adaptive_global_ratio', or 'per_receiver'."
+                "Use 'global_ratio', 'adaptive_global_ratio', 'global_threshold', or 'per_receiver'."
             )
 
         selected_edge_index = edge_index[:, keep_mask]
@@ -385,7 +465,15 @@ class LearnableTopKEdgeSelector(nn.Module):
         else:
             gate = torch.ones_like(selected_scores)
 
-        info = {"score": selected_scores, "gate": gate, "keep_mask": keep_mask}
+        info = {
+            "score": selected_scores,
+            "gate": gate,
+            "keep_mask": keep_mask,
+            "num_candidates": int(edge_input.size(0)),
+            "num_kept": int(selected_edge_input.size(0)),
+            "selection_mode": self.selection_mode,
+            "threshold_type": self.threshold_type if self.selection_mode == "global_threshold" else None,
+        }
         return selected_edge_index, selected_edge_input, keep_mask, info
 
 
@@ -422,6 +510,10 @@ class EdgeEncoder(nn.Module):
             selector_adaptive_max_keep_ratio: float = 0.75,
             selector_adaptive_score_std_scale: float = 1.0,
             selector_adaptive_strength: float = 1.0,
+            selector_threshold_type: str = "zscore",
+            selector_score_threshold: float = 0.0,
+            selector_prob_threshold: float = 0.5,
+            selector_threshold_max_keep_ratio: Optional[float] = None,
             return_selector_info: bool = False,
     ) -> None:
         super(EdgeEncoder, self).__init__()
@@ -445,6 +537,10 @@ class EdgeEncoder(nn.Module):
         self.selector_adaptive_max_keep_ratio = float(selector_adaptive_max_keep_ratio)
         self.selector_adaptive_score_std_scale = float(selector_adaptive_score_std_scale)
         self.selector_adaptive_strength = float(selector_adaptive_strength)
+        self.selector_threshold_type = selector_threshold_type
+        self.selector_score_threshold = float(selector_score_threshold)
+        self.selector_prob_threshold = float(selector_prob_threshold)
+        self.selector_threshold_max_keep_ratio = selector_threshold_max_keep_ratio
         self.return_selector_info = return_selector_info
         if learnable_pl2a_selector is None:
             learnable_pl2a_selector = learnable_edge_selector
@@ -495,6 +591,10 @@ class EdgeEncoder(nn.Module):
                 adaptive_max_keep_ratio=selector_adaptive_max_keep_ratio,
                 adaptive_score_std_scale=selector_adaptive_score_std_scale,
                 adaptive_strength=selector_adaptive_strength,
+                threshold_type=selector_threshold_type,
+                score_threshold=selector_score_threshold,
+                prob_threshold=selector_prob_threshold,
+                threshold_max_keep_ratio=selector_threshold_max_keep_ratio,
             )
             if learnable_edge_selector and use_a2a
             else None
@@ -516,6 +616,10 @@ class EdgeEncoder(nn.Module):
                 adaptive_max_keep_ratio=selector_adaptive_max_keep_ratio,
                 adaptive_score_std_scale=selector_adaptive_score_std_scale,
                 adaptive_strength=selector_adaptive_strength,
+                threshold_type=selector_threshold_type,
+                score_threshold=selector_score_threshold,
+                prob_threshold=selector_prob_threshold,
+                threshold_max_keep_ratio=selector_threshold_max_keep_ratio,
             )
             if learnable_edge_selector and learnable_pl2a_selector and use_pl2a
             else None
@@ -948,3 +1052,4 @@ class EdgeEncoder(nn.Module):
             edge_index_pl2a = torch.stack([edge_index_pl2a[0], new_dst], dim=0)
 
         return edge_index_pl2a, r_pl2a
+
