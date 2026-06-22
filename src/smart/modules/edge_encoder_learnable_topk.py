@@ -349,7 +349,7 @@ class EdgeEncoder(nn.Module):
             learnable_edge_selector=True,
             learnable_pl2a_selector: Optional[bool] = None,
             selector_topk: Optional[int] = None,
-            selector_candidate_factor: int = 2,
+            selector_candidate_factor: int = 4,
             selector_temperature: float = 1.0,
             selector_use_gumbel: bool = False,
             selector_gate_edges: bool = True,
