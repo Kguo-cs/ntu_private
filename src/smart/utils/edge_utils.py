@@ -63,6 +63,9 @@ def visibility_aware_knn_with_radius_batch(pos, vis_mask, batch, k, max_radius):
         edge_src.append(src_global)
         edge_dst.append(dst_global)
 
+    if len(edge_src) == 0:
+        return torch.empty((2, 0), dtype=torch.long, device=device)
+
     # Final edge index
     edge_index = torch.stack([
         torch.cat(edge_dst, dim=0),
@@ -129,7 +132,10 @@ def nearest_mask(padd_pos, nearest_k, max_dist, mask):
     sq_dist = sq_dist.masked_fill(mask, float('inf'))
 
     # Find nearest_k neighbors within max_dist
-    top_dist, topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False)  # [B, N, k]
+    k_eff = min(int(nearest_k), int(N))
+    if k_eff <= 0:
+        return torch.ones((B, N, N), dtype=torch.bool, device=padd_pos.device)
+    top_dist, topk_idx = torch.topk(sq_dist, k=k_eff, dim=-1, largest=False)  # [B, N, k_eff]
     dist_mask = top_dist < max_dist ** 2
 
     # Create full attention mask: default to True
@@ -141,8 +147,8 @@ def nearest_mask(padd_pos, nearest_k, max_dist, mask):
         torch.arange(N, device=padd_pos.device),
         indexing='ij'
     )
-    b_idx = b_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
-    n_idx = n_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
+    b_idx = b_idx.unsqueeze(-1).expand(-1, -1, k_eff)[dist_mask]
+    n_idx = n_idx.unsqueeze(-1).expand(-1, -1, k_eff)[dist_mask]
     k_idx = topk_idx[dist_mask]
 
     a2a_mask[b_idx, n_idx, k_idx] = False
@@ -171,10 +177,13 @@ def nearest_mask2(padd_pos, padd_pos1, nearest_k, max_dist, mask):
     sq_dist = sq_dist.masked_fill(mask, float('inf'))
 
     # Get top-k smallest distances (nearest neighbors)
-    top_dist, topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False)  # [B, Nq, k]
+    k_eff = min(int(nearest_k), int(Nk))
+    if k_eff <= 0:
+        return torch.ones((B, Nq, Nk), dtype=torch.bool, device=padd_pos.device)
+    top_dist, topk_idx = torch.topk(sq_dist, k=k_eff, dim=-1, largest=False)  # [B, Nq, k_eff]
 
     # Apply distance threshold
-    dist_mask = top_dist < max_dist ** 2  # [B, Nq, k]
+    dist_mask = top_dist < max_dist ** 2  # [B, Nq, k_eff]
 
     # Initialize mask as fully masked (True)
     a2a_mask = torch.ones((B, Nq, Nk), dtype=torch.bool, device=padd_pos.device)
@@ -185,15 +194,26 @@ def nearest_mask2(padd_pos, padd_pos1, nearest_k, max_dist, mask):
         torch.arange(Nq, device=padd_pos.device),
         indexing='ij'
     )
-    b_idx = b_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
-    nq_idx = nq_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
+    b_idx = b_idx.unsqueeze(-1).expand(-1, -1, k_eff)[dist_mask]
+    nq_idx = nq_idx.unsqueeze(-1).expand(-1, -1, k_eff)[dist_mask]
     nk_idx = topk_idx[dist_mask]  # indices in padd_pos1 (key set)
 
     a2a_mask[b_idx, nq_idx, nk_idx] = False
     return a2a_mask
 
 def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
-    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)        #source_to_target  edge_index[0] = dst edge_index[1] = src
+    if x.numel() == 0 or max_num_neighbors <= 0:
+        return torch.empty((2, 0), dtype=torch.long, device=x.device)
+
+    # Clamp globally. This avoids obvious topk/knn failures when the learnable
+    # selector requests a larger candidate pool than the number of available
+    # agents in small scenes.
+    max_k = x.size(0) if loop else max(x.size(0) - 1, 0)
+    if max_k <= 0:
+        return torch.empty((2, 0), dtype=torch.long, device=x.device)
+    k = min(int(max_num_neighbors), int(max_k))
+
+    edge_index = knn_graph(x, k=k, batch=batch, loop=loop)        #source_to_target  edge_index[0] = dst edge_index[1] = src
     src, dst = edge_index
     distances = (x[src] - x[dst]).norm(dim=1)
     mask = distances <= r
@@ -221,7 +241,14 @@ def get_mask(rel,theta,forward=40,back=20,width=20):
     return mask
 
 def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
-    edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x) # for each object in x, the nearest point in y
+    if x.numel() == 0 or y.numel() == 0 or max_num_neighbors <= 0:
+        return torch.empty((2, 0), dtype=torch.long, device=x.device)
+
+    k = min(int(max_num_neighbors), int(y.size(0)))
+    if k <= 0:
+        return torch.empty((2, 0), dtype=torch.long, device=x.device)
+
+    edge_index = knn(y, x, k, batch_x=batch_y, batch_y=batch_x) # for each object in x, the nearest point in y
     src, dst = edge_index
     distances = (x[src] - y[dst]).norm(dim=1)      # x is agent , y is map , src is agent , dst is map,
 

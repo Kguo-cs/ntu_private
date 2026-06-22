@@ -8,7 +8,7 @@ import torch.nn as nn
 from src.smart.layers import MLPLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers.attention_layer import AttentionLayer
-from src.smart.modules.edge_encoder import EdgeEncoder
+from src.smart.modules.edge_encoder_learnable_topk import EdgeEncoder
 from src.smart.utils import (
     transform_to_global,
     transform_to_local,
@@ -487,7 +487,7 @@ class InitDenoiser(nn.Module):
             theta,
         )
 
-        #local_ego_head=wrap_angle(local_ego_head)
+        local_ego_head=wrap_angle(local_ego_head)
 
         ego_features = torch.cat(
             [
