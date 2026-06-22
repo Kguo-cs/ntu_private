@@ -18,6 +18,34 @@ from torch_geometric.utils import dense_to_sparse, subgraph
 from torch_scatter import scatter_mean
 
 
+class _FeatureProjector(nn.Module):
+    """Project node/map features to hidden_dim without using LazyLinear.
+
+    If in_dim is provided, this is a learnable Linear projection. If in_dim is
+    None, it becomes a safe fallback: same-dim features are used directly,
+    larger features are truncated, and smaller features are zero-padded. This
+    avoids UninitializedParameter errors during model construction / weight_init.
+    """
+
+    def __init__(self, in_dim: Optional[int], out_dim: int) -> None:
+        super().__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.proj = nn.Linear(in_dim, out_dim, bias=False) if in_dim is not None else None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.proj is not None:
+            return self.proj(x)
+
+        if x.size(-1) == self.out_dim:
+            return x
+        if x.size(-1) > self.out_dim:
+            return x[..., :self.out_dim]
+
+        pad = x.new_zeros(*x.shape[:-1], self.out_dim - x.size(-1))
+        return torch.cat([x, pad], dim=-1)
+
+
 class LearnableTopKEdgeSelector(nn.Module):
     """Hard top-k edge router with differentiable gates.
 
@@ -39,6 +67,8 @@ class LearnableTopKEdgeSelector(nn.Module):
             use_gumbel: bool = False,
             gate_edges: bool = True,
             distance_prior: bool = True,
+            agent_feat_dim: Optional[int] = None,
+            map_feat_dim: Optional[int] = None,
     ) -> None:
         super().__init__()
         selector_hidden_dim = selector_hidden_dim or max(hidden_dim // 2, 16)
@@ -46,6 +76,19 @@ class LearnableTopKEdgeSelector(nn.Module):
         self.use_gumbel = use_gumbel
         self.gate_edges = gate_edges
         self.distance_prior = distance_prior
+
+        # The selector score is computed from a fused representation:
+        #   edge geometry embedding
+        # + source node semantic feature
+        # + destination node semantic feature
+        # + optional map/lane semantic feature.
+        # Do NOT use LazyLinear here: many projects call weight_init / parameter
+        # checks during Hydra model construction, before the first forward pass.
+        self.src_feat_proj = _FeatureProjector(agent_feat_dim, hidden_dim)
+        self.dst_feat_proj = _FeatureProjector(agent_feat_dim, hidden_dim)
+        self.map_feat_proj = _FeatureProjector(map_feat_dim, hidden_dim)
+        self.feature_scale = nn.Parameter(torch.tensor(-2.3025851))  # exp(.) = 0.1 warm start
+        self.selector_input_norm = nn.LayerNorm(hidden_dim)
 
         self.score_net = nn.Sequential(
             nn.LayerNorm(hidden_dim),
@@ -94,6 +137,47 @@ class LearnableTopKEdgeSelector(nn.Module):
         u = torch.rand_like(scores).clamp(min=eps, max=1.0 - eps)
         return -torch.log(-torch.log(u))
 
+    def _fuse_selector_input(
+            self,
+            edge_attr: torch.Tensor,
+            src_feat: Optional[torch.Tensor] = None,
+            dst_feat: Optional[torch.Tensor] = None,
+            map_feat: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        selector_input = edge_attr
+        semantic_terms = []
+
+        if src_feat is not None:
+            if src_feat.size(0) != edge_attr.size(0):
+                raise ValueError(
+                    f"src_feat must be edge-wise with shape [E, C], got {tuple(src_feat.shape)} "
+                    f"for E={edge_attr.size(0)}."
+                )
+            semantic_terms.append(self.src_feat_proj(src_feat))
+
+        if dst_feat is not None:
+            if dst_feat.size(0) != edge_attr.size(0):
+                raise ValueError(
+                    f"dst_feat must be edge-wise with shape [E, C], got {tuple(dst_feat.shape)} "
+                    f"for E={edge_attr.size(0)}."
+                )
+            semantic_terms.append(self.dst_feat_proj(dst_feat))
+
+        if map_feat is not None:
+            if map_feat.size(0) != edge_attr.size(0):
+                raise ValueError(
+                    f"map_feat must be edge-wise with shape [E, C], got {tuple(map_feat.shape)} "
+                    f"for E={edge_attr.size(0)}."
+                )
+            semantic_terms.append(self.map_feat_proj(map_feat))
+
+        if semantic_terms:
+            semantic = torch.stack(semantic_terms, dim=0).sum(dim=0)
+            selector_input = selector_input + self.feature_scale.exp().clamp(max=1.0) * semantic
+            selector_input = self.selector_input_norm(selector_input)
+
+        return selector_input
+
     def forward(
             self,
             edge_index: torch.Tensor,
@@ -102,6 +186,9 @@ class LearnableTopKEdgeSelector(nn.Module):
             dst_index: Optional[torch.Tensor] = None,
             dist: Optional[torch.Tensor] = None,
             dist_norm: Optional[float] = None,
+            src_feat: Optional[torch.Tensor] = None,
+            dst_feat: Optional[torch.Tensor] = None,
+            map_feat: Optional[torch.Tensor] = None,
     ):
         if edge_attr.size(0) == 0:
             keep_mask = torch.zeros(0, dtype=torch.bool, device=edge_attr.device)
@@ -117,7 +204,13 @@ class LearnableTopKEdgeSelector(nn.Module):
             # a2a and map2agent edges.
             dst_index = edge_index[1]
 
-        scores = self.score_net(edge_attr).squeeze(-1)
+        selector_input = self._fuse_selector_input(
+            edge_attr=edge_attr,
+            src_feat=src_feat,
+            dst_feat=dst_feat,
+            map_feat=map_feat,
+        )
+        scores = self.score_net(selector_input).squeeze(-1)
 
         if self.distance_prior and dist is not None:
             if dist_norm is None:
@@ -171,6 +264,8 @@ class EdgeEncoder(nn.Module):
             selector_use_gumbel: bool = True,
             selector_gate_edges: bool = True,
             selector_distance_prior: bool = True,
+            selector_agent_feat_dim: Optional[int] = None,
+            selector_map_feat_dim: Optional[int] = None,
             return_selector_info: bool = False,
     ) -> None:
         super(EdgeEncoder, self).__init__()
@@ -224,6 +319,8 @@ class EdgeEncoder(nn.Module):
                 use_gumbel=selector_use_gumbel,
                 gate_edges=selector_gate_edges,
                 distance_prior=selector_distance_prior,
+                agent_feat_dim=selector_agent_feat_dim,
+                map_feat_dim=selector_map_feat_dim,
             )
             if learnable_edge_selector and use_a2a
             else None
@@ -235,6 +332,8 @@ class EdgeEncoder(nn.Module):
                 use_gumbel=selector_use_gumbel,
                 gate_edges=selector_gate_edges,
                 distance_prior=selector_distance_prior,
+                agent_feat_dim=selector_agent_feat_dim,
+                map_feat_dim=selector_map_feat_dim,
             )
             if learnable_edge_selector and use_pl2a
             else None
@@ -257,6 +356,9 @@ class EdgeEncoder(nn.Module):
             dst_index: Optional[torch.Tensor] = None,
             dist: Optional[torch.Tensor] = None,
             dist_norm: Optional[float] = None,
+            src_feat: Optional[torch.Tensor] = None,
+            dst_feat: Optional[torch.Tensor] = None,
+            map_feat: Optional[torch.Tensor] = None,
     ):
         if selector is None:
             keep_mask = torch.ones(edge_attr.size(0), dtype=torch.bool, device=edge_attr.device)
@@ -269,6 +371,9 @@ class EdgeEncoder(nn.Module):
             dst_index=dst_index,
             dist=dist,
             dist_norm=dist_norm,
+            src_feat=src_feat,
+            dst_feat=dst_feat,
+            map_feat=map_feat,
         )
 
     def build_temporal_edge(
@@ -343,6 +448,22 @@ class EdgeEncoder(nn.Module):
 
         return edge_index_t, r_t
 
+    @staticmethod
+    def _compact_feature_by_mask(feature: Optional[torch.Tensor], mask: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
+        if feature is None:
+            return None
+        if mask is None:
+            if feature.dim() > 2:
+                return feature.reshape(-1, feature.size(-1))
+            return feature
+        if feature.shape[:mask.dim()] == mask.shape:
+            return feature[mask]
+        if feature.size(0) == mask.numel():
+            return feature[mask.reshape(-1)]
+        raise ValueError(
+            f"Feature shape {tuple(feature.shape)} is incompatible with mask shape {tuple(mask.shape)}."
+        )
+
     def build_interaction_edge(
             self,
             pos_s,  # [n_agent, n_step, 2]
@@ -356,8 +477,11 @@ class EdgeEncoder(nn.Module):
             layer_num=1,
             counter_feat_a=None,
             dis_edge_mask=None,
-            a2a_edge_index=None
+            a2a_edge_index=None,
+            feat_a: Optional[torch.Tensor] = None,  # agent/token feature, [n_agent, n_step, C] or compact [N, C]
         ):
+        agent_feat_s = self._compact_feature_by_mask(feat_a, mask)
+
         if mask is not None:
             pos_s = pos_s[mask]
             head_s = head_s[mask]
@@ -391,11 +515,11 @@ class EdgeEncoder(nn.Module):
 
         dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
 
-        feat_a=project_to_local_frame(rel_pos_a2a,head_vector_s[edge_index_a2a[1]],self.differentiable_edge)
+        rel_feat_a=project_to_local_frame(rel_pos_a2a,head_vector_s[edge_index_a2a[1]],self.differentiable_edge)
 
         r_a2a = torch.cat(
             [
-                feat_a,
+                rel_feat_a,
                 rel_head_a2a[:,None],
             ],
             dim=-1,
@@ -411,6 +535,8 @@ class EdgeEncoder(nn.Module):
             dst_index=edge_index_a2a[1],
             dist=dist,
             dist_norm=max_radius,
+            src_feat=(agent_feat_s[edge_index_a2a[0]] if agent_feat_s is not None else None),
+            dst_feat=(agent_feat_s[edge_index_a2a[1]] if agent_feat_s is not None else None),
         )
         dist = dist[keep_mask_a2a]
 
@@ -460,8 +586,12 @@ class EdgeEncoder(nn.Module):
                            pl2a_radius,
                            max_num_neighbors,
                            l2l_edge_index=None,
-                           l2l_feature=None
+                           l2l_feature=None,
+                           feat_a: Optional[torch.Tensor] = None,
+                           feat_map: Optional[torch.Tensor] = None
                            ):
+
+        agent_feat_s = feat_a
 
         if l2l_edge_index is None:
             edge_index_pl2pl = radiusGraphNearest2(x=pos_s,
@@ -480,12 +610,12 @@ class EdgeEncoder(nn.Module):
         )
         dist_pl2a = torch.norm(rel_pos_pl2a, p=2, dim=-1)
 
-        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2pl[1]],self.differentiable_edge)
+        rel_feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2pl[1]],self.differentiable_edge)
 
 
         r_pl2a = torch.cat(
             [
-                feat_a,
+                rel_feat_a,
                 rel_orient_pl2a[:,None],
             ],
             dim=-1,
@@ -501,6 +631,9 @@ class EdgeEncoder(nn.Module):
             dst_index=edge_index_pl2pl[1],
             dist=dist_pl2a,
             dist_norm=pl2a_radius,
+            src_feat=(feat_map[edge_index_pl2pl[0]] if feat_map is not None else None),
+            dst_feat=(agent_feat_s[edge_index_pl2pl[1]] if agent_feat_s is not None else None),
+            map_feat=(feat_map[edge_index_pl2pl[0]] if feat_map is not None else None),
         )
 
         return edge_index_pl2pl, r_pl2a
@@ -523,11 +656,15 @@ class EdgeEncoder(nn.Module):
             use_counterfactual=False,
             route_map_index=None,
             layer_num=1,
-            l2a_edge_index=None
+            l2a_edge_index=None,
+            feat_a: Optional[torch.Tensor] = None,
+            feat_map: Optional[torch.Tensor] = None
     ):
 
         if agent_train_mask is not None and layer_num==1:
             mask = mask & agent_train_mask[:,None]
+
+        agent_feat_s = self._compact_feature_by_mask(feat_a, mask)
 
         if mask is not None:
             n_agent, n_step = mask.shape
@@ -561,11 +698,11 @@ class EdgeEncoder(nn.Module):
         )
         dist_pl2a = torch.norm(rel_pos_pl2a, p=2, dim=-1)
 
-        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2a[1]],self.differentiable_edge)
+        rel_feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2a[1]],self.differentiable_edge)
 
         r_pl2a = torch.cat(
             [
-                feat_a,
+                rel_feat_a,
                 rel_orient_pl2a[:,None],
             ],
             dim=-1,
@@ -581,6 +718,9 @@ class EdgeEncoder(nn.Module):
             dst_index=edge_index_pl2a[1],
             dist=dist_pl2a,
             dist_norm=pl2a_radius,
+            src_feat=(feat_map[edge_index_pl2a[0]] if feat_map is not None else None),
+            dst_feat=(agent_feat_s[edge_index_pl2a[1]] if agent_feat_s is not None else None),
+            map_feat=(feat_map[edge_index_pl2a[0]] if feat_map is not None else None),
         )
 
         if n_step>1:

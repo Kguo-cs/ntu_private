@@ -600,6 +600,7 @@ class InitDenoiser(nn.Module):
             layer_num=self.num_layers,
             counter_feat_a=None,
             dis_edge_mask=None,
+            feat_a=feat_a,
         )
 
         # If the agent batch has been repeated for MC/SDE samples, map_feature is
@@ -666,6 +667,8 @@ class InitDenoiser(nn.Module):
             max_num_neighbors=20,
             agent_train_mask=None,
             layer_num=self.num_layers,
+            feat_a=feat_a,
+            feat_map=feat_map
         )
 
         for layer_i in range(self.num_layers):
