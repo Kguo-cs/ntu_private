@@ -19,7 +19,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
 
-task_name: model32_valuedetach_gp001hige_shape10_dis5e5
+task_name: model32_valuedetach_gp001hige_shape10 #_dis5e5
 
 trainer:
   val_check_interval: 0.25
