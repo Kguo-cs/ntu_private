@@ -1,3 +1,4 @@
+import math
 import random
 from typing import Dict, Optional
 
@@ -47,21 +48,19 @@ class _FeatureProjector(nn.Module):
 
 
 class LearnableTopKEdgeSelector(nn.Module):
-    """Hard top-k edge router with differentiable gates.
+    """Fast hard top-k edge router.
 
-    The router is intentionally two-stage:
-      1) geometry builds a small candidate set by radius/knn;
-      2) this module scores candidate edges and keeps only top-k incoming edges
-         for each receiver node.
-
-    The hard top-k mask controls sparsity/latency. The sigmoid gate on the kept
-    edge embeddings lets the selector score network receive gradients from the
-    downstream loss.
+    Speed changes compared with the previous version:
+      1) score low-dimensional raw edge features before FourierEmbedding;
+      2) support global top-ratio selection over all candidate edges, avoiding
+         per-agent group top-k;
+      3) return gate values so the caller only embeds selected edges.
     """
 
     def __init__(
             self,
             hidden_dim: int,
+            edge_input_dim: int,
             selector_hidden_dim: Optional[int] = None,
             temperature: float = 1.0,
             use_gumbel: bool = False,
@@ -69,6 +68,10 @@ class LearnableTopKEdgeSelector(nn.Module):
             distance_prior: bool = True,
             agent_feat_dim: Optional[int] = None,
             map_feat_dim: Optional[int] = None,
+            max_dense_groups: int = 200000,
+            selection_mode: str = "global_ratio",
+            global_keep_ratio: Optional[float] = None,
+            min_keep_edges: int = 1,
     ) -> None:
         super().__init__()
         selector_hidden_dim = selector_hidden_dim or max(hidden_dim // 2, 16)
@@ -76,29 +79,24 @@ class LearnableTopKEdgeSelector(nn.Module):
         self.use_gumbel = use_gumbel
         self.gate_edges = gate_edges
         self.distance_prior = distance_prior
+        self.max_dense_groups = int(max_dense_groups)
+        self.selection_mode = selection_mode
+        self.global_keep_ratio = global_keep_ratio
+        self.min_keep_edges = int(min_keep_edges)
 
-        # The selector score is computed from a fused representation:
-        #   edge geometry embedding
-        # + source node semantic feature
-        # + destination node semantic feature
-        # + optional map/lane semantic feature.
-        # Do NOT use LazyLinear here: many projects call weight_init / parameter
-        # checks during Hydra model construction, before the first forward pass.
+        self.edge_feat_proj = nn.Linear(edge_input_dim, hidden_dim, bias=False)
         self.src_feat_proj = _FeatureProjector(agent_feat_dim, hidden_dim)
         self.dst_feat_proj = _FeatureProjector(agent_feat_dim, hidden_dim)
         self.map_feat_proj = _FeatureProjector(map_feat_dim, hidden_dim)
-        self.feature_scale = nn.Parameter(torch.tensor(-2.3025851))  # exp(.) = 0.1 warm start
+        self.feature_scale = nn.Parameter(torch.tensor(-2.3025851))  # exp(.) = 0.1
         self.selector_input_norm = nn.LayerNorm(hidden_dim)
 
         self.score_net = nn.Sequential(
-            nn.LayerNorm(hidden_dim),
             nn.Linear(hidden_dim, selector_hidden_dim),
             nn.GELU(),
             nn.Linear(selector_hidden_dim, 1),
         )
         if distance_prior:
-            # Positive penalty after softplus. Initialized small so the learned
-            # score, not distance alone, controls routing after warm-up.
             self.distance_penalty = nn.Parameter(torch.tensor(-2.0))
         else:
             self.register_parameter("distance_penalty", None)
@@ -106,30 +104,14 @@ class LearnableTopKEdgeSelector(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
+        nn.init.xavier_uniform_(self.edge_feat_proj.weight)
         for module in self.score_net.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
                 nn.init.zeros_(module.bias)
-        # Warm start as distance-based selection: the learned part initially
-        # contributes zero, while the small distance prior ranks nearer edges
-        # slightly higher. Gradients still update this layer through the gate.
+        # Warm start: use distance prior first; learned score initially constant.
         nn.init.zeros_(self.score_net[-1].weight)
         nn.init.constant_(self.score_net[-1].bias, 2.0)
-
-    @staticmethod
-    def _group_topk_mask(scores: torch.Tensor, group_index: torch.Tensor, topk: int) -> torch.Tensor:
-        keep_mask = torch.zeros(scores.size(0), dtype=torch.bool, device=scores.device)
-        if scores.numel() == 0 or topk is None or topk <= 0:
-            return keep_mask
-
-        for group_id in torch.unique(group_index, sorted=True):
-            edge_ids = torch.nonzero(group_index == group_id, as_tuple=False).flatten()
-            k_i = min(int(topk), int(edge_ids.numel()))
-            if k_i <= 0:
-                continue
-            local_topk = torch.topk(scores[edge_ids], k=k_i, largest=True).indices
-            keep_mask[edge_ids[local_topk]] = True
-        return keep_mask
 
     @staticmethod
     def _sample_gumbel_like(scores: torch.Tensor) -> torch.Tensor:
@@ -137,52 +119,145 @@ class LearnableTopKEdgeSelector(nn.Module):
         u = torch.rand_like(scores).clamp(min=eps, max=1.0 - eps)
         return -torch.log(-torch.log(u))
 
+    @staticmethod
+    def _max_edges_per_group(group_index: torch.Tensor) -> int:
+        if group_index.numel() == 0:
+            return 0
+        # bincount is much cheaper than sorting when groups are already integer node ids.
+        counts = torch.bincount(group_index.clamp_min(0))
+        return int(counts.max().item()) if counts.numel() > 0 else 0
+
+    @staticmethod
+    def _global_top_ratio_mask(
+            scores: torch.Tensor,
+            keep_ratio: Optional[float],
+            min_keep_edges: int = 1,
+    ) -> torch.Tensor:
+        """Select a global top fraction over the whole candidate edge pool.
+
+        This is much faster than per-receiver top-k because it needs only one
+        torch.topk call and does not build receiver groups.
+        """
+        E = scores.size(0)
+        keep_mask = torch.zeros(E, dtype=torch.bool, device=scores.device)
+        if E == 0:
+            return keep_mask
+
+        if keep_ratio is None:
+            keep_ratio = 1.0
+        keep_ratio = float(keep_ratio)
+        if keep_ratio >= 1.0:
+            keep_mask[:] = True
+            return keep_mask
+        if keep_ratio <= 0.0:
+            return keep_mask
+
+        k = int(math.ceil(E * keep_ratio))
+        k = max(int(min_keep_edges), k)
+        k = min(k, E)
+        if k <= 0:
+            return keep_mask
+
+        selected = torch.topk(scores, k=k, largest=True).indices
+        keep_mask[selected] = True
+        return keep_mask
+
+    @staticmethod
+    def _group_topk_mask_dense(
+            scores: torch.Tensor,
+            group_index: torch.Tensor,
+            topk: int,
+            max_dense_groups: int = 200000,
+    ) -> torch.Tensor:
+        """Vectorized top-k per group.
+
+        This avoids looping over every receiver node. It sorts edges once by
+        receiver, writes scores to a dense [num_groups, max_edges_per_group]
+        tensor, and runs one torch.topk call.
+        """
+        E = scores.size(0)
+        keep_mask = torch.zeros(E, dtype=torch.bool, device=scores.device)
+        if E == 0 or topk is None or topk <= 0:
+            return keep_mask
+
+        sort_idx = torch.argsort(group_index)
+        group_sorted = group_index[sort_idx]
+        scores_sorted = scores[sort_idx]
+        unique_group, counts = torch.unique_consecutive(group_sorted, return_counts=True)
+        num_groups = int(unique_group.numel())
+        if num_groups == 0:
+            return keep_mask
+
+        max_count = int(counts.max().item())
+        k = min(int(topk), max_count)
+        if k <= 0:
+            return keep_mask
+
+        # Avoid pathological dense allocation. This fallback is rarely used if
+        # candidate edges come from knn_graph, where max_count is bounded.
+        if num_groups * max_count > max_dense_groups:
+            offset = torch.cumsum(counts, dim=0) - counts
+            for g in range(num_groups):
+                st = int(offset[g].item())
+                ed = st + int(counts[g].item())
+                local_k = min(k, ed - st)
+                if local_k > 0:
+                    local = torch.topk(scores_sorted[st:ed], k=local_k, largest=True).indices
+                    keep_mask[sort_idx[st + local]] = True
+            return keep_mask
+
+        group_row = torch.repeat_interleave(torch.arange(num_groups, device=scores.device), counts)
+        group_start = torch.repeat_interleave(torch.cumsum(counts, dim=0) - counts, counts)
+        col = torch.arange(E, device=scores.device) - group_start
+
+        dense_scores = scores.new_full((num_groups, max_count), -torch.inf)
+        dense_edges = torch.full((num_groups, max_count), -1, dtype=torch.long, device=scores.device)
+        dense_scores[group_row, col] = scores_sorted
+        dense_edges[group_row, col] = sort_idx
+
+        top_col = torch.topk(dense_scores, k=k, dim=1, largest=True).indices
+        selected = dense_edges.gather(1, top_col).reshape(-1)
+        selected = selected[selected >= 0]
+        keep_mask[selected] = True
+        return keep_mask
+
     def _fuse_selector_input(
             self,
-            edge_attr: torch.Tensor,
+            edge_input: torch.Tensor,
             src_feat: Optional[torch.Tensor] = None,
             dst_feat: Optional[torch.Tensor] = None,
             map_feat: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        selector_input = edge_attr
+        selector_input = self.edge_feat_proj(edge_input)
         semantic_terms = []
 
         if src_feat is not None:
-            if src_feat.size(0) != edge_attr.size(0):
-                raise ValueError(
-                    f"src_feat must be edge-wise with shape [E, C], got {tuple(src_feat.shape)} "
-                    f"for E={edge_attr.size(0)}."
-                )
+            if src_feat.size(0) != edge_input.size(0):
+                raise ValueError(f"src_feat must be edge-wise [E, C], got {tuple(src_feat.shape)} for E={edge_input.size(0)}")
             semantic_terms.append(self.src_feat_proj(src_feat))
 
         if dst_feat is not None:
-            if dst_feat.size(0) != edge_attr.size(0):
-                raise ValueError(
-                    f"dst_feat must be edge-wise with shape [E, C], got {tuple(dst_feat.shape)} "
-                    f"for E={edge_attr.size(0)}."
-                )
+            if dst_feat.size(0) != edge_input.size(0):
+                raise ValueError(f"dst_feat must be edge-wise [E, C], got {tuple(dst_feat.shape)} for E={edge_input.size(0)}")
             semantic_terms.append(self.dst_feat_proj(dst_feat))
 
         if map_feat is not None:
-            if map_feat.size(0) != edge_attr.size(0):
-                raise ValueError(
-                    f"map_feat must be edge-wise with shape [E, C], got {tuple(map_feat.shape)} "
-                    f"for E={edge_attr.size(0)}."
-                )
+            if map_feat.size(0) != edge_input.size(0):
+                raise ValueError(f"map_feat must be edge-wise [E, C], got {tuple(map_feat.shape)} for E={edge_input.size(0)}")
             semantic_terms.append(self.map_feat_proj(map_feat))
 
         if semantic_terms:
             semantic = torch.stack(semantic_terms, dim=0).sum(dim=0)
             selector_input = selector_input + self.feature_scale.exp().clamp(max=1.0) * semantic
-            selector_input = self.selector_input_norm(selector_input)
 
-        return selector_input
+        return self.selector_input_norm(selector_input)
 
     def forward(
             self,
             edge_index: torch.Tensor,
-            edge_attr: torch.Tensor,
-            topk: int,
+            edge_input: torch.Tensor,
+            topk: Optional[int],
+            keep_ratio: Optional[float] = None,
             dst_index: Optional[torch.Tensor] = None,
             dist: Optional[torch.Tensor] = None,
             dist_norm: Optional[float] = None,
@@ -190,22 +265,16 @@ class LearnableTopKEdgeSelector(nn.Module):
             dst_feat: Optional[torch.Tensor] = None,
             map_feat: Optional[torch.Tensor] = None,
     ):
-        if edge_attr.size(0) == 0:
-            keep_mask = torch.zeros(0, dtype=torch.bool, device=edge_attr.device)
-            info = {
-                "score": edge_attr.new_zeros((0,)),
-                "gate": edge_attr.new_zeros((0,)),
-                "keep_mask": keep_mask,
-            }
-            return edge_index, edge_attr, keep_mask, info
+        if edge_input.size(0) == 0:
+            keep_mask = torch.zeros(0, dtype=torch.bool, device=edge_input.device)
+            info = {"score": edge_input.new_zeros((0,)), "gate": edge_input.new_zeros((0,)), "keep_mask": keep_mask}
+            return edge_index, edge_input, keep_mask, info
 
         if dst_index is None:
-            # In this codebase edge_index[1] is the receiver/center node for
-            # a2a and map2agent edges.
             dst_index = edge_index[1]
 
         selector_input = self._fuse_selector_input(
-            edge_attr=edge_attr,
+            edge_input=edge_input,
             src_feat=src_feat,
             dst_feat=dst_feat,
             map_feat=map_feat,
@@ -223,23 +292,43 @@ class LearnableTopKEdgeSelector(nn.Module):
         if self.training and self.use_gumbel:
             route_scores = route_scores + self._sample_gumbel_like(route_scores)
 
-        keep_mask = self._group_topk_mask(route_scores, dst_index, topk=topk)
+        if self.selection_mode == "global_ratio":
+            keep_mask = self._global_top_ratio_mask(
+                route_scores,
+                keep_ratio=keep_ratio if keep_ratio is not None else self.global_keep_ratio,
+                min_keep_edges=self.min_keep_edges,
+            )
+        elif self.selection_mode == "per_receiver":
+            # Fallback compatible with the older behavior: top-k incoming edges
+            # for every receiver/center node.
+            max_per_group = self._max_edges_per_group(dst_index)
+            if topk is None or int(topk) >= max_per_group:
+                keep_mask = torch.ones(edge_input.size(0), dtype=torch.bool, device=edge_input.device)
+            else:
+                keep_mask = self._group_topk_mask_dense(
+                    route_scores,
+                    dst_index,
+                    topk=int(topk),
+                    max_dense_groups=self.max_dense_groups,
+                )
+        else:
+            raise ValueError(
+                f"Unknown selection_mode={self.selection_mode!r}. "
+                "Use 'global_ratio' or 'per_receiver'."
+            )
+
         selected_edge_index = edge_index[:, keep_mask]
-        selected_edge_attr = edge_attr[keep_mask]
+        selected_edge_input = edge_input[keep_mask]
         selected_scores = scores[keep_mask]
 
-        if self.gate_edges and selected_edge_attr.size(0) > 0:
+        if self.gate_edges and selected_edge_input.size(0) > 0:
             gate = torch.sigmoid(selected_scores / self.temperature)
-            selected_edge_attr = selected_edge_attr * gate.unsqueeze(-1)
         else:
             gate = torch.ones_like(selected_scores)
 
-        info = {
-            "score": selected_scores,
-            "gate": gate,
-            "keep_mask": keep_mask,
-        }
-        return selected_edge_index, selected_edge_attr, keep_mask, info
+        info = {"score": selected_scores, "gate": gate, "keep_mask": keep_mask}
+        return selected_edge_index, selected_edge_input, keep_mask, info
+
 
 
 
@@ -258,14 +347,18 @@ class EdgeEncoder(nn.Module):
             use_t2t=False,
             differentiable_edge=True,
             learnable_edge_selector=True,
+            learnable_pl2a_selector: Optional[bool] = None,
             selector_topk: Optional[int] = None,
-            selector_candidate_factor: int = 4,
+            selector_candidate_factor: int = 2,
             selector_temperature: float = 1.0,
-            selector_use_gumbel: bool = True,
+            selector_use_gumbel: bool = False,
             selector_gate_edges: bool = True,
             selector_distance_prior: bool = True,
             selector_agent_feat_dim: Optional[int] = None,
             selector_map_feat_dim: Optional[int] = None,
+            selector_selection_mode: str = "global_ratio",
+            selector_global_keep_ratio: Optional[float] = None,
+            selector_min_keep_edges: int = 1,
             return_selector_info: bool = False,
     ) -> None:
         super(EdgeEncoder, self).__init__()
@@ -282,7 +375,13 @@ class EdgeEncoder(nn.Module):
         self.learnable_edge_selector = learnable_edge_selector
         self.selector_topk = selector_topk
         self.selector_candidate_factor = max(int(selector_candidate_factor), 1)
+        self.selector_selection_mode = selector_selection_mode
+        self.selector_global_keep_ratio = selector_global_keep_ratio
+        self.selector_min_keep_edges = int(selector_min_keep_edges)
         self.return_selector_info = return_selector_info
+        if learnable_pl2a_selector is None:
+            learnable_pl2a_selector = learnable_edge_selector
+        self.learnable_pl2a_selector = learnable_pl2a_selector
 
         if not use_bird:
             input_dim = 3
@@ -315,12 +414,16 @@ class EdgeEncoder(nn.Module):
         self.a2a_selector = (
             LearnableTopKEdgeSelector(
                 hidden_dim=hidden_dim,
+                edge_input_dim=input_dim,
                 temperature=selector_temperature,
                 use_gumbel=selector_use_gumbel,
                 gate_edges=selector_gate_edges,
                 distance_prior=selector_distance_prior,
                 agent_feat_dim=selector_agent_feat_dim,
                 map_feat_dim=selector_map_feat_dim,
+                selection_mode=selector_selection_mode,
+                global_keep_ratio=selector_global_keep_ratio,
+                min_keep_edges=selector_min_keep_edges,
             )
             if learnable_edge_selector and use_a2a
             else None
@@ -328,14 +431,18 @@ class EdgeEncoder(nn.Module):
         self.pl2a_selector = (
             LearnableTopKEdgeSelector(
                 hidden_dim=hidden_dim,
+                edge_input_dim=input_dim,
                 temperature=selector_temperature,
                 use_gumbel=selector_use_gumbel,
                 gate_edges=selector_gate_edges,
                 distance_prior=selector_distance_prior,
                 agent_feat_dim=selector_agent_feat_dim,
                 map_feat_dim=selector_map_feat_dim,
+                selection_mode=selector_selection_mode,
+                global_keep_ratio=selector_global_keep_ratio,
+                min_keep_edges=selector_min_keep_edges,
             )
-            if learnable_edge_selector and use_pl2a
+            if learnable_edge_selector and learnable_pl2a_selector and use_pl2a
             else None
         )
 
@@ -347,12 +454,21 @@ class EdgeEncoder(nn.Module):
     def _selector_topk(self, fallback_k: int) -> int:
         return int(self.selector_topk) if self.selector_topk is not None else int(fallback_k)
 
+    def _selector_keep_ratio(self) -> float:
+        if self.selector_global_keep_ratio is not None:
+            return float(self.selector_global_keep_ratio)
+        # Candidate edges are generated with final_k * candidate_factor. Keeping
+        # 1 / candidate_factor approximately preserves the original edge budget,
+        # but allows the selector to allocate edges unevenly across agents.
+        return 1.0 / float(self.selector_candidate_factor)
+
     def _apply_edge_selector(
             self,
             selector: Optional[LearnableTopKEdgeSelector],
             edge_index: torch.Tensor,
-            edge_attr: torch.Tensor,
+            edge_input: torch.Tensor,
             final_topk: int,
+            keep_ratio: Optional[float] = None,
             dst_index: Optional[torch.Tensor] = None,
             dist: Optional[torch.Tensor] = None,
             dist_norm: Optional[float] = None,
@@ -361,13 +477,14 @@ class EdgeEncoder(nn.Module):
             map_feat: Optional[torch.Tensor] = None,
     ):
         if selector is None:
-            keep_mask = torch.ones(edge_attr.size(0), dtype=torch.bool, device=edge_attr.device)
-            return edge_index, edge_attr, keep_mask, None
+            keep_mask = torch.ones(edge_input.size(0), dtype=torch.bool, device=edge_input.device)
+            return edge_index, edge_input, keep_mask, None
 
         return selector(
             edge_index=edge_index,
-            edge_attr=edge_attr,
+            edge_input=edge_input,
             topk=self._selector_topk(final_topk),
+            keep_ratio=keep_ratio if keep_ratio is not None else self._selector_keep_ratio(),
             dst_index=dst_index,
             dist=dist,
             dist_norm=dist_norm,
@@ -517,20 +634,20 @@ class EdgeEncoder(nn.Module):
 
         rel_feat_a=project_to_local_frame(rel_pos_a2a,head_vector_s[edge_index_a2a[1]],self.differentiable_edge)
 
-        r_a2a = torch.cat(
+        raw_a2a = torch.cat(
             [
                 rel_feat_a,
-                rel_head_a2a[:,None],
+                rel_head_a2a[:, None],
             ],
             dim=-1,
         )
 
-        r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
-
-        edge_index_a2a, r_a2a, keep_mask_a2a, selector_info = self._apply_edge_selector(
+        # Fast path: select on cheap raw geometry + semantic features first,
+        # then run FourierEmbedding only for the selected top-k edges.
+        edge_index_a2a, raw_a2a, keep_mask_a2a, selector_info = self._apply_edge_selector(
             selector=self.a2a_selector,
             edge_index=edge_index_a2a,
-            edge_attr=r_a2a,
+            edge_input=raw_a2a,
             final_topk=max_num_neighbors,
             dst_index=edge_index_a2a[1],
             dist=dist,
@@ -539,6 +656,10 @@ class EdgeEncoder(nn.Module):
             dst_feat=(agent_feat_s[edge_index_a2a[1]] if agent_feat_s is not None else None),
         )
         dist = dist[keep_mask_a2a]
+
+        r_a2a = self.r_a2a_emb(continuous_inputs=raw_a2a, categorical_embs=None)
+        if selector_info is not None and self.a2a_selector is not None and self.a2a_selector.gate_edges:
+            r_a2a = r_a2a * selector_info["gate"].unsqueeze(-1)
 
         if counter_feat_a is not None:
             start_index = edge_index_a2a[0]
@@ -613,20 +734,18 @@ class EdgeEncoder(nn.Module):
         rel_feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2pl[1]],self.differentiable_edge)
 
 
-        r_pl2a = torch.cat(
+        raw_pl2a = torch.cat(
             [
                 rel_feat_a,
-                rel_orient_pl2a[:,None],
+                rel_orient_pl2a[:, None],
             ],
             dim=-1,
         )
 
-        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=l2l_feature)
-
-        edge_index_pl2pl, r_pl2a, _, _ = self._apply_edge_selector(
+        edge_index_pl2pl, raw_pl2a, keep_mask_pl2a, selector_info = self._apply_edge_selector(
             selector=self.pl2a_selector,
             edge_index=edge_index_pl2pl,
-            edge_attr=r_pl2a,
+            edge_input=raw_pl2a,
             final_topk=max_num_neighbors,
             dst_index=edge_index_pl2pl[1],
             dist=dist_pl2a,
@@ -635,6 +754,12 @@ class EdgeEncoder(nn.Module):
             dst_feat=(agent_feat_s[edge_index_pl2pl[1]] if agent_feat_s is not None else None),
             map_feat=(feat_map[edge_index_pl2pl[0]] if feat_map is not None else None),
         )
+
+        if l2l_feature is not None:
+            l2l_feature = l2l_feature[keep_mask_pl2a]
+        r_pl2a = self.r_pt2a_emb(continuous_inputs=raw_pl2a, categorical_embs=l2l_feature)
+        if selector_info is not None and self.pl2a_selector is not None and self.pl2a_selector.gate_edges:
+            r_pl2a = r_pl2a * selector_info["gate"].unsqueeze(-1)
 
         return edge_index_pl2pl, r_pl2a
 
@@ -700,20 +825,18 @@ class EdgeEncoder(nn.Module):
 
         rel_feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2a[1]],self.differentiable_edge)
 
-        r_pl2a = torch.cat(
+        raw_pl2a = torch.cat(
             [
                 rel_feat_a,
-                rel_orient_pl2a[:,None],
+                rel_orient_pl2a[:, None],
             ],
             dim=-1,
         )
 
-        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
-
-        edge_index_pl2a, r_pl2a, _, _ = self._apply_edge_selector(
+        edge_index_pl2a, raw_pl2a, keep_mask_pl2a, selector_info = self._apply_edge_selector(
             selector=self.pl2a_selector,
             edge_index=edge_index_pl2a,
-            edge_attr=r_pl2a,
+            edge_input=raw_pl2a,
             final_topk=max_num_neighbors,
             dst_index=edge_index_pl2a[1],
             dist=dist_pl2a,
@@ -722,6 +845,10 @@ class EdgeEncoder(nn.Module):
             dst_feat=(agent_feat_s[edge_index_pl2a[1]] if agent_feat_s is not None else None),
             map_feat=(feat_map[edge_index_pl2a[0]] if feat_map is not None else None),
         )
+
+        r_pl2a = self.r_pt2a_emb(continuous_inputs=raw_pl2a, categorical_embs=None)
+        if selector_info is not None and self.pl2a_selector is not None and self.pl2a_selector.gate_edges:
+            r_pl2a = r_pl2a * selector_info["gate"].unsqueeze(-1)
 
         if n_step>1:
             N_total = n_agent * n_step
@@ -746,4 +873,3 @@ class EdgeEncoder(nn.Module):
             edge_index_pl2a = torch.stack([edge_index_pl2a[0], new_dst], dim=0)
 
         return edge_index_pl2a, r_pl2a
-
