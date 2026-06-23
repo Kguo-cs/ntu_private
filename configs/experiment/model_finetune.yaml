@@ -20,7 +20,7 @@ model:
 #ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
 ckpt_path: "./waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt"
 
-task_name: model32_value1e3_score1_gp0001shape10 #__gpinter2 #gp001_shape10 #_dis5e5
+task_name: model32_infvalue1e3_score1_gp0001shape10 #__gpinter2 #gp001_shape10 #_dis5e5
 
 trainer:
   val_check_interval: 0.25

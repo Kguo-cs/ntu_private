@@ -508,6 +508,7 @@ class IQ_SoftQ(LightningModule):
         advantages_2d, all_value_loss = compute_advantages(
             agent_rewards[-len(value):],
             value,
+            infinite_horizon=True
         )
 
         # Normalize dense advantages.
