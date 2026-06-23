@@ -575,7 +575,7 @@ def get_matching_loss(
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05, w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     max_loss_weight=25.0,
-    use_huber=True,
+    use_huber=False,
     huber_beta=0.2,
     ):
 
@@ -585,29 +585,16 @@ def get_matching_loss(
         fake_state=fake_state[fake_idx]
 
     if use_col and x_pred:
-        # t_mask=t[:,0]>0.8
-        #
-        # fake_state=fake_state[t_mask]
-        #
-        # real_state = real_state[t_mask]
-        #
         batch = tokenized_agent["batch"][-len(fake_state):]#[t_mask]#
         denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
         w=1/denom.square()
 
         col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)[0].mean()
-
-        #
-        # col_loss1=multi_circle_collision_loss_mem_efficient(real_state[:,:2], torch.atan2(real_state[:,3],real_state[:,2]), real_state[:,4].detach(),real_state[:,5].detach(),batch)[0].mean()
-
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
 
     if x_pred:
-        denom = (1 - t).clamp_min(t_eps) #/ t_dt#.detach()  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
-
-        #real_state=(real_state-e)#*t_dt.detach()
-        #fake_state=(fake_state-e)#*t_dt.detach()#.square()#.detach()
+        denom = (1 - t).clamp_min(t_eps)
     else:
         real_state = (real_state - e)#*t_dt.detach()
 
@@ -620,7 +607,7 @@ def get_matching_loss(
         return zero, zero, zero, zero, zero, col_loss
 
     denom_sq = denom[non_ego].square().clamp_min(t_eps * t_eps)
-    inv_denom_sq = denom_sq.reciprocal().clamp(max=max_loss_weight)
+    inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[non_ego],
