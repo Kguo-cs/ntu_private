@@ -18,12 +18,6 @@ import torch
 import math
 from torch.optim.lr_scheduler import LambdaLR
 
-import torch.distributed as dist
-
-from src.smart.utils import wrap_angle
-from timm.utils import ModelEma
-from torch import optim
-
 class SMART_IQ(IQ_SoftQ, SMART):
     def __init__(self, model_config) -> None:
         # Use cooperative multiple inheritance. IQ_SoftQ.__init__ calls
