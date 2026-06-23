@@ -575,7 +575,7 @@ def get_matching_loss(
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05, w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     max_loss_weight=25.0,
-    use_huber=False,
+    use_huber=True,
     huber_beta=0.2,
     ):
 
