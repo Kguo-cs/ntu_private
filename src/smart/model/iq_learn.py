@@ -382,7 +382,7 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if use_gp_this_step:
-            gamma = 0.01 #l1 loss
+            gamma = 0.001 #l1 loss
 
             # critic_score = ego_logits.sum()
             # if has_interact_logits:
