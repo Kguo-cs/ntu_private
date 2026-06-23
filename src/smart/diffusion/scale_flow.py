@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = True
+        self.use_sde = False
 
         self.noise_level = 0.7
 
@@ -284,9 +284,9 @@ class ScaleFlow(nn.Module):
 
                 base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32)
 
-                base_t = base_t[agent_batch]
+                t = base_t[agent_batch]
 
-                t, t_dt = self.model.schedule(base_t, x, tokenized_agent)
+                t, t_dt = self.model.schedule(t, x, tokenized_agent)
 
                 # policy_loss=self.model.schedule.regularization(t_dt)#
             else:
@@ -348,7 +348,7 @@ class ScaleFlow(nn.Module):
                     dim=1,
                 ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
 
-                sampled_base_t = torch.rand_like(x_sampled[..., :1])
+                sampled_base_t = torch.rand_like(base_t)[agent_batch]
                 t_n_sampled, _ = self.model.schedule(
                     sampled_base_t, x_sampled, tokenized_agent
                 )
@@ -412,25 +412,6 @@ class ScaleFlow(nn.Module):
                 v_pred = x_pred_all[:len(z_sampled)]
 
             adv_clip_max = 3
-            adv_soft_clip = False
-
-            # advantages[advantages < 0] = 0
-
-            if adv_soft_clip:
-                # advantages[advantages < 0] = (
-                #                                      advantages[advantages < 0] / adv_clip_max
-                #                              ).tanh() * adv_clip_max
-                # advantages[advantages > 0] = (
-                #                                      advantages[advantages > 0] / adv_clip_max
-                #                              ).tanh() * adv_clip_max
-                advantages[advantages < 0] = -0.5
-                advantages[advantages > 0] = 1
-            else:
-                advantages = torch.clamp(
-                    advantages,
-                    -adv_clip_max,
-                    adv_clip_max,
-                )
 
             if self.use_nft:
                 beta = 1
@@ -505,22 +486,6 @@ class ScaleFlow(nn.Module):
             else:
                 x_pred = x_pred_all[:len(z_sampled)]
 
-                # scale=self.model.normal_scale[:,None]
-                #
-                # match_loss = torch.mean(
-                #     ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
-                #     dim=1,
-                # )
-                # self_normalize=True
-                # if self_normalize:
-                #     match_loss = match_loss / torch.mean(
-                #         torch.abs(
-                #             (x_pred.detach()/scale - x_sampled/scale  ).reshape(
-                #                 x_sampled.shape[0], -1
-                #             )
-                #         ),
-                #         dim=1,
-                #     )
                 match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                     tokenized_agent,
                     x_pred[:, 0],
@@ -530,26 +495,16 @@ class ScaleFlow(nn.Module):
                     t_n_sampled[:, 0],
                     x_pred=self.x_pred
                 )
-                log_prob = -match_loss  # torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
-                if not self.use_sde:
-                    non_ego = ~ego_mask
-                    advantages_pg = self._sanitize_init_advantages(
-                        advantages,
-                        ego_mask,
-                        selected_agent_idx=None,
-                    )[non_ego]
-                    log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
-                    log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
-                    per_sample_policy_loss = -log_prob * advantages_pg
+                non_ego = ~ego_mask
+                advantages_pg = self._sanitize_init_advantages(
+                    advantages,
+                    ego_mask,
+                    selected_agent_idx=None,
+                )[non_ego]
+                per_sample_policy_loss = match_loss * advantages_pg
+                policy_loss = per_sample_policy_loss.mean()
 
-                    if self.rationorm:
-                        sigma_t = std_dev_t.mean()
-                        per_sample_policy_loss = per_sample_policy_loss * sigma_t
-
-                    policy_loss = per_sample_policy_loss.mean()
-
-                # x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
             x_pred = x_pred_all[len(z_sampled):]
         else:
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
@@ -569,21 +524,12 @@ class ScaleFlow(nn.Module):
             t[:, 0],
             t_dt=t_dt[:, 0],
             t_eps=self.t_eps,
-            # use_match=False,
             use_col=True,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
-        # loss_per_sample=scatter_mean(match_loss,agent_batch[~tokenized_agent["ego_mask"]])
-        #
-        # self.info_sampler.update(bin_idx, loss_per_sample)
-
         if self.model.use_prev_condition:
             tokenized_agent["prev_x"] = x_pred[:, 0].detach()  # .clone()
-
-            # mask=torch.rand(len(x_pred))<0.5
-            #
-            # tokenized_agent["prev_x"][mask]=0
 
             x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
 
@@ -605,7 +551,6 @@ class ScaleFlow(nn.Module):
                     z[:, 0],
                     e[:, 0],
                     t[:, 0],
-                    #   use_match=True,
                     use_col=False,
                     x_pred=False
                 )
@@ -617,7 +562,6 @@ class ScaleFlow(nn.Module):
                     z[:, 0],
                     e[:, 0],
                     t[:, 0],
-                    #   use_match=True,
                     use_col=False,
                     x_pred=self.x_pred
                 )
@@ -662,7 +606,6 @@ class ScaleFlow(nn.Module):
                     e[:, 0],
                     t[:, 0],
                     t_dt=t_dt[:, 0],
-                    #   use_match=True,
                     use_col=False,  # not self.model.pred_gmm,
                     x_pred=self.x_pred,
                 )
@@ -994,11 +937,6 @@ class ScaleFlow(nn.Module):
         else:
             tokenized_agent["pred_z_list"] = torch.cat(z_list, dim=1)
             tokenized_agent["gen_z"] = z
-
-        # inv_real_idx = torch.empty_like(real_idx)
-        # inv_real_idx[real_idx] = torch.arange(real_idx.numel(), device=real_idx.device)
-        # tokenized_agent["init_agent_type"] = tokenized_agent["init_agent_type"][inv_real_idx]
-        # z=z[inv_real_idx]
 
         if self.pred_all_pos:
             all_pred = self.pred_model(z, t_n * 0, tokenized_agent, initial_map_feature).reshape(z.shape[0], -1, 3)
