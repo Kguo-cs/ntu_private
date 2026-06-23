@@ -120,8 +120,10 @@ class ScaleFlow(nn.Module):
 
         self.use_sde = False
 
-        if not token_processor.learn_init:
-            self.use_sde = False
+        self.gail=False
+
+        if token_processor.learn_init and self.gail:
+            self.use_sde = True
 
         self.noise_level = 0.7
 
@@ -466,11 +468,6 @@ class ScaleFlow(nn.Module):
                     tokenized_agent,
                     self.mc_num + 1,
                 )
-                model_map_feature = self._repeat_map_feature_for_samples(
-                    initial_map_feature,
-                    self.mc_num + 1,
-                    num_graphs,
-                )
 
             if self.use_kl:
                 model_map_feature = initial_map_feature
@@ -479,182 +476,173 @@ class ScaleFlow(nn.Module):
                 z_all,
                 t_all,
                 model_tokenized_agent,
-                model_map_feature,
+                initial_map_feature,
             )
 
-            if self.model.use_return_conditioned:
-                x_pred = x_pred_all
-                x = torch.cat((x_sampled, x), dim=0)
-                z = z_all
-                e = torch.cat((e_sampled, e), dim=0)
-                t = t_all
-                policy_loss = 0
+            if self.x_pred:
+                v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
             else:
-                if self.x_pred:
-                    v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
+                v_pred = x_pred_all[:len(z_sampled)]
+
+            adv_clip_max = 3
+            adv_soft_clip = False
+
+            # advantages[advantages < 0] = 0
+
+            if adv_soft_clip:
+                # advantages[advantages < 0] = (
+                #                                      advantages[advantages < 0] / adv_clip_max
+                #                              ).tanh() * adv_clip_max
+                # advantages[advantages > 0] = (
+                #                                      advantages[advantages > 0] / adv_clip_max
+                #                              ).tanh() * adv_clip_max
+                advantages[advantages < 0] = -0.5
+                advantages[advantages > 0] = 1
+            else:
+                advantages = torch.clamp(
+                    advantages,
+                    -adv_clip_max,
+                    adv_clip_max,
+                )
+
+            if self.use_nft:
+                beta = 1
+                forward_prediction = v_pred  # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
+                x0 = x_sampled
+                xt = z_sampled
+                t_expanded = -denom  # x0_pred=    (1-t) *v+ z
+                old_prediction = old_v_pred
+
+                normalized_advantages_clip = (
+                                                         advantages / adv_clip_max) / 2.0 + 0.5  # (advantages_clip-advantages_clip.min())/(advantages_clip.max()-advantages_clip.min())#
+                r = torch.clamp(normalized_advantages_clip, 0, 1)
+                # positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
+                implicit_negative_prediction = (
+                                                       1.0 + beta
+                                               ) * old_prediction.detach() - beta * forward_prediction
+                # x0_prediction = xt - t_expanded * positive_prediction
+                x0_prediction = x_pred_all[:len(z_sampled)]
+                positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    tokenized_agent,
+                    x0_prediction[:, 0],
+                    x_sampled[:, 0],
+                    z_sampled[:, 0],
+                    e_sampled[:, 0],
+                    t_n_sampled[:, 0],
+                    use_col=False,
+                    x_pred=self.x_pred
+                )
+
+                #   with torch.no_grad():
+                #       weight_factor = (
+                #           torch.abs(x0_prediction.double() - x0.double())
+                #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                #           .clip(min=0.00001)
+                #       )
+                #   # weight_factor=1
+                #   positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
+                negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
+                #   with torch.no_grad():
+                #       negative_weight_factor = (
+                #           torch.abs(negative_x0_prediction.double() - x0.double())
+                #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                #           .clip(min=0.00001)
+                #       )
+                # #  negative_weight_factor=1
+                #   negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
+                #       dim=tuple(range(1, x0.ndim))
+                #   )
+                negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    tokenized_agent,
+                    negative_x0_prediction[:, 0],
+                    x_sampled[:, 0],
+                    z_sampled[:, 0],
+                    e_sampled[:, 0],
+                    t_n_sampled[:, 0],
+                    use_col=False,
+                    x_pred=self.x_pred
+                )
+                #
+                ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
+                policy_loss = (ori_policy_loss * adv_clip_max).mean() * 0.2
+            elif self.use_sde:
+                sampled_non_ego = ~ego_mask[selected_agent_idx]
+                if sampled_non_ego.sum() == 0:
+                    log_prob = z_sampled.new_zeros((0,))
+                    policy_loss = z_sampled.new_zeros(())
                 else:
-                    v_pred = x_pred_all[:len(z_sampled)]
-
-                adv_clip_max = 3
-                adv_soft_clip = False
-
-                # advantages[advantages < 0] = 0
-
-                if adv_soft_clip:
-                    # advantages[advantages < 0] = (
-                    #                                      advantages[advantages < 0] / adv_clip_max
-                    #                              ).tanh() * adv_clip_max
-                    # advantages[advantages > 0] = (
-                    #                                      advantages[advantages > 0] / adv_clip_max
-                    #                              ).tanh() * adv_clip_max
-                    advantages[advantages < 0] = -0.5
-                    advantages[advantages > 0] = 1
-                else:
-                    advantages = torch.clamp(
-                        advantages,
-                        -adv_clip_max,
-                        adv_clip_max,
+                    prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                        1 - t_n_sampled[sampled_non_ego],
+                        1 - t_next_sampled[sampled_non_ego],
+                        -v_pred[sampled_non_ego],
+                        z_sampled[sampled_non_ego],
+                        noise_level=self.noise_level,
+                        prev_sample=prev_sample[sampled_non_ego]
                     )
-
-                if self.use_nft:
-                    beta = 1
-                    forward_prediction = v_pred  # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
-                    x0 = x_sampled
-                    xt = z_sampled
-                    t_expanded = -denom  # x0_pred=    (1-t) *v+ z
-                    old_prediction = old_v_pred
-
-                    normalized_advantages_clip = (
-                                                             advantages / adv_clip_max) / 2.0 + 0.5  # (advantages_clip-advantages_clip.min())/(advantages_clip.max()-advantages_clip.min())#
-                    r = torch.clamp(normalized_advantages_clip, 0, 1)
-                    # positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
-                    implicit_negative_prediction = (
-                                                           1.0 + beta
-                                                   ) * old_prediction.detach() - beta * forward_prediction
-                    # x0_prediction = xt - t_expanded * positive_prediction
-                    x0_prediction = x_pred_all[:len(z_sampled)]
-                    positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        tokenized_agent,
-                        x0_prediction[:, 0],
-                        x_sampled[:, 0],
-                        z_sampled[:, 0],
-                        e_sampled[:, 0],
-                        t_n_sampled[:, 0],
-                        use_col=False,
-                        x_pred=self.x_pred
-                    )
-
-                    #   with torch.no_grad():
-                    #       weight_factor = (
-                    #           torch.abs(x0_prediction.double() - x0.double())
-                    #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                    #           .clip(min=0.00001)
-                    #       )
-                    #   # weight_factor=1
-                    #   positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
-                    negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
-                    #   with torch.no_grad():
-                    #       negative_weight_factor = (
-                    #           torch.abs(negative_x0_prediction.double() - x0.double())
-                    #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                    #           .clip(min=0.00001)
-                    #       )
-                    # #  negative_weight_factor=1
-                    #   negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
-                    #       dim=tuple(range(1, x0.ndim))
-                    #   )
-                    negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                        tokenized_agent,
-                        negative_x0_prediction[:, 0],
-                        x_sampled[:, 0],
-                        z_sampled[:, 0],
-                        e_sampled[:, 0],
-                        t_n_sampled[:, 0],
-                        use_col=False,
-                        x_pred=self.x_pred
-                    )
-                    #
-                    ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
-                    policy_loss = (ori_policy_loss * adv_clip_max).mean() * 0.2
-                else:
-                    if self.use_sde:
-                        sampled_non_ego = ~ego_mask[selected_agent_idx]
-                        if sampled_non_ego.sum() == 0:
-                            log_prob = z_sampled.new_zeros((0,))
-                            policy_loss = z_sampled.new_zeros(())
-                        else:
-                            prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                                1 - t_n_sampled[sampled_non_ego],
-                                1 - t_next_sampled[sampled_non_ego],
-                                -v_pred[sampled_non_ego],
-                                z_sampled[sampled_non_ego],
-                                noise_level=self.noise_level,
-                                prev_sample=prev_sample[sampled_non_ego]
-                            )
-                            log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
-                            log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
-                            advantages_pg = advantages[sampled_non_ego]
-                            if self.use_init_ppo_ratio and old_log_prob is not None:
-                                old_lp = old_log_prob[sampled_non_ego].detach()
-                                old_lp = torch.nan_to_num(old_lp, nan=0.0, posinf=0.0, neginf=0.0)
-                                old_lp = old_lp.clamp(-self.init_logprob_clip, self.init_logprob_clip)
-                                ratio = torch.exp((log_prob - old_lp).clamp(-10.0, 10.0))
-                                clipped_ratio = ratio.clamp(
-                                    1.0 - self.init_ppo_clip,
-                                    1.0 + self.init_ppo_clip,
-                                )
-                                surrogate_1 = ratio * advantages_pg
-                                surrogate_2 = clipped_ratio * advantages_pg
-                                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
-                            else:
-                                policy_loss = -(log_prob * advantages_pg).mean()
-                            policy_loss = policy_loss * self._init_rl_coef()
-                    else:
-                        x_pred = x_pred_all[:len(z_sampled)]
-
-                        # scale=self.model.normal_scale[:,None]
-                        #
-                        # match_loss = torch.mean(
-                        #     ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
-                        #     dim=1,
-                        # )
-                        # self_normalize=True
-                        # if self_normalize:
-                        #     match_loss = match_loss / torch.mean(
-                        #         torch.abs(
-                        #             (x_pred.detach()/scale - x_sampled/scale  ).reshape(
-                        #                 x_sampled.shape[0], -1
-                        #             )
-                        #         ),
-                        #         dim=1,
-                        #     )
-                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
-                            tokenized_agent,
-                            x_pred[:, 0],
-                            x_sampled[:, 0],
-                            z_sampled[:, 0],
-                            e_sampled[:, 0],
-                            t_n_sampled[:, 0],
-                            x_pred=self.x_pred
+                    log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
+                    log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
+                    advantages_pg = advantages[sampled_non_ego]
+                    if self.use_init_ppo_ratio and old_log_prob is not None:
+                        old_lp = old_log_prob[sampled_non_ego].detach()
+                        old_lp = torch.nan_to_num(old_lp, nan=0.0, posinf=0.0, neginf=0.0)
+                        old_lp = old_lp.clamp(-self.init_logprob_clip, self.init_logprob_clip)
+                        ratio = torch.exp((log_prob - old_lp).clamp(-10.0, 10.0))
+                        clipped_ratio = ratio.clamp(
+                            1.0 - self.init_ppo_clip,
+                            1.0 + self.init_ppo_clip,
                         )
-                        log_prob = -match_loss  # torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
+                        surrogate_1 = ratio * advantages_pg
+                        surrogate_2 = clipped_ratio * advantages_pg
+                        policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
+                    else:
+                        policy_loss = -(log_prob * advantages_pg).mean()
+                    policy_loss = policy_loss * self._init_rl_coef()
+            else:
+                x_pred = x_pred_all[:len(z_sampled)]
 
-                    if not self.use_sde:
-                        non_ego = ~ego_mask
-                        advantages_pg = self._sanitize_init_advantages(
-                            advantages,
-                            ego_mask,
-                            selected_agent_idx=None,
-                        )[non_ego]
-                        log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
-                        log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
-                        per_sample_policy_loss = -log_prob * advantages_pg
+                # scale=self.model.normal_scale[:,None]
+                #
+                # match_loss = torch.mean(
+                #     ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
+                #     dim=1,
+                # )
+                # self_normalize=True
+                # if self_normalize:
+                #     match_loss = match_loss / torch.mean(
+                #         torch.abs(
+                #             (x_pred.detach()/scale - x_sampled/scale  ).reshape(
+                #                 x_sampled.shape[0], -1
+                #             )
+                #         ),
+                #         dim=1,
+                #     )
+                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                    tokenized_agent,
+                    x_pred[:, 0],
+                    x_sampled[:, 0],
+                    z_sampled[:, 0],
+                    e_sampled[:, 0],
+                    t_n_sampled[:, 0],
+                    x_pred=self.x_pred
+                )
+                log_prob = -match_loss  # torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
-                        if self.rationorm:
-                            sigma_t = std_dev_t.mean()
-                            per_sample_policy_loss = per_sample_policy_loss * sigma_t
+                if not self.use_sde:
+                    non_ego = ~ego_mask
+                    advantages_pg = self._sanitize_init_advantages(
+                        advantages,
+                        ego_mask,
+                        selected_agent_idx=None,
+                    )[non_ego]
+                    log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
+                    log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
+                    per_sample_policy_loss = -log_prob * advantages_pg
 
-                        policy_loss = per_sample_policy_loss.mean() * self._init_rl_coef()
+                    if self.rationorm:
+                        sigma_t = std_dev_t.mean()
+                        per_sample_policy_loss = per_sample_policy_loss * sigma_t
+
+                    policy_loss = per_sample_policy_loss.mean() * self._init_rl_coef()
 
                 # x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
             x_pred = x_pred_all[len(z_sampled):]
@@ -877,12 +865,10 @@ class ScaleFlow(nn.Module):
             t = alpha * t
             z = alpha * z + (1 - alpha) * e
 
-        #     v_pred,t_n,x = self._forward_sample(z, t_back, labels)
-        #
-        #     v_pred = (x - z) / (1 - t).clamp_min(self.t_eps)
-        # else:
         v_pred, t_n, t_next, pred_x0 = self._forward_sample(z, t, t_next, labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
+
+        log_prob = z.new_zeros(z.shape[0])
 
         if self.use_cluster:
             increasing = tokenized_agent["increasing"]
@@ -898,7 +884,6 @@ class ScaleFlow(nn.Module):
             # noise_level == 0 creates log(0)/0 in the SDE density.
             sde_mask = noise_level.reshape(noise_level.shape[0], -1).amax(dim=-1) > 0
             z_next = z + (t_next - t_n) * v_pred
-            log_prob = z.new_zeros(z.shape[0])
             if torch.any(sde_mask):
                 z_sde, log_prob_sde, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
                     1 - t_n[sde_mask],
@@ -912,18 +897,6 @@ class ScaleFlow(nn.Module):
             z = z_next
         else:
             z = z + (t_next - t_n) * v_pred
-            # # log_prob=None#torch.zeros_like(z)
-            # #
-            # if torch.all(t_next==1):
-            #     z = pred_x0
-            # else:
-            # pred_epsilon = ( z- t_n* pred_x0 ) /(1-t_n).clamp_min( self.t_eps)
-            #
-            # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon #t_next=1.
-
-            # print((z-z1)[~tokenized_agent["ego_mask"]].max())
-            # z = z +0.05* v_pred
-            log_prob = None
 
         return z, pred_x0, t_n, log_prob
 
