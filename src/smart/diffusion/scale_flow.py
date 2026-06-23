@@ -120,7 +120,7 @@ class ScaleFlow(nn.Module):
 
         self.use_sde = False
 
-        self.gail=False
+        self.gail=True
 
         if token_processor.learn_init and self.gail:
             self.use_sde = True
@@ -218,52 +218,6 @@ class ScaleFlow(nn.Module):
 
         return advantages.clamp(-self.init_adv_clip, self.init_adv_clip)
 
-    def _repeat_tokenized_for_samples(self, tokenized_agent, n_repeat):
-        """Repeat first-dimension agent tensors for concatenated sampled/current batches."""
-        out = dict(tokenized_agent)
-        base_batch = tokenized_agent["init_agent_batch"]
-        n_agent = base_batch.shape[0]
-        num_graphs = int(tokenized_agent["num_graphs"])
-
-        for key, value in tokenized_agent.items():
-            if torch.is_tensor(value) and value.shape[:1] == (n_agent,):
-                out[key] = value[None].repeat(n_repeat, *([1] * value.ndim)).flatten(0, 1)
-
-        repeated_batch = torch.cat(
-            [base_batch + num_graphs * k for k in range(n_repeat)],
-            dim=0,
-        )
-        out["init_agent_batch"] = repeated_batch
-        out["num_graphs"] = num_graphs * n_repeat
-        out["repeat_batch"] = base_batch.unsqueeze(1).repeat(1, n_repeat)
-        return out
-
-    def _repeat_map_feature_for_samples(self, feature, n_repeat, num_graphs, key_name=""):
-        """Repeat map/context tensors when agent batches are duplicated as independent graphs.
-
-        Tensor keys containing "batch" are offset by num_graphs for each repeat.
-        Scene-level tensors with first dimension num_graphs are repeated on dim 0.
-        Other tensors are left shared.
-        """
-        if feature is None:
-            return None
-        if isinstance(feature, Mapping):
-            return {
-                key: self._repeat_map_feature_for_samples(value, n_repeat, num_graphs, key)
-                for key, value in feature.items()
-            }
-        if torch.is_tensor(feature):
-            if (
-                    "batch" in key_name
-                    and feature.dtype in (torch.int8, torch.int16, torch.int32, torch.int64, torch.long)
-                    and feature.ndim == 1
-                    and feature.numel() > 0
-            ):
-                return torch.cat([feature + num_graphs * k for k in range(n_repeat)], dim=0)
-            if feature.ndim >= 1 and feature.shape[0] == num_graphs:
-                return feature.repeat(n_repeat, *([1] * (feature.ndim - 1)))
-        return feature
-
     def get_loss(self,
                  x,
                  out,
@@ -283,15 +237,6 @@ class ScaleFlow(nn.Module):
             e = torch.randn_like(x)
 
         e = self.model.denormalize(e, init_agent_type)
-
-        # perm = sort_agents_by_xy_keep_last(
-        #         pos=x[:,0,:2],
-        #         batch=agent_batch,
-        #         agent_type=init_agent_type,
-        #         num_types=3,
-        #     )
-        #
-        # x=x[perm]
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch), 1, self.model.m_delta_dim), device=x.device, dtype=torch.float32)
@@ -464,13 +409,10 @@ class ScaleFlow(nn.Module):
                 t_all = torch.cat((t_n_sampled, t), dim=0)
                 z_all = torch.cat((z_sampled, z), dim=0)
 
-                model_tokenized_agent = self._repeat_tokenized_for_samples(
+                model_tokenized_agent = self.repeat_input_copy(
                     tokenized_agent,
                     self.mc_num + 1,
                 )
-
-            if self.use_kl:
-                model_map_feature = initial_map_feature
 
             x_pred_all = self.model(
                 z_all,
@@ -1175,7 +1117,7 @@ class ScaleFlow(nn.Module):
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     def repeat_input_copy(self, tokenized_agent, n_step):
-        out = dict(tokenized_agent)
+        out =tokenized_agent# dict(tokenized_agent)
 
         num_graphs = tokenized_agent["num_graphs"]
         batch = tokenized_agent["init_agent_batch"]
