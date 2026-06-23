@@ -399,7 +399,7 @@ class IQ_SoftQ(LightningModule):
                 sampled_pos=sampled_pos,
                 sampled_heading=sampled_heading,
                 shape=shape,
-                critic_score=combined_logits[combined_logits.abs()>1].sum(),
+                critic_score=combined_logits[combined_logits.abs()<1].sum(),
                 valid_mask=tokenized_agent["valid_mask"],
                 gamma=gamma,
             )
