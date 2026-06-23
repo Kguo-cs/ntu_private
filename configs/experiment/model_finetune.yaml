@@ -18,7 +18,7 @@ model:
       dist_decay: 3
 
 #ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
-ckpt_path: "./waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt"
+ckpt_path: "./waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt"
 
 task_name: model32_infvalue1e3_gp001shape10 #score1___gpinter2 #gp001_shape10 #_dis5e5
 

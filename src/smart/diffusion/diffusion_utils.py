@@ -575,7 +575,7 @@ def get_matching_loss(
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05, w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     max_loss_weight=25.0,
-    use_huber=True,
+    use_huber=False,
     huber_beta=0.2,
     ):
 
@@ -620,7 +620,7 @@ def get_matching_loss(
         return zero, zero, zero, zero, zero, col_loss
 
     denom_sq = denom[non_ego].square().clamp_min(t_eps * t_eps)
-    inv_denom_sq = denom_sq.reciprocal().clamp(max=max_loss_weight)
+    inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state[non_ego],
