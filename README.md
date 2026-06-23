@@ -205,8 +205,8 @@ mv ntu_private sim
 cd sim
 git checkout autoenc
 
-conda create -y -n sim python=3.11.9
-conda activate sim
+conda create -y -n sim1 python=3.11.9
+conda activate sim1
 conda install -y -c conda-forge ffmpeg=4.3.2
 pip install torch_geometric==2.6.1
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
