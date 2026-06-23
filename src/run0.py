@@ -96,9 +96,9 @@ def run(cfg: DictConfig) -> None:
     log.info(f"Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
     # setup model watching
-    for _logger in logger:
-        if isinstance(_logger, WandbLogger):
-            _logger.watch(model, log="all")
+    # for _logger in logger:
+    #     if isinstance(_logger, WandbLogger):
+    #         _logger.watch(model, log="all")
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(

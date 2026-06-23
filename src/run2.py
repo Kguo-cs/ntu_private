@@ -96,9 +96,9 @@ def run(cfg: DictConfig) -> None:
     log.info(f"Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
     # setup model watching
-    for _logger in logger:
-        if isinstance(_logger, WandbLogger):
-            _logger.watch(model, log="all")
+    # for _logger in logger:
+    #     if isinstance(_logger, WandbLogger):
+    #         _logger.watch(model, log="all")
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(
@@ -129,8 +129,8 @@ def run(cfg: DictConfig) -> None:
                 model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
                 if model.bc_map_net is not None:
                     model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
-            # if model.encoder.sep_map:
-            #     model.encoder.map_encoder1.load_state_dict(model.encoder.map_encoder.state_dict())
+            if model.encoder.sep_map:
+                model.encoder.map_encoder1.load_state_dict(model.encoder.map_encoder.state_dict())
         trainer.fit(model=model, datamodule=datamodule)#
     elif cfg.action == "validate":
         log.info("Starting validating!")

@@ -138,8 +138,6 @@ class ScaleFlow(nn.Module):
 
         self.mc_num = 1
 
-        # Stable init-RL controls.  Keep the supervised diffusion loss dominant
-        # at the beginning, then gradually add a weak policy-gradient signal.
         self.init_adv_clip = 3.0
         self.init_logprob_clip = 50.0
         self.init_ppo_clip = 0.2
