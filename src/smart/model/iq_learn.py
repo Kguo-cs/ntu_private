@@ -577,7 +577,7 @@ class IQ_SoftQ(LightningModule):
             self.log('train/vel_loss', vel_loss, on_step=True, batch_size=1)
             self.log('train/g_loss', g_loss, on_step=True, batch_size=1)
 
-            init_loss=match_loss+g_loss*0.1
+            init_loss=match_loss+g_loss
 
             init_optimizer.zero_grad()
 
