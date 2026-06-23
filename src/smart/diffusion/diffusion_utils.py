@@ -313,7 +313,7 @@ def matching_loss(
     fake_state,
     w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     use_huber=True,
-    huber_beta=0.2,
+    huber_beta=1,
 ):
 
     fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
@@ -329,28 +329,9 @@ def matching_loss(
 
     if fake_state.shape[-1]<16:
         pos_loss = _robust_component_loss(fake_pos, real_pos, beta=huber_beta, use_huber=use_huber)
-        #pos_loss=torch.tensor(0.0).to(real_state.device)
-        #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
-        #real_vel=torch.cat([real_pos,real_vel],dim=-1)
-       # pos_loss=torch.norm(fake_pos- real_pos,dim=-1)#, reduction="none").mean(-1)
-
-        #cluster_valid_mask=~torch.isnan(real_vel)
-
         heading_loss = _robust_component_loss(fake_heading, real_heading, beta=huber_beta, use_huber=use_huber)
-
-        # if fake_state.shape[1]==44:
-        #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
-        #     shape_loss =torch.zeros_like(vel_loss)
-        #
-        # else:
         shape_loss = _robust_component_loss(fake_shape, real_shape, beta=huber_beta, use_huber=use_huber)
-
         vel_loss = _robust_component_loss(fake_vel, real_vel, beta=huber_beta, use_huber=use_huber)
-
-        # pos_loss=get_scale(fake_pos,real_pos)
-        # heading_loss=get_scale(fake_heading, real_heading)
-        # shape_loss=get_scale(fake_shape, real_shape)
-        # vel_loss=get_scale(fake_vel, real_vel)
 
     elif fake_state.shape[-1]==16:
         fake_vel = fake_state[:, 6:8]
@@ -575,7 +556,7 @@ def get_matching_loss(
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05, w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     max_loss_weight=25.0,
-    use_huber=False,
+    use_huber=True,
     huber_beta=0.2,
     ):
 
