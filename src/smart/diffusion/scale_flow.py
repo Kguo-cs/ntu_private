@@ -17,7 +17,6 @@ import numpy as np
 
 from typing import Dict, Mapping, Optional
 
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -40,19 +39,17 @@ from src.smart.utils import (
 import warnings
 from torch.nn.modules.container import ModuleList
 import copy
-from src.smart.layers.relative_transformer import RoFormerBlock,RoFormerDecoder
+from src.smart.layers.relative_transformer import RoFormerBlock, RoFormerDecoder
 from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.func import functional_call, jvp
-from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
+from src.smart.utils.cluster import batch_increasing_schedule, allocate_k_per_type
 from .denoiser import InitDenoiser
-from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
-from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
+from src.smart.diffusion.diffusion_planner.sde import SDE, VPSDE_linear
+from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP, model_wrapper, DPM_Solver
 from src.smart.layers import MLPLayer
-
-from src.smart.loss.earth_match import get_matching_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last
+from src.smart.diffusion.diffusion_utils import get_matching_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last
 from src.smart.diffusion.dit.dit import DiT
-from src.smart.diffusion.noise_bin import InfoNoiseSampler
 import torch
 
 from torch_scatter import scatter_mean
@@ -60,19 +57,19 @@ from torch_scatter import scatter_mean
 
 class ScaleFlow(nn.Module):
 
-    def __init__(self, args,token_processor):
+    def __init__(self, args, token_processor):
         super().__init__()
         self.diff_type = args.diff_type
         self.guid_sampling = args.guid_sampling
 
-        self.hidden_dim=args.hidden_dim
+        self.hidden_dim = args.hidden_dim
 
-        self.use_dit=False
+        self.use_dit = False
 
         if self.use_dit:
-            self.x_pred=False
+            self.x_pred = False
         else:
-            self.x_pred=True
+            self.x_pred = True
 
         if self.use_dit:
             self.model = DiT(self.hidden_dim)
@@ -104,54 +101,64 @@ class ScaleFlow(nn.Module):
         probs = torch.tensor([0.5])
         self.B_dist = Bernoulli(probs=probs)
 
-        self.use_scale=self.model.use_scale
+        self.use_scale = self.model.use_scale
 
-        self.use_all_type=self.model.use_all_type
+        self.use_all_type = self.model.use_all_type
 
         if self.x_pred:
-            self.t_eps=0.05
+            self.t_eps = 0.05
         else:
-            self.t_eps=0
+            self.t_eps = 0
 
-        self.lognorm_t=True
+        self.lognorm_t = True
 
-        self.P_std=2#1#
+        self.P_std = 2  # 1#
 
-        self.P_mean=1#2#
+        self.P_mean = 1  # 2#
 
-        self.use_cluster=False
+        self.use_cluster = False
 
-        self.use_sde=False
+        self.use_sde = False
 
         if not token_processor.learn_init:
-            self.use_sde=False
+            self.use_sde = False
 
-        self.noise_level=0.7
+        self.noise_level = 0.7
 
-        self.rationorm=False
+        self.rationorm = False
 
-        self.global_step=0
+        self.global_step = 0
 
-        self.use_nft=False
+        self.use_nft = False
 
-        self.use_kl=False
+        self.use_kl = False
 
-        self.use_uniform=False
+        self.use_uniform = False
 
-        self.learn_noise=False
+        self.learn_noise = False
 
-        #self.info_sampler=InfoNoiseSampler()
+        # self.info_sampler=InfoNoiseSampler()
 
-        self.mc_num=1
+        self.mc_num = 1
+
+        # Stable init-RL controls.  Keep the supervised diffusion loss dominant
+        # at the beginning, then gradually add a weak policy-gradient signal.
+        self.init_rl_warmup_steps = 2000
+        self.init_rl_ramp_steps = 8000
+        self.init_rl_max_coef = 0.05
+        self.init_adv_clip = 3.0
+        self.init_logprob_clip = 50.0
+        self.init_ppo_clip = 0.2
+        self.use_init_ppo_ratio = True
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
-            self.use_sde=False
+            self.use_sde = False
 
         if self.learn_noise:
             self.noise_model = DiT(256)
 
-        self.pred_all_pos=token_processor.pred_all_pos
+        self.pred_all_pos = token_processor.pred_all_pos
 
         if self.pred_all_pos:
             self.pred_model = InitDenoiser(
@@ -175,31 +182,105 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-
         if self.use_kl:
             self.ref_model = copy.deepcopy(self.model)
 
         self.apply(weight_init)
+
+    def _init_rl_coef(self):
+        """Warm-start the initial-state RL loss to avoid destroying BC/FM early."""
+        if self.global_step < self.init_rl_warmup_steps:
+            return 0.0
+        ramp_step = self.global_step - self.init_rl_warmup_steps
+        ramp = min(1.0, ramp_step / max(1, self.init_rl_ramp_steps))
+        return self.init_rl_max_coef * ramp
+
+    def _sanitize_init_advantages(self, advantages, ego_mask, selected_agent_idx=None):
+        """Return finite, clipped advantages aligned to sampled SDE transitions."""
+        if advantages is None:
+            return None
+        advantages = advantages.detach().to(dtype=torch.float32)
+        advantages = torch.nan_to_num(advantages, nan=0.0, posinf=0.0, neginf=0.0)
+
+        if selected_agent_idx is not None:
+            if advantages.shape[0] != ego_mask.shape[0]:
+                raise RuntimeError(
+                    "learn_init advantages must be all-agent length before indexing: "
+                    f"advantages={tuple(advantages.shape)}, ego_mask={tuple(ego_mask.shape)}"
+                )
+            advantages = advantages[selected_agent_idx]
+
+        if advantages.numel() > 1:
+            advantages = advantages - advantages.mean()
+            advantages = advantages / advantages.std(unbiased=False).clamp_min(1e-6)
+
+        return advantages.clamp(-self.init_adv_clip, self.init_adv_clip)
+
+    def _repeat_tokenized_for_samples(self, tokenized_agent, n_repeat):
+        """Repeat first-dimension agent tensors for concatenated sampled/current batches."""
+        out = dict(tokenized_agent)
+        base_batch = tokenized_agent["init_agent_batch"]
+        n_agent = base_batch.shape[0]
+        num_graphs = int(tokenized_agent["num_graphs"])
+
+        for key, value in tokenized_agent.items():
+            if torch.is_tensor(value) and value.shape[:1] == (n_agent,):
+                out[key] = value[None].repeat(n_repeat, *([1] * value.ndim)).flatten(0, 1)
+
+        repeated_batch = torch.cat(
+            [base_batch + num_graphs * k for k in range(n_repeat)],
+            dim=0,
+        )
+        out["init_agent_batch"] = repeated_batch
+        out["num_graphs"] = num_graphs * n_repeat
+        out["repeat_batch"] = base_batch.unsqueeze(1).repeat(1, n_repeat)
+        return out
+
+    def _repeat_map_feature_for_samples(self, feature, n_repeat, num_graphs, key_name=""):
+        """Repeat map/context tensors when agent batches are duplicated as independent graphs.
+
+        Tensor keys containing "batch" are offset by num_graphs for each repeat.
+        Scene-level tensors with first dimension num_graphs are repeated on dim 0.
+        Other tensors are left shared.
+        """
+        if feature is None:
+            return None
+        if isinstance(feature, Mapping):
+            return {
+                key: self._repeat_map_feature_for_samples(value, n_repeat, num_graphs, key)
+                for key, value in feature.items()
+            }
+        if torch.is_tensor(feature):
+            if (
+                    "batch" in key_name
+                    and feature.dtype in (torch.int8, torch.int16, torch.int32, torch.int64, torch.long)
+                    and feature.ndim == 1
+                    and feature.numel() > 0
+            ):
+                return torch.cat([feature + num_graphs * k for k in range(n_repeat)], dim=0)
+            if feature.ndim >= 1 and feature.shape[0] == num_graphs:
+                return feature.repeat(n_repeat, *([1] * (feature.ndim - 1)))
+        return feature
 
     def get_loss(self,
                  x,
                  out,
                  tokenized_agent: HeteroData,
                  initial_map_feature: Mapping[str, torch.Tensor],
-                 num_samples=1) :
+                 num_samples=1):
         device = x.device
         num_graphs = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["init_agent_batch"]
-        init_agent_type=tokenized_agent["init_agent_type"]
+        init_agent_type = tokenized_agent["init_agent_type"]
 
-        x=x.unsqueeze(1).repeat(1, num_samples, 1)
+        x = x.unsqueeze(1).repeat(1, num_samples, 1)
 
         if self.use_uniform:
-            e = torch.rand_like(x)*2-1  # base distribution N(0, I)
+            e = torch.rand_like(x) * 2 - 1  # base distribution N(0, I)
         else:
             e = torch.randn_like(x)
 
-        e=self.model.denormalize(e,init_agent_type)
+        e = self.model.denormalize(e, init_agent_type)
 
         # perm = sort_agents_by_xy_keep_last(
         #         pos=x[:,0,:2],
@@ -211,18 +292,17 @@ class ScaleFlow(nn.Module):
         # x=x[perm]
 
         if self.learn_noise:
-            t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=x.device, dtype=torch.float32)
+            t = torch.zeros((len(agent_batch), 1, self.model.m_delta_dim), device=x.device, dtype=torch.float32)
 
             x_pred_noise = self.noise_model(torch.zeros_like(e), t, tokenized_agent, initial_map_feature)
 
-            #x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
+            # x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
 
-            fake_idx = get_closest_sum_idx(x_pred_noise [:,0], x[:,0] , tokenized_agent)
+            fake_idx = get_closest_sum_idx(x_pred_noise[:, 0], x[:, 0], tokenized_agent)
 
             x_pred_noise = x_pred_noise[fake_idx]
 
-            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
-
+            tokenized_agent["x_pred_noise"] = x_pred_noise.detach()
 
             policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                 tokenized_agent,
@@ -236,29 +316,29 @@ class ScaleFlow(nn.Module):
                 x_pred=True
             )
 
-          #  print(x_pred_noise[:, :,8:].max())
+            #  print(x_pred_noise[:, :,8:].max())
 
-            std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5).detach()
+            std = torch.clamp(x_pred_noise[:, :, 8:].exp(), max=50, min=1e-5).detach()
 
-            #policy_loss=(self.model.normal_scale[None]-std).square().mean()
-            #policy_loss=0
+            # policy_loss=(self.model.normal_scale[None]-std).square().mean()
+            # policy_loss=0
 
-            #std[:, :,:2] = std[:, :,:2] * 0.5
-            std[:,:, 2:6] = std[:, :,2:6] * 2
-            std[:,:, 4:6] = std[:, :,4:6] * 2
+            # std[:, :,:2] = std[:, :,:2] * 0.5
+            std[:, :, 2:6] = std[:, :, 2:6] * 2
+            std[:, :, 4:6] = std[:, :, 4:6] * 2
 
-            tokenized_agent["noise_std"] =std
+            tokenized_agent["noise_std"] = std
 
-            e=std*torch.randn_like(x)+x_pred_noise[:, :,:8]#
+            e = std * torch.randn_like(x) + x_pred_noise[:, :, :8]  #
 
-            e=e.detach()
+            e = e.detach()
 
-            #tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
+            # tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
         else:
-            policy_loss=0
+            policy_loss = 0
 
         if "step_idx" in tokenized_agent.keys():
-            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
+            timesteps = torch.linspace(0, 1, tokenized_agent["step_number"] + 1, device=device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
             t = t_batch[:, None, None]
             t_dt = torch.ones_like(t)
@@ -266,19 +346,20 @@ class ScaleFlow(nn.Module):
             if self.lognorm_t:
 
                 # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
-                #t, bin_idx = self.info_sampler.sample(batch_size=num_graphs)
+                # t, bin_idx = self.info_sampler.sample(batch_size=num_graphs)
 
-                #base_t = t[:,None]
+                # base_t = t[:,None]
 
-                base_t =  torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32)
+                base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32)
 
-                base_t=base_t[agent_batch]
+                base_t = base_t[agent_batch]
 
-                t, t_dt = self.model.schedule(base_t, x,tokenized_agent)
+                t, t_dt = self.model.schedule(base_t, x, tokenized_agent)
 
-                #policy_loss=self.model.schedule.regularization(t_dt)#
+                # policy_loss=self.model.schedule.regularization(t_dt)#
             else:
-                base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
+                base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32).repeat(1, 1,
+                                                                                                     self.model.m_delta_dim)
 
                 t = base_t[agent_batch]
                 t_dt = torch.ones_like(t)
@@ -286,35 +367,46 @@ class ScaleFlow(nn.Module):
         ego_mask = tokenized_agent["ego_mask"]
 
         t = torch.where(
-            ego_mask[:,None,None],
+            ego_mask[:, None, None],
             torch.ones_like(t),
             t,
         )
 
         if self.use_scale:
-            nan_mask=torch.isnan(x)
+            nan_mask = torch.isnan(x)
 
-            padding_mask =torch.all(nan_mask,dim=-1)
+            padding_mask = torch.all(nan_mask, dim=-1)
 
-            t[padding_mask]=0
+            t[padding_mask] = 0
 
-            x[nan_mask]=0
+            x[nan_mask] = 0
 
         z = (1 - t) * e + t * x  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
         if self.model.use_cfg_cond:
-            tokenized_agent["cfg"]= torch.ones(num_graphs,device=agent_batch.device)*2#sample_cfg_scale(num_graphs,device=z.device)#t
+            tokenized_agent["cfg"] = torch.ones(num_graphs,
+                                                device=agent_batch.device) * 2  # sample_cfg_scale(num_graphs,device=z.device)#t
 
         if "advantages" in tokenized_agent.keys():
-            advantages=tokenized_agent["advantages"]
+            raw_advantages = tokenized_agent["advantages"]
 
             if self.use_sde:
 
-                z_sampled, prev_sample, log = tokenized_agent["gen_z"]
+                z_sampled, prev_sample, old_log_prob = tokenized_agent["gen_z"]
                 t_n_sampled, t_next_sampled = tokenized_agent["gen_t"]
+                selected_agent_idx = tokenized_agent.get(
+                    "gen_agent_idx",
+                    torch.arange(z_sampled.shape[0], device=z_sampled.device),
+                )
+                advantages = self._sanitize_init_advantages(
+                    raw_advantages,
+                    ego_mask,
+                    selected_agent_idx=selected_agent_idx,
+                )
             else:
-                x_sampled=tokenized_agent["gen_z"][None].repeat(self.mc_num, 1,1,1).flatten(0,1)
-                e_sampled=torch.randn_like(e[None].repeat(self.mc_num, 1,1,1).flatten(0,1))
+                advantages = raw_advantages
+                x_sampled = tokenized_agent["gen_z"][None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1)
+                e_sampled = torch.randn_like(e[None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1))
 
                 agent_batch = torch.stack(
                     [
@@ -329,7 +421,7 @@ class ScaleFlow(nn.Module):
                     sampled_base_t, x_sampled, tokenized_agent
                 )
 
-                advantages=advantages[None].repeat(self.mc_num, 1).flatten(0,1)
+                advantages = advantages[None].repeat(self.mc_num, 1).flatten(0, 1)
 
                 z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
@@ -337,9 +429,10 @@ class ScaleFlow(nn.Module):
 
             with torch.no_grad():
                 if self.use_kl:
-                    if self.global_step==0:
+                    if self.global_step == 0:
                         decay = 0
-                        for src_param, tgt_param in zip(  self.model.parameters(),   self.ref_model.parameters(), strict=True    ):
+                        for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(),
+                                                        strict=True):
                             tgt_param.data.copy_(
                                 tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
@@ -359,7 +452,7 @@ class ScaleFlow(nn.Module):
                     else:
                         old_v_pred = old_prediction
 
-                self.global_step+=1
+                self.global_step += 1
 
             if self.use_kl:
                 model_tokenized_agent = tokenized_agent
@@ -369,24 +462,32 @@ class ScaleFlow(nn.Module):
                 t_all = torch.cat((t_n_sampled, t), dim=0)
                 z_all = torch.cat((z_sampled, z), dim=0)
 
-                model_tokenized_agent = self.repeat_input_copy(
+                model_tokenized_agent = self._repeat_tokenized_for_samples(
                     tokenized_agent,
                     self.mc_num + 1,
                 )
+                model_map_feature = self._repeat_map_feature_for_samples(
+                    initial_map_feature,
+                    self.mc_num + 1,
+                    num_graphs,
+                )
+
+            if self.use_kl:
+                model_map_feature = initial_map_feature
 
             x_pred_all = self.model(
                 z_all,
                 t_all,
                 model_tokenized_agent,
-                initial_map_feature,
+                model_map_feature,
             )
 
             if self.model.use_return_conditioned:
-                x_pred=x_pred_all
-                x=torch.cat((x_sampled,x),dim=0)
-                z=z_all
-                e=torch.cat((e_sampled,e),dim=0)
-                t=t_all
+                x_pred = x_pred_all
+                x = torch.cat((x_sampled, x), dim=0)
+                z = z_all
+                e = torch.cat((e_sampled, e), dim=0)
+                t = t_all
                 policy_loss = 0
             else:
                 if self.x_pred:
@@ -394,10 +495,10 @@ class ScaleFlow(nn.Module):
                 else:
                     v_pred = x_pred_all[:len(z_sampled)]
 
-                adv_clip_max=3
-                adv_soft_clip=False
+                adv_clip_max = 3
+                adv_soft_clip = False
 
-                #advantages[advantages < 0] = 0
+                # advantages[advantages < 0] = 0
 
                 if adv_soft_clip:
                     # advantages[advantages < 0] = (
@@ -416,21 +517,22 @@ class ScaleFlow(nn.Module):
                     )
 
                 if self.use_nft:
-                    beta=1
-                    forward_prediction=v_pred   # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
-                    x0=x_sampled
-                    xt=z_sampled
-                    t_expanded=-denom #  x0_pred=    (1-t) *v+ z
-                    old_prediction=old_v_pred
+                    beta = 1
+                    forward_prediction = v_pred  # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
+                    x0 = x_sampled
+                    xt = z_sampled
+                    t_expanded = -denom  # x0_pred=    (1-t) *v+ z
+                    old_prediction = old_v_pred
 
-                    normalized_advantages_clip = (advantages / adv_clip_max) / 2.0 + 0.5 #(advantages_clip-advantages_clip.min())/(advantages_clip.max()-advantages_clip.min())#
+                    normalized_advantages_clip = (
+                                                             advantages / adv_clip_max) / 2.0 + 0.5  # (advantages_clip-advantages_clip.min())/(advantages_clip.max()-advantages_clip.min())#
                     r = torch.clamp(normalized_advantages_clip, 0, 1)
-                    #positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
+                    # positive_prediction = beta * forward_prediction + (1 - beta) * old_prediction.detach()
                     implicit_negative_prediction = (
-                        1.0 + beta
-                    ) * old_prediction.detach() - beta * forward_prediction
-                   # x0_prediction = xt - t_expanded * positive_prediction
-                    x0_prediction=x_pred_all[:len(z_sampled)]
+                                                           1.0 + beta
+                                                   ) * old_prediction.detach() - beta * forward_prediction
+                    # x0_prediction = xt - t_expanded * positive_prediction
+                    x0_prediction = x_pred_all[:len(z_sampled)]
                     positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                         tokenized_agent,
                         x0_prediction[:, 0],
@@ -442,25 +544,25 @@ class ScaleFlow(nn.Module):
                         x_pred=self.x_pred
                     )
 
-                  #   with torch.no_grad():
-                  #       weight_factor = (
-                  #           torch.abs(x0_prediction.double() - x0.double())
-                  #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                  #           .clip(min=0.00001)
-                  #       )
-                  #   # weight_factor=1
-                  #   positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
+                    #   with torch.no_grad():
+                    #       weight_factor = (
+                    #           torch.abs(x0_prediction.double() - x0.double())
+                    #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                    #           .clip(min=0.00001)
+                    #       )
+                    #   # weight_factor=1
+                    #   positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
                     negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
-                  #   with torch.no_grad():
-                  #       negative_weight_factor = (
-                  #           torch.abs(negative_x0_prediction.double() - x0.double())
-                  #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                  #           .clip(min=0.00001)
-                  #       )
-                  # #  negative_weight_factor=1
-                  #   negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
-                  #       dim=tuple(range(1, x0.ndim))
-                  #   )
+                    #   with torch.no_grad():
+                    #       negative_weight_factor = (
+                    #           torch.abs(negative_x0_prediction.double() - x0.double())
+                    #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
+                    #           .clip(min=0.00001)
+                    #       )
+                    # #  negative_weight_factor=1
+                    #   negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
+                    #       dim=tuple(range(1, x0.ndim))
+                    #   )
                     negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                         tokenized_agent,
                         negative_x0_prediction[:, 0],
@@ -471,23 +573,46 @@ class ScaleFlow(nn.Module):
                         use_col=False,
                         x_pred=self.x_pred
                     )
-                  #
+                    #
                     ori_policy_loss = r * positive_loss / beta + (1.0 - r) * negative_loss / beta
-                    policy_loss = (ori_policy_loss * adv_clip_max).mean()*0.2
+                    policy_loss = (ori_policy_loss * adv_clip_max).mean() * 0.2
                 else:
                     if self.use_sde:
-                        prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                            1 - t_n_sampled[~ego_mask],
-                            1 - t_next_sampled[~ego_mask],
-                            -v_pred[~ego_mask],
-                            z_sampled[~ego_mask],
-                            noise_level=self.noise_level,
-                            prev_sample=prev_sample[~ego_mask]
-                        )
+                        sampled_non_ego = ~ego_mask[selected_agent_idx]
+                        if sampled_non_ego.sum() == 0:
+                            log_prob = z_sampled.new_zeros((0,))
+                            policy_loss = z_sampled.new_zeros(())
+                        else:
+                            prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                                1 - t_n_sampled[sampled_non_ego],
+                                1 - t_next_sampled[sampled_non_ego],
+                                -v_pred[sampled_non_ego],
+                                z_sampled[sampled_non_ego],
+                                noise_level=self.noise_level,
+                                prev_sample=prev_sample[sampled_non_ego]
+                            )
+                            log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
+                            log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
+                            advantages_pg = advantages[sampled_non_ego]
+                            if self.use_init_ppo_ratio and old_log_prob is not None:
+                                old_lp = old_log_prob[sampled_non_ego].detach()
+                                old_lp = torch.nan_to_num(old_lp, nan=0.0, posinf=0.0, neginf=0.0)
+                                old_lp = old_lp.clamp(-self.init_logprob_clip, self.init_logprob_clip)
+                                ratio = torch.exp((log_prob - old_lp).clamp(-10.0, 10.0))
+                                clipped_ratio = ratio.clamp(
+                                    1.0 - self.init_ppo_clip,
+                                    1.0 + self.init_ppo_clip,
+                                )
+                                surrogate_1 = ratio * advantages_pg
+                                surrogate_2 = clipped_ratio * advantages_pg
+                                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
+                            else:
+                                policy_loss = -(log_prob * advantages_pg).mean()
+                            policy_loss = policy_loss * self._init_rl_coef()
                     else:
                         x_pred = x_pred_all[:len(z_sampled)]
 
-                        #scale=self.model.normal_scale[:,None]
+                        # scale=self.model.normal_scale[:,None]
                         #
                         # match_loss = torch.mean(
                         #     ((x_pred/scale - x_sampled/scale) ** 2).reshape(x_sampled.shape[0], -1),
@@ -512,39 +637,47 @@ class ScaleFlow(nn.Module):
                             t_n_sampled[:, 0],
                             x_pred=self.x_pred
                         )
-                        log_prob=-match_loss#torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
+                        log_prob = -match_loss  # torch.exp(match_loss.detach()-match_loss )#Advantage Weighted Matching  ratio = torch.exp(log_p - log_p.detach()) is the same as log_p
 
-                    per_sample_policy_loss = - log_prob * advantages[~ego_mask]
+                    if not self.use_sde:
+                        non_ego = ~ego_mask
+                        advantages_pg = self._sanitize_init_advantages(
+                            advantages,
+                            ego_mask,
+                            selected_agent_idx=None,
+                        )[non_ego]
+                        log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
+                        log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
+                        per_sample_policy_loss = -log_prob * advantages_pg
 
-                    if self.rationorm:
-                        sigma_t = std_dev_t.mean()
+                        if self.rationorm:
+                            sigma_t = std_dev_t.mean()
+                            per_sample_policy_loss = per_sample_policy_loss * sigma_t
 
-                        per_sample_policy_loss=per_sample_policy_loss * sigma_t
+                        policy_loss = per_sample_policy_loss.mean() * self._init_rl_coef()
 
-                    policy_loss = per_sample_policy_loss.mean()
-
-                #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+                # x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
             x_pred = x_pred_all[len(z_sampled):]
         else:
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
         if self.use_scale:
-            x=out[:,None]
+            x = out[:, None]
 
         if not self.model.pred_gmm:
-            x_pred[tokenized_agent["ego_mask"]]=x[tokenized_agent["ego_mask"]]
+            x_pred[tokenized_agent["ego_mask"]] = x[tokenized_agent["ego_mask"]]
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,
-            x_pred[:,0],
-            x[:,0],
-            z[:,0],
-            e[:,0],
-            t[:,0],
+            x_pred[:, 0],
+            x[:, 0],
+            z[:, 0],
+            e[:, 0],
+            t[:, 0],
             t_dt=t_dt[:, 0],
             t_eps=self.t_eps,
-          # use_match=False,
-            use_col=True,#not self.model.pred_gmm,
+            # use_match=False,
+            use_col=True,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
@@ -552,8 +685,8 @@ class ScaleFlow(nn.Module):
         #
         # self.info_sampler.update(bin_idx, loss_per_sample)
 
-        if self.model.use_prev_condition :
-            tokenized_agent["prev_x"]=x_pred[:,0].detach()#.clone()
+        if self.model.use_prev_condition:
+            tokenized_agent["prev_x"] = x_pred[:, 0].detach()  # .clone()
 
             # mask=torch.rand(len(x_pred))<0.5
             #
@@ -561,24 +694,24 @@ class ScaleFlow(nn.Module):
 
             x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
 
-
             if self.model.use_cfg_cond:
                 denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
 
-                v_no_sc = (x_pred - z) /denom
+                v_no_sc = (x_pred - z) / denom
                 v_sc = (x_pred_con - z) / denom
 
-                v_target = (x-z)/denom
+                v_target = (x - z) / denom
 
-                v_target_guidance =v_target+ (1 - 1 / tokenized_agent["cfg"][agent_batch][:,None,None]) * (v_sc - v_no_sc)
+                v_target_guidance = v_target + (1 - 1 / tokenized_agent["cfg"][agent_batch][:, None, None]) * (
+                            v_sc - v_no_sc)
 
                 collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
                     tokenized_agent,
-                    v_sc[:,0],
-                    v_target_guidance[:,0].detach(),
-                    z[:,0],
-                    e[:,0],
-                    t[:,0],
+                    v_sc[:, 0],
+                    v_target_guidance[:, 0].detach(),
+                    z[:, 0],
+                    e[:, 0],
+                    t[:, 0],
                     #   use_match=True,
                     use_col=False,
                     x_pred=False
@@ -586,38 +719,37 @@ class ScaleFlow(nn.Module):
             else:
                 collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
                     tokenized_agent,
-                    x_pred_con[:,0],
-                    x[:,0],
-                    z[:,0],
-                    e[:,0],
-                    t[:,0],
+                    x_pred_con[:, 0],
+                    x[:, 0],
+                    z[:, 0],
+                    e[:, 0],
+                    t[:, 0],
                     #   use_match=True,
                     use_col=False,
                     x_pred=self.x_pred
                 )
 
-
         if self.pred_all_pos:
-            x_pred = self.pred_model(x, t*0, tokenized_agent, initial_map_feature).reshape(x.shape[0],-1,3)
+            x_pred = self.pred_model(x, t * 0, tokenized_agent, initial_map_feature).reshape(x.shape[0], -1, 3)
 
-            local_allpos=tokenized_agent["local_allpos"]
-            local_allheading=tokenized_agent["local_allheading"]
+            local_allpos = tokenized_agent["local_allpos"]
+            local_allheading = tokenized_agent["local_allheading"]
 
-            non_nan_mask=~torch.isnan(local_allheading)
+            non_nan_mask = ~torch.isnan(local_allheading)
 
-            pos_loss1=F.l1_loss(local_allpos[non_nan_mask],x_pred[non_nan_mask][:,:2])
-            heading_loss1=F.l1_loss(local_allheading[non_nan_mask],x_pred[non_nan_mask][:,2])
+            pos_loss1 = F.l1_loss(local_allpos[non_nan_mask], x_pred[non_nan_mask][:, :2])
+            heading_loss1 = F.l1_loss(local_allheading[non_nan_mask], x_pred[non_nan_mask][:, 2])
 
-            policy_loss=pos_loss1+heading_loss1
+            policy_loss = pos_loss1 + heading_loss1
 
         if self.model.schedule_loss:
-
             with torch.no_grad():
                 e = torch.randn_like(x)  # .clamp(min=-3,max=3) # base distribution N(0, I)
 
-                base_t = torch.rand((num_graphs,1,1), device=x.device, dtype=torch.float32).repeat(1,1,self.model.m_delta_dim)
+                base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32).repeat(1, 1,
+                                                                                                     self.model.m_delta_dim)
 
-                t=base_t[agent_batch]
+                t = base_t[agent_batch]
 
                 t = torch.where(
                     ego_mask[:, None, None],
@@ -642,30 +774,30 @@ class ScaleFlow(nn.Module):
                     x_pred=self.x_pred,
                 )
 
-                observed_group_loss=torch.stack([pos_loss1,heading_loss1,shape_loss1,vel_loss1], dim=-1)
+                observed_group_loss = torch.stack([pos_loss1, heading_loss1, shape_loss1, vel_loss1], dim=-1)
 
-            policy_loss =  self.model.schedule.loss( t[~ego_mask,0,::2],observed_group_loss    )
+            policy_loss = self.model.schedule.loss(t[~ego_mask, 0, ::2], observed_group_loss)
 
-        loss=(match_loss, collision_loss+policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
-        return loss ,x_pred[:,0],z[:,0],t[:,0] #,denom[:,0]
+        return loss, x_pred[:, 0], z[:, 0], t[:, 0]  # ,denom[:,0]
 
     @torch.no_grad()
-    def _forward_sample(self, z, t_n, t_next,labels):
-        tokenized_agent, initial_map_feature, eval_mask=labels
+    def _forward_sample(self, z, t_n, t_next, labels):
+        tokenized_agent, initial_map_feature, eval_mask = labels
         num_agents = len(z)
 
         if self.model.use_return_conditioned:
-            tokenized_agent["advantages"]=torch.ones_like(tokenized_agent["init_agent_batch"]).to(torch.float32)
+            tokenized_agent["advantages"] = torch.ones_like(tokenized_agent["init_agent_batch"]).to(torch.float32)
 
         if self.use_cluster:
-            t_n=t_n[:,None,None]
+            t_n = t_n[:, None, None]
         else:
 
-            t_n=torch.full((num_agents,1,1), t_n, device=z.device)
-            t_next=torch.full((num_agents,1,1), t_next, device=z.device)
+            t_n = torch.full((num_agents, 1, 1), t_n, device=z.device)
+            t_next = torch.full((num_agents, 1, 1), t_next, device=z.device)
 
-            t_n, t_dt = self.model.schedule(t_n, z,tokenized_agent)
+            t_n, t_dt = self.model.schedule(t_n, z, tokenized_agent)
 
             ego_mask = tokenized_agent["ego_mask"]
             if eval_mask is not None:
@@ -677,37 +809,37 @@ class ScaleFlow(nn.Module):
             t_next[ego_mask] = 1
 
         if self.use_scale:
-            padding_mask=tokenized_agent["padding_mask"]
+            padding_mask = tokenized_agent["padding_mask"]
 
-            t_n[padding_mask]=0
+            t_n[padding_mask] = 0
 
-        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=1)#[...,:z.shape[-1]]
+        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask, mode=1)  # [...,:z.shape[-1]]
 
         if self.model.pred_gmm:
-            K=8
-            x_cond=x_cond[:,0]
+            K = 8
+            x_cond = x_cond[:, 0]
 
-            gm_means=x_cond[:,:8 * K].reshape(-1,K,8)
-            logstds=x_cond[:, 9*K:]
-            gm_logweights=x_cond[:,8 * K:9 * K]#.log_softmax(dim=1)
+            gm_means = x_cond[:, :8 * K].reshape(-1, K, 8)
+            logstds = x_cond[:, 9 * K:]
+            gm_logweights = x_cond[:, 8 * K:9 * K]  # .log_softmax(dim=1)
 
-            inds=torch.multinomial(gm_logweights.softmax(dim=-1),1,replacement=True)[:,:,None].repeat(1,1,8)
+            inds = torch.multinomial(gm_logweights.softmax(dim=-1), 1, replacement=True)[:, :, None].repeat(1, 1, 8)
 
-            means=gm_means.gather( dim=1,index=inds)
+            means = gm_means.gather(dim=1, index=inds)
 
             stds = logstds.exp()  # (bs, *, 1, 1, 1, 1) or (bs, *, num_gaussians, 1, h, w)
 
             # (bs, *, n_samples, out_channels, h, w)
-            x_cond = stds[:,None] * torch.randn_like(z) + means
+            x_cond = stds[:, None] * torch.randn_like(z) + means
 
         if self.x_pred:
 
-            if x_cond.shape[-1]!=z.shape[-1]:
-                x_cond=x_cond[...,:z.shape[-1]]+torch.randn_like(z)*(x_cond[...,z.shape[-1]:])
+            if x_cond.shape[-1] != z.shape[-1]:
+                x_cond = x_cond[..., :z.shape[-1]] + torch.randn_like(z) * (x_cond[..., z.shape[-1]:])
             else:
-                x_cond=x_cond[...,:z.shape[-1]]
+                x_cond = x_cond[..., :z.shape[-1]]
 
-            v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
+            v_cond = (x_cond - z) / (1.0 - t_n).clamp_min(self.t_eps)
 
             # x_euler = z + 0.05 * v_cond*t_dt
             #
@@ -716,32 +848,31 @@ class ScaleFlow(nn.Module):
             # velocity_next = (x_next- x_euler) / (1.0 - t_next).clamp_min(self.t_eps)
             # v_cond=0.5*(v_cond*t_dt+velocity_next*t_next_dt)
         else:
-            v_cond=x_cond
+            v_cond = x_cond
 
-        if self.model.label_drop_prob>0:
-            x_cond_non = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask,mode=0)
-            v_pred_non =(x_cond_non - z) / (1.0 - t_n).clamp_min(self.t_eps)
-            v_cond=v_cond+(v_cond - v_pred_non)*3
+        if self.model.label_drop_prob > 0:
+            x_cond_non = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask, mode=0)
+            v_pred_non = (x_cond_non - z) / (1.0 - t_n).clamp_min(self.t_eps)
+            v_cond = v_cond + (v_cond - v_pred_non) * 3
 
-        return v_cond,t_n,t_next,x_cond
-
+        return v_cond, t_n, t_next, x_cond
 
     @torch.no_grad()
-    def _euler_step(self, z, t, t_next, labels,noise_level,sde_inspired=False):
+    def _euler_step(self, z, t, t_next, labels, noise_level, sde_inspired=False):
 
         if sde_inspired:
-            gamma=1
+            gamma = 1
             h = t_next - t
 
             alpha = torch.clamp(
-                1.0 - gamma * h*(1-t_next), #t=0  alpha=1
+                1.0 - gamma * h * (1 - t_next),  # t=0  alpha=1
                 min=0.0,
                 max=1.0,
             )
 
             e = torch.randn_like(z)
 
-            e=self.model.denormalize(e)
+            e = self.model.denormalize(e)
 
             t = alpha * t
             z = alpha * z + (1 - alpha) * e
@@ -750,28 +881,37 @@ class ScaleFlow(nn.Module):
         #
         #     v_pred = (x - z) / (1 - t).clamp_min(self.t_eps)
         # else:
-        v_pred,t_n,t_next,pred_x0 = self._forward_sample(z, t, t_next,labels)
+        v_pred, t_n, t_next, pred_x0 = self._forward_sample(z, t, t_next, labels)
         tokenized_agent, initial_map_feature, eval_mask = labels
 
-
         if self.use_cluster:
-            increasing=tokenized_agent["increasing"]
-            non_increasing=~increasing
+            increasing = tokenized_agent["increasing"]
+            non_increasing = ~increasing
             z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
             z[increasing] = (
-                (1 - t_next[increasing]) * torch.randn_like(pred_x0[increasing])
-                + t_next[increasing] * pred_x0[increasing]
+                    (1 - t_next[increasing]) * torch.randn_like(pred_x0[increasing])
+                    + t_next[increasing] * pred_x0[increasing]
             )
-        elif self.use_sde and torch.any(noise_level>0) :#and "gt_z_raw" not in tokenized_agent.keys():
-            z, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
-                1-t_n,
-                1-t_next,
-                -v_pred,
-                z,
-                noise_level
-            )
+        elif self.use_sde and torch.any(noise_level > 0):
+            # Only the selected noisy scenes use stochastic SDE transition.
+            # Non-selected scenes take deterministic Euler steps; otherwise
+            # noise_level == 0 creates log(0)/0 in the SDE density.
+            sde_mask = noise_level.reshape(noise_level.shape[0], -1).amax(dim=-1) > 0
+            z_next = z + (t_next - t_n) * v_pred
+            log_prob = z.new_zeros(z.shape[0])
+            if torch.any(sde_mask):
+                z_sde, log_prob_sde, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
+                    1 - t_n[sde_mask],
+                    1 - t_next[sde_mask],
+                    -v_pred[sde_mask],
+                    z[sde_mask],
+                    noise_level[sde_mask],
+                )
+                z_next[sde_mask] = z_sde
+                log_prob[sde_mask] = log_prob_sde
+            z = z_next
         else:
-            z = z +(t_next-t_n) * v_pred
+            z = z + (t_next - t_n) * v_pred
             # # log_prob=None#torch.zeros_like(z)
             # #
             # if torch.all(t_next==1):
@@ -781,15 +921,14 @@ class ScaleFlow(nn.Module):
             #
             # z =   t_next * pred_x0  + (1-t_next) * pred_epsilon #t_next=1.
 
-           # print((z-z1)[~tokenized_agent["ego_mask"]].max())
-            #z = z +0.05* v_pred
-            log_prob=None
+            # print((z-z1)[~tokenized_agent["ego_mask"]].max())
+            # z = z +0.05* v_pred
+            log_prob = None
 
-        return z,pred_x0,t_n,log_prob
-
+        return z, pred_x0, t_n, log_prob
 
     @torch.no_grad()
-    def sample(self,tokenized_agent,initial_map_feature,eval_mask,infer_steps=20,num_samples=1):
+    def sample(self, tokenized_agent, initial_map_feature, eval_mask, infer_steps=20, num_samples=1):
 
         agent_batch = tokenized_agent["init_agent_batch"]
         num_graphs = tokenized_agent["num_graphs"]
@@ -797,52 +936,53 @@ class ScaleFlow(nn.Module):
         num_agents = len(agent_batch)
 
         if self.use_uniform:
-            z = torch.rand(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)*2-1
+            z = torch.rand(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device) * 2 - 1
         else:
-            z = torch.randn(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device)#.clamp(min=-3,max=3)#*0.5#*0.9 #
+            z = torch.randn(num_agents, num_samples, self.model.m_delta_dim,
+                            device=agent_batch.device)  # .clamp(min=-3,max=3)#*0.5#*0.9 #
 
-        z=self.model.denormalize(z,init_agent_type)
+        z = self.model.denormalize(z, init_agent_type)
 
         diff_input, diff_output = self.model.get_input(tokenized_agent)
 
-        diff_input=diff_input[:,None]
+        diff_input = diff_input[:, None]
 
         # real_pos = z[:, 0, 0] + z[:, 0, 1]
         # real_idx = torch.argsort(real_pos, stable=True)
         # real_idx = real_idx[torch.argsort(init_agent_type[real_idx], stable=True)]
         # real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
-        #z = z[real_idx]
-        #tokenized_agent["init_agent_type"] = tokenized_agent["init_agent_type"][real_idx]
+        # z = z[real_idx]
+        # tokenized_agent["init_agent_type"] = tokenized_agent["init_agent_type"][real_idx]
 
         if self.learn_noise:
-            t = torch.zeros((len(agent_batch),1,self.model.m_delta_dim), device=z.device, dtype=torch.float32)
+            t = torch.zeros((len(agent_batch), 1, self.model.m_delta_dim), device=z.device, dtype=torch.float32)
 
             x_pred_noise = self.noise_model(torch.zeros_like(z), t, tokenized_agent, initial_map_feature)
 
-            #x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
+            # x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
 
-            tokenized_agent["x_pred_noise"]=x_pred_noise.detach()
+            tokenized_agent["x_pred_noise"] = x_pred_noise.detach()
 
-            std = torch.clamp(x_pred_noise[:, :,8:].exp(),max=50, min=1e-5)
+            std = torch.clamp(x_pred_noise[:, :, 8:].exp(), max=50, min=1e-5)
 
-            std[:,:, 2:6] = std[:, :,2:6] * 2
-            std[:,:, 4:6] = std[:, :,4:6] * 2
+            std[:, :, 2:6] = std[:, :, 2:6] * 2
+            std[:, :, 4:6] = std[:, :, 4:6] * 2
 
-            z=std*torch.randn_like(z)+x_pred_noise[:, :,:8]
+            z = std * torch.randn_like(z) + x_pred_noise[:, :, :8]
 
-        z[tokenized_agent["ego_mask"]]=diff_input[tokenized_agent["ego_mask"]]
+        z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
-        z_list=[z]
-        x_list=[]
-        log_prob_list=[]
-        feat_list=[]
-        t_list=[]
+        z_list = [z.clone()]
+        x_list = []
+        log_prob_list = []
+        feat_list = []
+        t_list = []
 
         if self.model.use_cfg_cond:
-            tokenized_agent["cfg"]=torch.ones(num_graphs,device=agent_batch.device)*2
+            tokenized_agent["cfg"] = torch.ones(num_graphs, device=agent_batch.device) * 2
 
         if self.use_scale:
-            type_counts=tokenized_agent["type_counts"]
+            type_counts = tokenized_agent["type_counts"]
 
             agent_type = tokenized_agent["init_agent_type"]
 
@@ -878,15 +1018,15 @@ class ScaleFlow(nn.Module):
             unsorted_rank[perm] = sorted_rank
 
             rank[mask] = unsorted_rank
-            
-            counts=type_counts.sum(-1)
 
-            schedule,noise_scedule=batch_increasing_schedule(counts,step_number=infer_steps)#[agent_batch]
+            counts = type_counts.sum(-1)
 
-            steps=schedule.shape[1]-1
+            schedule, noise_scedule = batch_increasing_schedule(counts, step_number=infer_steps)  # [agent_batch]
+
+            steps = schedule.shape[1] - 1
 
         else:
-            steps=infer_steps
+            steps = infer_steps
 
         timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)  # .pow(2/3)
 
@@ -895,38 +1035,38 @@ class ScaleFlow(nn.Module):
         if self.use_sde:
             t_rand = torch.randint(0, steps, (num_graphs,), device=agent_batch.device)
 
-            t_rand=t_rand[agent_batch]
+            t_rand = t_rand[agent_batch]
 
             noise_level[
                 torch.arange(num_agents, device=agent_batch.device), t_rand, 0
             ] = self.noise_level
 
-            noise_mask=noise_level[:,:,0] > 0
+            noise_mask = noise_level[:, :, 0] > 0
 
-            noise_level=noise_level[:,:,None]
+            noise_level = noise_level[:, :, None]
 
-        for i in range(steps):# - 1
+        for i in range(steps):  # - 1
             t = timesteps[i]
             t_next = timesteps[i + 1]
 
             if self.use_scale:
-                schedule_i=schedule[:,i]
-                schedule_i1=schedule[:,i+1]
+                schedule_i = schedule[:, i]
+                schedule_i1 = schedule[:, i + 1]
 
                 k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
                 k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
 
                 eval_mask = rank <= k1
 
-                padding_mask = (eval_mask &  (rank> k))[eval_mask]
+                padding_mask = (eval_mask & (rank > k))[eval_mask]
 
                 tokenized_agent['padding_mask'] = padding_mask
 
                 if self.use_cluster:
                     tokenized_agent["increasing"] = (schedule_i != schedule_i1)[agent_batch][eval_mask]
 
-                    t=noise_scedule[:,i][agent_batch][eval_mask]
-                    t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
+                    t = noise_scedule[:, i][agent_batch][eval_mask]
+                    t_next = noise_scedule[:, i + 1][agent_batch][eval_mask][:, None, None]
 
                 z[eval_mask], x_cond, t_n, log_prob = self._euler_step(
                     z[eval_mask],
@@ -937,38 +1077,45 @@ class ScaleFlow(nn.Module):
                 )
 
             else:
-                z,x_cond,t_n,log_prob =  self._euler_step(z, t, t_next, (tokenized_agent, initial_map_feature,eval_mask),noise_level[:,i])
+                z, x_cond, t_n, log_prob = self._euler_step(z, t, t_next,
+                                                            (tokenized_agent, initial_map_feature, eval_mask),
+                                                            noise_level[:, i])
 
             z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
             x_list.append(x_cond)
-            z_list.append(z)
-            t_list.append(t_n)
+            z_list.append(z.clone())
+            t_list.append(t_n.clone())
             log_prob_list.append(log_prob)
 
             # tokenized_agent["prev_x"]=x_cond[:,0]
 
-          #  feat_list.append(tokenized_agent["noise_feat"])
+        #  feat_list.append(tokenized_agent["noise_feat"])
 
         t_list.append(torch.ones_like(t_n))
-        #tokenized_agent["pred_init"] = z[:, 0]
+        # tokenized_agent["pred_init"] = z[:, 0]
 
         if self.use_sde:
-           # log_prob_list=torch.stack(log_prob_list,dim=1)
-            #log_prob_list=log_prob_list[noise_mask]
+            # log_prob_list=torch.stack(log_prob_list,dim=1)
+            # log_prob_list=log_prob_list[noise_mask]
             z_list = torch.stack(z_list, dim=1)
 
-            gen_z = (z_list[:, :-1][noise_mask],z_list[:,1:][noise_mask],log_prob_list)
-            t_list=torch.stack(t_list,dim=1)
-            gen_t=(t_list[:,:-1][noise_mask],t_list[:,1:][noise_mask])
+            old_log_prob = torch.stack(log_prob_list, dim=1)[noise_mask].detach()
+            selected_agent_idx = torch.arange(num_agents, device=agent_batch.device)[:, None].expand(
+                num_agents, steps
+            )[noise_mask]
+            gen_z = (z_list[:, :-1][noise_mask], z_list[:, 1:][noise_mask], old_log_prob)
+            t_list = torch.stack(t_list, dim=1)
+            gen_t = (t_list[:, :-1][noise_mask], t_list[:, 1:][noise_mask])
 
-           # tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
+            # tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
 
-            tokenized_agent["gen_z"]=gen_z
-            tokenized_agent["gen_t"]=gen_t
+            tokenized_agent["gen_z"] = gen_z
+            tokenized_agent["gen_t"] = gen_t
+            tokenized_agent["gen_agent_idx"] = selected_agent_idx
         else:
-            tokenized_agent["pred_z_list"]=torch.cat(z_list, dim=1)
-            tokenized_agent["gen_z"]=z
+            tokenized_agent["pred_z_list"] = torch.cat(z_list, dim=1)
+            tokenized_agent["gen_z"] = z
 
         # inv_real_idx = torch.empty_like(real_idx)
         # inv_real_idx[real_idx] = torch.arange(real_idx.numel(), device=real_idx.device)
@@ -976,12 +1123,11 @@ class ScaleFlow(nn.Module):
         # z=z[inv_real_idx]
 
         if self.pred_all_pos:
-            all_pred = self.pred_model(z, t_n*0, tokenized_agent, initial_map_feature).reshape(z.shape[0],-1,3)
+            all_pred = self.pred_model(z, t_n * 0, tokenized_agent, initial_map_feature).reshape(z.shape[0], -1, 3)
 
-            tokenized_agent["all_pred"] =all_pred
+            tokenized_agent["all_pred"] = all_pred
 
         return z[:, 0], x_list
-
 
     def sde_step_with_logprob(
             self,
@@ -989,60 +1135,70 @@ class ScaleFlow(nn.Module):
             sigma_prev,
             model_output: torch.FloatTensor,
             sample: torch.FloatTensor,
-            noise_level = 0.7,
+            noise_level=0.7,
             prev_sample=None,
             sde_type: Optional[str] = 'sde',
             return_sqrt_dt: Optional[bool] = False,
     ):
-        model_output = model_output/self.model.normal_scale[None]
-        sample=self.model.normalize(sample)
+        eps = 1e-5
+        scale = self.model.normal_scale[None].clamp_min(eps)
+        model_output = model_output / scale
+        sample = self.model.normalize(sample)
 
         if prev_sample is not None:
-            prev_sample=self.model.normalize(prev_sample)
+            prev_sample = self.model.normalize(prev_sample)
 
+        sigma = sigma.clamp(min=eps, max=1.0 - eps)
+        sigma_prev = sigma_prev.clamp(min=eps, max=1.0 - eps)
         dt = sigma_prev - sigma
-        # dt = dt.clamp_max(-1e-5)
+        sqrt_neg_dt = (-dt).clamp_min(eps).sqrt()
 
         if sde_type == 'sde':
-            std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_prev, sigma))) * noise_level
+            denom = (1.0 - sigma).clamp_min(eps)
+            std_dev_t = torch.sqrt((sigma / denom).clamp_min(eps)) * noise_level
+            std_dev_t = std_dev_t.clamp_min(eps)
 
-            # our sde
-            prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
-                    1 + std_dev_t ** 2 * (1 - sigma) / (2 * sigma)) * dt
+            prev_sample_mean = sample * (
+                    1.0 + std_dev_t.square() / (2.0 * sigma) * dt
+            ) + model_output * (
+                                       1.0 + std_dev_t.square() * (1.0 - sigma) / (2.0 * sigma)
+                               ) * dt
+
+            std = (std_dev_t * sqrt_neg_dt).clamp_min(eps)
 
             if prev_sample is None:
                 variance_noise = torch.randn_like(model_output)
-
-                prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1 * dt) * variance_noise
+                prev_sample = prev_sample_mean + std * variance_noise
 
             log_prob = (
-                    -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1 * dt)) ** 2))
-                    - torch.log(std_dev_t * torch.sqrt(-1 * dt))
-                    - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
+                    -((prev_sample.detach() - prev_sample_mean).square()) / (2.0 * std.square())
+                    - torch.log(std)
+                    - 0.5 * math.log(2.0 * math.pi)
             )
 
         elif sde_type == 'cps':
-            std_dev_t = sigma_prev * torch.sin(noise_level * math.pi / 2)  # sigma_t in paper
-            pred_original_sample = sample - sigma * model_output  # predicted x_0 in paper
-            noise_estimate = sample + model_output * (1 - sigma)  # predicted x_1 in paper
-            prev_sample_mean = pred_original_sample * (1 - sigma_prev) + noise_estimate * torch.sqrt(
-                sigma_prev ** 2 - std_dev_t ** 2)
+            std_dev_t = (sigma_prev * math.sin(noise_level * math.pi / 2)).clamp_min(eps)
+            pred_original_sample = sample - sigma * model_output
+            noise_estimate = sample + model_output * (1.0 - sigma)
+            inside = (sigma_prev.square() - std_dev_t.square()).clamp_min(eps)
+            prev_sample_mean = pred_original_sample * (1.0 - sigma_prev) + noise_estimate * inside.sqrt()
 
             if prev_sample is None:
                 variance_noise = torch.randn_like(model_output)
-
                 prev_sample = prev_sample_mean + std_dev_t * variance_noise
 
-            # remove all constants
-            log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2)/( 2*std_dev_t.clamp_min(0.05) ** 2)
+            log_prob = -((prev_sample.detach() - prev_sample_mean).square()) / (2.0 * std_dev_t.square())
+        else:
+            raise ValueError(f"Unsupported sde_type: {sde_type}")
 
-        # mean along all but batch dimension
         log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
+        log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
+        log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
 
-        prev_sample=self.model.denormalize(prev_sample)
+        prev_sample = self.model.denormalize(prev_sample)
 
         if return_sqrt_dt:
-            return prev_sample, log_prob, prev_sample_mean, std_dev_t, torch.sqrt(-1 * dt)
+            return prev_sample, log_prob, prev_sample_mean, std_dev_t, sqrt_neg_dt
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     def repeat_input_copy(self, tokenized_agent, n_step):

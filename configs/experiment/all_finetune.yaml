@@ -1,7 +1,6 @@
 # @package _global_
 
 defaults:
-  # - override /trainer: ddp
   - override /model: smart_fast
 
 model:
@@ -9,54 +8,28 @@ model:
     lr: 1e-4
     lr_min_ratio: 0.05
     token_processor:
-      map_token_sampling: # open-loop
-        num_k: 1 # for k nearest neighbors
-        temp: 1.0 # uniform sampling
-      agent_token_sampling: # closed-loop
-        num_k: 1 # for k nearest neighbors
-        temp: 1.0
-      pred_entry: False
       pred_init: True
       learn_init: True
-      learn_autoencoder: False
 
-    val_open_loop: False
     finetune: true
-    smart : false
-    n_rollout_closed_val: 8
     decoder:
-      hist_drop_prob: 0 #0.1 #0.1
-     # dropout: 0.1
-
       dis_a2a_radius: 10
       dis_a2a_neighbor: 20
-
       dis_weight: 20
       dist_decay: 3
-      reward_weight: 0
-      reward_decay: 2.5
 
-#ckpt_path: './waymo_data/xflow256_map100_rellane_epoch=11-step=22836.ckpt'
-ckpt_path: './waymo_data/xflow256_msesq_scedule5_nolog_epoch=63-step=121792.ckpt'
-#ckpt_path: '/home/ke/code/sim/src/logs/flow_normscale_vpred_nomatch_rotateout/2026-05-01_14-14-27/bc/ww97393s/checkpoints/last.ckpt'
+ckpt_path: "./waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt"
 
-task_name: all24_sum_sde07_valuedetach  #_sum #_noinit@_eval #_meanstd_01nllsde0001__noisepre #_first5 #_dis1e2_clip_policy0 #10 #_flow_sde_eval #mean
+task_name: all32_infvalue1e3_gp001shape10
 
 trainer:
-  limit_train_batches: 1.0
-  limit_val_batches: 1
-  #check_val_every_n_epoch: 1
   val_check_interval: 0.25
   #val_check_interval: 0.000002
   max_epochs: 5
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 24
+  train_batch_size: 32 #6
   val_batch_size: 256
-  test_batch_size: 10
-  num_workers: 8
 
-#action: validate
 action: finetune
-# nohup python run.py > 1.txt 2>&1 &

@@ -19,8 +19,6 @@ from src.smart.utils import (
     weight_init
 )
 from src.smart.layers import MLPLayer
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
-
 
 def _scene_mean(values: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
     """Compute mean over scenes given node-wise values and batch indices."""

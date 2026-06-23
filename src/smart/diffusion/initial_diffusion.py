@@ -16,7 +16,6 @@ from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_n
 from .scale_flow import ScaleFlow
 from src.smart.diffusion.dit.autoencoder import AutoEncoder
 from src.smart.diffusion.dit.ldm import LDM
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient,get_scale,get_type_position_index,sinusoidal_embedding
 from torch_scatter import scatter_sum,scatter_mean
 
 class InitDiffusion(nn.Module):

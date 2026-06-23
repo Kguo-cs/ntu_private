@@ -303,10 +303,17 @@ def get_scale(x0_prediction,x0):
 
     return  ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
 
+def _robust_component_loss(fake, real, beta=0.2, use_huber=True):
+    if use_huber:
+        return F.smooth_l1_loss(fake, real, reduction="none", beta=beta).mean(-1)
+    return F.mse_loss(fake, real, reduction="none").mean(-1)
+
 def matching_loss(
     real_state,
     fake_state,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
+    w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
+    use_huber=True,
+    huber_beta=0.2,
 ):
 
     fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
@@ -321,7 +328,7 @@ def matching_loss(
     # pos_loss = dist.mean()
 
     if fake_state.shape[-1]<16:
-        pos_loss=F.mse_loss(fake_pos, real_pos, reduction="none").mean(-1)
+        pos_loss = _robust_component_loss(fake_pos, real_pos, beta=huber_beta, use_huber=use_huber)
         #pos_loss=torch.tensor(0.0).to(real_state.device)
         #fake_vel=torch.cat([fake_pos,fake_vel],dim=-1)
         #real_vel=torch.cat([real_pos,real_vel],dim=-1)
@@ -329,16 +336,16 @@ def matching_loss(
 
         #cluster_valid_mask=~torch.isnan(real_vel)
 
-        heading_loss = F.mse_loss(fake_heading, real_heading, reduction="none").mean(-1)
+        heading_loss = _robust_component_loss(fake_heading, real_heading, beta=huber_beta, use_huber=use_huber)
 
         # if fake_state.shape[1]==44:
         #     vel_loss = F.l1_loss(fake_state[:, 4:], real_state[:, 4:], reduction="none").mean()
         #     shape_loss =torch.zeros_like(vel_loss)
         #
         # else:
-        shape_loss = F.mse_loss(fake_shape, real_shape, reduction="none").mean(-1)
+        shape_loss = _robust_component_loss(fake_shape, real_shape, beta=huber_beta, use_huber=use_huber)
 
-        vel_loss = F.mse_loss(fake_vel, real_vel, reduction="none").mean(-1)
+        vel_loss = _robust_component_loss(fake_vel, real_vel, beta=huber_beta, use_huber=use_huber)
 
         # pos_loss=get_scale(fake_pos,real_pos)
         # heading_loss=get_scale(fake_heading, real_heading)
@@ -566,7 +573,10 @@ def get_closest_sum_idx(
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,z,e,t,t_dt=1,
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
-    t_eps=0.05,w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
+    t_eps=0.05, w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
+    max_loss_weight=25.0,
+    use_huber=True,
+    huber_beta=0.2,
     ):
 
     if use_match:
@@ -604,14 +614,26 @@ def get_matching_loss(
         denom= torch.ones_like(t)
        # w_pos=w_heading=w_shape=w_vel=1
 
-    denom_sq=denom[~tokenized_agent["ego_mask"]].square()
+    non_ego = ~tokenized_agent["ego_mask"]
+    if non_ego.sum() == 0:
+        zero = fake_state.new_zeros(())
+        return zero, zero, zero, zero, zero, col_loss
+
+    denom_sq = denom[non_ego].square().clamp_min(t_eps * t_eps)
+    inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        real_state[~tokenized_agent["ego_mask"]], fake_state[~tokenized_agent["ego_mask"]],
-        w_pos=w_pos/denom_sq[:,0], w_heading=w_heading/denom_sq[:,2], w_shape=w_shape/denom_sq[:,4], w_vel=w_vel/denom_sq[:,6]
+        real_state[non_ego],
+        fake_state[non_ego],
+        w_pos=w_pos * inv_denom_sq[:, 0],
+        w_heading=w_heading * inv_denom_sq[:, 2],
+        w_shape=w_shape * inv_denom_sq[:, 4],
+        w_vel=w_vel * inv_denom_sq[:, 6],
+        use_huber=use_huber,
+        huber_beta=huber_beta,
     )
 
-    return match_loss/5,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
+    return match_loss / 5, pos_loss, heading_loss, shape_loss, vel_loss, col_loss
 
 
 def sample_linear_t(

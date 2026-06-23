@@ -18,12 +18,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
-from torch.nn.modules.container import ModuleList
 import torch.nn.functional as F
-import copy
-from torch import Tensor
-from src.smart.loss.earth_match import get_matching_loss
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch
 
 from torch import nn
 from torch.func import jvp, vmap

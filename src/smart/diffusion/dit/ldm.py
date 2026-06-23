@@ -10,7 +10,6 @@ from .dit import DiT
 import torch.nn.functional as F
 
 from src.smart.layers import MLPLayer
-from src.smart.loss.earth_match import get_matching_loss,multi_circle_collision_loss_mem_efficient
 
 class LDM(nn.Module):
     def __init__(self):
