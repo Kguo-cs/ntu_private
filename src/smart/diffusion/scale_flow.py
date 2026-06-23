@@ -118,12 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = False
-
-        self.gail=True
-
-        if token_processor.learn_init and self.gail:
-            self.use_sde = True
+        self.use_sde = True
 
         self.noise_level = 0.7
 
@@ -145,9 +140,6 @@ class ScaleFlow(nn.Module):
 
         # Stable init-RL controls.  Keep the supervised diffusion loss dominant
         # at the beginning, then gradually add a weak policy-gradient signal.
-        self.init_rl_warmup_steps = 2000
-        self.init_rl_ramp_steps = 8000
-        self.init_rl_max_coef = 0.05
         self.init_adv_clip = 3.0
         self.init_logprob_clip = 50.0
         self.init_ppo_clip = 0.2
@@ -189,13 +181,6 @@ class ScaleFlow(nn.Module):
 
         self.apply(weight_init)
 
-    def _init_rl_coef(self):
-        """Warm-start the initial-state RL loss to avoid destroying BC/FM early."""
-        if self.global_step < self.init_rl_warmup_steps:
-            return 0.0
-        ramp_step = self.global_step - self.init_rl_warmup_steps
-        ramp = min(1.0, ramp_step / max(1, self.init_rl_ramp_steps))
-        return self.init_rl_max_coef * ramp
 
     def _sanitize_init_advantages(self, advantages, ego_mask, selected_agent_idx=None):
         """Return finite, clipped advantages aligned to sampled SDE transitions."""
@@ -462,7 +447,6 @@ class ScaleFlow(nn.Module):
                 implicit_negative_prediction = (
                                                        1.0 + beta
                                                ) * old_prediction.detach() - beta * forward_prediction
-                # x0_prediction = xt - t_expanded * positive_prediction
                 x0_prediction = x_pred_all[:len(z_sampled)]
                 positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                     tokenized_agent,
@@ -474,26 +458,7 @@ class ScaleFlow(nn.Module):
                     use_col=False,
                     x_pred=self.x_pred
                 )
-
-                #   with torch.no_grad():
-                #       weight_factor = (
-                #           torch.abs(x0_prediction.double() - x0.double())
-                #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                #           .clip(min=0.00001)
-                #       )
-                #   # weight_factor=1
-                #   positive_loss = ((x0_prediction - x0) ** 2 / weight_factor).mean(dim=tuple(range(1, x0.ndim)))
                 negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
-                #   with torch.no_grad():
-                #       negative_weight_factor = (
-                #           torch.abs(negative_x0_prediction.double() - x0.double())
-                #           .mean(dim=tuple(range(1, x0.ndim)), keepdim=True)
-                #           .clip(min=0.00001)
-                #       )
-                # #  negative_weight_factor=1
-                #   negative_loss = ((negative_x0_prediction - x0) ** 2 / negative_weight_factor).mean(
-                #       dim=tuple(range(1, x0.ndim))
-                #   )
                 negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
                     tokenized_agent,
                     negative_x0_prediction[:, 0],
@@ -510,7 +475,6 @@ class ScaleFlow(nn.Module):
             elif self.use_sde:
                 sampled_non_ego = ~ego_mask[selected_agent_idx]
                 if sampled_non_ego.sum() == 0:
-                    log_prob = z_sampled.new_zeros((0,))
                     policy_loss = z_sampled.new_zeros(())
                 else:
                     prev_sample, log_prob, prev_sample_mean, std_dev_t = self.sde_step_with_logprob(
@@ -538,7 +502,6 @@ class ScaleFlow(nn.Module):
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
                         policy_loss = -(log_prob * advantages_pg).mean()
-                    policy_loss = policy_loss * self._init_rl_coef()
             else:
                 x_pred = x_pred_all[:len(z_sampled)]
 
@@ -584,7 +547,7 @@ class ScaleFlow(nn.Module):
                         sigma_t = std_dev_t.mean()
                         per_sample_policy_loss = per_sample_policy_loss * sigma_t
 
-                    policy_loss = per_sample_policy_loss.mean() * self._init_rl_coef()
+                    policy_loss = per_sample_policy_loss.mean()
 
                 # x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
             x_pred = x_pred_all[len(z_sampled):]
