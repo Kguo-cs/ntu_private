@@ -17,7 +17,6 @@ from src.smart.utils import (
     rotate_to_local,
     weight_init,
 )
-from .diffusion_planner.decoder import DiT
 from .noise_schedule import LearnableGroupedPowerSchedule
 #
 #
