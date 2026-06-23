@@ -900,7 +900,10 @@ model24_value1e3_expert_newpoint_epoch=1-step=58440-valmeta=0.6548.ckpt
 
 model24_value1e3_newpoint_gp_shape10_epoch=1-step=58440-valmeta=0.6533.ckpt
 
+0.6499
 
+
+model32_valuedetach_gp01ls_dis5e5_epoch=3-valmeta=0.6508.ckpt
 
 
 

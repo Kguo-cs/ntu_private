@@ -382,7 +382,7 @@ class IQ_SoftQ(LightningModule):
             batch_size=1,
         )
         if use_gp_this_step:
-            gamma = 0.1 #l1 loss
+            gamma = 0.01 #l1 loss
 
             # critic_score = ego_logits.sum()
             # if has_interact_logits:
@@ -399,7 +399,7 @@ class IQ_SoftQ(LightningModule):
                 sampled_pos=sampled_pos,
                 sampled_heading=sampled_heading,
                 shape=shape,
-                critic_score=combined_logits.sum(),
+                critic_score=combined_logits[combined_logits.abs()>1].sum(),
                 valid_mask=tokenized_agent["valid_mask"],
                 gamma=gamma,
             )
@@ -496,7 +496,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        feat_a = tokenized_agent_rollout["feat_a"].detach()
+        feat_a = tokenized_agent_rollout["feat_a"]#.detach()
 
         value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
 

@@ -7,7 +7,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epo
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt zs@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_03_light zs@10.87.225.106:~/code/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
 
@@ -25,7 +25,7 @@ rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=57-step=110374-valmeta=0.6447.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_val64_map100_wrap_eval5/2026-06-21_05-03-24/bc/4gfn780l/checkpoints/epoch=63-valmeta=0.6463.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/model32_valuedetach_gp01ls_dis5e5/2026-06-21_08-45-30/bc/av8l78wk/checkpoints/epoch=3-valmeta=0.6508.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 

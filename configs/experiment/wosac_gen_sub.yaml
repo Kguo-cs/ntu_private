@@ -39,7 +39,7 @@ model:
       learn_init: False
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/xflow512_val64_map100_wrap_eval5_epoch=63-valmeta=0.6463.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/model32_valuedetach_gp01ls_dis5e5_epoch=3-valmeta=0.6508.ckpt"
 
 trainer:
   limit_train_batches: 1.0
@@ -49,7 +49,7 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 256
+  val_batch_size: 128
   test_batch_size: 128
   num_workers: 8
   shuffle: false
