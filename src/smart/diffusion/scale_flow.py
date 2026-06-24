@@ -493,7 +493,7 @@ class ScaleFlow(nn.Module):
                 )[non_ego]
                 advantages_pg = torch.exp(advantages_pg).detach()#.clamp_max(5)
 
-                per_sample_policy_loss = match_loss * advantages_pg
+                per_sample_policy_loss = match_loss *( advantages_pg-1)
 
                 policy_loss = per_sample_policy_loss.mean()
 
@@ -714,8 +714,6 @@ class ScaleFlow(nn.Module):
 
             x_pred_noise = self.noise_model(torch.zeros_like(z), t, tokenized_agent, initial_map_feature)
 
-            # x_pred_noise[:, :,8:]=self.model.normal_scale[None].log()
-
             tokenized_agent["x_pred_noise"] = x_pred_noise.detach()
 
             std = torch.clamp(x_pred_noise[:, :, 8:].exp(), max=50, min=1e-5)
@@ -830,7 +828,6 @@ class ScaleFlow(nn.Module):
                     (tokenized_agent, initial_map_feature, eval_mask),
                     noise_level[eval_mask, i],
                 )
-
             else:
                 z, x_cond, t_n, log_prob = self._euler_step(z, t, t_next,
                                                             (tokenized_agent, initial_map_feature, eval_mask),
@@ -843,16 +840,9 @@ class ScaleFlow(nn.Module):
             t_list.append(t_n.clone())
             log_prob_list.append(log_prob)
 
-            # tokenized_agent["prev_x"]=x_cond[:,0]
-
-        #  feat_list.append(tokenized_agent["noise_feat"])
-
         t_list.append(torch.ones_like(t_n))
-        # tokenized_agent["pred_init"] = z[:, 0]
 
         if self.use_sde:
-            # log_prob_list=torch.stack(log_prob_list,dim=1)
-            # log_prob_list=log_prob_list[noise_mask]
             z_list = torch.stack(z_list, dim=1)
 
             old_log_prob = torch.stack(log_prob_list, dim=1)[noise_mask].detach()
@@ -862,8 +852,6 @@ class ScaleFlow(nn.Module):
             gen_z = (z_list[:, :-1][noise_mask], z_list[:, 1:][noise_mask], old_log_prob)
             t_list = torch.stack(t_list, dim=1)
             gen_t = (t_list[:, :-1][noise_mask], t_list[:, 1:][noise_mask])
-
-            # tokenized_agent["noise_feat"]=torch.stack(feat_list,dim=1)[noise_mask]
 
             tokenized_agent["gen_z"] = gen_z
             tokenized_agent["gen_t"] = gen_t
