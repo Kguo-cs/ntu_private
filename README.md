@@ -10,7 +10,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_n
 
 
 
-rsync -avz ke@10.87.114.128:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=57-step=110374-valmeta=0.6447.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_value1e3_gp001shape10/2026-06-23_19-48-18/bc/b3t7nywg/checkpoints/epoch=2-step=68484-valmeta=0.6529.ckpt ./
 
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=57-step=110374-valmeta=0.6447.ckpt ./
 
