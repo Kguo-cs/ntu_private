@@ -491,7 +491,7 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg / 2.0).clamp(0.2, 5.0).detach()
+                advantages_pg = torch.exp(advantages_pg/2 ).detach()
 
                 per_sample_policy_loss = match_loss * advantages_pg
 
@@ -519,57 +519,6 @@ class ScaleFlow(nn.Module):
             use_col=True,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
-
-        if self.model.use_prev_condition:
-            tokenized_agent["prev_x"] = x_pred[:, 0].detach()  # .clone()
-
-            x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
-
-            if self.model.use_cfg_cond:
-                denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
-
-                v_no_sc = (x_pred - z) / denom
-                v_sc = (x_pred_con - z) / denom
-
-                v_target = (x - z) / denom
-
-                v_target_guidance = v_target + (1 - 1 / tokenized_agent["cfg"][agent_batch][:, None, None]) * (
-                            v_sc - v_no_sc)
-
-                collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
-                    tokenized_agent,
-                    v_sc[:, 0],
-                    v_target_guidance[:, 0].detach(),
-                    z[:, 0],
-                    e[:, 0],
-                    t[:, 0],
-                    use_col=False,
-                    x_pred=False
-                )
-            else:
-                collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
-                    tokenized_agent,
-                    x_pred_con[:, 0],
-                    x[:, 0],
-                    z[:, 0],
-                    e[:, 0],
-                    t[:, 0],
-                    use_col=False,
-                    x_pred=self.x_pred
-                )
-
-        if self.pred_all_pos:
-            x_pred = self.pred_model(x, t * 0, tokenized_agent, initial_map_feature).reshape(x.shape[0], -1, 3)
-
-            local_allpos = tokenized_agent["local_allpos"]
-            local_allheading = tokenized_agent["local_allheading"]
-
-            non_nan_mask = ~torch.isnan(local_allheading)
-
-            pos_loss1 = F.l1_loss(local_allpos[non_nan_mask], x_pred[non_nan_mask][:, :2])
-            heading_loss1 = F.l1_loss(local_allheading[non_nan_mask], x_pred[non_nan_mask][:, 2])
-
-            policy_loss = pos_loss1 + heading_loss1
 
         if self.model.schedule_loss:
             with torch.no_grad():
@@ -759,13 +708,6 @@ class ScaleFlow(nn.Module):
         diff_input, diff_output = self.model.get_input(tokenized_agent)
 
         diff_input = diff_input[:, None]
-
-        # real_pos = z[:, 0, 0] + z[:, 0, 1]
-        # real_idx = torch.argsort(real_pos, stable=True)
-        # real_idx = real_idx[torch.argsort(init_agent_type[real_idx], stable=True)]
-        # real_idx = real_idx[torch.argsort(agent_batch[real_idx], stable=True)]
-        # z = z[real_idx]
-        # tokenized_agent["init_agent_type"] = tokenized_agent["init_agent_type"][real_idx]
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch), 1, self.model.m_delta_dim), device=z.device, dtype=torch.float32)
