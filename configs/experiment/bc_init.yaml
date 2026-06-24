@@ -10,11 +10,11 @@ model:
       learn_init: True
 
 
-task_name: bc_init
+task_name: bc_init64
 
 trainer:
   max_epochs: 32
 
 data:
-  train_batch_size: 32
+  train_batch_size: 64
   val_batch_size: 256
