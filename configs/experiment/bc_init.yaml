@@ -13,9 +13,8 @@ model:
 task_name: bc_init
 
 trainer:
-  check_val_every_n_epoch: 1
   max_epochs: 32
 
 data:
-  train_batch_size: 64
+  train_batch_size: 32
   val_batch_size: 256
