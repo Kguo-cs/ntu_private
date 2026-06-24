@@ -312,7 +312,7 @@ def matching_loss(
     real_state,
     fake_state,
     w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
-    use_huber=True,
+    use_huber=False,
     huber_beta=0.1,
 ):
 
