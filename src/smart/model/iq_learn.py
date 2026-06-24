@@ -430,7 +430,7 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.learn_dis :#and (self.global_step%4==0):
            # print(self.global_step)
             discriminator_optimizer.zero_grad()
-            critic_loss.backward()
+            self.manual_backward(critic_loss)
             discriminator_optimizer.step()
         #
         # if not self.use_gradient_penalty:
@@ -490,7 +490,7 @@ class IQ_SoftQ(LightningModule):
 
         actor_optimizer.zero_grad()
 
-        policy_loss.backward()
+        self.manual_backward(policy_loss)
 
         actor_optimizer.step()
 
@@ -535,7 +535,7 @@ class IQ_SoftQ(LightningModule):
 
             init_optimizer.zero_grad()
 
-            init_loss.backward()
+            self.manual_backward(init_loss)
 
             init_optimizer.step()
 
