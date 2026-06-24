@@ -17,8 +17,8 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=
 task_name: xflow512_wrap_300_n30_all #map1000 #6080 #selector_feat_fix4
 
 trainer:
-  #check_val_every_n_epoch: 4
-  val_check_interval: 0.0000002
+  check_val_every_n_epoch: 4
+  #val_check_interval: 0.0000002
 
 data:
   train_batch_size: 512
