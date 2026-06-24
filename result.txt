@@ -913,6 +913,8 @@ xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt
 
 
 
+
+
 take all position for generation
 simformer: For each
 agent, it sequentially predicts (a) an agent type token,
