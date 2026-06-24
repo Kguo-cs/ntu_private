@@ -53,6 +53,7 @@ class SMARTDecoder(nn.Module):
         reward_weight: float,
         reward_decay: float,
         token_processor=None,
+        finetune=False,
     ) -> None:
         super(SMARTDecoder, self).__init__()
 
@@ -61,6 +62,7 @@ class SMARTDecoder(nn.Module):
 
         self.pred_init=token_processor.pred_init
         self.learn_init=token_processor.learn_init
+        self.finetune=finetune
 
         self.use_lcf=reward_weight!=0
         self.use_kl_penalty=False
@@ -153,7 +155,7 @@ class SMARTDecoder(nn.Module):
                 self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
 
             if token_processor.learn_init:
-                self.init_value_network =MLPLayer(self.agent_encoder.init_decoder.G1.hidden_dim,hidden_dim*2,1)
+                self.init_value_network =MLPLayer(self.init_decoder.G1.hidden_dim,hidden_dim*2,1)
 
             self.agent_encoder.interative_decoder.gail=self.gail
 
@@ -164,7 +166,11 @@ class SMARTDecoder(nn.Module):
             map_feature = self.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
 
-        pred_dict = self.agent_encoder(tokenized_agent, map_feature)
+        if self.learn_init and self.finetune and not self.gail:
+            pred_dict={}
+        else:
+            pred_dict = self.agent_encoder(tokenized_agent, map_feature) #not use when only learning init
+
 
         if self.learn_init and not self.gail:
             if self.sep_map:

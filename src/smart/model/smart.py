@@ -68,22 +68,22 @@ class SMART(LightningModule):
         self.token_processor = TokenProcessor(**model_config.token_processor)
 
         self.encoder = SMARTDecoder(
-            **model_config.decoder,token_processor=self.token_processor, n_token_agent=self.token_processor.n_token_agent
+            **model_config.decoder,token_processor=self.token_processor, n_token_agent=self.token_processor.n_token_agent,
+            finetune=model_config.finetune
         )
 
         if  model_config.finetune:
             for p in self.encoder.map_encoder.parameters():
                 p.requires_grad = False
 
-            if self.token_processor.learn_init:
-                if not self.encoder.gail:
-                    for p in self.encoder.agent_encoder.parameters():
-                        p.requires_grad = False
+            if self.token_processor.pred_init:
+                if self.token_processor.learn_init:
+                    if not self.encoder.gail:
+                        for p in self.encoder.agent_encoder.parameters():
+                            p.requires_grad = False
+                else:
                     for p in self.encoder.init_decoder.parameters():
-                        p.requires_grad = True
-            else:
-                for p in self.encoder.agent_encoder.init_decoder.parameters():
-                    p.requires_grad = False
+                        p.requires_grad = False
 
         self.n_vis_batch = model_config.n_vis_batch
         self.n_vis_scenario = model_config.n_vis_scenario
