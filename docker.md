@@ -47,5 +47,5 @@ ke ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/systemctl
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.225.106:~/code/sim/src/waymo_data/full/
 rsync -avz /home/ke/code/sim/src/waymo_data/full/validation_map2light ke@10.87.225.106:~/code/sim/src/waymo_data/full/
-rsync -avz /home/ke/code/sim/src/waymo_data/full/validation_tfrecords_splitted ke@10.87.225.106:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init5 ke@10.87.225.106:~/code/sim/src/waymo_data/full/
 
