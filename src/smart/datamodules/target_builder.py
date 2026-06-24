@@ -22,7 +22,7 @@ class WaymoTargetBuilderTrain(BaseTransform):
         self.step_current = 10
         self.max_num = max_num
 
-    def __call__(self, data) -> HeteroData:
+    def forward(self, data) -> HeteroData:
         #
         # if "agent" in data.keys() and "role" in data["agent"].keys():
         # #     _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
@@ -69,7 +69,7 @@ class WaymoTargetBuilderVal(BaseTransform):
     def __init__(self) -> None:
         super(WaymoTargetBuilderVal, self).__init__()
 
-    def __call__(self, data) -> HeteroData:
+    def forward(self, data) -> HeteroData:
         # _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
 
         return HeteroData(data)

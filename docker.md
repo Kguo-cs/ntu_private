@@ -2,6 +2,7 @@
 
 sudo apt install nvidia-driver-580-open
 wget https://developer.download.nvidia.com/compute/cuda/12.8.0/local_installers/cuda_12.8.0_570.86.10_linux.run
+wget https://developer.download.nvidia.com/compute/cuda/13.0.0/local_installers/cuda_13.0.0_580.65.06_linux.run
 
 sudo bash cuda_12.8.0_570.86.10_linux.run
 nano ~/.bashrc
