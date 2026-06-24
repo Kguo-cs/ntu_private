@@ -71,42 +71,15 @@ class SMART(LightningModule):
             **model_config.decoder,token_processor=self.token_processor, n_token_agent=self.token_processor.n_token_agent
         )
 
-        if  self.token_processor.pred_init:
-            for p in self.encoder.parameters():
+        if  model_config.finetune:
+            for p in self.encoder.map_encoder.parameters():
                 p.requires_grad = False
 
-            # for p in self.encoder.agent_encoder.parameters():
-            #     p.requires_grad = True
-            #
-            if self.encoder.gail:
-                for p in self.encoder.discriminator.parameters():
-                    p.requires_grad = True
-
-                for p in self.encoder.agent_encoder.parameters():
-                    p.requires_grad = True
-
-                for p in self.encoder.value_network.parameters():
-                    p.requires_grad = True
-
-                if self.token_processor.learn_init:
-                    for p in self.encoder.init_value_network.parameters():
-                        p.requires_grad = True
-
-
             if self.token_processor.learn_init:
-                if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
-                    for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
-                        p.requires_grad = True
-                else:
-                    for p in self.encoder.agent_encoder.init_decoder.G1.parameters():
-                        p.requires_grad = True
-
-                if self.encoder.agent_encoder.init_decoder.use_gan:
-                    for p in self.encoder.agent_encoder.init_decoder.D.parameters():
-                        p.requires_grad = True
-
-                if self.encoder.sep_map:
-                    for p in self.encoder.map_encoder1.parameters():
+                if not self.encoder.gail:
+                    for p in self.encoder.agent_encoder.parameters():
+                        p.requires_grad = False
+                    for p in self.encoder.init_decoder.parameters():
                         p.requires_grad = True
             else:
                 for p in self.encoder.agent_encoder.init_decoder.parameters():
@@ -205,9 +178,6 @@ class SMART(LightningModule):
             pred_z_list_for_vis = []
             if self.encoder.sep_map:
                 map_feature = self.encoder.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
-            # else:
-            #     map_feature = self.encoder.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
-
                 tokenized_agent["initial_map_feature"] = map_feature
 
             map_feature = self.encoder.map_encoder(tokenized_map)

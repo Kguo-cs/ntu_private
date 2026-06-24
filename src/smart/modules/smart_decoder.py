@@ -21,6 +21,7 @@ from src.smart.layers import MLPLayer
 import torch.nn.functional as F
 from src.smart.modules.map_decoder import SMARTMapDecoder
 from src.smart.modules.agent_decoder import SMARTAgentDecoder
+from src.smart.diffusion.initial_diffusion import InitDiffusion
 
 
 class SMARTDecoder(nn.Module):
@@ -59,11 +60,11 @@ class SMARTDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
 
         self.pred_init=token_processor.pred_init
+        self.learn_init=token_processor.learn_init
 
         self.use_lcf=reward_weight!=0
         self.use_kl_penalty=False
         self.gail=dis_a2a_radius>0
-        self.learn_dis=True
 
         self.alpha = 0.1
 
@@ -103,25 +104,23 @@ class SMARTDecoder(nn.Module):
             reward_decay=reward_decay,
             use_gail=self.gail
         )
-        if token_processor.learn_init :
-            self.sep_map= self.agent_encoder.init_decoder.sep_map
-        else:
-            self.sep_map=False
 
-        if self.sep_map:
+        if self.pred_init:
+            self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
+            self.sep_map= self.init_decoder.sep_map
 
-            self.map_encoder1 = SMARTMapDecoder(
-                hidden_dim=hidden_dim,
-                pl2pl_radius=pl2pl_radius,
-                num_freq_bands=num_freq_bands,
-                num_layers=1,
-                num_heads=num_heads,
-                head_dim=head_dim,
-                dropout=dropout,
-                pt2pt_neighbor=pt2pt_neighbor,
-                token_processor=token_processor
-            )
-
+            if self.init_decoder.sep_map:
+                self.init_map_encoder = SMARTMapDecoder(
+                    hidden_dim=hidden_dim,
+                    pl2pl_radius=pl2pl_radius,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=1,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    pt2pt_neighbor=pt2pt_neighbor,
+                    token_processor=token_processor
+                )
 
         if self.gail:
             self.discriminator = SMARTAgentDecoder(
@@ -158,38 +157,31 @@ class SMARTDecoder(nn.Module):
 
             self.agent_encoder.interative_decoder.gail=self.gail
 
-        self.traj_diffusion=token_processor.traj_diffusion
-
-
     def forward( self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor]  ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_agent:
             map_feature = tokenized_agent["map_feature"]
         else:
-            if self.pred_init and not self.gail:
-                if self.sep_map:
-                    initial_map_feature = self.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
-                else:
-                    initial_map_feature = self.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
+            map_feature = self.map_encoder(tokenized_map)
+            tokenized_agent["map_feature"] = map_feature
+
+        pred_dict = self.agent_encoder(tokenized_agent, map_feature)
+
+        if self.learn_init and not self.gail:
+            if self.sep_map:
+                initial_map_feature = self.init_map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
                 tokenized_agent["initial_map_feature"] = initial_map_feature
 
-            if self.gail or (not self.pred_init):
-                map_feature = self.map_encoder(tokenized_map)
-                tokenized_agent["map_feature"] = map_feature
-            else:
-                map_feature=None
+            initial_logit = self.init_decoder(tokenized_agent)
 
-        if self.traj_diffusion:
-            pred_dict=self.traj_diffuser(tokenized_agent,map_feature)
-        else:
-            pred_dict = self.agent_encoder(tokenized_agent, map_feature)
+            pred_dict["initial_logit"]=initial_logit
 
         return pred_dict
 
     def inference(
-        self,
-        tokenized_map: Dict[str, Tensor],
-        tokenized_agent: Dict[str, Tensor],
-        post_sampling=False,
+            self,
+            tokenized_map: Dict[str, Tensor],
+            tokenized_agent: Dict[str, Tensor],
+            post_sampling=False,
         n_step_future_10hz=None,
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_agent:
@@ -200,7 +192,7 @@ class SMARTDecoder(nn.Module):
             else:
                 map_feature = self.map_encoder(tokenized_map)
 
-        pred_dict = self.agent_encoder.inference(
+        pred_dict = self.agent_encoder.inference(self.init_decoder,
             tokenized_agent, map_feature, post_sampling,n_step_future_10hz=n_step_future_10hz
         )
 

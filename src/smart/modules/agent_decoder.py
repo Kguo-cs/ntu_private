@@ -90,8 +90,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.use_gail=use_gail
 
-        if self.pred_init:
-            self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
+        # if self.pred_init:
+        #     self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
 
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature,shape, n_current=0):
 
@@ -138,30 +138,25 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
     ) :
-        next_token_logits = initial_logit=None
 
-        if not self.use_gail and self.learn_init:
-            initial_logit = self.init_decoder(tokenized_agent)
-        else:
-            next_token_logits,a2a_feature,rewards,agent_token_emb,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
-                                                                                    tokenized_agent["token_mask"][:,:-1],
-                                                                                    tokenized_agent["valid_mask"][:,:-1],
-                                                                                    tokenized_agent["sampled_pos"][:,:-1],
-                                                                                    tokenized_agent["sampled_heading"][:,:-1] ,
-                                                                                    tokenized_agent,
-                                                                                    map_feature,
-                                                                                    tokenized_agent["shape"]
-                                                                                    )
+        next_token_logits,a2a_feature,rewards,agent_token_emb,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
+                                                                                tokenized_agent["token_mask"][:,:-1],
+                                                                                tokenized_agent["valid_mask"][:,:-1],
+                                                                                tokenized_agent["sampled_pos"][:,:-1],
+                                                                                tokenized_agent["sampled_heading"][:,:-1] ,
+                                                                                tokenized_agent,
+                                                                                map_feature,
+                                                                                tokenized_agent["shape"]
+                                                                                )
 
-            tokenized_agent["next_token_logits"] = next_token_logits
-            tokenized_agent["feat_a"] = feat_a
+        tokenized_agent["next_token_logits"] = next_token_logits
+        tokenized_agent["feat_a"] = feat_a
 
         return {
-            "initial_logit":initial_logit,
             "next_token_logits": next_token_logits
          }
 
-    def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step):
+    def autoregressive_agent(self,init_decoder, tokenized_agent, map_feature,current_step,max_step):
         gt_pos=tokenized_agent["sampled_pos"].clone()
         gt_head=tokenized_agent["sampled_heading"].clone()
         gt_valid=tokenized_agent["valid_mask"].clone()
@@ -177,7 +172,7 @@ class SMARTAgentDecoder(nn.Module):
             # shape=tokenized_agent["initial_shape"]
             # initial_vel =tokenized_agent["local_vel"]
 
-            pos_a,head_a, sampled_idx,shape,initial_vel = self.init_decoder(tokenized_agent)
+            pos_a,head_a, sampled_idx,shape,initial_vel = init_decoder(tokenized_agent)
 
             if "gt_z_raw" in tokenized_agent.keys():
 
@@ -355,6 +350,7 @@ class SMARTAgentDecoder(nn.Module):
 
     def inference(
             self,
+            init_decoder,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
             sampling_scheme=None,
@@ -370,6 +366,6 @@ class SMARTAgentDecoder(nn.Module):
         n_step_future_2hz = n_step_future_10hz // self.shift  # 16
         step_current_2hz = step_current_10hz // self.shift  # 2
 
-        out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz)
+        out_dict=self.autoregressive_agent(init_decoder,tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz)
 
         return out_dict

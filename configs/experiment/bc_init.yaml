@@ -1,0 +1,21 @@
+# @package _global_
+
+defaults:
+  - override /model: smart_fast
+
+model:
+  model_config:
+    token_processor:
+      pred_init: True
+      learn_init: True
+
+
+task_name: bc_init
+
+trainer:
+  check_val_every_n_epoch: 1
+  max_epochs: 32
+
+data:
+  train_batch_size: 64
+  val_batch_size: 256

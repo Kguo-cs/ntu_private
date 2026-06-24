@@ -56,8 +56,10 @@ class IQ_SoftQ(LightningModule):
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
+        self.init_decoder=self.encoder.init_decoder
 
-        if self.gail or (self.pred_init and self.encoder.agent_encoder.init_decoder.use_gan):
+
+        if self.gail or (self.pred_init and self.init_decoder.use_gan):
 
             self.automatic_optimization=False
 
@@ -122,13 +124,13 @@ class IQ_SoftQ(LightningModule):
 
         if pred["initial_logit"] is not None:
 
-            if self.encoder.agent_encoder.init_decoder.use_gan:
+            if self.init_decoder.use_gan:
                 # noncol_rate = get_col_rate(tokenized_agent, pred["initial_logit"][1])
                 #
                 # self._log_train('train/noncol_rate', noncol_rate.mean())
 
-                loss=self.encoder.agent_encoder.init_decoder.D.gan_update( self.log,self.optimizers(), self.encoder.agent_encoder.init_decoder.G1,pred["initial_logit"])
-            elif self.encoder.agent_encoder.init_decoder.learn_autoencoder:
+                loss=self.init_decoder.D.gan_update( self.log,self.optimizers(), self.init_decoder.G1,pred["initial_logit"])
+            elif self.init_decoder.learn_autoencoder:
                 rec_loss, agent_loss, kl_loss,pos_loss,heading_loss,shape_loss,vel_loss,_=pred[   "initial_logit"]
                 self._log_train('train/rec_loss', rec_loss)
                 self._log_train('train/agent_loss', agent_loss)
@@ -152,8 +154,8 @@ class IQ_SoftQ(LightningModule):
                 if "noncol_rate" in tokenized_agent.keys():
                     self._log_train('train/noncol_rate', tokenized_agent["noncol_rate"].mean())
 
-                # if self.encoder.agent_encoder.init_decoder.G1.model.learn_schedule:
-                gamma_groups=self.encoder.agent_encoder.init_decoder.G1.model.schedule.gamma_groups
+                # if self.init_decoder.G1.model.learn_schedule:
+                gamma_groups=self.init_decoder.G1.model.schedule.gamma_groups
                 self._log_train('train/pos_gamma', gamma_groups[0])
                 self._log_train('train/heading_gamma', gamma_groups[1])
                 self._log_train('train/shape_gamma', gamma_groups[2])
@@ -162,7 +164,7 @@ class IQ_SoftQ(LightningModule):
                 if "noise_std" in tokenized_agent.keys():
                     std=tokenized_agent["noise_std"][:,0].mean(0)
                 else:
-                    std=self.encoder.agent_encoder.init_decoder.G1.model.normal_scale[0]
+                    std=self.init_decoder.G1.model.normal_scale[0]
 
                 self._log_train('train/pos_std', std[0:2].mean())
                 self._log_train('train/heading_std', std[2:4].mean())
@@ -521,7 +523,7 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_agent["advantages"] = init_advantages
 
-            match_loss, g_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.agent_encoder.init_decoder(tokenized_agent)
+            match_loss, g_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.init_decoder(tokenized_agent)
 
             self._log_train('train/match_loss', match_loss)
             self._log_train('train/pos_loss', pos_loss)
