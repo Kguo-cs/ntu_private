@@ -1,6 +1,5 @@
-export PBS_JOBID=118609.pbs111
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/validation_map2light  ./
+
 
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
@@ -9,25 +8,13 @@ rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_wrap_300_
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=63-step=121792.ckpt ./
-
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model24_t10r10_gp2_logit001_dis5e5_valuedetach/2026-06-18_22-54-59/checkpoints/epoch=4-step=202920-valmeta=0.6520.ckpt ./
 
 
 rsync -avz ke@10.87.114.128:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=57-step=110374-valmeta=0.6447.ckpt ./
 
-rsync -avz -e "ssh -p 32884" /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  guoke@sprl-server9.dynip.ntu.edu.sg:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
-
-rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  ke@10.87.114.128:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
-
-rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  ke@10.87.225.106:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
-
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=57-step=110374-valmeta=0.6447.ckpt ./
 
-
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_wrap_300/2026-06-22_14-14-06/bc/zyyema63/checkpoints/epoch=63-valmeta=0.6458.ckpt ./
-
-rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
