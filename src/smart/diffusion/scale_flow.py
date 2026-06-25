@@ -491,9 +491,12 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
+                # advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
+                #
+                # per_sample_policy_loss = match_loss *advantages_pg*0.1
+                advantages_pg = torch.exp(advantages_pg*2).clamp_max(5).detach()-1
 
-                per_sample_policy_loss = match_loss *advantages_pg*0.1
+                per_sample_policy_loss = match_loss[advantages_pg>0] *( advantages_pg[advantages_pg>0])
 
                 policy_loss = per_sample_policy_loss.mean()
 
