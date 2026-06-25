@@ -106,6 +106,16 @@ class LearnableGroupedPowerSchedule(nn.Module):
             group_index,
         )
 
+    def resolution_aware_gamma(
+            self,
+            size,
+            gamma0,
+            ref_size=128,
+            eta=0.15,
+    ):
+        gamma = gamma0 * (size / ref_size) ** (-eta)
+        return gamma.clamp_min( 0.3)
+
     def interval_mass(self) -> Tensor:
         learned = torch.softmax(self.interval_logits, dim=-1)
         uniform = torch.full_like(learned, 1.0 / self.num_intervals)
@@ -234,10 +244,17 @@ class LearnableGroupedPowerSchedule(nn.Module):
                     dtype=x_ref.dtype,
                 )
 
+                num_agents=torch.bincount(tokenized_agent["batch"])[tokenized_agent["batch"]]
+
+
                 gamma = gamma.view(
                     *([1] * (x_ref.ndim - 1)),
                     -1,
                 )
+
+                gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
+
+
             grouped_t = torch.pow(
                 safe_t,
                 gamma,
