@@ -493,7 +493,7 @@ class ScaleFlow(nn.Module):
                 )[non_ego]
                 advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
-                per_sample_policy_loss = match_loss *advantages_pg
+                per_sample_policy_loss = match_loss *advantages_pg*0.1
 
                 policy_loss = per_sample_policy_loss.mean()
 
@@ -505,7 +505,7 @@ class ScaleFlow(nn.Module):
             x = out[:, None]
 
         if not self.model.pred_gmm:
-            x_pred[tokenized_agent["ego_mask"]] = x[tokenized_agent["ego_mask"]]
+            x_pred[ego_mask] = x[ego_mask]
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
             tokenized_agent,

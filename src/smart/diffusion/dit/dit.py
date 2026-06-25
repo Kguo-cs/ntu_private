@@ -91,7 +91,7 @@ class DiT(nn.Module):
         batch_ego_heading=tokenized_agent["batch_ego_heading"]
         non_ego=tokenized_agent["non_ego"]
 
-        initial_shape = tokenized_agent["initial_shape"][non_ego]
+        shape = tokenized_agent["shape"][non_ego]
         non_ego_pos=tokenized_agent["initial_pos"][non_ego]
         non_ego_head=tokenized_agent["initial_heading"][non_ego]
 
@@ -109,7 +109,7 @@ class DiT(nn.Module):
         else:
             local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
 
-        m_init = torch.cat([local_pos, head_cosine, initial_shape[:, :2], local_vel], dim=-1)
+        m_init = torch.cat([local_pos, head_cosine, shape[:, :2], local_vel], dim=-1)
 
         diff_input = m_init
 
@@ -298,7 +298,7 @@ class DiT(nn.Module):
         gt_initial_pos = tokenized_agent["initial_pos"].clone()
         gt_initial_heading = tokenized_agent["initial_heading"].clone()
 
-        shape = tokenized_agent["initial_shape"].clone()
+        shape = tokenized_agent["shape"].clone()
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 

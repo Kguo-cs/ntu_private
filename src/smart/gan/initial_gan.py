@@ -111,7 +111,7 @@ class InitGAN(nn.Module):
         agent_n=len(FakeSamples)
 
         if self.training:
-            shape = tokenized_agent["initial_shape"]
+            shape = tokenized_agent["shape"]
 
             initial_vel=tokenized_agent["initial_vel"][non_ego]
 

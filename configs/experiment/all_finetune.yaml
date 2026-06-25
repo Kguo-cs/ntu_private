@@ -20,7 +20,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt"
 
-task_name: all32_gp01shape10_gexp_copy #_large0
+task_name: all32_gp01_gexp01_copy #_large0shape10
 
 trainer:
   val_check_interval: 0.25

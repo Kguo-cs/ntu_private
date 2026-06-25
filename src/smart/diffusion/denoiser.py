@@ -387,7 +387,7 @@ class InitDenoiser(nn.Module):
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
-        initial_shape = tokenized_agent["initial_shape"]
+        shape = tokenized_agent["initial_shape"]
         agent_pos = tokenized_agent["initial_pos"]
         agent_head = tokenized_agent["initial_heading"]
 
@@ -406,8 +406,6 @@ class InitDenoiser(nn.Module):
         if "local_vel" in tokenized_agent:
             local_vel = tokenized_agent["local_vel"]
         else:
-            # Same convention as the old code: velocity is local to each
-            # generated agent heading.
             local_vel = rotate_to_local(
                 tokenized_agent["initial_vel"],
                 agent_head,
@@ -417,7 +415,7 @@ class InitDenoiser(nn.Module):
             [
                 local_pos,
                 heading_vec,
-                initial_shape[:, :2],
+                shape[:, :2],
                 local_vel[:, :2],
             ],
             dim=-1,

@@ -793,7 +793,7 @@ class TokenProcessor(torch.nn.Module):
 
 
                 # tokenized_agent['type'] = agent['initial_type'].long()
-                # tokenized_agent['shape'] = tokenized_agent['initial_shape']
+               # tokenized_agent['shape'] = tokenized_agent['initial_shape']
 
                 if "sampled_pos" in agent.keys():
                     for key in ["sampled_pos", "sampled_heading"]:
