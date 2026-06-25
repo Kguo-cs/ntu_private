@@ -90,9 +90,9 @@ class SMARTAgentDecoder(nn.Module):
 
         self.use_gail=use_gail
 
-        # if self.pred_init:
-        #     self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
-        #
+        if self.pred_init:
+            self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
+
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature,shape, n_current=0):
 
         # if self.discriminator and self.training and not self.token_processor.use_gradient_penalty:

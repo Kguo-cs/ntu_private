@@ -185,7 +185,7 @@ class SMART(LightningModule):
 
             for _ in range(self.n_rollout_closed_val):
 
-                pred = self.encoder.agent_encoder.inference(self.init_decoder,
+                pred = self.encoder.agent_encoder.inference(self.encoder.init_decoder,
                     tokenized_agent, map_feature,self.validation_rollout_sampling
                 )
 
