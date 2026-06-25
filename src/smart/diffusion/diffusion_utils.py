@@ -586,7 +586,7 @@ def get_matching_loss(
         zero = fake_state.new_zeros(())
         return zero, zero, zero, zero, zero, col_loss
 
-    denom_sq = denom[non_ego].square().clamp_min(t_eps * t_eps)
+    denom_sq = denom[non_ego].pow(3)
     inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(

@@ -177,6 +177,11 @@ class ScaleFlow(nn.Module):
         if self.use_kl:
             self.ref_model = copy.deepcopy(self.model)
 
+        # num_bins=20
+        #
+        # self.bin_loss_sum = torch.zeros(num_bins)
+        # self.bin_count = torch.zeros(num_bins)
+
         self.apply(weight_init)
 
 
@@ -520,6 +525,8 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred,
         )
 
+        #self.debug_loss_vs_timestep(t[:,0,5],match_loss,ego_mask)
+
         if self.model.schedule_loss:
             with torch.no_grad():
                 e = torch.randn_like(x)  # .clamp(min=-3,max=3) # base distribution N(0, I)
@@ -558,6 +565,106 @@ class ScaleFlow(nn.Module):
         loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
         return loss, x_pred[:, 0], z[:, 0], t[:, 0]  # ,denom[:,0]
+
+    def debug_loss_vs_timestep(
+            self,
+            t,
+            loss_per_agent,
+            ego_mask=None,
+            prefix="train/fm",
+            num_bins=20,
+    ):
+        """
+        Compute binned mean loss as a function of diffusion/flow timestep t.
+
+        Args:
+            t:
+                Tensor with shape [N], [N, D], or [N, 1, D].
+                For grouped schedules, we average over dimensions to get one scalar t per agent.
+
+            loss_per_agent:
+                Tensor with shape [N] or [N_non_ego].
+                Usually the first output of get_matching_loss.
+
+            ego_mask:
+                Bool tensor with shape [N]. If loss_per_agent is non-ego-only,
+                the code will automatically align t to non-ego agents.
+
+            prefix:
+                Name prefix for returned debug keys.
+
+            num_bins:
+                Number of timestep bins.
+        """
+        with torch.no_grad():
+            if t.ndim == 3:
+                # [N, 1, D] -> [N]
+                t_scalar = t[:, 0].mean(dim=-1)
+            elif t.ndim == 2:
+                # [N, D] -> [N]
+                t_scalar = t.mean(dim=-1)
+            elif t.ndim == 1:
+                t_scalar = t
+            else:
+                raise RuntimeError(f"Unsupported t shape: {tuple(t.shape)}")
+
+            loss = loss_per_agent.detach()
+
+            if loss.ndim > 1:
+                loss = loss.flatten(1).mean(dim=-1)
+
+            if ego_mask is not None:
+                ego_mask = ego_mask.bool()
+
+                if loss.shape[0] == t_scalar.shape[0]:
+                    # loss is all-agent length
+                    valid_mask = ~ego_mask
+                    t_scalar = t_scalar[valid_mask]
+                    loss = loss[valid_mask]
+                elif loss.shape[0] == int((~ego_mask).sum().item()):
+                    # loss is already non-ego-only
+                    t_scalar = t_scalar[~ego_mask]
+                else:
+                    raise RuntimeError(
+                        f"Cannot align loss and t: "
+                        f"loss={tuple(loss.shape)}, t={tuple(t_scalar.shape)}, "
+                        f"ego_mask={tuple(ego_mask.shape)}"
+                    )
+
+            finite = torch.isfinite(t_scalar) & torch.isfinite(loss)
+            t_scalar = t_scalar[finite].clamp(0.0, 1.0)
+            loss = loss[finite].cpu()
+
+            if loss.numel() == 0:
+                return {}
+
+            bin_idx = torch.clamp(
+                (t_scalar * num_bins).long(),
+                min=0,
+                max=num_bins - 1,
+            ).cpu()
+
+
+            self.bin_loss_sum.scatter_add_(0, bin_idx, loss)
+            self.bin_count.scatter_add_(0, bin_idx, torch.ones_like(loss))
+
+            bin_mean = self.bin_loss_sum / self.bin_count.clamp_min(1.0)
+
+            print(bin_mean)
+            print(self.bin_count/self.bin_count.sum())
+
+            # debug = {}
+            # for i in range(num_bins):
+            #     if bin_count[i] > 0:
+            #         lo = i / num_bins
+            #         hi = (i + 1) / num_bins
+            #         debug[f"{prefix}/t_{lo:.2f}_{hi:.2f}"] = bin_mean[i]
+            #
+            # debug[f"{prefix}/t_mean"] = t_scalar.mean()
+            # debug[f"{prefix}/loss_mean"] = loss.mean()
+            # debug[f"{prefix}/loss_max"] = loss.max()
+            # debug[f"{prefix}/loss_min"] = loss.min()
+
 
     @torch.no_grad()
     def _forward_sample(self, z, t_n, t_next, labels):
