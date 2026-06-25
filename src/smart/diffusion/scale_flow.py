@@ -491,9 +491,9 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg*2).clamp_max(5).detach()-1
+                advantages_pg = torch.exp(advantages_pg).clamp_max(5).detach() #-1
 
-                per_sample_policy_loss = match_loss[advantages_pg>0] *( advantages_pg[advantages_pg>0])
+                per_sample_policy_loss = match_loss *advantages_pg
 
                 policy_loss = per_sample_policy_loss.mean()
 
@@ -940,7 +940,7 @@ class ScaleFlow(nn.Module):
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     def repeat_input_copy(self, tokenized_agent, n_step):
-        out =tokenized_agent# dict(tokenized_agent)
+        out = dict(tokenized_agent)#tokenized_agent#
 
         num_graphs = tokenized_agent["num_graphs"]
         batch = tokenized_agent["init_agent_batch"]
