@@ -9,8 +9,12 @@ model:
       pred_init: True
       learn_init: True
 
+    decoder:
+      pl2pl_radius: 300
+      pl2a_radius: 300
+      a2a_radius: 300
 
-task_name: bc_init64_n20
+task_name: bc_init64_n20_r300
 
 trainer:
   check_val_every_n_epoch: 2
