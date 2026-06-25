@@ -10,7 +10,7 @@ model:
       learn_init: True
 
 
-task_name: bc_init64
+task_name: bc_init64_n20
 
 trainer:
   check_val_every_n_epoch: 2
