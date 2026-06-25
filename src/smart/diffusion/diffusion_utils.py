@@ -582,9 +582,6 @@ def get_matching_loss(
         denom= torch.ones_like(t)
 
     non_ego = ~tokenized_agent["ego_mask"]
-    if non_ego.sum() == 0:
-        zero = fake_state.new_zeros(())
-        return zero, zero, zero, zero, zero, col_loss
 
     denom_sq = denom[non_ego].square()
     inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)

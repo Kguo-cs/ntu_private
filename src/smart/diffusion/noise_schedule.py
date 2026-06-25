@@ -116,6 +116,22 @@ class LearnableGroupedPowerSchedule(nn.Module):
         gamma = gamma0 * (size / ref_size) ** (-eta)
         return gamma.clamp_min( 0.3)
 
+    def flow_time_shift(self,s, shift):
+        return shift * s / (1.0 + (shift - 1.0) * s)
+
+    def scene_size_shift(
+            self,
+            scene_size,
+            ref_size=128,
+            a=0.15,
+            min_shift=0.7,
+            max_shift=2.0,
+    ):
+        shift = 1.0 + a * torch.log(
+            torch.as_tensor(scene_size / ref_size)
+        )
+        return shift.clamp(min_shift, max_shift)
+
     def interval_mass(self) -> Tensor:
         learned = torch.softmax(self.interval_logits, dim=-1)
         uniform = torch.full_like(learned, 1.0 / self.num_intervals)
@@ -130,6 +146,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
             mass.shape[0], 1, device=mass.device, dtype=mass.dtype
         )
         return torch.cat([zero, torch.cumsum(mass, dim=-1)], dim=-1)
+
 
     def forward(
         self,
@@ -252,7 +269,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
                     -1,
                 )
 
-                gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
+                # gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
 
 
             grouped_t = torch.pow(
@@ -268,6 +285,10 @@ class LearnableGroupedPowerSchedule(nn.Module):
                 gamma - 1.0,
             )
             )
+
+            shift=self.scene_size_shift(num_agents[:,None,None])
+
+            grouped_t=self.flow_time_shift(grouped_t, shift)
 
         # else:
         #     dgrouped_t_dt=torch.ones_like(base_t)
