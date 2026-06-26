@@ -212,9 +212,8 @@ class LearnableGroupedPowerSchedule(nn.Module):
         # # because p = 1 - b and r = 1 - q(p):
         # # dr/db = dq/dp
         # dr_db = dq_dp
-        dr_db=0
 
-        return q, dr_db
+        return q, q
 
     def forward(
         self,
