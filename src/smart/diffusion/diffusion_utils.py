@@ -568,7 +568,7 @@ def get_matching_loss(
     if use_col and x_pred:
         batch = tokenized_agent["batch"][-len(fake_state):]#[t_mask]#
         denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
-        w=1/denom.square()
+        w=1/denom.pow(3)
 
         col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)[0].mean()
     else:
@@ -583,7 +583,7 @@ def get_matching_loss(
 
     non_ego = ~tokenized_agent["ego_mask"]
 
-    denom_sq = denom[non_ego].square()
+    denom_sq = denom[non_ego].pow(3)
     inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
