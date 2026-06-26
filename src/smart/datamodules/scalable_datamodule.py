@@ -92,8 +92,8 @@ class MultiDataModule(LightningDataModule):
                 batch_size=self.train_batch_size,
                 shuffle=self.shuffle,
                 num_workers=self.num_workers,
-                pin_memory=self.pin_memory,
-                persistent_workers=self.persistent_workers,
+                pin_memory=False,#self.pin_memory,
+                persistent_workers=False,#self.persistent_workers,
                 drop_last=False
             )
 
