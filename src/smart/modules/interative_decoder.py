@@ -370,15 +370,7 @@ class InterativeDecoder(nn.Module):
                 else:
                     interact_reward = valid_interact_reward
 
-                if valid_ego_reward.shape[0] != interact_reward.shape[0]:
-                    raise RuntimeError(
-                        "Ego and interaction rewards are misaligned after "
-                        "dis_start_step filtering: "
-                        f"{valid_ego_reward.shape[0]} != "
-                        f"{interact_reward.shape[0]}."
-                    )
-
-                ego_rewards = valid_ego_reward + interact_reward
+                ego_rewards =  interact_reward#valid_ego_reward +
                 next_token_logits = (
                     next_token_logits[:, 0],
                     interact_logits[:, 0],

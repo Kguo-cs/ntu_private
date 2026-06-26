@@ -96,7 +96,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         self.gamma_max = gamma_max
         self.eps = eps
 
-        self.sequential=True
+        self.sequential=False
 
         group_index = torch.repeat_interleave(
             torch.arange(len(group_dims)),
