@@ -177,10 +177,10 @@ class ScaleFlow(nn.Module):
         if self.use_kl:
             self.ref_model = copy.deepcopy(self.model)
 
-        # num_bins=20
-        #
-        # self.bin_loss_sum = torch.zeros(num_bins)
-        # self.bin_count = torch.zeros(num_bins)
+        num_bins=20
+
+        self.bin_loss_sum = torch.zeros(num_bins)
+        self.bin_count = torch.zeros(num_bins)
 
         self.apply(weight_init)
 
@@ -278,9 +278,9 @@ class ScaleFlow(nn.Module):
 
                 base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32)
 
-                t = base_t[agent_batch]
+                base_t = base_t[agent_batch]
 
-                t, t_dt = self.model.schedule(t, x, tokenized_agent)
+                t, t_dt = self.model.schedule(base_t, x, tokenized_agent)
 
                 # policy_loss=self.model.schedule.regularization(t_dt)#
             else:
@@ -525,7 +525,7 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred,
         )
 
-        #self.debug_loss_vs_timestep(t[:,0,5],match_loss,ego_mask)
+        #self.debug_loss_vs_timestep(base_t[:,0,0],match_loss,ego_mask)
 
         if self.model.schedule_loss:
             with torch.no_grad():
@@ -651,7 +651,7 @@ class ScaleFlow(nn.Module):
             bin_mean = self.bin_loss_sum / self.bin_count.clamp_min(1.0)
 
             print(bin_mean)
-            print(self.bin_count/self.bin_count.sum())
+            #print(self.bin_count/self.bin_count.sum())
 
             # debug = {}
             # for i in range(num_bins):
