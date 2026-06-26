@@ -909,6 +909,10 @@ model32_valuedetach_gp01ls_dis5e5_epoch=3-valmeta=0.6508.ckpt
 xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt
 
 
+xflow512_wrap_300_n30_epoch=63-step=60928-valmeta=0.6448.ckpt
+
+0.6458
+
 
 
 
