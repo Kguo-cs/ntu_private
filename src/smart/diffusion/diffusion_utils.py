@@ -314,18 +314,17 @@ def matching_loss(
     w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     use_huber=False,
     huber_beta=0.1,
+    t=None
 ):
 
     fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
     real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:8]
 
-
-
-    # Position: L1 or L2
-
-    # dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
-    #
-    # pos_loss = dist.mean()
+    t_mask=(t>0) & (t<1)
+    w_pos=t_mask[:,0]*w_pos
+    w_heading=t_mask[:,2]*w_heading
+    w_shape=t_mask[:,4]*w_shape
+    w_vel=t_mask[:,6]*w_vel
 
     if fake_state.shape[-1]<16:
         pos_loss = _robust_component_loss(fake_pos, real_pos, beta=huber_beta, use_huber=use_huber)
@@ -356,26 +355,6 @@ def matching_loss(
         heading_loss = gm_kl_loss(fake_heading,w,heading_std, real_heading)#.mean()
         shape_loss = gm_kl_loss(fake_shape, w,shape_std,real_shape)#.mean()
         vel_loss = gm_kl_loss(fake_vel, w,vel_std, real_vel)#.mean()
-
-        #print(1)
-
-        # Shape: L1
-        # means(torch.Tensor): (bs, num_gaussians, D)
-        # logstds(torch.Tensor): (bs, 1, 1)
-        # logweights(torch.Tensor): (bs, num_gaussians, 1)
-
-        # cluster_valid_mask=~torch.isnan(real_shape[:,2:])
-
-        # cluster_valid_mask1=cluster_valid_mask.reshape(-1,90,2)
-
-    # Heading: periodic-safe loss
-    # heading_diff = torch.atan2(
-    #     torch.sin(fake_heading - real_heading),
-    #     torch.cos(fake_heading - real_heading)
-    # )
-    # heading_diff=wrap_angle(fake_heading - real_heading)
-    # heading_loss = heading_diff.abs().mean()
-
 
 
     total_loss = (
@@ -581,20 +560,19 @@ def get_matching_loss(
 
         denom= torch.ones_like(t)
 
-    non_ego = ~tokenized_agent["ego_mask"]
-
-    denom_sq = denom[non_ego].square()
+    denom_sq = denom.square()
     inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        real_state[non_ego],
-        fake_state[non_ego],
+        real_state,
+        fake_state,
         w_pos=w_pos * inv_denom_sq[:, 0],
         w_heading=w_heading * inv_denom_sq[:, 2],
         w_shape=w_shape * inv_denom_sq[:, 4],
         w_vel=w_vel * inv_denom_sq[:, 6],
         use_huber=use_huber,
         huber_beta=huber_beta,
+        t=t,
     )
 
     return match_loss / 5, pos_loss, heading_loss, shape_loss, vel_loss, col_loss
@@ -641,42 +619,3 @@ def calculate_shift(
     b = base_shift - m * base_seq_len
     mu = image_seq_len * m + b
     return mu
-
-def time_shift_fn(t, timeshift=1):
-    return t/(t+(1-t)*timeshift)
-
-def sample_cfg_scale(
-    batch_size,
-    cfg_min=0.3,
-    cfg_max=3.0,
-    device=None,
-    dtype=torch.float32,
-):
-    """
-    Sample CFG scale from log-uniform distribution
-    in [cfg_min, cfg_max].
-
-    Equivalent to the JAX version.
-    """
-
-    u = torch.rand(
-        batch_size,
-        device=device,
-        dtype=dtype,
-    )
-
-    a = torch.tensor(
-        1.0 + cfg_min,
-        device=device,
-        dtype=dtype,
-    )
-
-    b = torch.tensor(
-        1.0 + cfg_max,
-        device=device,
-        dtype=dtype,
-    )
-
-    return a * torch.exp(
-        u * torch.log(b / a)
-    ) - 1.0

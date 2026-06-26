@@ -108,7 +108,7 @@ class SMARTDecoder(nn.Module):
         )
 
         if self.pred_init:
-            self.init_decoder =self.agent_encoder.init_decoder#InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)#
+            self.init_decoder =InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)# self.agent_encoder.init_decoder#
             self.sep_map= self.init_decoder.sep_map
 
             if self.init_decoder.sep_map:
@@ -201,6 +201,4 @@ class SMARTDecoder(nn.Module):
         pred_dict = self.agent_encoder.inference(self.init_decoder,
             tokenized_agent, map_feature, post_sampling,n_step_future_10hz=n_step_future_10hz
         )
-
-
         return pred_dict
