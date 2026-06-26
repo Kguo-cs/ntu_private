@@ -62,15 +62,17 @@ def main():
 
     with open(args.out, "w") as fout:
         for path in tqdm(files):
-            try:
-                check_one(path, args.timeout)
-            except subprocess.TimeoutExpired:
-                msg = f"[TIMEOUT] {path}"
-                print(msg)
-                fout.write(msg + "\n")
-                fout.flush()
-                bad.append(path)
-                continue
+            check_one(path, args.timeout)
+
+            # try:
+            #     check_one(path, args.timeout)
+            # except subprocess.TimeoutExpired:
+            #     msg = f"[TIMEOUT] {path}"
+            #     print(msg)
+            #     fout.write(msg + "\n")
+            #     fout.flush()
+            #     bad.append(path)
+            #     continue
 
             # if code != 0:
             #     msg = f"[BAD] returncode={code} path={path}"
