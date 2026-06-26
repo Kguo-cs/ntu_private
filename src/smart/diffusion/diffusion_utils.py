@@ -2,12 +2,13 @@ from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 import math
 import torch
+
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_local,
     wrap_angle,
 )
-from torch_scatter import scatter_sum, scatter_mean
+from torch_scatter import scatter_sum, scatter_mean,scatter_max
 from torch import Tensor
 
 
@@ -445,7 +446,7 @@ def multi_circle_collision_loss_mem_efficient( fake_state,real_state, batch,w):
     fake_col = torch.relu(penetration_fake) #fake>0
     real_col = 0#torch.relu(penetration_real) #real>0
 
-    loss = torch.relu(fake_col-real_col).expm1()*w[start_idx]
+    loss = torch.relu(fake_col-real_col).expm1()
 
     return loss,end_idx,start_idx#.mean() if reduction == "mean" else loss.sum()
 
@@ -548,14 +549,21 @@ def get_diff_loss(
 
         col_loss,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)#[0].mean()
 
-        col_loss=col_loss.mean()
+        col_reward_end = scatter_max(
+            col_loss,
+            start_idx,
+            dim=0,
+        )[0]
 
-        # col_reward_end = scatter_sum(
-        #     col_reward,
-        #     end_idx,
-        #     dim=0,
-        #     dim_size=N
-        # )
+        col_reward_start = scatter_max(
+            col_loss,
+            start_idx,
+            dim=0,
+        )[0]
+
+        col_loss=torch.maximum(col_reward_end,col_reward_start)
+
+        col_loss=(col_loss*w).mean()
 
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
