@@ -117,7 +117,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         return gamma.clamp_min( 0.3)
 
     def flow_time_shift(self,s, shift):
-        return shift * s / (1.0 + (shift - 1.0) * s)
+        return s / (s+(1-s)*shift) #shift * s / (1.0 + (shift - 1.0) * s)
 
     def scene_size_shift(
             self,
@@ -130,7 +130,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         shift = 1.0 + a * torch.log(
             torch.as_tensor(scene_size / ref_size)
         )
-        return shift.clamp(min_shift, max_shift)
+        return shift#.clamp(min_shift, max_shift) large shift means more noisy / stronger corruption
 
     def interval_mass(self) -> Tensor:
         learned = torch.softmax(self.interval_logits, dim=-1)
