@@ -29,6 +29,45 @@ import torch
 num_gpus = torch.cuda.device_count()
 print("Total number of GPUs available:", num_gpus)
 
+import os
+import sys
+import time
+import faulthandler
+from pathlib import Path
+
+import torch
+
+faulthandler.enable(all_threads=True)
+
+
+def safe_torch_load(path, idx=None):
+    path = str(path)
+
+    # 这个文件会记录最后一个正在读取的样本。
+    # 即使 segfault，Python try/except 捕不到，但这个文件还在。
+    with open("last_loading_sample.txt", "w") as f:
+        f.write(f"time={time.ctime()}\n")
+        f.write(f"idx={idx}\n")
+        f.write(f"path={path}\n")
+        f.write(f"exists={os.path.exists(path)}\n")
+        if os.path.exists(path):
+            st = os.stat(path)
+            f.write(f"size={st.st_size}\n")
+            f.write(f"mtime={time.ctime(st.st_mtime)}\n")
+
+    print(f"[LOAD BEFORE] idx={idx}, path={path}", flush=True)
+
+    # 对本地可信数据可以先试 weights_only=False。
+    # 你的 stack 里现在走的是 torch._weights_only_unpickler，
+    # PyG Data / 自定义对象有时不适合 weights_only 路径。
+    obj = torch.load(
+        path,
+        map_location="cpu",
+        weights_only=False,
+    )
+
+    print(f"[LOAD AFTER] idx={idx}, path={path}", flush=True)
+    return obj
 
 class MultiDataset(Dataset):
     def __init__(
@@ -208,7 +247,9 @@ class MultiDataset(Dataset):
             with open(self.raw_paths[idx], "rb") as handle:
                 data = pickle.load(handle)
         else:
-            data =torch.load(self.raw_paths[idx],weights_only=True)
+            #data =torch.load(self.raw_paths[idx],weights_only=True)
+            path = self.raw_paths[idx]
+            data = safe_torch_load(path, idx=idx)
 
         if self._tfrecord_dir is not None and not self.bird:
             data["tfrecord_path"] = (
