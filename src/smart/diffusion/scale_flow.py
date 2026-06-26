@@ -48,7 +48,7 @@ from .denoiser import InitDenoiser
 from src.smart.diffusion.diffusion_planner.sde import SDE, VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP, model_wrapper, DPM_Solver
 from src.smart.layers import MLPLayer
-from src.smart.diffusion.diffusion_utils import get_matching_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last
+from src.smart.diffusion.diffusion_utils import get_diff_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last
 from src.smart.diffusion.dit.dit import DiT
 import torch
 
@@ -237,7 +237,7 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["x_pred_noise"] = x_pred_noise.detach()
 
-            policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+            policy_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
                 tokenized_agent,
                 x_pred_noise[:, 0],
                 x[:, 0],
@@ -423,7 +423,7 @@ class ScaleFlow(nn.Module):
                                                        1.0 + beta
                                                ) * old_prediction.detach() - beta * forward_prediction
                 x0_prediction = x_pred_all[:len(z_sampled)]
-                positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                positive_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
                     tokenized_agent,
                     x0_prediction[:, 0],
                     x_sampled[:, 0],
@@ -434,7 +434,7 @@ class ScaleFlow(nn.Module):
                     x_pred=self.x_pred
                 )
                 negative_x0_prediction = xt - t_expanded * implicit_negative_prediction
-                negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                negative_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
                     tokenized_agent,
                     negative_x0_prediction[:, 0],
                     x_sampled[:, 0],
@@ -480,7 +480,7 @@ class ScaleFlow(nn.Module):
             else:
                 x_pred = x_pred_all[:len(z_sampled)]
 
-                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
                     tokenized_agent,
                     x_pred[:, 0],
                     x_sampled[:, 0],
@@ -512,14 +512,14 @@ class ScaleFlow(nn.Module):
         if not self.model.pred_gmm:
             x_pred[ego_mask] = x[ego_mask]
 
-        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
             tokenized_agent,
             x_pred[:, 0],
             x[:, 0],
             z[:, 0],
             e[:, 0],
             t[:, 0],
-            t_dt=t_dt[:, 0],
+            base_t=base_t[:,0],
             t_eps=self.t_eps,
             use_col=True,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
@@ -546,14 +546,13 @@ class ScaleFlow(nn.Module):
 
                 x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
-                observed_group_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+                observed_group_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_diff_loss(
                     tokenized_agent,
                     x_pred[:, 0],
                     x[:, 0],
                     z[:, 0],
                     e[:, 0],
                     t[:, 0],
-                    t_dt=t_dt[:, 0],
                     use_col=False,  # not self.model.pred_gmm,
                     x_pred=self.x_pred,
                 )
@@ -584,7 +583,7 @@ class ScaleFlow(nn.Module):
 
             loss_per_agent:
                 Tensor with shape [N] or [N_non_ego].
-                Usually the first output of get_matching_loss.
+                Usually the first output of get_diff_loss.
 
             ego_mask:
                 Bool tensor with shape [N]. If loss_per_agent is non-ego-only,

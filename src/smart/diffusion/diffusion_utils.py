@@ -402,8 +402,8 @@ def compute_penetration(state, start_idx, end_idx, num_circles=5, eps=1e-8):
     heading = torch.atan2(state[:, 3], state[:, 2])
 
     # detach if you do not want gradients w.r.t. shape
-    length = state[:, 4].detach()
-    width = state[:, 5].detach()
+    length = state[:, 4]#.detach()
+    width = state[:, 5]#.detach()
 
     centers, radii = compute_vehicle_circles_torch(
         pos, heading, length, width, num_circles
@@ -526,8 +526,8 @@ def get_closest_sum_idx(
 
     return fake_idx
 
-def get_matching_loss(
-    tokenized_agent, fake_state,real_state,z,e,t,t_dt=1,
+def get_diff_loss(
+    tokenized_agent, fake_state,real_state,z,e,t,base_t=1,
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05, w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     max_loss_weight=25.0,
@@ -543,10 +543,20 @@ def get_matching_loss(
         fake_state=fake_state[fake_idx]
 
     if use_col and x_pred:
-        denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+        denom = (1 - base_t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
         w=1/denom.square()
 
-        col_loss=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)[0].mean()
+        col_loss,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)#[0].mean()
+
+        col_loss=col_loss.mean()
+
+        # col_reward_end = scatter_sum(
+        #     col_reward,
+        #     end_idx,
+        #     dim=0,
+        #     dim_size=N
+        # )
+
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
 
