@@ -122,7 +122,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
     def scene_size_shift(
             self,
             scene_size,
-            ref_size=64,
+            ref_size=32,
             a=0.2,
             min_shift=0.7,
             max_shift=2.0,
