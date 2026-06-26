@@ -269,7 +269,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
                     -1,
                 )
 
-                # gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
+                gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
 
             # shift=self.scene_size_shift(num_agents[:,None,None])
             #
