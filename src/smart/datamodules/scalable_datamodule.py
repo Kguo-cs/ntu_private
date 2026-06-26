@@ -82,8 +82,8 @@ class MultiDataModule(LightningDataModule):
                 batch_size=self.train_batch_size,
                 shuffle=self.shuffle,
                # num_workers=self.num_workers,
-               # pin_memory=self.pin_memory,
-               # persistent_workers=self.persistent_workers,
+                pin_memory=False,  # self.pin_memory,
+                persistent_workers=False,  # self.persistent_workers,
                 drop_last=False
             )
         else:
@@ -91,7 +91,7 @@ class MultiDataModule(LightningDataModule):
                 self.train_dataset,
                 batch_size=self.train_batch_size,
                 shuffle=self.shuffle,
-                num_workers=self.num_workers,
+                num_workers=0,
                 pin_memory=False,#self.pin_memory,
                 persistent_workers=False,#self.persistent_workers,
                 drop_last=False
@@ -102,9 +102,9 @@ class MultiDataModule(LightningDataModule):
             self.val_dataset,
             batch_size=self.val_batch_size,
             shuffle=False,
-            # num_workers=self.num_workers,
-            # pin_memory=self.pin_memory,  # False
-            # persistent_workers=self.persistent_workers,
+            num_workers=self.num_workers,
+            pin_memory=False,  # False
+            persistent_workers=False,
             drop_last=False,
         )
 
@@ -114,7 +114,7 @@ class MultiDataModule(LightningDataModule):
             batch_size=self.test_batch_size,
             shuffle=False,
             num_workers=self.num_workers,  # 0
-            pin_memory=self.pin_memory,  # False
-            persistent_workers=self.persistent_workers,
+            pin_memory=False,  # False
+            persistent_workers=False,
             drop_last=False,
         )
