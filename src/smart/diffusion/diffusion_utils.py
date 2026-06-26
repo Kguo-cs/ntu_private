@@ -565,7 +565,10 @@ def get_diff_loss(
 
         col_loss=torch.maximum(col_reward_end,col_reward_start)
 
-        col_loss=(col_loss*w).mean()
+
+        col_loss=(col_loss*w)
+
+        col_loss=scatter_mean(col_loss,batch).mean()
 
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
