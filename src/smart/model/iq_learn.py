@@ -152,11 +152,11 @@ class IQ_SoftQ(LightningModule):
                     self._log_train('train/noncol_rate', tokenized_agent["noncol_rate"].mean())
 
                 # if self.encoder.init_decoder.G1.model.learn_schedule:
-                gamma_groups=self.encoder.init_decoder.G1.model.schedule.gamma_groups
-                self._log_train('train/pos_gamma', gamma_groups[0])
-                self._log_train('train/heading_gamma', gamma_groups[1])
-                self._log_train('train/shape_gamma', gamma_groups[2])
-                self._log_train('train/vel_gamma', gamma_groups[3])
+                # gamma_groups=self.encoder.init_decoder.G1.model.schedule.gamma_groups
+                # self._log_train('train/pos_gamma', gamma_groups[0])
+                # self._log_train('train/heading_gamma', gamma_groups[1])
+                # self._log_train('train/shape_gamma', gamma_groups[2])
+                # self._log_train('train/vel_gamma', gamma_groups[3])
 
                 if "noise_std" in tokenized_agent.keys():
                     std=tokenized_agent["noise_std"][:,0].mean(0)
