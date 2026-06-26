@@ -403,8 +403,8 @@ def compute_penetration(state, start_idx, end_idx, num_circles=5, eps=1e-8):
     heading = torch.atan2(state[:, 3], state[:, 2])
 
     # detach if you do not want gradients w.r.t. shape
-    length = state[:, 4]#.detach()
-    width = state[:, 5]#.detach()
+    length = state[:, 4].detach()
+    width = state[:, 5].detach()
 
     centers, radii = compute_vehicle_circles_torch(
         pos, heading, length, width, num_circles
@@ -553,12 +553,14 @@ def get_diff_loss(
             col_loss,
             start_idx,
             dim=0,
+            dim_size=len(fake_state)
         )[0]
 
         col_reward_start = scatter_max(
             col_loss,
             start_idx,
             dim=0,
+            dim_size=len(fake_state)
         )[0]
 
         col_loss=torch.maximum(col_reward_end,col_reward_start)
