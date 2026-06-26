@@ -320,11 +320,7 @@ def matching_loss(
     fake_pos, fake_heading, fake_shape,fake_vel = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:6],fake_state[:, 6:]
     real_pos, real_heading, real_shape,real_vel = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:6],real_state[:, 6:8]
 
-    t_mask=(t>0) & (t<1)
-    w_pos=t_mask[:,0]*w_pos
-    w_heading=t_mask[:,2]*w_heading
-    w_shape=t_mask[:,4]*w_shape
-    w_vel=t_mask[:,6]*w_vel
+
 
     if fake_state.shape[-1]<16:
         pos_loss = _robust_component_loss(fake_pos, real_pos, beta=huber_beta, use_huber=use_huber)
@@ -539,13 +535,14 @@ def get_matching_loss(
     huber_beta=0.1,
     ):
 
+    batch = tokenized_agent["batch"][-len(fake_state):]  # [t_mask]#
+
     if use_match:
         fake_idx=get_closest_sum_idx(fake_state/scale, real_state/scale, tokenized_agent,all_state=all_state,use_all_type=use_all_type)
 
         fake_state=fake_state[fake_idx]
 
     if use_col and x_pred:
-        batch = tokenized_agent["batch"][-len(fake_state):]#[t_mask]#
         denom = (1 - t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
         w=1/denom.square()
 
@@ -561,7 +558,9 @@ def get_matching_loss(
         denom= torch.ones_like(t)
 
     denom_sq = denom.square()
-    inv_denom_sq = denom_sq.reciprocal()#.clamp(max=max_loss_weight)
+    t_mask=(t>0) & (t<1)
+
+    inv_denom_sq = denom_sq.reciprocal()*t_mask.float()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state,
@@ -572,8 +571,9 @@ def get_matching_loss(
         w_vel=w_vel * inv_denom_sq[:, 6],
         use_huber=use_huber,
         huber_beta=huber_beta,
-        t=t,
     )
+
+    match_loss=scatter_mean(match_loss,batch)
 
     return match_loss / 5, pos_loss, heading_loss, shape_loss, vel_loss, col_loss
 
