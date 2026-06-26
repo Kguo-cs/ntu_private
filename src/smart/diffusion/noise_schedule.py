@@ -96,6 +96,8 @@ class LearnableGroupedPowerSchedule(nn.Module):
         self.gamma_max = gamma_max
         self.eps = eps
 
+        self.sequential=True
+
         group_index = torch.repeat_interleave(
             torch.arange(len(group_dims)),
             torch.tensor(group_dims),
@@ -123,7 +125,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
             self,
             scene_size,
             ref_size=16,
-            a=0.15,
+            a=0.1,
             min_shift=0.7,
             max_shift=2.0,
     ):
@@ -147,6 +149,72 @@ class LearnableGroupedPowerSchedule(nn.Module):
         )
         return torch.cat([zero, torch.cumsum(mass, dim=-1)], dim=-1)
 
+    def sequential_smoothstep_schedule(
+            self,
+            base_t,
+            x_ref,
+            eps=1e-4,
+    ):
+        """
+        base_t is noise coefficient b.
+        b = 1: pure noise
+        b = 0: clean data
+
+        Returns:
+            grouped_r: noise coefficient, broadcastable to x_ref
+            dgrouped_r_dt: dr/db, broadcastable to x_ref
+        """
+        if base_t.ndim == 1:
+            base_t = base_t.unsqueeze(-1)
+
+        while base_t.ndim < x_ref.ndim:
+            base_t = base_t.unsqueeze(-1)
+
+        p = base_t.to(device=x_ref.device, dtype=x_ref.dtype)
+
+        # group order: pos, heading, shape, velocity
+        # state layout: [px, py, cos, sin, length, width, vx, vy]
+        start = torch.tensor(
+            [0.00, 0.05, 0.45, 0.35],
+            device=x_ref.device,
+            dtype=x_ref.dtype,
+        )
+
+        end = torch.tensor(
+            [0.55, 0.60, 1.00, 0.95],
+            device=x_ref.device,
+            dtype=x_ref.dtype,
+        )
+
+        # expand to dimensions
+        start_dim = start[self.group_index]
+        end_dim = end[self.group_index]
+
+        start_dim = start_dim.view(
+            *([1] * (x_ref.ndim - 1)),
+            -1,
+        )
+        end_dim = end_dim.view(
+            *([1] * (x_ref.ndim - 1)),
+            -1,
+        )
+
+        width = (end_dim - start_dim).clamp_min(eps)
+
+        q = ((p - start_dim) / width).clamp(0.0, 1.0)
+
+        # # q is data progress for each group.
+        # q = u * u * (3.0 - 2.0 * u)
+        #
+        # # dq / dp
+        # dq_dp = 6.0 * u * (1.0 - u) / width
+        #
+        # # because p = 1 - b and r = 1 - q(p):
+        # # dr/db = dq/dp
+        # dr_db = dq_dp
+        dr_db=0
+
+        return q, dr_db
 
     def forward(
         self,
@@ -185,7 +253,12 @@ class LearnableGroupedPowerSchedule(nn.Module):
             min=0,
             max=1.0,
         )
-
+        if self.sequential:
+            grouped_t, dgrouped_t_dt = self.sequential_smoothstep_schedule(
+                base_t=safe_t,
+                x_ref=x_ref,
+            )
+            return grouped_t, dgrouped_t_dt
 
         if self.piecewise:
             original_shape = safe_t.shape[:-1]
@@ -271,9 +344,9 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
                 gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
 
-            shift=self.scene_size_shift(num_agents[:,None,None])
-
-            safe_t=self.flow_time_shift(safe_t, shift)
+            # shift=self.scene_size_shift(num_agents[:,None,None])
+            #
+            # safe_t=self.flow_time_shift(safe_t, shift)
 
 
             grouped_t = torch.pow(
@@ -293,7 +366,6 @@ class LearnableGroupedPowerSchedule(nn.Module):
             # shift=self.scene_size_shift(num_agents[:,None,None])
             #
             # grouped_t=self.flow_time_shift(grouped_t, shift)
-
         # else:
         #     dgrouped_t_dt=torch.ones_like(base_t)
         return grouped_t, dgrouped_t_dt
