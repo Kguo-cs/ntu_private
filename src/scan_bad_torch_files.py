@@ -4,35 +4,38 @@ import subprocess
 import sys
 from pathlib import Path
 from tqdm import tqdm
-
-
-LOAD_CODE = r"""
-import sys
 import torch
-path = sys.argv[1]
-obj = torch.load(path, map_location="cpu", weights_only=False)
-print("OK", path)
-"""
+#
+# LOAD_CODE = r"""
+# import sys
+# import torch
+# path = sys.argv[1]
+# obj = torch.load(path, map_location="cpu", weights_only=False)
+# print("OK", path)
+# """
 
 
 def check_one(path: Path, timeout: int):
-    cmd = [sys.executable, "-c", LOAD_CODE, str(path)]
-    env = os.environ.copy()
-    env["PYTHONFAULTHANDLER"] = "1"
-    env["OMP_NUM_THREADS"] = "1"
-    env["MKL_NUM_THREADS"] = "1"
-    env["OPENBLAS_NUM_THREADS"] = "1"
-
-    p = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        timeout=timeout,
-        env=env,
-    )
-
-    return p.returncode, p.stdout, p.stderr
+    # cmd = [sys.executable, "-c", LOAD_CODE, str(path)]
+    # env = os.environ.copy()
+    # env["PYTHONFAULTHANDLER"] = "1"
+    # env["OMP_NUM_THREADS"] = "1"
+    # env["MKL_NUM_THREADS"] = "1"
+    # env["OPENBLAS_NUM_THREADS"] = "1"
+    #
+    # p = subprocess.run(
+    #     cmd,
+    #     stdout=subprocess.PIPE,
+    #     stderr=subprocess.PIPE,
+    #     text=True,
+    #     timeout=timeout,
+    #     env=env,
+    # )
+    #
+    # path = sys.argv[1]
+    print(path)
+    obj = torch.load(path, map_location="cpu", weights_only=False)
+    #return p.returncode, p.stdout, p.stderr
 
 
 def main():
@@ -60,7 +63,7 @@ def main():
     with open(args.out, "w") as fout:
         for path in tqdm(files):
             try:
-                code, stdout, stderr = check_one(path, args.timeout)
+                check_one(path, args.timeout)
             except subprocess.TimeoutExpired:
                 msg = f"[TIMEOUT] {path}"
                 print(msg)
@@ -69,17 +72,17 @@ def main():
                 bad.append(path)
                 continue
 
-            if code != 0:
-                msg = f"[BAD] returncode={code} path={path}"
-                print(msg)
-                fout.write(msg + "\n")
-                fout.write("----- stdout -----\n")
-                fout.write(stdout[-4000:] + "\n")
-                fout.write("----- stderr -----\n")
-                fout.write(stderr[-4000:] + "\n")
-                fout.write("\n")
-                fout.flush()
-                bad.append(path)
+            # if code != 0:
+            #     msg = f"[BAD] returncode={code} path={path}"
+            #     print(msg)
+            #     fout.write(msg + "\n")
+            #     fout.write("----- stdout -----\n")
+            #     fout.write(stdout[-4000:] + "\n")
+            #     fout.write("----- stderr -----\n")
+            #     fout.write(stderr[-4000:] + "\n")
+            #     fout.write("\n")
+            #     fout.flush()
+            #     bad.append(path)
 
     print(f"[DONE] bad files={len(bad)}")
     for p in bad[:50]:
