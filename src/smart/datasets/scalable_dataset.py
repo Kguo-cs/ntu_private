@@ -247,9 +247,9 @@ class MultiDataset(Dataset):
             with open(self.raw_paths[idx], "rb") as handle:
                 data = pickle.load(handle)
         else:
-            #data =torch.load(self.raw_paths[idx],weights_only=True)
-            path = self.raw_paths[idx]
-            data = safe_torch_load(path, idx=idx)
+            data =torch.load(self.raw_paths[idx],map_location="cpu",weights_only=False)
+            # path = self.raw_paths[idx]
+            # data = safe_torch_load(path, idx=idx)
 
         if self._tfrecord_dir is not None and not self.bird:
             data["tfrecord_path"] = (

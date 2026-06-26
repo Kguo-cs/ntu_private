@@ -122,7 +122,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
     def scene_size_shift(
             self,
             scene_size,
-            ref_size=128,
+            ref_size=64,
             a=0.15,
             min_shift=0.7,
             max_shift=2.0,
@@ -271,9 +271,9 @@ class LearnableGroupedPowerSchedule(nn.Module):
 
                 gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
 
-            # shift=self.scene_size_shift(num_agents[:,None,None])
-            #
-            # safe_t=self.flow_time_shift(safe_t, shift)
+            shift=self.scene_size_shift(num_agents[:,None,None])
+
+            safe_t=self.flow_time_shift(safe_t, shift)
 
 
             grouped_t = torch.pow(
