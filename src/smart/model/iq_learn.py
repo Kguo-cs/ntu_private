@@ -519,6 +519,8 @@ class IQ_SoftQ(LightningModule):
             self._log_train('train/shape_loss', shape_loss)
             self._log_train('train/vel_loss', vel_loss)
             self._log_train('train/g_loss', g_loss)
+            self._log_train('train/logp_cur', tokenized_agent["logp_cur"].mean())
+            self._log_train('train/policy_loss', tokenized_agent["policy_loss"])
 
             init_loss=match_loss+g_loss
 

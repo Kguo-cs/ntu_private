@@ -282,13 +282,14 @@ class ScaleFlow(nn.Module):
 
                 t, t_dt = self.model.schedule(base_t, x, tokenized_agent)
 
+                t_dt = torch.ones_like(t)
+
                 # policy_loss=self.model.schedule.regularization(t_dt)#
             else:
                 base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32).repeat(1, 1,
                                                                                                      self.model.m_delta_dim)
 
                 t = base_t[agent_batch]
-                t_dt = torch.ones_like(t)
 
         ego_mask = tokenized_agent["ego_mask"]
 
@@ -499,7 +500,8 @@ class ScaleFlow(nn.Module):
                 inv_denom_sq = denom_sq.reciprocal()
                 mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
 
-                match_loss=(mse_Loss*inv_denom_sq).mean(-1)
+                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)
+
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
@@ -509,8 +511,10 @@ class ScaleFlow(nn.Module):
                 )[non_ego]
                 #advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
-                logp_cur = -match_loss[non_ego]
+                logp_cur = -sampled_match_loss[non_ego]
                 logp_old = logp_cur.detach()
+
+                tokenized_agent["logp_cur"]=logp_cur
 
                 log_ratio = logp_cur - logp_old
                 ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
@@ -522,6 +526,8 @@ class ScaleFlow(nn.Module):
                 surrogate_2 = ratio_clip * advantages_pg.detach()
 
                 policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
+
+                tokenized_agent["policy_loss"]=policy_loss
 
             #x_pred = x_pred_all[len(z_sampled):]
 
@@ -556,7 +562,7 @@ class ScaleFlow(nn.Module):
             base_t=base_t[:,0],
             t_dt=t_dt[:,0],
             t_eps=self.t_eps,
-            use_col=False,  # not self.model.pred_gmm,
+            use_col=True,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
