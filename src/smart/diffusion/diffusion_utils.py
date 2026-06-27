@@ -544,8 +544,8 @@ def get_diff_loss(
         fake_state=fake_state[fake_idx]
 
     if use_col and x_pred:
-        denom = (1 - t[:,0]).clamp_min(t_eps)
-        w=1/denom.square()
+        pos_denom = (1 - t[:,0]).clamp_min(t_eps)
+        w=1/pos_denom.square()
 
         col_loss,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)#[0].mean()
         #

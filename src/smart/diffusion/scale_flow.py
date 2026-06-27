@@ -484,15 +484,23 @@ class ScaleFlow(nn.Module):
             else:
                 x_pred = x_pred_all[:len(z_sampled)]
 
-                match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
-                    tokenized_agent,
-                    x_pred[:, 0],
-                    x_sampled[:, 0],
-                    z_sampled[:, 0],
-                    e_sampled[:, 0],
-                    t_n_sampled[:, 0],
-                    x_pred=self.x_pred
-                )
+                # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
+                #     tokenized_agent,
+                #     x_pred[:, 0],
+                #     x_sampled[:, 0],
+                #     z_sampled[:, 0],
+                #     e_sampled[:, 0],
+                #     t_n_sampled[:, 0],
+                #     x_pred=self.x_pred
+                # )
+                denom = (1 - t[:, 0]).clamp_min(self.t_eps)
+                denom_sq = denom.square()
+                t_mask = (t[:, 0] > 0) & (t[:, 0] < 1)
+
+                inv_denom_sq = denom_sq.reciprocal() * t_mask.float()
+                mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
+
+                match_loss=(mse_Loss*inv_denom_sq).mean(-1)
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
