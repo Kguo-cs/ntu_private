@@ -556,7 +556,7 @@ class ScaleFlow(nn.Module):
             t[:, 0],
             base_t=base_t[:,0],
             t_eps=self.t_eps,
-            use_col=True,  # not self.model.pred_gmm,
+            use_col=False,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
