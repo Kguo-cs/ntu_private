@@ -128,8 +128,6 @@ class ScaleFlow(nn.Module):
 
         self.use_nft = False
 
-        self.use_kl = False
-
         self.use_uniform = False
 
         self.learn_noise = False
@@ -174,7 +172,9 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        if self.use_kl:
+        self.use_ref = True
+
+        if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
 
         num_bins=20
@@ -358,7 +358,7 @@ class ScaleFlow(nn.Module):
             denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
             with torch.no_grad():
-                if self.use_kl:
+                if self.use_ref:
                     if self.global_step == 0:
                         decay = 0
                         for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(),
@@ -384,19 +384,14 @@ class ScaleFlow(nn.Module):
 
                 self.global_step += 1
 
-            if self.use_kl:
-                model_tokenized_agent = tokenized_agent
-                t_all = t_n_sampled
-                z_all = z_sampled
-            else:
-                t_all = t_n_sampled#torch.cat((t_n_sampled, t), dim=0)
-                z_all =z_sampled #torch.cat((z_sampled, z), dim=0)
-                model_tokenized_agent=tokenized_agent
+            t_all = t_n_sampled  # torch.cat((t_n_sampled, t), dim=0)
+            z_all = z_sampled  # torch.cat((z_sampled, z), dim=0)
+            model_tokenized_agent = tokenized_agent
 
-                # model_tokenized_agent = self.repeat_input_copy(
-                #     tokenized_agent,
-                #     self.mc_num + 1,
-                # )
+            # model_tokenized_agent = self.repeat_input_copy(
+            #     tokenized_agent,
+            #     self.mc_num + 1,
+            # )
 
             x_pred_all = self.model(
                 z_all,
@@ -512,7 +507,15 @@ class ScaleFlow(nn.Module):
                 #advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
                 logp_cur = -sampled_match_loss[non_ego]
-                logp_old = logp_cur.detach()
+
+                if self.use_ref:
+                    mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
+
+                    sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1)
+
+                    logp_old=-sampled_match_loss[non_ego]
+                else:
+                    logp_old = logp_cur.detach()
 
                 tokenized_agent["logp_cur"]=logp_cur
 
