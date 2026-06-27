@@ -574,7 +574,7 @@ def get_diff_loss(
         # )[0]/40
         #
 
-        col_loss=(col_loss*w)
+        col_loss=(col_loss*w[start_idx])
 
        # col_loss=scatter_mean(col_loss,batch)
 
