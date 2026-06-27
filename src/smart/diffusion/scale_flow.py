@@ -493,9 +493,9 @@ class ScaleFlow(nn.Module):
                 #     t_n_sampled[:, 0],
                 #     x_pred=self.x_pred
                 # )
-                denom = (1 - t[:, 0]).clamp_min(self.t_eps)
+                denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
                 denom_sq = denom.square()
-                t_mask = (t[:, 0] > 0) & (t[:, 0] < 1)
+                t_mask = (t_n_sampled[:, 0] > 0) & (t_n_sampled[:, 0] < 1)
 
                 inv_denom_sq = denom_sq.reciprocal() * t_mask.float()
                 mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
