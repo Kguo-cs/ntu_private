@@ -510,7 +510,16 @@ class ScaleFlow(nn.Module):
             x = out[:, None]
 
         if not self.model.pred_gmm:
-            x_pred[ego_mask] = x[ego_mask]
+            ego_mask_expand = ego_mask.view(
+                ego_mask.shape[0],
+                *([1] * (x_pred.ndim - 1)),
+            )
+
+            x_pred = torch.where(
+                ego_mask_expand,
+                x.detach(),
+                x_pred,
+            )
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
             tokenized_agent,
