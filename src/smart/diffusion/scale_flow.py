@@ -502,9 +502,19 @@ class ScaleFlow(nn.Module):
                 )[non_ego]
                 #advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
-                per_sample_policy_loss = match_loss[non_ego] *advantages_pg*0.01
+                logp_cur = -match_loss[non_ego]
+                logp_old = logp_cur.detach()
 
-                policy_loss = per_sample_policy_loss.mean()
+                log_ratio = logp_cur - logp_old
+                ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
+
+                clip_eps = 0.2
+                ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
+
+                surrogate_1 = ratio * advantages_pg.detach()
+                surrogate_2 = ratio_clip * advantages_pg.detach()
+
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() * 0.01
 
             #x_pred = x_pred_all[len(z_sampled):]
 
