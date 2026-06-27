@@ -24,7 +24,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
     def __init__(
         self,
         group_dims: Sequence[int] = (2, 2, 2, 2),
-        init_gamma: Sequence[float] = (0.75, 0.5, 1.0, 4),
+        init_gamma: Sequence[float] = (1, 1, 1.0, 1),
         gamma_min: float = 0.25,
         gamma_max: float = 5.0,
         eps: float = 1e-4,
@@ -346,12 +346,11 @@ class LearnableGroupedPowerSchedule(nn.Module):
             # shift=self.scene_size_shift(num_agents[:,None,None])
             #
             # safe_t=self.flow_time_shift(safe_t, shift)
-            grouped_t=safe_t
 
-            # grouped_t = torch.pow(
-            #     safe_t,
-            #     gamma,
-            # )
+            grouped_t = torch.pow(
+                safe_t,
+                gamma,
+            )
             #
            # if self.learn_schedule:
             dgrouped_t_dt = (
