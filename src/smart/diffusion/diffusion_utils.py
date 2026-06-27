@@ -551,7 +551,7 @@ def get_diff_loss(
 
         col_reward_end = scatter_max(
             col_loss,
-            start_idx,
+            end_idx,
             dim=0,
             dim_size=len(fake_state)
         )[0]
