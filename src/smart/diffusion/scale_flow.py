@@ -331,7 +331,10 @@ class ScaleFlow(nn.Module):
                 )
             else:
                 advantages = raw_advantages
-                x_sampled = tokenized_agent["gen_z"][None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1)
+                gen_z=tokenized_agent["gen_z"]
+                gen_z[:, :, 2:4] = gen_z[:, :, 2:4] / gen_z[:, :, 2:4].norm(dim=-1, keepdim=True)
+
+                x_sampled = gen_z[None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1)
                 e_sampled = torch.randn_like(e[None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1))
 
                 agent_batch = torch.stack(
@@ -385,13 +388,14 @@ class ScaleFlow(nn.Module):
                 t_all = t_n_sampled
                 z_all = z_sampled
             else:
-                t_all = torch.cat((t_n_sampled, t), dim=0)
-                z_all = torch.cat((z_sampled, z), dim=0)
+                t_all = t_n_sampled#torch.cat((t_n_sampled, t), dim=0)
+                z_all =z_sampled #torch.cat((z_sampled, z), dim=0)
+                model_tokenized_agent=tokenized_agent
 
-                model_tokenized_agent = self.repeat_input_copy(
-                    tokenized_agent,
-                    self.mc_num + 1,
-                )
+                # model_tokenized_agent = self.repeat_input_copy(
+                #     tokenized_agent,
+                #     self.mc_num + 1,
+                # )
 
             x_pred_all = self.model(
                 z_all,
@@ -502,7 +506,11 @@ class ScaleFlow(nn.Module):
 
                 policy_loss = per_sample_policy_loss.mean()
 
-            x_pred = x_pred_all[len(z_sampled):]
+            #x_pred = x_pred_all[len(z_sampled):]
+
+            x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+
+
         else:
             x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
