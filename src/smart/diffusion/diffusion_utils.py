@@ -571,8 +571,8 @@ def get_diff_loss(
         #     edge_idx,
         #     dim=0,
         #     dim_size=len(fake_state),
-        # )[0]/40
-        #
+        # )[0]/50
+
 
         col_loss=(col_loss*w[start_idx])
 
@@ -604,7 +604,7 @@ def get_diff_loss(
         huber_beta=huber_beta,
     )
 
-    #match_loss=scatter_mean(match_loss,batch)
+    match_loss=scatter_mean(match_loss,batch)
 
     return match_loss / 5, pos_loss, heading_loss, shape_loss, vel_loss, col_loss.mean()
 
