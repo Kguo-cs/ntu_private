@@ -356,10 +356,10 @@ class LearnableGroupedPowerSchedule(nn.Module):
             dgrouped_t_dt = (
                     gamma
                     * torch.pow(
-                safe_t,
+                safe_t.clamp(min=0.05, max=0.95),
                 gamma - 1.0,
             )
-            )
+            )#gamma is 1 , the dt=1, if gamma>1, then d_t get very samll t close to 0
 
             # shift=self.scene_size_shift(num_agents[:,None,None])
             #

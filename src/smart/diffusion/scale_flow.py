@@ -495,9 +495,8 @@ class ScaleFlow(nn.Module):
                 # )
                 denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
                 denom_sq = denom.square()
-                t_mask = (t_n_sampled[:, 0] > 0) & (t_n_sampled[:, 0] < 1)
 
-                inv_denom_sq = denom_sq.reciprocal() * t_mask.float()
+                inv_denom_sq = denom_sq.reciprocal()
                 mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
 
                 match_loss=(mse_Loss*inv_denom_sq).mean(-1)
@@ -555,6 +554,7 @@ class ScaleFlow(nn.Module):
             e[:, 0],
             t[:, 0],
             base_t=base_t[:,0],
+            t_dt=t_dt[:,0],
             t_eps=self.t_eps,
             use_col=False,  # not self.model.pred_gmm,
             x_pred=self.x_pred,

@@ -528,7 +528,7 @@ def get_closest_sum_idx(
     return fake_idx
 
 def get_diff_loss(
-    tokenized_agent, fake_state,real_state,z,e,t,base_t=1,
+    tokenized_agent, fake_state,real_state,z,e,t,base_t=None,t_dt=None,
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05, w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
     max_loss_weight=25.0,
@@ -591,7 +591,7 @@ def get_diff_loss(
     denom_sq = denom.square()
     t_mask=(t>0) & (t<1)
 
-    inv_denom_sq = denom_sq.reciprocal()*t_mask.float()#.clamp(max=max_loss_weight)
+    inv_denom_sq = denom_sq.reciprocal()*t_mask.float()*t_dt.square()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state,
