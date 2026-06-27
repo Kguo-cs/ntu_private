@@ -370,7 +370,7 @@ class InterativeDecoder(nn.Module):
                 else:
                     interact_reward = valid_interact_reward
 
-                ego_rewards =  interact_reward#valid_ego_reward +
+                ego_rewards = valid_ego_reward + interact_reward#
                 next_token_logits = (
                     next_token_logits[:, 0],
                     interact_logits[:, 0],

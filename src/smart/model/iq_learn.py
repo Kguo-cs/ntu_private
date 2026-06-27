@@ -288,7 +288,7 @@ class IQ_SoftQ(LightningModule):
             interact_bce_loss = ego_logits.new_zeros(())
             combined_logits = ego_logits.reshape(-1)
 
-        disc_loss =  interact_bce_loss#ego_bce_loss +
+        disc_loss =  ego_bce_loss +interact_bce_loss
 
         # Reshape only policy rewards because these are consumed by the policy
         # update as a [time, agent] reward matrix.
