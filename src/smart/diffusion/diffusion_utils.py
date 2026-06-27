@@ -548,16 +548,16 @@ def get_diff_loss(
         w=1/denom.square()
 
         col_loss,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)#[0].mean()
-
-        edge_idx = torch.cat([start_idx, end_idx], dim=0)
-        edge_loss = torch.cat([col_loss, col_loss], dim=0)
-
-        col_loss = scatter_sum(
-            edge_loss,
-            edge_idx,
-            dim=0,
-            dim_size=len(fake_state),
-        )/50#[0]
+        #
+        # edge_idx = torch.cat([start_idx, end_idx], dim=0)
+        # edge_loss = torch.cat([col_loss, col_loss], dim=0)
+        #
+        # col_loss = scatter_sum(
+        #     edge_loss,
+        #     edge_idx,
+        #     dim=0,
+        #     dim_size=len(fake_state),
+        # )/50#[0]
 
         # col_loss1 = scatter_mean(
         #     edge_loss,
