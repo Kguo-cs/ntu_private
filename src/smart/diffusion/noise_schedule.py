@@ -346,13 +346,13 @@ class LearnableGroupedPowerSchedule(nn.Module):
             # shift=self.scene_size_shift(num_agents[:,None,None])
             #
             # safe_t=self.flow_time_shift(safe_t, shift)
+            grouped_t=safe_t
 
-
-            grouped_t = torch.pow(
-                safe_t,
-                gamma,
-            )
-
+            # grouped_t = torch.pow(
+            #     safe_t,
+            #     gamma,
+            # )
+            #
            # if self.learn_schedule:
             dgrouped_t_dt = (
                     gamma
