@@ -498,7 +498,7 @@ class ScaleFlow(nn.Module):
                 )[non_ego]
                 #advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
-                per_sample_policy_loss = match_loss[non_ego] *advantages_pg*0.1
+                per_sample_policy_loss = match_loss[non_ego] *advantages_pg*0.01
 
                 policy_loss = per_sample_policy_loss.mean()
 
@@ -660,19 +660,6 @@ class ScaleFlow(nn.Module):
 
             print(bin_mean)
             #print(self.bin_count/self.bin_count.sum())
-
-            # debug = {}
-            # for i in range(num_bins):
-            #     if bin_count[i] > 0:
-            #         lo = i / num_bins
-            #         hi = (i + 1) / num_bins
-            #         debug[f"{prefix}/t_{lo:.2f}_{hi:.2f}"] = bin_mean[i]
-            #
-            # debug[f"{prefix}/t_mean"] = t_scalar.mean()
-            # debug[f"{prefix}/loss_mean"] = loss.mean()
-            # debug[f"{prefix}/loss_max"] = loss.max()
-            # debug[f"{prefix}/loss_min"] = loss.min()
-
 
     @torch.no_grad()
     def _forward_sample(self, z, t_n, t_next, labels):
