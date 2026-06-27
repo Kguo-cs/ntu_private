@@ -552,12 +552,20 @@ def get_diff_loss(
         edge_idx = torch.cat([start_idx, end_idx], dim=0)
         edge_loss = torch.cat([col_loss, col_loss], dim=0)
 
-        col_loss = scatter_mean(
+        col_loss = scatter_sum(
             edge_loss,
             edge_idx,
             dim=0,
             dim_size=len(fake_state),
-        )#[0]
+        )/50#[0]
+
+        # col_loss1 = scatter_sum(
+        #     edge_loss,
+        #     edge_idx,
+        #     dim=0,
+        #     dim_size=len(fake_state),
+        # )#[0]
+
 
         col_loss=(col_loss*w)
 
