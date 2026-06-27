@@ -568,7 +568,7 @@ def get_diff_loss(
 
         col_loss=(col_loss*w)
 
-        col_loss=scatter_mean(col_loss,batch)
+        #col_loss=scatter_mean(col_loss,batch)
 
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
@@ -596,7 +596,7 @@ def get_diff_loss(
         huber_beta=huber_beta,
     )
 
-    match_loss=scatter_mean(match_loss,batch)
+   # match_loss=scatter_mean(match_loss,batch)
 
     return match_loss / 5, pos_loss, heading_loss, shape_loss, vel_loss, col_loss.mean()
 
