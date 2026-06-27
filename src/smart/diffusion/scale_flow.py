@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = True
+        self.use_ref = False
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -508,27 +508,29 @@ class ScaleFlow(nn.Module):
 
                 logp_cur = -sampled_match_loss[non_ego]
 
-                if self.use_ref:
-                    mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
-
-                    sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1)
-
-                    logp_old=-sampled_match_loss[non_ego]
-                else:
-                    logp_old = logp_cur.detach()
-
                 tokenized_agent["logp_cur"]=logp_cur
 
-                log_ratio = logp_cur - logp_old
-                ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
+                policy_loss=(-advantages_pg.exp()*logp_cur).mean()
+                #
+                # if self.use_ref:
+                #     mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
+                #
+                #     sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1)
+                #
+                #     logp_old=-sampled_match_loss[non_ego]
+                # else:
+                #     logp_old = logp_cur.detach()
 
-                clip_eps = 0.2
-                ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
-
-                surrogate_1 = ratio * advantages_pg.detach()
-                surrogate_2 = ratio_clip * advantages_pg.detach()
-
-                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
+                # log_ratio = logp_cur - logp_old
+                # ratio = torch.exp(log_ratio)
+                #
+                # clip_eps = 0.2
+                # ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
+                #
+                # surrogate_1 = ratio * advantages_pg.detach()
+                # surrogate_2 = ratio_clip * advantages_pg.detach()
+                #
+                # policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
 
                 tokenized_agent["policy_loss"]=policy_loss
 

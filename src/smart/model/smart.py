@@ -85,6 +85,10 @@ class SMART(LightningModule):
                     for p in self.encoder.init_decoder.parameters():
                         p.requires_grad = False
 
+                if self.encoder.init_decoder.G1.use_ref:
+                    for p in self.encoder.init_decoder.G1.ref_model.parameters():
+                        p.requires_grad = False
+
         self.n_vis_batch = model_config.n_vis_batch
         self.n_vis_scenario = model_config.n_vis_scenario
         self.n_vis_rollout = model_config.n_vis_rollout
