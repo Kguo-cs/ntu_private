@@ -544,31 +544,24 @@ def get_diff_loss(
         fake_state=fake_state[fake_idx]
 
     if use_col and x_pred:
-        denom = (1 - base_t[:,0]).clamp_min(t_eps)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+        denom = (1 - t[:,0]).clamp_min(t_eps)
         w=1/denom.square()
 
         col_loss,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(fake_state,real_state,batch,w)#[0].mean()
 
-        col_reward_end = scatter_max(
-            col_loss,
-            end_idx,
+        edge_idx = torch.cat([start_idx, end_idx], dim=0)
+        edge_loss = torch.cat([col_loss, col_loss], dim=0)
+
+        col_loss = scatter_mean(
+            edge_loss,
+            edge_idx,
             dim=0,
-            dim_size=len(fake_state)
+            dim_size=len(fake_state),
         )[0]
-
-        col_reward_start = scatter_max(
-            col_loss,
-            start_idx,
-            dim=0,
-            dim_size=len(fake_state)
-        )[0]
-
-        col_loss=torch.maximum(col_reward_end,col_reward_start)
-
 
         col_loss=(col_loss*w)
 
-        #col_loss=scatter_mean(col_loss,batch)
+        col_loss=scatter_mean(col_loss,batch)
 
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
@@ -596,7 +589,7 @@ def get_diff_loss(
         huber_beta=huber_beta,
     )
 
-   # match_loss=scatter_mean(match_loss,batch)
+    match_loss=scatter_mean(match_loss,batch)
 
     return match_loss / 5, pos_loss, heading_loss, shape_loss, vel_loss, col_loss.mean()
 
