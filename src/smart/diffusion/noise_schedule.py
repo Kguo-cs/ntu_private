@@ -333,7 +333,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
                     dtype=x_ref.dtype,
                 )
 
-                num_agents=torch.bincount(tokenized_agent["batch"])[tokenized_agent["batch"]]
+               # num_agents=torch.bincount(tokenized_agent["batch"])[tokenized_agent["batch"]]
 
 
                 gamma = gamma.view(
@@ -341,7 +341,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
                     -1,
                 )
 
-                gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
+                #gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
 
             # shift=self.scene_size_shift(num_agents[:,None,None])
             #
