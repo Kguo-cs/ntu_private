@@ -497,7 +497,7 @@ class ScaleFlow(nn.Module):
                 # mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
                 #
                 # sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)*0.01
-                sampled_match_loss=sampled_match_loss*0.1
+                #sampled_match_loss=sampled_match_loss*0.1
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
@@ -507,11 +507,13 @@ class ScaleFlow(nn.Module):
                 )[non_ego]
                 #advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
+                advantages_pg=advantages_pg.clamp_min(0.0)
+
                 logp_cur = -sampled_match_loss[non_ego]
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
-                policy_loss=(-advantages_pg.exp()*logp_cur).mean()
+                policy_loss=(-advantages_pg*logp_cur).mean()#.exp()
                 #
                 # if self.use_ref:
                 #     mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
@@ -609,6 +611,8 @@ class ScaleFlow(nn.Module):
             policy_loss = self.model.schedule.loss(t[~ego_mask, 0, ::2], observed_group_loss)
 
         loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+
+        print(match_loss.mean(),sampled_match_loss.mean())
 
         return loss, x_pred[:, 0], z[:, 0], t[:, 0]  # ,denom[:,0]
 
