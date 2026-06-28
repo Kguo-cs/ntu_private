@@ -915,6 +915,19 @@ xflow512_wrap_300_n30_epoch=63-step=60928-valmeta=0.6448.ckpt
 0.6458
 
 
+xflow512_wrap_300_all_power_epoch=63-step=60928-valmeta=0.6446.ckpt
+
+
+
+
+
+
+
+
+
+
+
+
 #if only interact reward , sequential diffusion
 
 

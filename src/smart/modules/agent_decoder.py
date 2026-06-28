@@ -87,10 +87,10 @@ class SMARTAgentDecoder(nn.Module):
 
         self.learn_init=token_processor.learn_init
 
-        self.use_gail=use_gail
-
-        if self.use_gail:
-            self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
+        # self.use_gail=use_gail
+        #
+        # if self.use_gail:
+        #     self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
 
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature,shape, n_current=0):
 
