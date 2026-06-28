@@ -495,7 +495,7 @@ class ScaleFlow(nn.Module):
                 inv_denom_sq = denom_sq.reciprocal()
                 mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
 
-                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)
+                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)*0.01
 
 
                 non_ego = ~ego_mask
@@ -510,7 +510,7 @@ class ScaleFlow(nn.Module):
 
                 tokenized_agent["logp_cur"]=logp_cur
 
-                policy_loss=(-advantages_pg.exp()*logp_cur).mean()*0.1
+                policy_loss=(-advantages_pg.exp()*logp_cur).mean()
                 #
                 # if self.use_ref:
                 #     mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
