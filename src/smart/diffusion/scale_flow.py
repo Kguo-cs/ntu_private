@@ -487,6 +487,7 @@ class ScaleFlow(nn.Module):
                     z_sampled[:, 0],
                     e_sampled[:, 0],
                     t_n_sampled[:, 0],
+                    t_dt=t_dt[:,0],
                     x_pred=self.x_pred
                 )
                 # denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
