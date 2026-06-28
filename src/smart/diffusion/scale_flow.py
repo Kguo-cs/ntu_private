@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = False
+        self.use_ref = True
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -480,23 +480,23 @@ class ScaleFlow(nn.Module):
             else:
                 x_pred = x_pred_all[:len(z_sampled)]
 
-                sampled_match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
-                    tokenized_agent,
-                    x_pred[:, 0],
-                    x_sampled[:, 0],
-                    z_sampled[:, 0],
-                    e_sampled[:, 0],
-                    t_n_sampled[:, 0],
-                    t_dt=t_dt[:,0],
-                    x_pred=self.x_pred
-                )
-                # denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
-                # denom_sq = denom.square()
+                # sampled_match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
+                #     tokenized_agent,
+                #     x_pred[:, 0],
+                #     x_sampled[:, 0],
+                #     z_sampled[:, 0],
+                #     e_sampled[:, 0],
+                #     t_n_sampled[:, 0],
+                #     t_dt=t_dt[:,0],
+                #     x_pred=self.x_pred
+                # )
+                denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
+                denom_sq = denom.square()
+
+                inv_denom_sq = denom_sq.reciprocal()
+                mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
                 #
-                # inv_denom_sq = denom_sq.reciprocal()
-                # mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
-                #
-                # sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)*0.01
+                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)
                 #sampled_match_loss=sampled_match_loss*0.1
 
                 non_ego = ~ego_mask
@@ -507,33 +507,33 @@ class ScaleFlow(nn.Module):
                 )[non_ego]
                 #advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
-                advantages_pg=advantages_pg.clamp_min(0.0)
+                #advantages_pg=advantages_pg.clamp_min(0.0)
 
-                logp_cur = -sampled_match_loss[non_ego]
+                logp_cur = -sampled_match_loss[non_ego]*0.01
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
-                policy_loss=(-advantages_pg*logp_cur).mean()#.exp()
+                # policy_loss=(-advantages_pg*logp_cur).mean()#.exp()
                 #
-                # if self.use_ref:
-                #     mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
-                #
-                #     sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1)
-                #
-                #     logp_old=-sampled_match_loss[non_ego]
-                # else:
-                #     logp_old = logp_cur.detach()
+                if self.use_ref:
+                    mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
 
-                # log_ratio = logp_cur - logp_old
-                # ratio = torch.exp(log_ratio)
-                #
-                # clip_eps = 0.2
-                # ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
-                #
-                # surrogate_1 = ratio * advantages_pg.detach()
-                # surrogate_2 = ratio_clip * advantages_pg.detach()
-                #
-                # policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
+                    sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1)*0.01
+
+                    logp_old=-sampled_match_loss[non_ego]
+                else:
+                    logp_old = logp_cur.detach()
+
+                log_ratio = logp_cur - logp_old
+                ratio = torch.exp(log_ratio)
+
+                clip_eps = 0.2
+                ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
+
+                surrogate_1 = ratio * advantages_pg.detach()
+                surrogate_2 = ratio_clip * advantages_pg.detach()
+
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
 
                 tokenized_agent["policy_loss"]=policy_loss
 
@@ -612,7 +612,7 @@ class ScaleFlow(nn.Module):
 
         loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
-        print(match_loss.mean(),sampled_match_loss.mean())
+       # print(match_loss.mean(),sampled_match_loss.mean())
 
         return loss, x_pred[:, 0], z[:, 0], t[:, 0]  # ,denom[:,0]
 
