@@ -918,7 +918,7 @@ xflow512_wrap_300_n30_epoch=63-step=60928-valmeta=0.6448.ckpt
 xflow512_wrap_300_all_power_epoch=63-step=60928-valmeta=0.6446.ckpt
 
 
-
+xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt
 
 
 

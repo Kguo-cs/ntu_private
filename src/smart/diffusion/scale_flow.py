@@ -497,7 +497,7 @@ class ScaleFlow(nn.Module):
                 # mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
                 #
                 # sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)*0.01
-                #
+                sampled_match_loss=sampled_match_loss*0.1
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
