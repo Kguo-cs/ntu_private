@@ -489,9 +489,11 @@ class ScaleFlow(nn.Module):
                 denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
                 denom_sq = denom.square()
 
+                scale=self.model.normal_scale
+
                 inv_denom_sq = denom_sq.reciprocal()
-                mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
-                l1_Loss=F.l1_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
+                mse_Loss=F.mse_loss(x_pred[:, 0]/scale , x_sampled[:, 0]/scale , reduction="none")
+                l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
 
                 sampled_match_loss=(mse_Loss/l1_Loss).mean(-1)
                 #sampled_match_loss=sampled_match_loss*0.1
@@ -506,19 +508,19 @@ class ScaleFlow(nn.Module):
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
-                logp_cur = -sampled_match_loss[non_ego]
+                logp_cur = -sampled_match_loss[non_ego]*0.1
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
                 # policy_loss=(-advantages_pg*logp_cur).mean()#.exp()
                 #
                 if self.use_ref:
-                    mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
-                    l1_Loss = F.l1_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
+                    mse_Loss = F.mse_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none")
+                    l1_Loss = F.l1_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
 
                     sampled_match_loss = (mse_Loss /l1_Loss).mean(-1)
 
-                    logp_old=-sampled_match_loss[non_ego]
+                    logp_old=-sampled_match_loss[non_ego]*0.1
                 else:
                     logp_old = logp_cur.detach()
 

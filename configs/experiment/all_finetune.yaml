@@ -20,7 +20,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt"
 
-task_name: all32_noshape10_exp_nopower_ppow # samplelossPos #_nocol #_large0shape10
+task_name: all32_noshape10_exp_nopower_ppow01 # samplelossPos #_nocol #_large0shape10
 
 trainer:
   val_check_interval: 0.1
