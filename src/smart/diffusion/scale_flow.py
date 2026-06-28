@@ -525,15 +525,18 @@ class ScaleFlow(nn.Module):
                     logp_old = logp_cur.detach()
 
                 log_ratio = logp_cur - logp_old
-                ratio = torch.exp(log_ratio)
+                ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
 
-                clip_eps = 0.2
-                ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
+                # clip_eps = 0.2
+                # ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
+                #
+                # surrogate_1 = ratio * advantages_pg.detach()
+                # surrogate_2 = ratio_clip * advantages_pg.detach()
+                #
+                # policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
+                coef = (ratio.detach() * advantages_pg).detach()
 
-                surrogate_1 = ratio * advantages_pg.detach()
-                surrogate_2 = ratio_clip * advantages_pg.detach()
-
-                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
+                policy_loss = -(coef * logp_new).mean()
 
                 tokenized_agent["policy_loss"]=policy_loss
                 tokenized_agent["ratio"]=ratio
