@@ -541,7 +541,7 @@ class ScaleFlow(nn.Module):
                 #
                 # policy_loss = -(coef * logp_cur).mean()
 
-                beta_kl=0.1
+                beta_kl=0.01
 
                 if beta_kl > 0:
                     delta = (logp_old.detach() - logp_cur).clamp(-10.0, 10.0)
@@ -585,7 +585,7 @@ class ScaleFlow(nn.Module):
             base_t=base_t[:,0],
             t_dt=t_dt[:,0],
             t_eps=self.t_eps,
-            use_col=True,  # not self.model.pred_gmm,
+            use_col=False,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
