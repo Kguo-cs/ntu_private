@@ -515,7 +515,7 @@ class ScaleFlow(nn.Module):
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
-                logp_cur = -sampled_match_loss[non_ego]*0.01
+                logp_cur = -sampled_match_loss[non_ego]*0.001
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
@@ -524,7 +524,7 @@ class ScaleFlow(nn.Module):
                 if self.use_ref:
                     mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
 
-                    sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1)*0.01
+                    sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1)*0.001
 
                     logp_old=-sampled_match_loss[non_ego]
                 else:
@@ -542,6 +542,7 @@ class ScaleFlow(nn.Module):
                 policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
 
                 tokenized_agent["policy_loss"]=policy_loss
+                tokenized_agent["ratio"]=ratio
 
             #x_pred = x_pred_all[len(z_sampled):]
 
