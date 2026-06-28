@@ -1,6 +1,6 @@
 
 
-
+kefu321
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
