@@ -536,7 +536,7 @@ class ScaleFlow(nn.Module):
                 # policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
                 coef = (ratio.detach() * advantages_pg).detach()
 
-                policy_loss = -(coef * logp_new).mean()
+                policy_loss = -(coef * logp_cur).mean()
 
                 tokenized_agent["policy_loss"]=policy_loss
                 tokenized_agent["ratio"]=ratio
