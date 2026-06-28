@@ -351,6 +351,12 @@ class ScaleFlow(nn.Module):
                     sampled_base_t, x_sampled, tokenized_agent
                 )
 
+                t_n_sampled = torch.where(
+                    ego_mask[:, None, None],
+                    torch.ones_like(t_n_sampled),
+                    t_n_sampled,
+                )
+
                 advantages = advantages[None].repeat(self.mc_num, 1).flatten(0, 1)
 
                 z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
