@@ -527,19 +527,19 @@ class ScaleFlow(nn.Module):
                 log_ratio = logp_cur - logp_old
                 ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
 
-                # clip_eps = 0.2
-                # ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
-                #
-                # surrogate_1 = ratio * advantages_pg.detach()
-                # surrogate_2 = ratio_clip * advantages_pg.detach()
-                #
-                # policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
+                clip_eps = 0.2
+                ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
+
+                surrogate_1 = ratio * advantages_pg.detach()
+                surrogate_2 = ratio_clip * advantages_pg.detach()
+
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean() #* 0.01
                 # smooth proximal correction
                 #pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
 
-                coef = (ratio.detach() * advantages_pg).detach()
-
-                policy_loss = -(coef * logp_cur).mean()
+                # coef = (ratio.detach() * advantages_pg).detach()
+                #
+                # policy_loss = -(coef * logp_cur).mean()
 
                 beta_kl=0.01
 
