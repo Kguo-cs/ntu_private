@@ -480,23 +480,23 @@ class ScaleFlow(nn.Module):
             else:
                 x_pred = x_pred_all[:len(z_sampled)]
 
-                # match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
-                #     tokenized_agent,
-                #     x_pred[:, 0],
-                #     x_sampled[:, 0],
-                #     z_sampled[:, 0],
-                #     e_sampled[:, 0],
-                #     t_n_sampled[:, 0],
-                #     x_pred=self.x_pred
-                # )
-                denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
-                denom_sq = denom.square()
-
-                inv_denom_sq = denom_sq.reciprocal()
-                mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
-
-                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)*0.01
-
+                sampled_match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
+                    tokenized_agent,
+                    x_pred[:, 0],
+                    x_sampled[:, 0],
+                    z_sampled[:, 0],
+                    e_sampled[:, 0],
+                    t_n_sampled[:, 0],
+                    x_pred=self.x_pred
+                )
+                # denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
+                # denom_sq = denom.square()
+                #
+                # inv_denom_sq = denom_sq.reciprocal()
+                # mse_Loss=F.mse_loss(x_pred[:, 0] , x_sampled[:, 0] , reduction="none")
+                #
+                # sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)*0.01
+                #
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
@@ -508,7 +508,7 @@ class ScaleFlow(nn.Module):
 
                 logp_cur = -sampled_match_loss[non_ego]
 
-                tokenized_agent["logp_cur"]=logp_cur
+                tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
                 policy_loss=(-advantages_pg.exp()*logp_cur).mean()
                 #
