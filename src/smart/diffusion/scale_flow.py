@@ -510,7 +510,7 @@ class ScaleFlow(nn.Module):
 
                 tokenized_agent["logp_cur"]=logp_cur
 
-                policy_loss=(-advantages_pg.exp()*logp_cur).mean()
+                policy_loss=(-advantages_pg.exp()*logp_cur).mean()*0.01
                 #
                 # if self.use_ref:
                 #     mse_Loss = F.mse_loss(ref_prediction[:, 0], x_sampled[:, 0], reduction="none")
