@@ -486,16 +486,6 @@ class ScaleFlow(nn.Module):
             else:
                 x_pred = x_pred_all[:len(z_sampled)]
 
-                # sampled_match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
-                #     tokenized_agent,
-                #     x_pred[:, 0],
-                #     x_sampled[:, 0],
-                #     z_sampled[:, 0],
-                #     e_sampled[:, 0],
-                #     t_n_sampled[:, 0],
-                #     t_dt=t_dt[:,0],
-                #     x_pred=self.x_pred
-                # )
                 denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
                 denom_sq = denom.square()
 
@@ -516,7 +506,7 @@ class ScaleFlow(nn.Module):
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
-                logp_cur = -sampled_match_loss[non_ego]*0.01
+                logp_cur = -sampled_match_loss[non_ego]
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
