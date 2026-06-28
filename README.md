@@ -2,7 +2,7 @@
 
 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_nopower_epoch=59-step=57120-valmeta=0.6478.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
