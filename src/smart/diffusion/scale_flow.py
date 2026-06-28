@@ -541,6 +541,14 @@ class ScaleFlow(nn.Module):
 
                 policy_loss = -(coef * logp_cur).mean()
 
+                beta_kl=0.01
+
+                if beta_kl > 0:
+                    delta = (logp_old.detach() - logp_cur).clamp(-10.0, 10.0)
+                    kl = torch.exp(delta) - delta - 1.0
+
+                    policy_loss = policy_loss + beta_kl * kl.mean()
+
                 tokenized_agent["policy_loss"]=policy_loss
                 tokenized_agent["ratio"]=ratio
 
