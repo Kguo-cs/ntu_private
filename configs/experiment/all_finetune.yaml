@@ -18,7 +18,7 @@ model:
       dis_weight: 20
       dist_decay: 3
 
-ckpt_path: "./waymo_data/xflow512_nopower_epoch=59-step=57120-valmeta=0.6478.ckpt"
+ckpt_path: "./waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt"
 
 task_name: all32_noshape10_exp_nopower01 #_nocol #_large0shape10
 
