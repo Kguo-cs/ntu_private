@@ -493,9 +493,9 @@ class ScaleFlow(nn.Module):
 
                 inv_denom_sq = denom_sq.reciprocal()
                 mse_Loss=F.mse_loss(x_pred[:, 0]/scale , x_sampled[:, 0]/scale , reduction="none")
-                #l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
+                l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
 
-                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)
+                sampled_match_loss=(mse_Loss/l1_Loss).mean(-1)
                 #sampled_match_loss=sampled_match_loss*0.1
 
                 non_ego = ~ego_mask
@@ -504,7 +504,7 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
+                advantages_pg = torch.exp(advantages_pg/10).detach() #.clamp_max(5)
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
@@ -512,7 +512,7 @@ class ScaleFlow(nn.Module):
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
-                policy_loss=(-advantages_pg*logp_cur).mean()*0.1#.exp()
+                policy_loss=(-advantages_pg*logp_cur).mean()*0.01#.exp()
 
                 # if self.use_ref:
                 #     mse_Loss = F.mse_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none")
