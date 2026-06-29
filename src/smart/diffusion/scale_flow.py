@@ -493,9 +493,9 @@ class ScaleFlow(nn.Module):
 
                 inv_denom_sq = denom_sq.reciprocal()
                 mse_Loss=F.mse_loss(x_pred[:, 0]/scale , x_sampled[:, 0]/scale , reduction="none")
-                l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
+                #l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
 
-                sampled_match_loss=(mse_Loss/l1_Loss).mean(-1)
+                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)
                 #sampled_match_loss=sampled_match_loss*0.1
 
                 non_ego = ~ego_mask
