@@ -504,7 +504,7 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                #advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
+                advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
@@ -512,28 +512,29 @@ class ScaleFlow(nn.Module):
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
-                # policy_loss=(-advantages_pg*logp_cur).mean()#.exp()
+                policy_loss=(-advantages_pg*logp_cur).mean()#.exp()
                 #
-                if self.use_ref:
-                    mse_Loss = F.mse_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none")
-                    l1_Loss = F.l1_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
-
-                    sampled_match_loss = (mse_Loss /l1_Loss).mean(-1)
-
-                    logp_old=-sampled_match_loss[non_ego]*0.01
-                else:
-                    logp_old = logp_cur.detach()
-
-                log_ratio = logp_cur - logp_old
-                ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
-
-                clip_eps = 0.1
-                ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
-
-                surrogate_1 = ratio * advantages_pg.detach()
-                surrogate_2 = ratio_clip * advantages_pg.detach()
-
-                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*0.1
+                # if self.use_ref:
+                #     mse_Loss = F.mse_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none")
+                #     l1_Loss = F.l1_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
+                #
+                #     sampled_match_loss = (mse_Loss /l1_Loss).mean(-1)
+                #
+                #     logp_old=-sampled_match_loss[non_ego]*0.01
+                # else:
+                #     logp_old = logp_cur.detach()
+                #
+                # log_ratio = logp_cur - logp_old
+                # ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
+                # tokenized_agent["ratio"]=ratio
+                #
+                # clip_eps = 0.1
+                # ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
+                #
+                # surrogate_1 = ratio * advantages_pg.detach()
+                # surrogate_2 = ratio_clip * advantages_pg.detach()
+                #
+                # policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*0.1
                 # smooth proximal correction
                 #pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
 
@@ -550,7 +551,6 @@ class ScaleFlow(nn.Module):
                     policy_loss = policy_loss + beta_kl * kl.mean()
 
                 tokenized_agent["policy_loss"]=policy_loss
-                tokenized_agent["ratio"]=ratio
 
             #x_pred = x_pred_all[len(z_sampled):]
 
