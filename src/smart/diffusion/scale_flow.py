@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = True
+        self.use_ref = False
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -504,7 +504,7 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg/2).detach() #.clamp_max(5)
+                advantages_pg = torch.exp(advantages_pg*2).detach() #.clamp_max(5)
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
