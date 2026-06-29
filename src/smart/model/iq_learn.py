@@ -415,6 +415,8 @@ class IQ_SoftQ(LightningModule):
         discriminator_optimizer.zero_grad()
         self.manual_backward(critic_loss)
         discriminator_optimizer.step()
+
+        return critic_loss
         #
         #
         #if not self.use_gradient_penalty:
