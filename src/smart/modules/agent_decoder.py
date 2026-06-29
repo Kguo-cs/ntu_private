@@ -137,7 +137,8 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
     ) :
-
+        if tokenized_agent["sampled_idx"].shape[1]==1:
+            return {}
         next_token_logits,a2a_feature,rewards,agent_token_emb,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
                                                                                 tokenized_agent["token_mask"][:,:-1],
                                                                                 tokenized_agent["valid_mask"][:,:-1],

@@ -381,7 +381,7 @@ class IQ_SoftQ(LightningModule):
         else:
             if self.gail:
                 for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
-                    tokenized_agent[key] = tokenized_agent[key][:, :2]
+                    tokenized_agent[key] = tokenized_agent[key][:, :self.training_rollout_len]
 
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent)
 
@@ -436,14 +436,19 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        feat_a = tokenized_agent_rollout["feat_a"]#.detach()
-
-        value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
-
         if self.token_processor.learn_init:
             intial_value=self.encoder.init_value_network(tokenized_agent_rollout["noise_feat"])[:,0]
 
+
+        if 'feat_a' in tokenized_agent_rollout.keys():
+            feat_a = tokenized_agent_rollout["feat_a"]#.detach()
+
+            value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
+
             value=torch.cat([intial_value[None],value],dim=0)
+        else:
+            value = intial_value
+
 
         advantages_2d, all_value_loss = compute_advantages(
             agent_rewards[-len(value):],
@@ -451,14 +456,17 @@ class IQ_SoftQ(LightningModule):
             #infinite_horizon=True
         )
 
-        # Normalize dense advantages.
         advantages_flat = advantages_2d.reshape(-1)
         self.return_meanstd.update(advantages_flat.detach())
         advantages_flat = self.return_meanstd.normalize(advantages_flat)
 
-        # For PPO action-token update.
-        ppo_advantages = advantages_flat[-len(agent_log_prob):]
-        ppo_loss = -(agent_log_prob * ppo_advantages).mean()
+        if self.training_rollout_len>1:
+            ppo_advantages = advantages_flat[-len(agent_log_prob):]
+            ppo_loss = -(agent_log_prob * ppo_advantages).mean()
+            self._log_train("train/ppo_loss", ppo_loss)
+            self._log_train("train/advantages", ppo_advantages.mean())
+        else:
+            ppo_loss=0
 
         if self.token_processor.learn_init:
             value_loss=all_value_loss[1:].mean()
@@ -470,8 +478,6 @@ class IQ_SoftQ(LightningModule):
 
         self._log_train("train/running_mean", self.return_meanstd.mean)
         self._log_train("train/running_var", self.return_meanstd.var)
-        self._log_train("train/ppo_loss", ppo_loss)
-        self._log_train("train/advantages", ppo_advantages.mean())
         self._log_train("train/value_loss", value_loss)
 
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss+init_value_loss  #  agent_entropy.mean()

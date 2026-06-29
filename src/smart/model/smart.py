@@ -72,13 +72,15 @@ class SMART(LightningModule):
             finetune=model_config.finetune
         )
 
+        self.training_rollout_len=1
+
         if  model_config.finetune:
             for p in self.encoder.map_encoder.parameters():
                 p.requires_grad = False
 
             if self.token_processor.pred_init:
                 if self.token_processor.learn_init:
-                    if not self.encoder.gail:
+                    if not self.encoder.gail or self.training_rollout_len==1:
                         for p in self.encoder.agent_encoder.parameters():
                             p.requires_grad = False
                 else:
