@@ -504,7 +504,7 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg).detach() #.clamp_max(5)
+                advantages_pg = torch.exp(advantages_pg/2).detach() #.clamp_max(5)
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
@@ -513,7 +513,7 @@ class ScaleFlow(nn.Module):
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
                 policy_loss=(-advantages_pg*logp_cur).mean()#.exp()
-                #
+
                 # if self.use_ref:
                 #     mse_Loss = F.mse_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none")
                 #     l1_Loss = F.l1_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
