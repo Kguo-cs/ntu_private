@@ -526,7 +526,8 @@ class IQ_SoftQ(LightningModule):
             self._log_train('train/g_loss', g_loss)
             self._log_train('train/sampled_match_loss', tokenized_agent["sampled_match_loss"].mean())
             self._log_train('train/policy_loss', tokenized_agent["policy_loss"])
-            self._log_train('train/ratio_std', tokenized_agent["ratio"].std())
+            if "ratio" in tokenized_agent.keys():
+                self._log_train('train/ratio_std', tokenized_agent["ratio"].std())
 
             init_loss=match_loss+g_loss
 
