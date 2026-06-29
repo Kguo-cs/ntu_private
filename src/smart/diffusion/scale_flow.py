@@ -508,7 +508,7 @@ class ScaleFlow(nn.Module):
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
-                logp_cur = -sampled_match_loss[non_ego]*0.01
+                logp_cur = -sampled_match_loss[non_ego]*0.1
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
@@ -520,7 +520,7 @@ class ScaleFlow(nn.Module):
 
                     sampled_match_loss = (mse_Loss /l1_Loss).mean(-1)
 
-                    logp_old=-sampled_match_loss[non_ego]*0.01
+                    logp_old=-sampled_match_loss[non_ego]*0.1
                 else:
                     logp_old = logp_cur.detach()
 
