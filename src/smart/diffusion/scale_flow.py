@@ -518,11 +518,11 @@ class ScaleFlow(nn.Module):
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
-                logp_cur = -sampled_match_loss[non_ego]#*0.1
+                logp_cur = -sampled_match_loss[non_ego]
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
-                policy_loss=(-advantages_pg*logp_cur).mean()*0.1#.exp()
+                policy_loss=(-advantages_pg*logp_cur).mean()*0.01##.exp()
 
                 # if self.use_ref:
                 #     mse_Loss = F.mse_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none")
