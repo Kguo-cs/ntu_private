@@ -541,7 +541,7 @@ class ScaleFlow(nn.Module):
                 #
                 # policy_loss = -(coef * logp_cur).mean()
 
-                beta_kl=0.01
+                beta_kl=0
 
                 if beta_kl > 0:
                     delta = (logp_old.detach() - logp_cur).clamp(-10.0, 10.0)
