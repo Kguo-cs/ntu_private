@@ -381,13 +381,12 @@ class IQ_SoftQ(LightningModule):
         else:
             if self.gail:
                 for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
-                    tokenized_agent[key] = tokenized_agent[key][:, :10]
+                    tokenized_agent[key] = tokenized_agent[key][:, :2]
 
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent)
 
         if not self.gail:
             return expert_nll
-
 
        # if self.pred_init:
        #  tokenized_agent["train_mask"] = tokenized_agent["token_mask"].all(1)
