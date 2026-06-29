@@ -591,7 +591,7 @@ def get_diff_loss(
     denom_sq = denom.square()
     t_mask=(t>0) & (t<1)
 
-    inv_denom_sq = denom_sq.reciprocal()*t_mask.float()*t_dt.square()#.clamp(max=max_loss_weight)
+    inv_denom_sq = denom_sq.reciprocal()*t_mask.float()#*t_dt.square()#.clamp(max=max_loss_weight)
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state,
