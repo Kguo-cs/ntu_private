@@ -508,7 +508,7 @@ class ScaleFlow(nn.Module):
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
-                logp_cur = -sampled_match_loss[non_ego]*0.1
+                logp_cur = -sampled_match_loss[non_ego]*0.01
 
                 tokenized_agent["sampled_match_loss"]=sampled_match_loss
 
@@ -520,14 +520,14 @@ class ScaleFlow(nn.Module):
 
                     sampled_match_loss = (mse_Loss /l1_Loss).mean(-1)
 
-                    logp_old=-sampled_match_loss[non_ego]*0.1
+                    logp_old=-sampled_match_loss[non_ego]*0.01
                 else:
                     logp_old = logp_cur.detach()
 
                 log_ratio = logp_cur - logp_old
                 ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
 
-                clip_eps = 0.5
+                clip_eps = 0.2
                 ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
 
                 surrogate_1 = ratio * advantages_pg.detach()
