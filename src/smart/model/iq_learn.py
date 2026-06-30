@@ -524,7 +524,7 @@ class IQ_SoftQ(LightningModule):
                 self._log_train('train/sampled_match_loss', tokenized_agent["sampled_match_loss"].mean())
             self._log_train('train/policy_loss', tokenized_agent["policy_loss"])
             if "clip_ratio" in tokenized_agent.keys():
-                self._log_train('train/clip_ratio', tokenized_agent["clip_ratio"])
+                self._log_train('train/clip_ratio', tokenized_agent["clip_ratio"].mean())
 
             init_loss=match_loss+g_loss
 
