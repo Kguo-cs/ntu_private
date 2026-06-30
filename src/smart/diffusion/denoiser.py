@@ -364,7 +364,7 @@ class InitDenoiser(nn.Module):
     # ---------------------------------------------------------------------
     # Tokenized-agent input construction
     # ---------------------------------------------------------------------
-    def get_input(self, tokenized_agent) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_input(self, tokenized_agent,expert_data=True) -> Tuple[torch.Tensor, torch.Tensor]:
         """Build local all-agent initial state.
 
         Returns:
@@ -387,9 +387,16 @@ class InitDenoiser(nn.Module):
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
-        shape = tokenized_agent["initial_shape"]
-        agent_pos = tokenized_agent["initial_pos"]
-        agent_head = tokenized_agent["initial_heading"]
+        if expert_data:
+            shape = tokenized_agent["initial_shape"]
+            agent_pos = tokenized_agent["initial_pos"]
+            agent_head = tokenized_agent["initial_heading"]
+            local_vel = tokenized_agent["local_vel"]
+        else:
+            shape=tokenized_agent["shape"]
+            agent_pos=tokenized_agent["sampled_pos"][:,0]
+            agent_head=tokenized_agent["sampled_heading"][:,0]
+            local_vel=tokenized_agent["initial_local_vel"]
 
         local_pos, local_heading = transform_to_local(
             agent_pos,
@@ -402,14 +409,6 @@ class InitDenoiser(nn.Module):
             [local_heading.cos(), local_heading.sin()],
             dim=-1,
         )
-
-        if "local_vel" in tokenized_agent:
-            local_vel = tokenized_agent["local_vel"]
-        else:
-            local_vel = rotate_to_local(
-                tokenized_agent["initial_vel"],
-                agent_head,
-            )
 
         m_init = torch.cat(
             [
