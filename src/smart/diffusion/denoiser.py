@@ -750,9 +750,8 @@ class InitDenoiser(nn.Module):
             dim=-1,
         )
 
-        # Used by learn_init value head / RL loss when beta=0 for all agents.
         ego_mask = tokenized_agent.get("ego_mask", None)
-        if not self.training and torch.all(beta[~ego_mask] == 0):
+        if not self.training and len(beta)==len(ego_mask) and torch.all(beta[~ego_mask] == 0):
             tokenized_agent["noise_feat"] = feat_a
 
         return res[:, None]

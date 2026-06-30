@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = False
+        self.use_ref = True
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -205,6 +205,41 @@ class ScaleFlow(nn.Module):
             advantages = advantages / advantages.std(unbiased=False).clamp_min(1e-6)
 
         return advantages.clamp(-self.init_adv_clip, self.init_adv_clip)
+
+    def adaptive_x0_loss_per_sample(self,pred_x0, target_x0):
+        """
+        pred_x0:   [B, A, T, D]
+        target_x0: [B, A, T, D]
+        valid_mask:[B, A, T]
+        return:    [B]
+        """
+        err = pred_x0 - target_x0
+
+        mse = err.square()  # [B, A, T, D]
+        l1 = err.abs().mean(dim=-1, keepdim=True)
+        l1 = l1.clamp_min(1e-5).detach()
+
+        loss = (mse / l1).mean(dim=-1)  # [B, A, T]
+        # denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
+        # denom_sq = denom.square()
+        # sampled_match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
+        #     tokenized_agent,
+        #     x_pred[:, 0],
+        #     x_sampled[:, 0],
+        #     z_sampled[:, 0],
+        #     e_sampled[:, 0],
+        #     t_n_sampled[:, 0],
+        #     use_col=False,
+        #     x_pred=self.x_pred
+        # )
+
+        # inv_denom_sq = denom_sq.reciprocal()
+        # mse_Loss = F.mse_loss(x_pred[:, 0] / scale, x_sampled[:, 0] / scale, reduction="none")
+        # # l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
+        # #
+        # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
+        #
+        return -loss.mean(dim=1)*0.01
 
     def get_loss(self,
                  x,
@@ -307,10 +342,6 @@ class ScaleFlow(nn.Module):
 
         z = (1 - t) * e + t * x  # large t, low noise        target velocity e-x = (z-x)/(1-t)
 
-        if self.model.use_cfg_cond:
-            tokenized_agent["cfg"] = torch.ones(num_graphs,
-                                                device=agent_batch.device) * 2  # sample_cfg_scale(num_graphs,device=z.device)#t
-
         if "advantages" in tokenized_agent.keys():
             raw_advantages = tokenized_agent["advantages"]
 
@@ -377,7 +408,7 @@ class ScaleFlow(nn.Module):
                                 tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
                         self.ref_model.eval()
-                    ref_prediction = self.ref_model(z_sampled, t_n_sampled, tokenized_agent, initial_map_feature)
+                    ref_prediction = self.ref_model(z_sampled, t_n_sampled, model_tokenized_agent, initial_map_feature)
 
                 if self.use_nft:
                     decay = return_decay(self.global_step, 2)
@@ -484,29 +515,12 @@ class ScaleFlow(nn.Module):
                     else:
                         policy_loss = -(log_prob * advantages_pg).mean()
             else:
-                x_pred = x_pred_all[:len(z_sampled)]
+                new_pred_x0 = x_pred_all[:len(z_sampled)]
 
-                denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
-                denom_sq = denom.square()
+                scale=self.model.normal_scale[:,None]
 
-                scale=self.model.normal_scale
-
-                # sampled_match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
-                #     tokenized_agent,
-                #     x_pred[:, 0],
-                #     x_sampled[:, 0],
-                #     z_sampled[:, 0],
-                #     e_sampled[:, 0],
-                #     t_n_sampled[:, 0],
-                #     use_col=False,
-                #     x_pred=self.x_pred
-                # )
-
-                inv_denom_sq = denom_sq.reciprocal()
-                mse_Loss=F.mse_loss(x_pred[:, 0]/scale , x_sampled[:, 0]/scale , reduction="none")
-                # l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
-                #
-                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1).reshape(self.mc_num,-1).mean(0)
+                logp_cur = self.adaptive_x0_loss_per_sample(
+                    new_pred_x0/scale, x_sampled.detach()/scale).reshape(self.mc_num, -1).mean(0)
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
@@ -514,43 +528,37 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg/2).detach()#.clamp_max(5)
 
-                #advantages_pg=advantages_pg.clamp_min(0.0)
+                if self.use_ref:
+                    logp_old= self.adaptive_x0_loss_per_sample(
+                    ref_prediction/scale, x_sampled.detach()/scale).reshape(self.mc_num, -1).mean(0)
+                else:
+                    logp_old = logp_cur.detach()
 
-                logp_cur = -sampled_match_loss[non_ego]
+                log_ratio = logp_cur - logp_old
 
-                tokenized_agent["sampled_match_loss"]=sampled_match_loss
+                # scale = log_ratio.detach().std().clamp_min(1e-6)
+                # log_ratio = -log_ratio / scale
+                #
+                ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))[non_ego]
+                tokenized_agent["ratio"]=ratio
 
-                policy_loss=(-advantages_pg*logp_cur).mean()*0.1##.exp()
+                clip_eps = 0.1
+                ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
 
-                # if self.use_ref:
-                #     mse_Loss = F.mse_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none")
-                #     l1_Loss = F.l1_loss(ref_prediction[:, 0]/scale, x_sampled[:, 0]/scale, reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
-                #
-                #     sampled_match_loss = (mse_Loss /l1_Loss).mean(-1)
-                #
-                #     logp_old=-sampled_match_loss[non_ego]*0.01
-                # else:
-                #     logp_old = logp_cur.detach()
-                #
-                # log_ratio = logp_cur - logp_old
-                # ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))
-                # tokenized_agent["ratio"]=ratio
-                #
-                # clip_eps = 0.1
-                # ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
-                #
-                # surrogate_1 = ratio * advantages_pg.detach()
-                # surrogate_2 = ratio_clip * advantages_pg.detach()
-                #
-                # policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*0.1
+                surrogate_1 = ratio * advantages_pg.detach()
+                surrogate_2 = ratio_clip * advantages_pg.detach()
+
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*0.1
                 # smooth proximal correction
-                #pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
+                # pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
 
                 # coef = (ratio.detach() * advantages_pg).detach()
                 #
                 # policy_loss = -(coef * logp_cur).mean()
+                # advantages_pg = torch.exp(advantages_pg/2).detach()#.clamp_max(5)
+
+                #policy_loss=(-advantages_pg*logp_cur).mean()*0.1##.exp()
 
                 beta_kl=0
 
