@@ -592,7 +592,7 @@ class InitDenoiser(nn.Module):
             batch_s=batch,
             mask=None,
             max_radius=300,
-            max_num_neighbors=30,
+            max_num_neighbors=20,
             agent_train_mask=None,
             layer_num=self.num_layers,
             counter_feat_a=None,
@@ -661,7 +661,7 @@ class InitDenoiser(nn.Module):
             batch_s=batch_for_map,
             batch_pl=batch_pl,
             pl2a_radius=300,
-            max_num_neighbors=30,
+            max_num_neighbors=20,
             agent_train_mask=None,
             layer_num=self.num_layers,
             #feat_a=feat_a,
@@ -669,15 +669,15 @@ class InitDenoiser(nn.Module):
         )
 
         for layer_i in range(self.num_layers):
-            feat_a = self.pt2a_attn_layers[layer_i](
-                (feat_map, feat_a),
-                r_pl2a,
-                edge_index_pl2a,
-            )
             feat_a = self.a2a_attn_layers[layer_i](
                 feat_a,
                 r_a2a,
                 edge_index_a2a,
+            )
+            feat_a = self.pt2a_attn_layers[layer_i](
+                (feat_map, feat_a),
+                r_pl2a,
+                edge_index_pl2a,
             )
 
         return self.to_out_m_delta(feat_a)
