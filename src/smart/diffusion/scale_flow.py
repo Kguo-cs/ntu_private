@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = False
+        self.use_sde = True
 
         self.noise_level = 0.7
 
@@ -272,9 +272,6 @@ class ScaleFlow(nn.Module):
             if self.lognorm_t:
 
                 # base_t = (torch.randn((num_graphs,1), device=x.device, dtype=torch.float32)*self.P_std+self.P_mean).sigmoid()#.repeat(1,8)
-                # t, bin_idx = self.info_sampler.sample(batch_size=num_graphs)
-
-                # base_t = t[:,None]
 
                 base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32)
 
@@ -564,7 +561,7 @@ class ScaleFlow(nn.Module):
 
                     policy_loss = policy_loss + beta_kl * kl.mean()
 
-                tokenized_agent["policy_loss"]=policy_loss
+            tokenized_agent["policy_loss"]=policy_loss
 
             #x_pred = x_pred_all[len(z_sampled):]
 
