@@ -134,7 +134,7 @@ class ScaleFlow(nn.Module):
 
         # self.info_sampler=InfoNoiseSampler()
 
-        self.mc_num = 8
+        self.mc_num = 1
 
         self.init_adv_clip = 3.0
         self.init_logprob_clip = 50.0
@@ -832,7 +832,7 @@ class ScaleFlow(nn.Module):
         return z, pred_x0, t_n, log_prob
 
     @torch.no_grad()
-    def sample(self, tokenized_agent, initial_map_feature, eval_mask, infer_steps=20, num_samples=1):
+    def sample(self, tokenized_agent, initial_map_feature, eval_mask, infer_steps=5, num_samples=1):
 
         agent_batch = tokenized_agent["init_agent_batch"]
         num_graphs = tokenized_agent["num_graphs"]
