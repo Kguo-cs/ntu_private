@@ -400,14 +400,19 @@ class ScaleFlow(nn.Module):
 
             with torch.no_grad():
                 if self.use_ref:
-                    if self.global_step == 0:
-                        decay = 0
-                        for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(),
-                                                        strict=True):
-                            tgt_param.data.copy_(
-                                tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
+                    # if self.global_step == 0:
+                    #     decay = 0
+                    #     for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(),
+                    #                                     strict=True):
+                    #         tgt_param.data.copy_(
+                    #             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
+                    #
+                    #     self.ref_model.eval()
+                    decay = return_decay(self.global_step, 2)
+                    for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(), strict=True):
+                        tgt_param.data.copy_(
+                            tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
-                        self.ref_model.eval()
                     ref_prediction = self.ref_model(z_sampled, t_n_sampled, model_tokenized_agent, initial_map_feature)
 
                 if self.use_nft:
