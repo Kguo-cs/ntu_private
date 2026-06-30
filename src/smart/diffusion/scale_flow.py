@@ -134,7 +134,7 @@ class ScaleFlow(nn.Module):
 
         # self.info_sampler=InfoNoiseSampler()
 
-        self.mc_num = 4
+        self.mc_num = 2
 
         self.init_adv_clip = 3.0
         self.init_logprob_clip = 50.0
@@ -408,7 +408,7 @@ class ScaleFlow(nn.Module):
                     #             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
                     #
                     #     self.ref_model.eval()
-                    decay = return_decay(self.global_step, 2)
+                    decay = 0.999#return_decay(self.global_step, 2)
                     for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(), strict=True):
                         tgt_param.data.copy_(
                             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
