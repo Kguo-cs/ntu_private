@@ -239,7 +239,7 @@ class ScaleFlow(nn.Module):
         # #
         # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
         #
-        return -loss.mean(dim=1)*0.1
+        return -loss.mean(dim=1)*0.01
 
     def get_loss(self,
                  x,
@@ -539,7 +539,7 @@ class ScaleFlow(nn.Module):
                 #
                 ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))[non_ego]
 
-                clip_eps = 0.1
+                clip_eps = 0.01
                 tokenized_agent["clip_ratio"]=((ratio<1-clip_eps) | (ratio>1+clip_eps) ).float()
 
                 ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
