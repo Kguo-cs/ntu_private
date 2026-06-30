@@ -120,7 +120,7 @@ class ScaleFlow(nn.Module):
 
         self.use_sde = True
 
-        self.noise_level = 0.7
+        self.noise_level = 0.1
 
         self.rationorm = False
 
@@ -139,7 +139,7 @@ class ScaleFlow(nn.Module):
         self.init_adv_clip = 3.0
         self.init_logprob_clip = 50.0
         self.init_ppo_clip = 0.2
-        self.use_init_ppo_ratio = True
+        self.use_init_ppo_ratio = False
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
@@ -468,7 +468,7 @@ class ScaleFlow(nn.Module):
                         prev_sample=prev_sample[sampled_non_ego]
                     )
                     log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
-                    log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
+                    # log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
                     advantages_pg = advantages[sampled_non_ego]
                     if self.use_init_ppo_ratio and old_log_prob is not None:
                         old_lp = old_log_prob[sampled_non_ego].detach()
