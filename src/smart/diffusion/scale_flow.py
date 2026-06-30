@@ -134,7 +134,7 @@ class ScaleFlow(nn.Module):
 
         # self.info_sampler=InfoNoiseSampler()
 
-        self.mc_num = 1
+        self.mc_num = 8
 
         self.init_adv_clip = 3.0
         self.init_logprob_clip = 50.0
