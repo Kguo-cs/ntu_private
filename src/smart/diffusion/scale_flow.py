@@ -118,9 +118,9 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = True
+        self.use_sde = False
 
-        self.noise_level = 1
+        self.noise_level = 0.7
 
         self.rationorm = False
 
@@ -134,7 +134,7 @@ class ScaleFlow(nn.Module):
 
         # self.info_sampler=InfoNoiseSampler()
 
-        self.mc_num = 1
+        self.mc_num = 2
 
         self.init_adv_clip = 3.0
         self.init_logprob_clip = 50.0
@@ -347,18 +347,21 @@ class ScaleFlow(nn.Module):
                     dim=1,
                 ).transpose(0, 1).flatten(0, 1)  # [n_agent*n_step]
 
-                sampled_base_t = torch.rand_like(base_t)[agent_batch]
+                sampled_base_t = torch.rand_like(base_t[None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1))[agent_batch]
                 t_n_sampled, _ = self.model.schedule(
                     sampled_base_t, x_sampled, tokenized_agent
                 )
 
+                model_tokenized_agent = self.repeat_input_copy(
+                    tokenized_agent,
+                    self.mc_num ,
+                )
+
                 t_n_sampled = torch.where(
-                    ego_mask[:, None, None],
+                    ego_mask.repeat(self.mc_num, 1).flatten(0, 1)[:, None, None],
                     torch.ones_like(t_n_sampled),
                     t_n_sampled,
                 )
-
-                advantages = advantages[None].repeat(self.mc_num, 1).flatten(0, 1)
 
                 z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
@@ -393,12 +396,8 @@ class ScaleFlow(nn.Module):
 
             t_all = t_n_sampled  # torch.cat((t_n_sampled, t), dim=0)
             z_all = z_sampled  # torch.cat((z_sampled, z), dim=0)
-            model_tokenized_agent = tokenized_agent
+            #model_tokenized_agent = tokenized_agent
 
-            # model_tokenized_agent = self.repeat_input_copy(
-            #     tokenized_agent,
-            #     self.mc_num + 1,
-            # )
 
             x_pred_all = self.model(
                 z_all,
@@ -507,7 +506,7 @@ class ScaleFlow(nn.Module):
                 mse_Loss=F.mse_loss(x_pred[:, 0]/scale , x_sampled[:, 0]/scale , reduction="none")
                 # l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
                 #
-                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1)
+                sampled_match_loss=(mse_Loss*inv_denom_sq).mean(-1).reshape(self.mc_num,-1).mean(0)
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
@@ -515,7 +514,7 @@ class ScaleFlow(nn.Module):
                     ego_mask,
                     selected_agent_idx=None,
                 )[non_ego]
-                advantages_pg = torch.exp(advantages_pg/2).detach() #.clamp_max(5)
+                advantages_pg = torch.exp(advantages_pg/2).detach()#.clamp_max(5)
 
                 #advantages_pg=advantages_pg.clamp_min(0.0)
 
