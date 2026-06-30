@@ -239,7 +239,7 @@ class ScaleFlow(nn.Module):
         # #
         # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
         #
-        return -loss.mean(dim=1)*0.1
+        return -loss.mean(dim=1)*0.01
 
     def get_loss(self,
                  x,
@@ -400,14 +400,6 @@ class ScaleFlow(nn.Module):
 
             with torch.no_grad():
                 if self.use_ref:
-                    # if self.global_step == 0:
-                    #     decay = 0
-                    #     for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(),
-                    #                                     strict=True):
-                    #         tgt_param.data.copy_(
-                    #             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
-                    #
-                    #     self.ref_model.eval()
                     decay = return_decay(self.global_step, 2)
                     for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(), strict=True):
                         tgt_param.data.copy_(
@@ -774,7 +766,7 @@ class ScaleFlow(nn.Module):
 
             t_n[padding_mask] = 0
 
-        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask, mode=1)  # [...,:z.shape[-1]]
+        x_cond = self.ref_model(z, t_n, tokenized_agent, initial_map_feature, eval_mask, mode=1)  # [...,:z.shape[-1]]
 
         if self.model.pred_gmm:
             K = 8
@@ -914,9 +906,6 @@ class ScaleFlow(nn.Module):
         log_prob_list = []
         feat_list = []
         t_list = []
-
-        if self.model.use_cfg_cond:
-            tokenized_agent["cfg"] = torch.ones(num_graphs, device=agent_batch.device) * 2
 
         if self.use_scale:
             type_counts = tokenized_agent["type_counts"]
