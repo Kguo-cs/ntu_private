@@ -239,7 +239,7 @@ class ScaleFlow(nn.Module):
         # #
         # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
         #
-        return -loss.mean(dim=1)*0.01
+        return -loss.mean(dim=1)*0.1
 
     def get_loss(self,
                  x,
@@ -408,7 +408,7 @@ class ScaleFlow(nn.Module):
                     #             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
                     #
                     #     self.ref_model.eval()
-                    decay = 0.999#return_decay(self.global_step, 2)
+                    decay = return_decay(self.global_step, 2)
                     for src_param, tgt_param in zip(self.model.parameters(), self.ref_model.parameters(), strict=True):
                         tgt_param.data.copy_(
                             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
