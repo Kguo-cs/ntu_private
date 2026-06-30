@@ -758,9 +758,6 @@ class InitDenoiser(nn.Module):
 
         return res[:, None]
 
-    # ---------------------------------------------------------------------
-    # Convert generated local initial state back to global tokenized fields
-    # ---------------------------------------------------------------------
     def get_output(self, pred_init: torch.Tensor, tokenized_agent):
         """Convert generated local all-agent initial state back to global fields."""
         shape = tokenized_agent["initial_shape"].clone()
@@ -784,31 +781,23 @@ class InitDenoiser(nn.Module):
             batch_ego_heading,
         )
 
-        gt_initial_pos = global_pos
-        gt_initial_heading = global_heading
+        gt_initial_pos = global_pos[:, None]
+        gt_initial_heading = global_heading[:, None]
 
-        # pred_vel is local to generated heading.
-        global_pred_vel = rotate_to_global(pred_vel[:, :2], global_heading)
-        gt_initial_vel = global_pred_vel
-
-        rel_vel = rotate_to_local(gt_initial_vel, gt_initial_heading)
-
-        # Map generated velocity to closest token initial index.
         center_token_traj = tokenized_agent["token_traj"].mean(-2)
         gt_initial_idx = torch.linalg.norm(
-            center_token_traj - rel_vel[:, None] * 0.5,
+            center_token_traj - pred_vel[:, None] * 0.5,
             dim=-1,
-        ).argmin(-1)[:, None]
+        ).argmin(-1)
 
-        gt_initial_pos = gt_initial_pos[:, None]
-        gt_initial_heading = gt_initial_heading[:, None]
+        local_vel = center_token_traj[torch.arange(len(gt_initial_idx), device=gt_initial_idx.device), gt_initial_idx]
 
         return (
             gt_initial_pos,
             gt_initial_heading,
             shape,
-            gt_initial_vel,
-            gt_initial_idx,
+            local_vel,
+            gt_initial_idx[:, None],
         )
 
 

@@ -415,18 +415,16 @@ class IQ_SoftQ(LightningModule):
         discriminator_optimizer.zero_grad()
         self.manual_backward(critic_loss)
         discriminator_optimizer.step()
-
-        return critic_loss
         #
         #
         #if not self.use_gradient_penalty:
-        with torch.no_grad():
-            discriminator_was_training = self.encoder.discriminator.training
-            self.encoder.discriminator.eval()
-            agent_rewards = self.get_reward(
-                tokenized_agent_rollout, "agent", expert_dis_mask
-            )
-            self.encoder.discriminator.train(discriminator_was_training)
+        # with torch.no_grad():
+        #     discriminator_was_training = self.encoder.discriminator.training
+        #     self.encoder.discriminator.eval()
+        #     agent_rewards = self.get_reward(
+        #         tokenized_agent_rollout, "agent", expert_dis_mask
+        #     )
+        #     self.encoder.discriminator.train(discriminator_was_training)
         #
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 

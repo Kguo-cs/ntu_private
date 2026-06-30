@@ -216,7 +216,7 @@ class SMART(LightningModule):
 
                 if self.challenge_type == ChallengeType.SCENARIO_GEN:
                     pred_sizes.append(pred["shape"])
-                    pred_vels.append(pred["initial_vel"])
+                    pred_vels.append(pred["initial_local_vel"])
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]

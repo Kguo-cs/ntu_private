@@ -170,9 +170,9 @@ class SMARTAgentDecoder(nn.Module):
             # head_a=gt_head[:,:2]
             # sampled_idx=gt_sampled_idx[:,:2]
             # shape=tokenized_agent["initial_shape"]
-            # initial_vel =tokenized_agent["local_vel"]
+            # initial_local_vel =tokenized_agent["local_vel"]
 
-            pos_a,head_a, sampled_idx,shape,initial_vel = init_decoder(tokenized_agent)
+            pos_a,head_a, sampled_idx,shape,initial_local_vel = init_decoder(tokenized_agent)
 
             if "gt_z_raw" in tokenized_agent.keys():
 
@@ -232,7 +232,7 @@ class SMARTAgentDecoder(nn.Module):
                     "pred_traj_10hz": pos_a,
                     "pred_head_10hz": head_a,
                     "pred_z_10hz": torch.zeros_like(pos_a[:, :, 0]),
-                    "initial_vel": initial_vel,
+                    "initial_local_vel": initial_local_vel,
                 }
 
                 return out_dict
@@ -304,6 +304,9 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_idx": sampled_idx,  # [n_agent, 18]
         }
 
+        if self.pred_init:
+            out_dict["initial_local_vel"] = initial_local_vel
+
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             # if self.token_processor.pred_all_pos:
             #     out_dict["pred_head_10hz"] = tokenized_agent["local_allheading"]
@@ -313,9 +316,6 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)  # tokenized_agent['gt_traj_10hz'] #
 
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
-
-            if self.pred_init:
-                out_dict["initial_vel"]=initial_vel
 
         return out_dict
 
