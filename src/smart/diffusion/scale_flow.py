@@ -548,7 +548,7 @@ class ScaleFlow(nn.Module):
                 surrogate_1 = ratio * advantages_pg.detach()
                 surrogate_2 = ratio_clip * advantages_pg.detach()
 
-                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*10
                 # smooth proximal correction
                 # pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
 
@@ -607,40 +607,6 @@ class ScaleFlow(nn.Module):
         )
 
         #self.debug_loss_vs_timestep(base_t[:,0,0],match_loss,ego_mask)
-
-        if self.model.schedule_loss:
-            with torch.no_grad():
-                e = torch.randn_like(x)  # .clamp(min=-3,max=3) # base distribution N(0, I)
-
-                base_t = torch.rand((num_graphs, 1, 1), device=x.device, dtype=torch.float32).repeat(1, 1,
-                                                                                                     self.model.m_delta_dim)
-
-                t = base_t[agent_batch]
-
-                t = torch.where(
-                    ego_mask[:, None, None],
-                    torch.ones_like(t),
-                    t,
-                )
-
-                z = (1 - t) * e + t * x  # large t, low noise        target velocity e-x = (z-x)/(1-t)
-
-                x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
-
-                observed_group_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_diff_loss(
-                    tokenized_agent,
-                    x_pred[:, 0],
-                    x[:, 0],
-                    z[:, 0],
-                    e[:, 0],
-                    t[:, 0],
-                    use_col=False,  # not self.model.pred_gmm,
-                    x_pred=self.x_pred,
-                )
-
-                observed_group_loss = torch.stack([pos_loss1, heading_loss1, shape_loss1, vel_loss1], dim=-1)
-
-            policy_loss = self.model.schedule.loss(t[~ego_mask, 0, ::2], observed_group_loss)
 
         loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
@@ -766,7 +732,7 @@ class ScaleFlow(nn.Module):
 
             t_n[padding_mask] = 0
 
-        x_cond = self.ref_model(z, t_n, tokenized_agent, initial_map_feature, eval_mask, mode=1)  # [...,:z.shape[-1]]
+        x_cond = self.model(z, t_n, tokenized_agent, initial_map_feature, eval_mask, mode=1)  # [...,:z.shape[-1]]
 
         if self.model.pred_gmm:
             K = 8
