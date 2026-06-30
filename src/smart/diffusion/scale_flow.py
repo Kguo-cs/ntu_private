@@ -334,6 +334,16 @@ class ScaleFlow(nn.Module):
                 advantages = raw_advantages
                 gen_z=tokenized_agent["gen_z"]
                 gen_z[:, :, 2:4] = gen_z[:, :, 2:4] / gen_z[:, :, 2:4].norm(dim=-1, keepdim=True)
+                gen_z[:, 0, 6:8] = tokenized_agent["initial_local_vel"]
+
+                # tokenized_agent["initial_shape"]=tokenized_agent["shape"]
+                # tokenized_agent["initial_pos"]=tokenized_agent["sampled_pos"][:,0]
+                # tokenized_agent["initial_heading"]=tokenized_agent["sampled_heading"][:,0]
+                # tokenized_agent["local_vel"]=tokenized_agent["initial_local_vel"]
+                #
+                # tokenized_agent["gen_z"][:,0,6:8]=tokenized_agent["initial_local_vel"]
+                #
+                # diff_input1,diff_output1=self.G1.model.get_input(tokenized_agent)
 
                 x_sampled = gen_z[None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1)
                 e_sampled = torch.randn_like(e[None].repeat(self.mc_num, 1, 1, 1).flatten(0, 1))
