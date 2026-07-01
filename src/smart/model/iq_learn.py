@@ -388,7 +388,7 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        if self.global_step == 0:
+        if self.global_step == 0 and self.encoder.init_decoder.G1.use_ref:
             decay = 0
             for src_param, tgt_param in zip(self.encoder.init_decoder.G1.model.parameters(), self.encoder.init_decoder.G1.ref_model.parameters(),
                                             strict=True):
