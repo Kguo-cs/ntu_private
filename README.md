@@ -12,7 +12,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_nopower_epoch=63-step=60928
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_value1e3_gp001shape10/2026-06-23_19-48-18/bc/b3t7nywg/checkpoints/epoch=2-step=68484-valmeta=0.6529.ckpt ./
 
-rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow256_val64/2026-06-19_17-28-16/checkpoints/epoch=63-step=60928-valmeta=0.6490.ckpt ./
+rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow512_n30/2026-06-29_23-07-13/bc/hgdzbse9/checkpoints/last.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_nopower/2026-06-27_09-02-58/bc/93nicla7/checkpoints/epoch=63-step=60928-valmeta=0.6490.ckpt ./
 
