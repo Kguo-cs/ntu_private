@@ -608,7 +608,7 @@ class ScaleFlow(nn.Module):
 
         #self.debug_loss_vs_timestep(base_t[:,0,0],match_loss,ego_mask)
 
-        loss = (match_loss*0.01, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
        # print(match_loss.mean(),sampled_match_loss.mean())
 
