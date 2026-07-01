@@ -602,13 +602,13 @@ class ScaleFlow(nn.Module):
             base_t=base_t[:,0],
             t_dt=t_dt[:,0],
             t_eps=self.t_eps,
-            use_col=True,  # not self.model.pred_gmm,
+            use_col=False,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
         #self.debug_loss_vs_timestep(base_t[:,0,0],match_loss,ego_mask)
 
-        loss = (match_loss*0.1, collision_loss*0.1 + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        loss = (match_loss*0.1, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
        # print(match_loss.mean(),sampled_match_loss.mean())
 

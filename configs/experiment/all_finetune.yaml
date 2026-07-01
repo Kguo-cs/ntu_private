@@ -5,7 +5,7 @@ defaults:
 
 model:
   model_config:
-    lr: 5e-4
+    lr: 1e-4
     lr_min_ratio: 0.05
     token_processor:
       pred_init: True
@@ -20,7 +20,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt"
 
-task_name: all128_loss001_clip001decay_bc01_lr5e4 #999 #Z_Newz #rewardNewMyexp01d2_l1 #ppo001loss01kl01_clip01ppow01kl001 # samplelossPos #_nocol #_large0shape10noshape10_exp_
+task_name: all128_loss001_clip001decay_bc01_nocol #999 #Z_Newz #rewardNewMyexp01d2_l1 #ppo001loss01kl01_clip01ppow01kl001 # samplelossPos #_nocol #_large0shape10noshape10_exp_
 
 trainer:
   val_check_interval: 0.5
