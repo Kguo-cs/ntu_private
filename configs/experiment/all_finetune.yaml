@@ -24,8 +24,8 @@ ckpt_path: "./waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckp
 task_name: all128_nogp_nodis #_loss001_clip001decay_noref #_gp1 #_dis1e5 #999 #Z_Newz #rewardNewMyexp01d2_l1 #ppo001loss01kl01_clip01ppow01kl001 # samplelossPos #_nocol #_large0shape10noshape10_exp_
 
 trainer:
-  #val_check_interval: 0.5
-  val_check_interval: 0.000002
+  val_check_interval: 0.5
+  #val_check_interval: 0.000002
   max_epochs: 10
   gradient_clip_val: 0.0
 
