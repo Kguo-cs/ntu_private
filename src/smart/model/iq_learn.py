@@ -333,7 +333,7 @@ class IQ_SoftQ(LightningModule):
 
         self._log_train( f"train/{key}_disc_val_std", disc_val.std(unbiased=False) )
         if use_gp_this_step:
-            gamma = 1 #l1 loss
+            gamma = 0.01 #l1 loss
 
             # critic_score = ego_logits.sum()
             # if has_interact_logits:
