@@ -7,9 +7,6 @@ import torch
 import torchmetrics
 import tqdm
 import numpy as np
-from numpy.core.defchararray import center
-
-from shapely.geometry import Polygon
 from data_preprocess import decode_tracks_from_proto,get_agent_features
 import copy
 from .gen_extract import extract_tracks,extract_map,extract_dynamic

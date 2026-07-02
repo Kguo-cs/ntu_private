@@ -2,15 +2,15 @@
 
 kefu321
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_n30.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_n30.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_n30.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_value1e3_gp001shape10/2026-06-23_19-48-18/bc/b3t7nywg/checkpoints/epoch=2-step=68484-valmeta=0.6529.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_n30_pta/2026-06-29_23-09-09/bc/9s7esy5u/checkpoints/epoch=63-step=60928-valmeta=0.6434.ckpt ./
 
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow512_n30/2026-06-29_23-07-13/bc/hgdzbse9/checkpoints/last.ckpt ./
 

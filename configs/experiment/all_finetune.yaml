@@ -19,7 +19,7 @@ model:
       dist_decay: 3
     #n_batch_wosac_metric: 0
 
-ckpt_path: "./waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt"
+ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
 task_name: all128_loss001_clip001decay_gp001shape10 #_noref_dis1e5 #999 #Z_Newz #rewardNewMyexp01d2_l1 #ppo001loss01kl01_clip01ppow01kl001 # samplelossPos #_nocol #_large0shape10noshape10_exp_
 
