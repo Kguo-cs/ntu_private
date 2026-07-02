@@ -148,12 +148,12 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             #
             # print(torch.all(mask1))
 
-            select_vehicles=real_state[gt_batch == b][mask].cpu().numpy()
+          #  select_vehicles=real_state[gt_batch == b][mask].cpu().numpy()
 
             unified_data = {
                 'lanes': compact_centerlines,  # [num_lanes, 20, 2]
                 'all_vehicles': real_vehicles,
-                "vehicles":select_vehicles
+                #"vehicles":select_vehicles
             }
 
             gt_samples.append(unified_data)
@@ -566,8 +566,8 @@ def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
 
     # MMD needs paired generated-vs-real scenes, so gt_samples must be available.
     if gt_samples is not None and len(gt_samples) == len(samples):
-        mmd_metrics = compute_mmd_metrics(samples, gt_samples)
-        metrics.update(mmd_metrics)
+        # mmd_metrics = compute_mmd_metrics(samples, gt_samples)
+        # metrics.update(mmd_metrics)
         all_mmd_metrics = compute_mmd_metrics(samples, gt_samples,"all_")
         metrics.update(all_mmd_metrics)
 
