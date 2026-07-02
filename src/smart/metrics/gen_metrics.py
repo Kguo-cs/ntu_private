@@ -10,6 +10,7 @@ from waymo_open_dataset.protos import (
 from data_preprocess import  decode_map_features_from_proto
 import tensorflow as tf
 from .mmd_metric import compute_mmd_metrics
+from .trafficgen_metrics import _get_trafficgen_data
 
 def resample_polyline(points, num_points=20):
     """Resample a polyline to `num_points` equally spaced points along its arc-length."""
@@ -55,6 +56,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
         gt_shape = data["agent"]["shape"]
         gt_pos = data["agent"]["position"][:, gt_init_timestep, :2]
         gt_type= data["agent"]["type"][valid]
+        gt_id=data["agent"]["id"][valid]
         gt_batch=batch[valid]
 
         real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2],gt_vel],
@@ -70,6 +72,8 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             scenario = scenario_pb2.Scenario()
             for data_b in tf.data.TFRecordDataset([scenario_file], compression_type=""):
                 scenario.ParseFromString(bytes(data_b.numpy()))
+
+            PZH_TRACK_NAMES=_get_trafficgen_data(scenario)
 
             map_infos = decode_map_features_from_proto(scenario.map_features)
             all_polylines = map_infos["all_polylines"]
@@ -135,11 +139,21 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             # }
             # samples.append(unified_data)
 
+            gt_id_b=gt_id[gt_batch==b]
+
             real_vehicles = real_state[(gt_batch == b) & (gt_type == 0)].cpu().numpy()
+
+            mask=torch.isin(gt_id_b,torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device))
+            # mask1=torch.isin(torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device),gt_id_b)
+            #
+            # print(torch.all(mask1))
+
+            select_vehicles=real_state[gt_batch == b][mask].cpu().numpy()
 
             unified_data = {
                 'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-                'vehicles': real_vehicles
+                'all_vehicles': real_vehicles,
+                "vehicles":select_vehicles
             }
 
             gt_samples.append(unified_data)
@@ -554,5 +568,7 @@ def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
     if gt_samples is not None and len(gt_samples) == len(samples):
         mmd_metrics = compute_mmd_metrics(samples, gt_samples)
         metrics.update(mmd_metrics)
+        all_mmd_metrics = compute_mmd_metrics(samples, gt_samples,"all_")
+        metrics.update(all_mmd_metrics)
 
     return metrics,gt_dist

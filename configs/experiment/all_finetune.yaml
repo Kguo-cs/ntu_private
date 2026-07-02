@@ -17,10 +17,11 @@ model:
       dis_a2a_neighbor: 20
       dis_weight: 20
       dist_decay: 3
+    #n_batch_wosac_metric: 0
 
 ckpt_path: "./waymo_data/xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt"
 
-task_name: all128_loss001_clip001decay_gp001 #_noref_dis1e5 #999 #Z_Newz #rewardNewMyexp01d2_l1 #ppo001loss01kl01_clip01ppow01kl001 # samplelossPos #_nocol #_large0shape10noshape10_exp_
+task_name: all128_loss001_clip001decay_gp001shape10 #_noref_dis1e5 #999 #Z_Newz #rewardNewMyexp01d2_l1 #ppo001loss01kl01_clip01ppow01kl001 # samplelossPos #_nocol #_large0shape10noshape10_exp_
 
 trainer:
   val_check_interval: 0.5
@@ -30,6 +31,6 @@ trainer:
 
 data:
   train_batch_size: 128 #6
-  val_batch_size: 512
+  val_batch_size: 256
 
 action: finetune

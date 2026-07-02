@@ -113,7 +113,7 @@ def _extract_mmd_features(vehicles):
     }
 
 
-def compute_mmd_metrics(samples, gt_samples, device="cpu"):
+def compute_mmd_metrics(samples, gt_samples, key='',device="cpu"):
     """Compute per-scene, per-sample TrafficGen-style MMD metrics.
 
     samples[i]["vehicles"] can be:
@@ -141,7 +141,7 @@ def compute_mmd_metrics(samples, gt_samples, device="cpu"):
 
     for i in range(len(samples)):
         vehicles_gen_all = samples[i]["vehicles"]
-        vehicles_real = gt_samples[i]["vehicles"]
+        vehicles_real = gt_samples[i][key+"vehicles"]
 
         vehicles_real = _vehicles_to_torch(vehicles_real, device=device)
 
@@ -239,11 +239,11 @@ def compute_mmd_metrics(samples, gt_samples, device="cpu"):
         return values[torch.isfinite(values)].mean().item()
 
     return {
-        "mmd_pos": _mean_or_nan(mmd_pos_all),
-        "mmd_speed": _mean_or_nan(mmd_speed_all),
-        "mmd_vel": _mean_or_nan(mmd_vel_all),
-        "mmd_head": _mean_or_nan(mmd_head_all),
-        "mmd_head_center": _mean_or_nan(mmd_head_center_all),
-        "mmd_head_transformed": _mean_or_nan(mmd_head_transformed_all),
-        "mmd_size": _mean_or_nan(mmd_size_all),
+        key+"mmd_pos": _mean_or_nan(mmd_pos_all),
+        key+"mmd_speed": _mean_or_nan(mmd_speed_all),
+        key+"mmd_vel": _mean_or_nan(mmd_vel_all),
+        key+"mmd_head": _mean_or_nan(mmd_head_all),
+        key + "mmd_head_center": _mean_or_nan(mmd_head_center_all),
+        key + "mmd_head_transformed": _mean_or_nan(mmd_head_transformed_all),
+        key + "mmd_size": _mean_or_nan(mmd_size_all),
     }

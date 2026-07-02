@@ -354,7 +354,7 @@ def ZeroCenteredGradientPenalty(
 
     scale = gamma / 2.0
     return (
-        scale * (pos_penalty + heading_penalty + shape_penalty),
+        scale * (pos_penalty + heading_penalty + shape_penalty*10),
         scale * pos_penalty,
         scale * heading_penalty,
         scale * shape_penalty,
