@@ -788,13 +788,15 @@ class InitDenoiser(nn.Module):
             dim=-1,
         ).argmin(-1)
 
-        local_vel = center_token_traj[torch.arange(len(gt_initial_idx), device=gt_initial_idx.device), gt_initial_idx]
+        #local_vel = center_token_traj[torch.arange(len(gt_initial_idx), device=gt_initial_idx.device), gt_initial_idx]
+
+        global_vel= rotate_to_global(pred_vel,global_heading)
 
         return (
             gt_initial_pos,
             gt_initial_heading,
             shape,
-            local_vel,
+            global_vel,
             gt_initial_idx[:, None],
         )
 

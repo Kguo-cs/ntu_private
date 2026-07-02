@@ -9,7 +9,7 @@ from waymo_open_dataset.protos import (
 )
 from data_preprocess import  decode_map_features_from_proto
 import tensorflow as tf
-
+from .mmd_metric import compute_mmd_metrics
 
 def resample_polyline(points, num_points=20):
     """Resample a polyline to `num_points` equally spaced points along its arc-length."""
@@ -28,143 +28,6 @@ def resample_polyline(points, num_points=20):
     new_points = np.stack((x_new, y_new), axis=-1)
 
     return new_points
-
-def compute_vehicle_bounds(vehicles_real, vehicles_gen, margin=5.0):
-    """
-    vehicles_*: [N, 7] arrays
-    margin: extra meters around vehicles
-    """
-
-    if len(vehicles_real):
-        all_vehicles = np.concatenate([vehicles_real, vehicles_gen], axis=0)
-
-        xs = all_vehicles[:, 0]
-        ys = all_vehicles[:, 1]
-
-        x_min, x_max = xs.min(), xs.max()
-        y_min, y_max =ys.min(), ys.max()
-    else:
-        x_min, x_max=-75,75
-        y_min, y_max=-75,75
-
-    return (
-        x_min - margin,
-        x_max + margin,
-        y_min - margin,
-        y_max + margin
-    )
-
-def plot_diffusion(batch_list,step_list,pred_list,num_graphs):
-    batch_list = torch.cat(batch_list)
-    step_list = torch.cat(step_list)
-
-    pred_list = torch.cat(pred_list)[:, 0]
-
-    pred_trans, pred_head, pred_shape, pred_vel = pred_list[..., :2], pred_list[..., 2:4], pred_list[
-        ..., 4:6], pred_list[..., -2:]
-    pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-
-    vehicles_gen = torch.cat(
-        [pred_trans, pred_head[:, None], torch.cos(pred_head)[:, None], torch.sin(pred_head)[:, None],
-         pred_shape, pred_vel
-         ], dim=-1)  # [x, y, speed, cos_h, sin_h, length, width, vx, vy]
-
-    for batch_id in range(num_graphs):
-        for i in range(len(batch_list)):
-            batch_mask = (batch_list == batch_id) & (step_list == i)
-            if len(vehicles_gen[batch_mask]):
-                plot_scene([], [], vehicles_gen[batch_mask].cpu().numpy(), title=str(batch_id) + "_" + str(i))
-                print(batch_id, i)
-
-
-def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle
-    from matplotlib.transforms import Affine2D
-
-    def draw_vehicle(ax, vehicle, color='r', alpha=0.8, label=None, draw_velocity=True, vel_scale=1.0):
-        """
-        vehicle: [x, y, speed, cos_h, sin_h, length, width, vx, vy]
-        """
-        x, y, _, cos_h, sin_h, length, width, vx, vy = vehicle
-        heading = np.arctan2(sin_h, cos_h)
-
-        # vehicle rectangle
-        rect = Rectangle(
-            (-length / 2, -width / 2),
-            length,
-            width,
-            linewidth=1.5,
-            edgecolor=color,
-            facecolor='none',
-            alpha=alpha,
-            label=label
-        )
-
-        transform = (
-                Affine2D()
-                .rotate(heading)
-                .translate(x, y)
-                + ax.transData
-        )
-        rect.set_transform(transform)
-        ax.add_patch(rect)
-
-        # velocity vector
-        if draw_velocity:
-            ax.arrow(
-                x, y,
-                vx * vel_scale, vy * vel_scale,
-                head_width=0.4,
-                head_length=0.6,
-                fc=color,
-                ec=color,
-                alpha=alpha,
-                length_includes_head=True
-            )
-
-    def draw_lanes(ax, lanes, color='k', linewidth=1.0, alpha=0.7):
-        """
-        lanes: list of [N, 2] arrays
-        """
-        for lane in lanes:
-            lane = np.asarray(lane)
-            ax.plot(lane[:, 0], lane[:, 1],
-                    color=color, linewidth=linewidth, alpha=alpha)
-
-    fig, ax = plt.subplots(figsize=(8, 8))
-
-    # lanes
-    draw_lanes(ax, lanes, color='black', linewidth=1.5, alpha=0.6)
-
-    # real vehicles (blue)
-    for k, v in enumerate(vehicles_real): # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width,vx,xy]
-        draw_vehicle(
-            ax, v, color='blue',
-            label='Real' if k == 0 else None
-        )
-
-    # generated vehicles (red)
-    for k, v in enumerate(vehicles_gen):
-        draw_vehicle(
-            ax, v, color='red',
-            label='Generated' if k == 0 else None
-        )
-    x_min, x_max, y_min, y_max = compute_vehicle_bounds(
-        vehicles_real, vehicles_gen, margin=5.0
-    )
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(y_min, y_max)
-
-    ax.set_aspect('equal')
-    ax.set_xlabel('X (m)')
-    ax.set_ylabel('Y (m)')
-    ax.grid(True, linestyle='--', alpha=0.4)
-
-
-    ax.legend()
-    plt.savefig('/home/ke/code/sim/src/logs/'+title+'.png')
 
 def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_sizes,samples,gt_samples,gt_dist):
     pred_vel = torch.stack(pred_vel, dim=1)
@@ -658,118 +521,6 @@ def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
 
     return jsds,gt_dist
 
-#(0.44205092401097407, 0.893392520955104, 14.291746007068648, 1.2888893233756689, 0.5276743398450541, 0.2849639251475777)
-
-# import numpy as np
-# from shapely.geometry import Polygon
-# from shapely.affinity import rotate, translate
-
-
-def state_to_polygon(state):
-    """
-    state: (..., 7)
-    return: shapely Polygon
-    """
-    x, y = state[0], state[1]
-    cos_h, sin_h = state[3], state[4]
-    length, width = state[5], state[6]
-
-    heading = np.arctan2(sin_h, cos_h)
-
-    l = length / 2
-    w = width / 2
-
-    rect = Polygon([
-        ( l,  w),
-        ( l, -w),
-        (-l, -w),
-        (-l,  w),
-    ])
-
-    rect = rotate(rect, heading, use_radians=True)
-    rect = translate(rect, x, y)
-
-    return rect
-
-
-def collision_rate_from_state(states_list, count_touch=True):
-    """
-    states: (N,7)
-    count_touch: 是否把“刚好接触”算作碰撞
-    """
-
-    collided_list = []
-    for states in states_list:
-        states=states['vehicles']
-        n = len(states)
-        polys = [state_to_polygon(states[i]) for i in range(n)]
-
-        collided = np.zeros(n, dtype=bool)
-
-        for i in range(n):
-            for j in range(i + 1, n):
-                if count_touch:
-                    hit = polys[i].intersects(polys[j])
-                else:
-                    hit = polys[i].intersection(polys[j]).area > 0
-
-                if hit:
-                    collided[i] = True
-                    collided[j] = True
-        collided_list.append(collided)
-
-    collided=np.concatenate(collided_list)
-
-    return collided.mean(), collided
-
-def collision_rate_from_state1(states_list, count_touch=True):
-    """
-    states: (N,7)
-    count_touch: 是否把“刚好接触”算作碰撞
-    """
-
-    collided_list = []
-    for states in states_list:
-        states=states['vehicles']
-        n = states.shape[0]
-
-        pos = states[:, 0:2]
-        length = states[:, 5]
-        width = states[:, 6]
-
-        # 外接圆半径
-        radius = 0.5 * np.sqrt(length ** 2 + width ** 2)
-
-        polys = [state_to_polygon(states[i]) for i in range(n)]
-        collided = np.zeros(n, dtype=bool)
-
-        for i in range(n):
-            # if collided[i]:
-            #     continue
-
-            d = np.linalg.norm(pos[i + 1:] - pos[i], axis=1)
-            thresh = radius[i] + radius[i + 1:]
-
-            candidates = np.where(d < thresh)[0] + i + 1
-
-            for j in candidates:
-                if count_touch:
-                    hit = polys[i].intersects(polys[j])
-                else:
-                    hit = polys[i].intersection(polys[j]).area > 0
-
-                if hit:
-                    collided[i] = True
-                    collided[j] = True
-        collided_list.append(collided)
-
-    collided=np.concatenate(collided_list)
-
-    return collided.mean(), collided
-
-
-
-
 def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
     """ Computes the agent metrics for the samples and ground truth samples."""
     #collision_rate1,collision1 = collision_rate_from_state(samples)
@@ -788,13 +539,20 @@ def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
 
     collision_rate,collision = compute_collision_rate(samples)
 
-    return {
-        'nearest_dist_jsd': nearest_dist_jsd,
-        'lat_dev_jsd': lat_dev_jsd,
-        'ang_dev_jsd': ang_dev_jsd,
-        'length_jsd': length_jsd,
-        'width_jsd': width_jsd,
-        'speed_jsd': speed_jsd,
-        #"collision_jsd":collision_jsd,
-        'collision_rate': collision_rate * 100
-    },gt_dist
+    metrics = {
+        "nearest_dist_jsd": nearest_dist_jsd,
+        "lat_dev_jsd": lat_dev_jsd,
+        "ang_dev_jsd": ang_dev_jsd,
+        "length_jsd": length_jsd,
+        "width_jsd": width_jsd,
+        "speed_jsd": speed_jsd,
+        "collision_rate": collision_rate * 100,
+    }
+
+
+    # MMD needs paired generated-vs-real scenes, so gt_samples must be available.
+    if gt_samples is not None and len(gt_samples) == len(samples):
+        mmd_metrics = compute_mmd_metrics(samples, gt_samples)
+        metrics.update(mmd_metrics)
+
+    return metrics,gt_dist
