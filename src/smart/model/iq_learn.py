@@ -425,7 +425,6 @@ class IQ_SoftQ(LightningModule):
         self.manual_backward(critic_loss)
         discriminator_optimizer.step()
 
-        return critic_loss
         #if not self.use_gradient_penalty:
         # with torch.no_grad():
         #     discriminator_was_training = self.encoder.discriminator.training

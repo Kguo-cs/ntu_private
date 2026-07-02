@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = False
+        self.use_ref = True
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
