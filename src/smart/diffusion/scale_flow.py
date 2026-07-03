@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = True
+        self.use_sde = False
 
         self.noise_level = 0.7
 
@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = True
+        self.use_ref = False
 
         if self.use_sde:
             self.use_ref=False
