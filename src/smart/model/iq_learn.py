@@ -499,7 +499,7 @@ class IQ_SoftQ(LightningModule):
 
             # For learn_init update: use the initial-state row explicitly.
             advantages_2d_norm = advantages_flat.view_as(advantages_2d)
-            init_advantages = agent_rewards[0].detach() #advantages_2d_norm[0].detach()
+            init_advantages = advantages_2d_norm[0].detach()#agent_rewards[0].detach() #
 
             # init_return = agent_rewards.sum(dim=0).detach()
             #

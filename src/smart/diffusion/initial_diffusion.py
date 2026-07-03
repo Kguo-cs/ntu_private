@@ -17,6 +17,7 @@ from .scale_flow import ScaleFlow
 from src.smart.diffusion.dit.autoencoder import AutoEncoder
 from src.smart.diffusion.dit.ldm import LDM
 from torch_scatter import scatter_sum,scatter_mean
+from .diffusion_utils import multi_circle_collision_loss_mem_efficient
 
 class InitDiffusion(nn.Module):
 
@@ -59,7 +60,7 @@ class InitDiffusion(nn.Module):
         self.use_gail=False
         self.use_gan = False
 
-        self.use_rl=False
+        self.use_rl=True
 
         if self.use_gail or self.use_gan:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
@@ -193,7 +194,7 @@ class InitDiffusion(nn.Module):
                 if self.use_rl:
                     pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
 
-                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init[:,:2], torch.atan2(pred_init[:,3],pred_init[:,2]), pred_init[:,4],pred_init[:,5],tokenized_agent["init_agent_batch"])
+                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init,None, init_agent_batch,None)
 
                     N = len(pred_init)
 
