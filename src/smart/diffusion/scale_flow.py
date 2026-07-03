@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = False
+        self.use_sde = True
 
         self.noise_level = 0.7
 
@@ -567,7 +567,7 @@ class ScaleFlow(nn.Module):
 
                     policy_loss = policy_loss + beta_kl * kl.mean()
 
-            tokenized_agent["policy_loss"]=policy_loss
+            tokenized_agent["pg_loss"]=policy_loss
 
             x_pred = x_pred_all[len(z_sampled):]
 

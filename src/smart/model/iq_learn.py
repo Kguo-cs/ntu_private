@@ -501,6 +501,7 @@ class IQ_SoftQ(LightningModule):
             # For learn_init update: use the initial-state row explicitly.
             advantages_2d_norm = advantages_flat.view_as(advantages_2d)
             init_advantages = advantages_2d_norm[0].detach()#agent_rewards[0].detach() #
+            tokenized_agent["advantages"] = init_advantages
 
             pred_init=tokenized_agent["gen_z"][:,0]
             init_agent_batch=tokenized_agent["batch"]
@@ -571,7 +572,6 @@ class IQ_SoftQ(LightningModule):
             #                                    init_adv_non_ego - init_adv_non_ego.mean()
             #                            ) / init_adv_non_ego.std(unbiased=False).clamp_min(1e-8)
 
-            tokenized_agent["advantages"] = init_advantages
 
             match_loss, rl_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.init_decoder(tokenized_agent)
 
@@ -618,8 +618,8 @@ class IQ_SoftQ(LightningModule):
             self._log_train('train/sampled_match_loss', tokenized_agent["sampled_match_loss"].mean())
         if "clip_ratio" in tokenized_agent.keys():
             self._log_train('train/clip_ratio', tokenized_agent["clip_ratio"].mean())
-        if "policy_loss" in tokenized_agent.keys():
-            self._log_train('train/policy_loss', tokenized_agent["policy_loss"])
+        if "pg_loss" in tokenized_agent.keys():
+            self._log_train('train/pg_loss', tokenized_agent["pg_loss"])
         if "noncol_rate" in tokenized_agent.keys():
             self._log_train('train/noncol_rate', tokenized_agent["noncol_rate"].mean())
 
