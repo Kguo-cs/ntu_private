@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = False
+        self.use_ref = True
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -537,7 +537,7 @@ class ScaleFlow(nn.Module):
                 # scale = log_ratio.detach().std().clamp_min(1e-6)
                 # log_ratio = -log_ratio / scale
                 #
-                ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))[non_ego]
+                ratio = torch.exp(log_ratio)[non_ego]#.clamp(-10.0, 10.0)
 
                 clip_eps = 1 #0.1
                 tokenized_agent["clip_ratio"]=((ratio<1-clip_eps) | (ratio>1+clip_eps) ).float()
