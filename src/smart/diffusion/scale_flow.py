@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = True
+        self.use_sde = False
 
         self.noise_level = 0.7
 
@@ -539,7 +539,7 @@ class ScaleFlow(nn.Module):
                 #
                 ratio = torch.exp(log_ratio)[non_ego]#.clamp(-10.0, 10.0)
 
-                clip_eps = 1 #0.1
+                clip_eps = 0.1
                 tokenized_agent["clip_ratio"]=((ratio<1-clip_eps) | (ratio>1+clip_eps) ).float()
 
                 ratio_clip = ratio.clamp(1.0 - clip_eps, 1.0 + clip_eps)
