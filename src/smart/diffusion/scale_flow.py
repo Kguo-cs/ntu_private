@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = True
+        self.use_sde = False
 
         self.noise_level = 0.7
 
@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = False
+        self.use_ref = True
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -508,7 +508,7 @@ class ScaleFlow(nn.Module):
                         surrogate_2 = clipped_ratio * advantages_pg
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
-                        policy_loss = -(log_prob * advantages_pg).mean()*100
+                        policy_loss = -(log_prob * advantages_pg).mean()
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 
