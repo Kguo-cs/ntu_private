@@ -172,7 +172,7 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = True
+        self.use_ref = False
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -239,7 +239,7 @@ class ScaleFlow(nn.Module):
         # #
         # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
         #
-        return -loss.mean(dim=1)#*0.1
+        return -loss.mean(dim=1)*0.1
 
     def get_loss(self,
                  x,
@@ -516,6 +516,8 @@ class ScaleFlow(nn.Module):
 
                 logp_cur = self.adaptive_x0_loss_per_sample(
                     new_pred_x0/scale, x_sampled.detach()/scale).reshape(self.mc_num, -1).mean(0)
+
+                tokenized_agent["sampled_match_loss"]=-logp_cur
 
                 non_ego = ~ego_mask
                 advantages_pg = self._sanitize_init_advantages(
