@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = False
+        self.use_sde = True
 
         self.noise_level = 0.7
 
@@ -172,7 +172,10 @@ class ScaleFlow(nn.Module):
                 pred_all_pos=True
             )
 
-        self.use_ref = False
+        self.use_ref = True
+
+        if self.use_sde:
+            self.use_ref=False
 
         if self.use_ref:
             self.ref_model = copy.deepcopy(self.model)
@@ -602,7 +605,7 @@ class ScaleFlow(nn.Module):
             base_t=base_t[:,0],
             t_dt=t_dt[:,0],
             t_eps=self.t_eps,
-            use_col=False,  # not self.model.pred_gmm,
+            use_col=True,  # not self.model.pred_gmm,
             x_pred=self.x_pred,
         )
 
