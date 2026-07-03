@@ -192,7 +192,8 @@ class InitDiffusion(nn.Module):
                         diff_input = self.autoencoder.forward_encoder(diff_input,tokenized_agent,initial_map_feature)[0]
 
                 if self.use_rl:
-                    pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
+                    with torch.no_grad():
+                        pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
 
                     col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init,None, init_agent_batch,None)
 
@@ -239,9 +240,9 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent["noncol_rate"]=advantage
 
-                    advantages=(advantage-advantage.mean())/(advantage.std()+1e-5)#(advantage-0.771)/0.42
+                    #advantages=(advantage-advantage.mean())/(advantage.std()+1e-5)#(advantage-0.771)/0.42
 
-                    tokenized_agent["advantages"]=advantages#advantage conditioned
+                    tokenized_agent["advantages"]=advantage#advantage conditioned
 
                 loss,x_pred ,z,t = self.G1.get_loss(diff_input, diff_output,tokenized_agent, initial_map_feature)
 

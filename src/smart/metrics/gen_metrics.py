@@ -128,7 +128,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             # 20 point each
 
             unified_data = {
-                "all_agents": state[(batch == b)].cpu().numpy(),
+               # "all_agents": state[(batch == b)].cpu().numpy(),
                 'vehicles': vehicles
             }
             samples.append(unified_data)
@@ -156,15 +156,15 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             unified_data = {
                 'lanes': compact_centerlines,  # [num_lanes, 20, 2]
                 'vehicles': real_vehicles,
-                "agents": select_agents,
-                "all_agents": all_agents.cpu().numpy()
+               # "agents": select_agents,
+               # "all_agents": all_agents.cpu().numpy()
             }
 
             gt_samples.append(unified_data)
         else:
             unified_data = {
                 'vehicles': vehicles,
-                "all_agents": state[(batch == b)].cpu().numpy()
+               # "all_agents": state[(batch == b)].cpu().numpy()
             }
             samples.append(unified_data)
 
@@ -569,7 +569,7 @@ def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
 
 
     # MMD needs paired generated-vs-real scenes, so gt_samples must be available.
-    if gt_samples is not None and len(gt_samples) == len(samples):
+    if 'all_agents' in samples[0].keys():
         mmd_metrics = compute_mmd_metrics(samples, gt_samples)
         metrics.update(mmd_metrics)
         all_mmd_metrics = compute_mmd_metrics(samples, gt_samples,"all_")

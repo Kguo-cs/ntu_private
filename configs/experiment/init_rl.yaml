@@ -26,7 +26,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 256
+  train_batch_size: 128
   val_batch_size: 256
 
 action: finetune
