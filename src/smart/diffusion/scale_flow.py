@@ -509,7 +509,7 @@ class ScaleFlow(nn.Module):
                         surrogate_2 = clipped_ratio * advantages_pg
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
-                        policy_loss = -(log_prob * advantages_pg).mean()*10
+                        policy_loss = -(log_prob * advantages_pg).mean()*1
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 
