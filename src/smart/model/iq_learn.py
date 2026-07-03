@@ -503,58 +503,58 @@ class IQ_SoftQ(LightningModule):
             init_advantages = advantages_2d_norm[0].detach()#agent_rewards[0].detach() #
             tokenized_agent["advantages"] = init_advantages
 
-            # pred_init=tokenized_agent["gen_z"][:,0]
-            # init_agent_batch=tokenized_agent["batch"]
+            pred_init=tokenized_agent["gen_z"][:,0]
+            init_agent_batch=tokenized_agent["batch"]
+
+            col_reward, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(pred_init, None,
+                                                                                       init_agent_batch, None)
+
+            N = len(pred_init)
+
+            col_reward_end = scatter_sum(
+                col_reward,
+                end_idx,
+                dim=0,
+                dim_size=N
+            )
+
+            col_reward_start = scatter_sum(
+                col_reward,
+                start_idx,
+                dim=0,
+                dim_size=N
+            )
+
+            col_reward_agent = -col_reward_end - col_reward_start
             #
-            # col_reward, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(pred_init, None,
-            #                                                                            init_agent_batch, None)
+            # batch=tokenized_agent["init_agent_batch"]
             #
-            # N = len(pred_init)
+            # same_batch = batch[:, None] == batch[None, :]
+            # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
+            # edge_mask = same_batch & not_self
             #
-            # col_reward_end = scatter_sum(
-            #     col_reward,
-            #     end_idx,
-            #     dim=0,
-            #     dim_size=N
-            # )
+            # pos=pred_init[:,:2]
             #
-            # col_reward_start = scatter_sum(
-            #     col_reward,
-            #     start_idx,
-            #     dim=0,
-            #     dim_size=N
-            # )
+            # shape=pred_init[:, 4:6]
             #
-            # col_reward_agent = -col_reward_end - col_reward_start
-            # #
-            # # batch=tokenized_agent["init_agent_batch"]
-            # #
-            # # same_batch = batch[:, None] == batch[None, :]
-            # # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
-            # # edge_mask = same_batch & not_self
-            # #
-            # # pos=pred_init[:,:2]
-            # #
-            # # shape=pred_init[:, 4:6]
-            # #
-            # # r=torch.linalg.norm(shape,dim=-1)
-            # #
-            # # d=torch.linalg.norm(pos[:,None]-pos[None],dim=-1)
-            # #
-            # # r2=(r[:,None]+r[None])/2
-            # #
-            # # col_reward=d>r2
-            # # col_reward[~edge_mask]=True
-            # #
-            # # col_reward_agent=torch.all(col_reward,dim=-1)
+            # r=torch.linalg.norm(shape,dim=-1)
             #
-            # advantage = (col_reward_agent == 0).float()  # -0.5#col_reward <0 collision 0
+            # d=torch.linalg.norm(pos[:,None]-pos[None],dim=-1)
             #
-            # tokenized_agent["noncol_rate"] = advantage
+            # r2=(r[:,None]+r[None])/2
             #
-            # # advantages=(advantage-advantage.mean())/(advantage.std()+1e-5)#(advantage-0.771)/0.42
+            # col_reward=d>r2
+            # col_reward[~edge_mask]=True
             #
-            # tokenized_agent["advantages"] = advantage  # advantage conditioned
+            # col_reward_agent=torch.all(col_reward,dim=-1)
+
+            advantage = (col_reward_agent == 0).float()  # -0.5#col_reward <0 collision 0
+
+            tokenized_agent["noncol_rate"] = advantage
+
+            # advantages=(advantage-advantage.mean())/(advantage.std()+1e-5)#(advantage-0.771)/0.42
+
+            tokenized_agent["advantages"] = advantage  # advantage conditioned
             # init_return = agent_rewards.sum(dim=0).detach()
             #
             # non_ego = ~tokenized_agent_rollout["ego_mask"]
