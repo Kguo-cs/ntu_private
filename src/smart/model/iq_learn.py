@@ -373,6 +373,15 @@ class IQ_SoftQ(LightningModule):
         )
 
     def iq_update(self, tokenized_map, tokenized_agent):
+        if self.global_step == 0 and self.encoder.init_decoder.G1.use_ref:
+            decay = 0
+            for src_param, tgt_param in zip(self.encoder.init_decoder.G1.model.parameters(), self.encoder.init_decoder.G1.ref_model.parameters(),
+                                            strict=True):
+                tgt_param.data.copy_(
+                    tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
+
+            self.encoder.init_decoder.G1.ref_model.eval()
+
         if self.use_kl_penalty:
             expert_nll= 0
             map_feature = self.encoder.map_encoder(tokenized_map)
@@ -388,14 +397,6 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        if self.global_step == 0 and self.encoder.init_decoder.G1.use_ref:
-            decay = 0
-            for src_param, tgt_param in zip(self.encoder.init_decoder.G1.model.parameters(), self.encoder.init_decoder.G1.ref_model.parameters(),
-                                            strict=True):
-                tgt_param.data.copy_(
-                    tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
-
-            self.encoder.init_decoder.G1.ref_model.eval()
 
         # if self.pred_init:
        #  tokenized_agent["train_mask"] = tokenized_agent["token_mask"].all(1)
