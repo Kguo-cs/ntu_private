@@ -140,8 +140,8 @@ def compute_mmd_metrics(samples, gt_samples, key='',device="cpu"):
     kernel_num = 1
 
     for i in range(len(samples)):
-        vehicles_gen_all = samples[i]["vehicles"]
-        vehicles_real = gt_samples[i][key+"vehicles"]
+        vehicles_gen_all = samples[i]["all_agents"]
+        vehicles_real = gt_samples[i][key+"agents"]
 
         vehicles_real = _vehicles_to_torch(vehicles_real, device=device)
 
@@ -205,23 +205,23 @@ def compute_mmd_metrics(samples, gt_samples, key='',device="cpu"):
                 )
             )
 
-            mmd_head_center_all.append(
-                compute_mmd_different_sizes_torch(
-                    normalize_angle_torch(gen_feat["heading"] - center_head)[:, None],
-                    normalize_angle_torch(real_feat["heading"] - center_head)[:, None],
-                    kernel_mul=kernel_mul,
-                    kernel_num=kernel_num,
-                )
-            )
-
-            mmd_head_transformed_all.append(
-                compute_mmd_different_sizes_torch(
-                    gen_feat["heading_vec"],
-                    real_feat["heading_vec"],
-                    kernel_mul=kernel_mul,
-                    kernel_num=kernel_num,
-                )
-            )
+            # mmd_head_center_all.append(
+            #     compute_mmd_different_sizes_torch(
+            #         normalize_angle_torch(gen_feat["heading"] - center_head)[:, None],
+            #         normalize_angle_torch(real_feat["heading"] - center_head)[:, None],
+            #         kernel_mul=kernel_mul,
+            #         kernel_num=kernel_num,
+            #     )
+            # )
+            #
+            # mmd_head_transformed_all.append(
+            #     compute_mmd_different_sizes_torch(
+            #         gen_feat["heading_vec"],
+            #         real_feat["heading_vec"],
+            #         kernel_mul=kernel_mul,
+            #         kernel_num=kernel_num,
+            #     )
+            # )
 
             mmd_size_all.append(
                 compute_mmd_different_sizes_torch(
@@ -243,7 +243,7 @@ def compute_mmd_metrics(samples, gt_samples, key='',device="cpu"):
         key+"mmd_speed": _mean_or_nan(mmd_speed_all),
         key+"mmd_vel": _mean_or_nan(mmd_vel_all),
         key+"mmd_head": _mean_or_nan(mmd_head_all),
-        key + "mmd_head_center": _mean_or_nan(mmd_head_center_all),
-        key + "mmd_head_transformed": _mean_or_nan(mmd_head_transformed_all),
+      #  key + "mmd_head_center": _mean_or_nan(mmd_head_center_all),
+      #  key + "mmd_head_transformed": _mean_or_nan(mmd_head_transformed_all),
         key + "mmd_size": _mean_or_nan(mmd_size_all),
     }

@@ -34,8 +34,8 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
     pred_vel = torch.stack(pred_vel, dim=1)
 
     pred_speeds=pred_vel.norm(dim=-1)
-    gt_init_timestep=10
-    gen_init_timestep=10
+    gt_init_timestep=5
+    gen_init_timestep=5
 
     batch = tokenized_agent["batch"]
     cos = torch.cos(pred_head[:, :, gen_init_timestep])
@@ -73,7 +73,6 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             for data_b in tf.data.TFRecordDataset([scenario_file], compression_type=""):
                 scenario.ParseFromString(bytes(data_b.numpy()))
 
-            PZH_TRACK_NAMES=_get_trafficgen_data(scenario)
 
             map_infos = decode_map_features_from_proto(scenario.map_features)
             all_polylines = map_infos["all_polylines"]
@@ -129,6 +128,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             # 20 point each
 
             unified_data = {
+                "all_agents": state[(batch == b)].cpu().numpy(),
                 'vehicles': vehicles
             }
             samples.append(unified_data)
@@ -138,29 +138,33 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             #     'vehicles': vehicles[:, 1]
             # }
             # samples.append(unified_data)
+            PZH_TRACK_NAMES=_get_trafficgen_data(scenario)
 
             gt_id_b=gt_id[gt_batch==b]
 
             real_vehicles = real_state[(gt_batch == b) & (gt_type == 0)].cpu().numpy()
+
+            all_agents=real_state[gt_batch == b]
 
             mask=torch.isin(gt_id_b,torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device))
             # mask1=torch.isin(torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device),gt_id_b)
             #
             # print(torch.all(mask1))
 
-            select_vehicles=real_state[gt_batch == b][mask].cpu().numpy()
+            select_agents=all_agents[mask].cpu().numpy()
 
             unified_data = {
                 'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-                'all_vehicles': real_vehicles,
-                "vehicles":select_vehicles
+                'vehicles': real_vehicles,
+                "agents": select_agents,
+                "all_agents": all_agents.cpu().numpy()
             }
 
             gt_samples.append(unified_data)
-            #gt_samples.append(unified_data)
         else:
             unified_data = {
-                'vehicles': vehicles
+                'vehicles': vehicles,
+                "all_agents": state[(batch == b)].cpu().numpy()
             }
             samples.append(unified_data)
 
