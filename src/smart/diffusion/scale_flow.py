@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = False
+        self.use_sde = True
 
         self.noise_level = 0.7
 
@@ -347,8 +347,8 @@ class ScaleFlow(nn.Module):
 
             if self.use_sde:
 
-                z_sampled, prev_sample, old_log_prob = tokenized_agent["gen_z"]
-                t_n_sampled, t_next_sampled = tokenized_agent["gen_t"]
+                z_sampled, prev_sample, old_log_prob = tokenized_agent["sde_z"]
+                t_n_sampled, t_next_sampled = tokenized_agent["sde_t"]
                 selected_agent_idx = tokenized_agent.get(
                     "gen_agent_idx",
                     torch.arange(z_sampled.shape[0], device=z_sampled.device),
@@ -992,12 +992,12 @@ class ScaleFlow(nn.Module):
             t_list = torch.stack(t_list, dim=1)
             gen_t = (t_list[:, :-1][noise_mask], t_list[:, 1:][noise_mask])
 
-            tokenized_agent["gen_z"] = gen_z
-            tokenized_agent["gen_t"] = gen_t
+            tokenized_agent["sde_z"] = gen_z
+            tokenized_agent["sde_t"] = gen_t
             tokenized_agent["gen_agent_idx"] = selected_agent_idx
         else:
             tokenized_agent["pred_z_list"] = torch.cat(z_list, dim=1)
-            tokenized_agent["gen_z"] = z
+        tokenized_agent["gen_z"] = z
 
         if self.pred_all_pos:
             all_pred = self.pred_model(z, t_n * 0, tokenized_agent, initial_map_feature).reshape(z.shape[0], -1, 3)
