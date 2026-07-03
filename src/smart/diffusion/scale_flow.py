@@ -495,8 +495,6 @@ class ScaleFlow(nn.Module):
                         noise_level=self.noise_level,
                         prev_sample=prev_sample[sampled_non_ego]
                     )
-                    log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
-                    # log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
                     advantages_pg = advantages[sampled_non_ego]
                     if self.use_init_ppo_ratio and old_log_prob is not None:
                         old_lp = old_log_prob[sampled_non_ego].detach()
@@ -511,7 +509,7 @@ class ScaleFlow(nn.Module):
                         surrogate_2 = clipped_ratio * advantages_pg
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
-                        policy_loss = -(log_prob * advantages_pg).mean()*100
+                        policy_loss = -(log_prob * advantages_pg).mean()*10
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 
