@@ -928,7 +928,11 @@ xflow512_n30.ckpt
 
 0.6469
 
+xflow512_n30_pta_epoch=63-step=60928-valmeta=0.6434.ckpt
 
+0.6468
+
+all128_ref_mc2_loss001_clip001decay999_epoch=4-step=57072-valmeta=0.6481.ckpt
 
 
 
