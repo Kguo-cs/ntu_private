@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = True
+        self.use_sde = False
 
         self.noise_level = 0.7
 
@@ -548,7 +548,7 @@ class ScaleFlow(nn.Module):
                 surrogate_1 = ratio * advantages_pg.detach()
                 surrogate_2 = ratio_clip * advantages_pg.detach()
 
-                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*10
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*100
                 # smooth proximal correction
                 # pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
 
