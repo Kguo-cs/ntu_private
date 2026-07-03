@@ -239,7 +239,7 @@ class ScaleFlow(nn.Module):
         # #
         # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
         #
-        return -loss.mean(dim=1)*0.1
+        return -loss.mean(dim=1)#*0.1
 
     def get_loss(self,
                  x,
@@ -546,7 +546,7 @@ class ScaleFlow(nn.Module):
                 surrogate_1 = ratio * advantages_pg.detach()
                 surrogate_2 = ratio_clip * advantages_pg.detach()
 
-                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*1000
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*100
                 # smooth proximal correction
                 # pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
 
