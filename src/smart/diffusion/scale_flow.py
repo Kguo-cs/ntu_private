@@ -548,7 +548,7 @@ class ScaleFlow(nn.Module):
                 surrogate_1 = ratio * advantages_pg.detach()
                 surrogate_2 = ratio_clip * advantages_pg.detach()
 
-                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*100
+                policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()*10
                 # smooth proximal correction
                 # pepg_loss#advantages_pg = advantages_pg -  log_ratio.detach()
 
