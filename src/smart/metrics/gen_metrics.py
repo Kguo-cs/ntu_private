@@ -138,7 +138,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             #     'vehicles': vehicles[:, 1]
             # }
             # samples.append(unified_data)
-            PZH_TRACK_NAMES=_get_trafficgen_data(scenario,current_t=gt_init_timestep)
+            #PZH_TRACK_NAMES=_get_trafficgen_data(scenario,current_t=gt_init_timestep)
 
             gt_id_b=gt_id[gt_batch==b]
 
@@ -146,12 +146,12 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
 
             all_agents=real_state[gt_batch == b]
 
-            mask=torch.isin(gt_id_b,torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device))
+            #mask=torch.isin(gt_id_b,torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device))
             # mask1=torch.isin(torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device),gt_id_b)
             #
             # print(torch.all(mask1))
 
-            select_agents=all_agents[mask].cpu().numpy()
+            #select_agents=all_agents[mask].cpu().numpy()
 
             unified_data = {
                 'lanes': compact_centerlines,  # [num_lanes, 20, 2]
