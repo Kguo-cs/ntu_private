@@ -537,7 +537,7 @@ class ScaleFlow(nn.Module):
                 # scale = log_ratio.detach().std().clamp_min(1e-6)
                 # log_ratio = -log_ratio / scale
                 #
-                ratio = torch.exp(log_ratio)[non_ego]#.clamp(-10.0, 10.0)
+                ratio = torch.exp(log_ratio.clamp(-10.0, 10.0))[non_ego]#
 
                 clip_eps = 0.1
                 tokenized_agent["clip_ratio"]=((ratio<1-clip_eps) | (ratio>1+clip_eps) ).float()
