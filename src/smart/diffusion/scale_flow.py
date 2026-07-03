@@ -239,7 +239,7 @@ class ScaleFlow(nn.Module):
         # #
         # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
         #
-        return -loss.mean(dim=1)*0.01
+        return -loss.mean(dim=1)*0.1
 
     def get_loss(self,
                  x,
