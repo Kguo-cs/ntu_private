@@ -34,8 +34,8 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
     pred_vel = torch.stack(pred_vel, dim=1)
 
     pred_speeds=pred_vel.norm(dim=-1)
-    gt_init_timestep=10
-    gen_init_timestep=10
+    gt_init_timestep=5
+    gen_init_timestep=5
 
     batch = tokenized_agent["batch"]
     cos = torch.cos(pred_head[:, :, gen_init_timestep])
@@ -138,7 +138,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             #     'vehicles': vehicles[:, 1]
             # }
             # samples.append(unified_data)
-            PZH_TRACK_NAMES=_get_trafficgen_data(scenario)
+            PZH_TRACK_NAMES=_get_trafficgen_data(scenario,current_t=gt_init_timestep)
 
             gt_id_b=gt_id[gt_batch==b]
 

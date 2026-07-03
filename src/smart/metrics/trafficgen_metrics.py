@@ -83,6 +83,7 @@ def _extract_current_agents_and_names(scenario, current_t: int) -> Tuple[np.ndar
     tracks = scenario.tracks
     order = _sdc_first_track_order(len(tracks), int(scenario.sdc_track_index))
 
+
     agent = np.zeros((len(order), 6), dtype=np.float32)
     valid = np.zeros((len(order),), dtype=bool)
     names = np.empty((len(order),), dtype=object)
@@ -272,7 +273,7 @@ def get_trafficgen_track_names_fast(
     return selected_names
 
 
-def _get_trafficgen_data(scenario):
+def _get_trafficgen_data(scenario,current_t):
     """Backward-compatible wrapper for the old API.
 
     Old behavior returned:
@@ -281,4 +282,4 @@ def _get_trafficgen_data(scenario):
     New behavior computes the same selected names directly without building
     TrafficGen's full intermediate `ret` dictionary.
     """
-    return get_trafficgen_track_names_fast(scenario, current_t=DEFAULT_CURRENT_T)
+    return get_trafficgen_track_names_fast(scenario, current_t=current_t)
