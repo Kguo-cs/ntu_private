@@ -383,11 +383,6 @@ class ScaleFlow(nn.Module):
                     sampled_base_t, x_sampled, tokenized_agent
                 )
 
-                model_tokenized_agent = self.repeat_input_copy(
-                    tokenized_agent,
-                    self.mc_num ,
-                )
-
                 t_n_sampled = torch.where(
                     ego_mask.repeat(self.mc_num, 1).flatten(0, 1)[:, None, None],
                     torch.ones_like(t_n_sampled),
@@ -405,7 +400,7 @@ class ScaleFlow(nn.Module):
                         tgt_param.data.copy_(
                             tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
 
-                    ref_prediction = self.ref_model(z_sampled, t_n_sampled, model_tokenized_agent, initial_map_feature)
+                    ref_prediction = self.ref_model(z_sampled, t_n_sampled, tokenized_agent, initial_map_feature)
 
                 if self.use_nft:
                     decay = return_decay(self.global_step, 2)
@@ -422,10 +417,13 @@ class ScaleFlow(nn.Module):
 
                 self.global_step += 1
 
-            t_all = t_n_sampled  # torch.cat((t_n_sampled, t), dim=0)
-            z_all = z_sampled  # torch.cat((z_sampled, z), dim=0)
+            t_all = torch.cat((t_n_sampled, t), dim=0)
+            z_all =  torch.cat((z_sampled, z), dim=0)
             #model_tokenized_agent = tokenized_agent
-
+            model_tokenized_agent = self.repeat_input_copy(
+                tokenized_agent,
+                self.mc_num + 1,
+            )
 
             x_pred_all = self.model(
                 z_all,
@@ -569,9 +567,9 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["policy_loss"]=policy_loss
 
-            #x_pred = x_pred_all[len(z_sampled):]
+            x_pred = x_pred_all[len(z_sampled):]
 
-            x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
+            #x_pred = self.model(z, t, tokenized_agent, initial_map_feature)
 
 
         else:
@@ -1079,7 +1077,7 @@ class ScaleFlow(nn.Module):
         return prev_sample, log_prob, prev_sample_mean, std_dev_t
 
     def repeat_input_copy(self, tokenized_agent, n_step):
-        out = dict(tokenized_agent)#tokenized_agent#
+        out =tokenized_agent# dict(tokenized_agent)#tokenized_agent#
 
         num_graphs = tokenized_agent["num_graphs"]
         batch = tokenized_agent["init_agent_batch"]
