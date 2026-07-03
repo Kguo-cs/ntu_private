@@ -57,12 +57,11 @@ class InitDiffusion(nn.Module):
         else:
             self.G1 = ScaleFlow(args,token_processor)
 
-        self.use_gail=False
         self.use_gan = False
 
-        self.use_rl=False
+        self.use_rl=True
 
-        if self.use_gail or self.use_gan:
+        if  self.use_gan:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)

@@ -10,6 +10,8 @@ import copy
 
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
 from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,ZeroCenteredGradientPenalty
+from torch_scatter import scatter_sum
+from src.smart.diffusion.diffusion_utils import multi_circle_collision_loss_mem_efficient
 
 
 class IQ_SoftQ(LightningModule):
@@ -146,10 +148,8 @@ class IQ_SoftQ(LightningModule):
                 self._log_train('train/heading_loss', heading_loss)
                 self._log_train('train/shape_loss', shape_loss)
                 self._log_train('train/vel_loss', vel_loss)
-                self._log_train('train/collision_loss', collision_loss)
+                self._log_train('train/rl_loss', collision_loss)
 
-                if "noncol_rate" in tokenized_agent.keys():
-                    self._log_train('train/noncol_rate', tokenized_agent["noncol_rate"].mean())
 
                 # if self.encoder.init_decoder.G1.model.learn_schedule:
                 # gamma_groups=self.encoder.init_decoder.G1.model.schedule.gamma_groups
@@ -501,6 +501,58 @@ class IQ_SoftQ(LightningModule):
             advantages_2d_norm = advantages_flat.view_as(advantages_2d)
             init_advantages = advantages_2d_norm[0].detach()#agent_rewards[0].detach() #
 
+            pred_init=tokenized_agent["gen_z"][:,0]
+            init_agent_batch=tokenized_agent["batch"]
+
+            col_reward, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(pred_init, None,
+                                                                                       init_agent_batch, None)
+
+            N = len(pred_init)
+
+            col_reward_end = scatter_sum(
+                col_reward,
+                end_idx,
+                dim=0,
+                dim_size=N
+            )
+
+            col_reward_start = scatter_sum(
+                col_reward,
+                start_idx,
+                dim=0,
+                dim_size=N
+            )
+
+            col_reward_agent = -col_reward_end - col_reward_start
+            #
+            # batch=tokenized_agent["init_agent_batch"]
+            #
+            # same_batch = batch[:, None] == batch[None, :]
+            # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
+            # edge_mask = same_batch & not_self
+            #
+            # pos=pred_init[:,:2]
+            #
+            # shape=pred_init[:, 4:6]
+            #
+            # r=torch.linalg.norm(shape,dim=-1)
+            #
+            # d=torch.linalg.norm(pos[:,None]-pos[None],dim=-1)
+            #
+            # r2=(r[:,None]+r[None])/2
+            #
+            # col_reward=d>r2
+            # col_reward[~edge_mask]=True
+            #
+            # col_reward_agent=torch.all(col_reward,dim=-1)
+
+            advantage = (col_reward_agent == 0).float()  # -0.5#col_reward <0 collision 0
+
+            tokenized_agent["noncol_rate"] = advantage
+
+            # advantages=(advantage-advantage.mean())/(advantage.std()+1e-5)#(advantage-0.771)/0.42
+
+            tokenized_agent["advantages"] = advantage  # advantage conditioned
             # init_return = agent_rewards.sum(dim=0).detach()
             #
             # non_ego = ~tokenized_agent_rollout["ego_mask"]
@@ -520,16 +572,16 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_agent["advantages"] = init_advantages
 
-            match_loss, g_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.init_decoder(tokenized_agent)
+            match_loss, rl_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.init_decoder(tokenized_agent)
 
             self._log_train('train/match_loss', match_loss)
             self._log_train('train/pos_loss', pos_loss)
             self._log_train('train/heading_loss', heading_loss)
             self._log_train('train/shape_loss', shape_loss)
             self._log_train('train/vel_loss', vel_loss)
-            self._log_train('train/g_loss', g_loss)
+            self._log_train('train/rl_loss', rl_loss)
 
-            init_loss=match_loss+g_loss
+            init_loss=match_loss+rl_loss
 
             init_optimizer.zero_grad()
 
@@ -567,5 +619,7 @@ class IQ_SoftQ(LightningModule):
             self._log_train('train/clip_ratio', tokenized_agent["clip_ratio"].mean())
         if "policy_loss" in tokenized_agent.keys():
             self._log_train('train/policy_loss', tokenized_agent["policy_loss"])
+        if "noncol_rate" in tokenized_agent.keys():
+            self._log_train('train/noncol_rate', tokenized_agent["noncol_rate"].mean())
 
         return loss

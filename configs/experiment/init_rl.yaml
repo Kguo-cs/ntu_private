@@ -16,7 +16,7 @@ model:
 
 ckpt_path: './waymo_data/xflow512_n30.ckpt'
 
-task_name: rl_pgref10_loss1clip1_nologclip #sde100 #gan_bce_match01_rawsum_detach_05 #_gamma01_w1 #_nodec #_allrawsum@_nodec #_rawSum #sde256_policy0001_5e4 #_v1_mc4_clip1_klmsenorm__noscale01 #01_klmse #_scale #normmsemse_kl_soft #norm_01_noexp_mean01_kl100_matchloss #_weight #_policy10_noexp_policy10_w99 #_weight1R_clip20_005_meanstd #_mean #_sdeevalsingle #_cond #_10col__clip20_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
+task_name: rl_pgref100_loss01clip1_nologclip #sde100 #gan_bce_match01_rawsum_detach_05 #_gamma01_w1 #_nodec #_allrawsum@_nodec #_rawSum #sde256_policy0001_5e4 #_v1_mc4_clip1_klmsenorm__noscale01 #01_klmse #_scale #normmsemse_kl_soft #norm_01_noexp_mean01_kl100_matchloss #_weight #_policy10_noexp_policy10_w99 #_weight1R_clip20_005_meanstd #_mean #_sdeevalsingle #_cond #_10col__clip20_normscale_out_weight #_nomatch #_autoscale #auto_use_matchxpred #3 #xflow256_norel_nomatch_scaleV #_weight #_mse_rcolmeansq #_allsq #_match_allstate_dit # ldm128_vmse_lane2_sepmap #_l2l_atten1 #_rand #xflow256_eps005_vshapemsed_col #xflow256_eps005_vshapemsed #tep20 #
 
 
 trainer:
