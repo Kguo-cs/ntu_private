@@ -34,6 +34,7 @@ rotate_to_local,
 infer_prev_pose
 )
 from src.smart.utils.edge_utils import build_batch
+import math
 
 class TokenProcessor(torch.nn.Module):
 
@@ -266,20 +267,24 @@ class TokenProcessor(torch.nn.Module):
         shape=data["agent"]["shape"].clone()
 
         if self.pred_init and not self.learn_init and self.training and not self.traj_diffusion:
+            ego_mask = data["agent"]["role"][:, 0].bool()
 
-            std=0.05
+            pos, heading, vel, shape, perturb_info = (
+                self._perturb_initial_context(
+                    pos=pos,
+                    heading=heading,
+                    vel=vel,
+                    shape=shape,
+                    valid=valid,
+                    agent_type=data["agent"]["type"].long(),
+                    ego_mask=ego_mask,
+                    recovery_steps=self.shift * 2,
+                )
+            )
 
-            pd=torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*std*2
-            hd=torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*std
-
-            pos[:,5]=pos[:,5]+pd
-            heading[:,5]=heading[:,5]+hd
-            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.1
-
-            pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*std
-            heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*std/2
-
-            error_dist=10
+            # The previous value 10 is excessively permissive.
+            # The perturbation is temporally coherent, so 1.0–2.0 is sufficient.
+            error_dist = 1.5
         else:
             error_dist=0.3
 
@@ -325,12 +330,6 @@ class TokenProcessor(torch.nn.Module):
             heading=heading,
             agent_shape=agent_shape,
             token_traj=token_traj,
-           #  batch=batch,#[:,None],
-           #  num_graphs=data.num_graphs,
-           # # ego_mask=ego_mask,
-           #  shape=data["agent"]["shape"],
-           #  type=data["agent"]["type"].long(),
-           #  data=data,
             error_dist=error_dist
         )
         if "route_map_index" in data["agent"].keys():
@@ -860,3 +859,315 @@ class TokenProcessor(torch.nn.Module):
             )[:, -1].flatten(1, 2)
 
         return tokenized_map, tokenized_agent#1030
+
+
+
+    @torch.no_grad()
+    def _perturb_initial_context(
+        self,
+        pos: Tensor,
+        heading: Tensor,
+        vel: Tensor,
+        shape: Tensor,
+        valid: Tensor,
+        agent_type: Tensor,
+        ego_mask,
+        recovery_steps,
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Dict[str, Tensor]]:
+        """Apply physically coherent initial-state perturbation.
+
+        Args:
+            pos:
+                Global positions with shape [N, T, 2].
+            heading:
+                Global headings with shape [N, T].
+            vel:
+                Global velocities with shape [N, T, 2].
+            shape:
+                Agent shape, typically [N, 3] or [N, T, 3].
+            valid:
+                Valid mask with shape [N, T].
+            agent_type:
+                Agent type with shape [N]. Expected:
+                    0: vehicle
+                    1: pedestrian
+                    2: cyclist
+            ego_mask:
+                Optional ego mask with shape [N]. Ego is kept unchanged.
+            recovery_steps:
+                Number of future frames over which the perturbation smoothly
+                decays to zero. Defaults to two token intervals.
+
+        Returns:
+            Perturbed pos, heading, vel, shape, and perturbation diagnostics.
+        """
+        if pos.ndim != 3 or pos.shape[-1] != 2:
+            raise ValueError(f"Expected pos [N,T,2], got {tuple(pos.shape)}")
+        if heading.shape != pos.shape[:2]:
+            raise ValueError(
+                f"heading must match pos[:2], got heading={tuple(heading.shape)}, "
+                f"pos={tuple(pos.shape)}"
+            )
+        if vel.shape != pos.shape:
+            raise ValueError(
+                f"vel must have the same shape as pos, got {tuple(vel.shape)}"
+            )
+        if valid.shape != pos.shape[:2]:
+            raise ValueError(
+                f"valid must match pos[:2], got {tuple(valid.shape)}"
+            )
+
+        num_agents, num_steps, _ = pos.shape
+        device = pos.device
+        dtype = pos.dtype
+
+        # In the original code, frame self.shift is the perturbed current state.
+        anchor_idx = min(int(self.shift), num_steps - 1)
+
+        if recovery_steps is None:
+            # For shift=5 at 10 Hz, this gives about 1 second of recovery.
+            recovery_steps = max(int(self.shift) * 2, 1)
+
+        # ------------------------------------------------------------------
+        # 1. Sample augmentation severity.
+        #
+        # Keep 20% clean samples to avoid creating a train-test mismatch.
+        # ------------------------------------------------------------------
+        severity_prob = torch.tensor(
+            [0.20, 0.45, 0.30, 0.05],
+            device=device,
+            dtype=dtype,
+        )
+        severity_values = torch.tensor(
+            [0.0, 0.5, 1.0, 1.8],
+            device=device,
+            dtype=dtype,
+        )
+
+        severity_idx = torch.multinomial(
+            severity_prob.expand(num_agents, -1),
+            num_samples=1,
+        ).squeeze(-1)
+
+        severity = severity_values[severity_idx]
+
+        anchor_valid = valid[:, anchor_idx]
+        severity = severity * anchor_valid.to(dtype)
+
+        # Unknown/padded types are not perturbed.
+        known_type = (agent_type >= 0) & (agent_type < 3)
+        severity = severity * known_type.to(dtype)
+
+        if ego_mask is not None:
+            severity = severity.masked_fill(ego_mask.bool(), 0.0)
+
+        safe_type = agent_type.clamp(min=0, max=2).long()
+
+        # ------------------------------------------------------------------
+        # 2. Type-specific perturbation scales.
+        #
+        # Columns:
+        #   longitudinal position [m]
+        #   lateral position [m]
+        #   heading [rad]
+        #   relative speed scale
+        #   log shape scale
+        # ------------------------------------------------------------------
+        sigma_table = pos.new_tensor(
+            [
+                # longitudinal, lateral, heading, speed, shape
+                [0.35, 0.18, math.radians(3.0), 0.05, 0.020],  # vehicle
+                [0.18, 0.18, math.radians(8.0), 0.10, 0.015],  # pedestrian
+                [0.25, 0.18, math.radians(5.0), 0.08, 0.020],  # cyclist
+            ]
+        )
+
+        sigma = sigma_table[safe_type] * severity[:, None]
+
+        random_noise = torch.randn(
+            num_agents,
+            5,
+            device=device,
+            dtype=dtype,
+        )
+
+        delta_long = (random_noise[:, 0] * sigma[:, 0]).clamp(
+            min=-1.5,
+            max=1.5,
+        )
+        delta_lat = (random_noise[:, 1] * sigma[:, 1]).clamp(
+            min=-0.8,
+            max=0.8,
+        )
+        delta_heading = (random_noise[:, 2] * sigma[:, 2]).clamp(
+            min=-math.radians(15.0),
+            max=math.radians(15.0),
+        )
+
+        speed_scale = (
+            1.0 + random_noise[:, 3] * sigma[:, 3]
+        ).clamp(min=0.75, max=1.25)
+
+        # ------------------------------------------------------------------
+        # 3. Convert longitudinal/lateral noise to global coordinates.
+        # ------------------------------------------------------------------
+        anchor_heading = heading[:, anchor_idx]
+
+        forward = torch.stack(
+            [anchor_heading.cos(), anchor_heading.sin()],
+            dim=-1,
+        )
+        left = torch.stack(
+            [-anchor_heading.sin(), anchor_heading.cos()],
+            dim=-1,
+        )
+
+        delta_xy = (
+            delta_long[:, None] * forward
+            + delta_lat[:, None] * left
+        )
+
+        # ------------------------------------------------------------------
+        # 4. Build temporal envelope.
+        #
+        # History:
+        #   full coherent perturbation.
+        #
+        # Future:
+        #   smooth decay to the original trajectory.
+        #
+        # This creates a plausible recovery target instead of an abrupt jump.
+        # ------------------------------------------------------------------
+        envelope = torch.ones(num_steps, device=device, dtype=dtype)
+
+        recovery_end = min(
+            anchor_idx + int(recovery_steps),
+            num_steps - 1,
+        )
+
+        if recovery_end > anchor_idx:
+            num_recovery = recovery_end - anchor_idx
+
+            u = torch.linspace(
+                0.0,
+                1.0,
+                num_recovery + 1,
+                device=device,
+                dtype=dtype,
+            )[1:]
+
+            # SmoothStep from 1 to 0.
+            smooth = u.square() * (3.0 - 2.0 * u)
+            envelope[anchor_idx + 1: recovery_end + 1] = 1.0 - smooth
+
+        if recovery_end + 1 < num_steps:
+            envelope[recovery_end + 1:] = 0.0
+
+        envelope_xy = envelope[None, :, None]
+        envelope_angle = envelope[None, :]
+
+        # ------------------------------------------------------------------
+        # 5. Coherently transform position.
+        #
+        # Rotate and scale the trajectory around the original anchor position,
+        # then translate the anchor.
+        # ------------------------------------------------------------------
+        anchor_pos = pos[:, anchor_idx: anchor_idx + 1]
+        relative_pos = pos - anchor_pos
+
+        time_angle = delta_heading[:, None] * envelope_angle
+        cos_angle = time_angle.cos()
+        sin_angle = time_angle.sin()
+
+        relative_x = relative_pos[..., 0]
+        relative_y = relative_pos[..., 1]
+
+        rotated_relative = torch.stack(
+            [
+                cos_angle * relative_x - sin_angle * relative_y,
+                sin_angle * relative_x + cos_angle * relative_y,
+            ],
+            dim=-1,
+        )
+
+        time_speed_scale = (
+            1.0
+            + (speed_scale[:, None] - 1.0) * envelope_angle
+        )
+
+        candidate_pos = (
+            anchor_pos
+            + delta_xy[:, None] * envelope_xy
+            + rotated_relative * time_speed_scale[..., None]
+        )
+
+        # ------------------------------------------------------------------
+        # 6. Heading and velocity use the same rotation and speed scale.
+        # ------------------------------------------------------------------
+        candidate_heading = heading + time_angle
+        candidate_heading = torch.atan2(
+            candidate_heading.sin(),
+            candidate_heading.cos(),
+        )
+
+        vel_x = vel[..., 0]
+        vel_y = vel[..., 1]
+
+        candidate_vel = torch.stack(
+            [
+                cos_angle * vel_x - sin_angle * vel_y,
+                sin_angle * vel_x + cos_angle * vel_y,
+            ],
+            dim=-1,
+        )
+        candidate_vel = candidate_vel * time_speed_scale[..., None]
+
+        # Do not modify invalid frames.
+        valid_xy = valid[..., None]
+
+        pos = torch.where(valid_xy, candidate_pos, pos)
+        heading = torch.where(valid, candidate_heading, heading)
+        vel = torch.where(valid_xy, candidate_vel, vel)
+
+        # ------------------------------------------------------------------
+        # 7. Shape uses small multiplicative noise.
+        #
+        # Multiplicative perturbation guarantees positive dimensions.
+        # ------------------------------------------------------------------
+        shape_noise = torch.randn(
+            num_agents,
+            2,
+            device=device,
+            dtype=shape.dtype,
+        )
+
+        shape_sigma = sigma[:, 4:5].to(shape.dtype)
+
+        shape_scale = torch.exp(shape_noise * shape_sigma).clamp(
+            min=0.90,
+            max=1.10,
+        )
+
+        if shape.ndim == 2:
+            shape[:, :2] = (
+                shape[:, :2] * shape_scale
+            ).clamp_min(0.1)
+        else:
+            scale_shape = [
+                num_agents,
+                *([1] * (shape.ndim - 2)),
+                2,
+            ]
+            shape[..., :2] = (
+                shape[..., :2] * shape_scale.view(*scale_shape)
+            ).clamp_min(0.1)
+
+        perturb_info = {
+            "severity": severity,
+            "delta_xy": delta_xy,
+            "delta_heading": delta_heading,
+            "speed_scale": speed_scale,
+            "temporal_envelope": envelope,
+        }
+
+        return pos, heading, vel, shape, perturb_info
