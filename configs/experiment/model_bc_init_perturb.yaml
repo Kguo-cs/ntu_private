@@ -5,8 +5,8 @@ defaults:
 
 model:
   model_config:
-    lr: 1e-4
-    lr_min_ratio: 0.05
+#    lr: 1e-4
+#    lr_min_ratio: 0.05
     token_processor:
       pred_init: True
 
@@ -14,7 +14,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
-task_name: model40_perturb #less
+task_name: model40_perturb5e4 #less
 
 trainer:
 #  check_val_every_n_epoch: 2
