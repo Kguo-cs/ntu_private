@@ -67,7 +67,7 @@ class InitDiffusion(nn.Module):
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
 
-    def forward(self, tokenized_agent):
+    def forward(self, tokenized_agent,resampling=False):
 
         num_graphs = tokenized_agent["num_graphs"]
         ego_mask = tokenized_agent["ego_mask"]
@@ -259,7 +259,10 @@ class InitDiffusion(nn.Module):
 
                 pred_init = self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
-                pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
+                if resampling:
+                    pred_init, x_list = self.G1.self_resample_initial_state(tokenized_agent, initial_map_feature, 0)
+                else:
+                    pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
 
                 if self.latent_diffusion:
                     pred_init = self.autoencoder.forward_decoder(pred_init, tokenized_agent, initial_map_feature)

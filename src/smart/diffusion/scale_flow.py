@@ -53,6 +53,7 @@ from src.smart.diffusion.dit.dit import DiT
 import torch
 
 from torch_scatter import scatter_mean
+from typing import Dict, Mapping, Optional, Tuple
 
 
 class ScaleFlow(nn.Module):
@@ -1108,6 +1109,221 @@ class ScaleFlow(nn.Module):
             ).flatten(0, 1)
 
         return out
+
+    @torch.no_grad()
+    def self_resample_initial_state(
+            self,
+            tokenized_agent,
+            initial_map_feature: Mapping[str, torch.Tensor],
+            training_step: int,
+            warmup_steps: int = 0,
+            apply_prob: float = 0.5,
+            timestep_shift: float = 0.6,
+            min_strength: float = 0.03,
+            max_strength: float = 0.45,
+            max_pos_delta: float = 2.0,
+            max_vel_delta: float = 3.0,
+            max_shape_ratio: float = 0.20,
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        """Generate model-error-aware initial states by self-resampling.
+
+        Returns:
+            resampled_x:
+                Local initial state [N_agent, 8]:
+                [x, y, heading_cos, heading_sin,
+                 length, width, vel_x, vel_y].
+
+            info:
+                Diagnostics including per-scene resampling strength.
+        """
+        clean_x, _ = self.model.get_input(tokenized_agent)
+        clean_x = clean_x[:, None]  # [N, 1, 8]
+
+        num_graphs = int(tokenized_agent["num_graphs"])
+        agent_batch = tokenized_agent["init_agent_batch"]
+        agent_type = tokenized_agent["init_agent_type"]
+        ego_mask = tokenized_agent["ego_mask"].bool()
+
+        zero_info = {
+            "applied": torch.tensor(False, device=clean_x.device),
+            "strength": clean_x.new_zeros(num_graphs),
+        }
+
+        # --------------------------------------------------------------
+        # 1. Teacher-forcing warmup.
+        # --------------------------------------------------------------
+        if training_step < warmup_steps:
+            return clean_x[:, 0], zero_info
+
+        if torch.rand((), device=clean_x.device) >= apply_prob:
+            return clean_x[:, 0], zero_info
+
+        # --------------------------------------------------------------
+        # 2. Sample resampling strength from shifted logit-normal.
+        #
+        # strength near 0:
+        #     sample remains close to ground truth.
+        #
+        # strength near 1:
+        #     sample approaches full generation.
+        # --------------------------------------------------------------
+        logit_noise = torch.randn(
+            num_graphs,
+            1,
+            1,
+            device=clean_x.device,
+            dtype=clean_x.dtype,
+        )
+
+        strength_scene = torch.sigmoid(logit_noise)
+
+        shift = float(timestep_shift)
+        strength_scene = (
+                shift * strength_scene
+                / (1.0 + (shift - 1.0) * strength_scene)
+        )
+
+        strength_scene = strength_scene.clamp(
+            min=min_strength,
+            max=max_strength,
+        )
+
+        strength_agent = strength_scene[agent_batch]
+
+        # Ego remains a clean conditioning state.
+        strength_agent = torch.where(
+            ego_mask[:, None, None],
+            torch.zeros_like(strength_agent),
+            strength_agent,
+        )
+
+        # Your model uses t=1 for data and t=0 for noise.
+        base_start_t = 1.0 - strength_agent
+
+        # Apply the model's dimension-specific schedule.
+        start_t, _ = self.model.schedule(
+            base_start_t,
+            clean_x,
+            tokenized_agent,
+        )
+
+        start_t = torch.where(
+            ego_mask[:, None, None],
+            torch.ones_like(start_t),
+            start_t,
+        )
+
+        # --------------------------------------------------------------
+        # 3. Partially corrupt the clean initial state.
+        # --------------------------------------------------------------
+        noise = torch.randn_like(clean_x)
+        noise = self.model.denormalize(noise, agent_type)
+
+        z_start = (
+                (1.0 - start_t) * noise
+                + start_t * clean_x
+        )
+
+        # --------------------------------------------------------------
+        # 4. Online-model self-resampling.
+        #
+        # For x-prediction, one model call directly predicts the endpoint.
+        # For velocity prediction, one Euler step advances from start_t to 1.
+        # --------------------------------------------------------------
+        prediction = self.model(
+            z_start,
+            start_t,
+            tokenized_agent,
+            initial_map_feature,
+        )
+
+        if self.x_pred:
+            resampled_x = prediction
+        else:
+            resampled_x = (
+                    z_start
+                    + (1.0 - start_t) * prediction
+            )
+
+        # Detach explicitly: no gradient through the self-resampling stage.
+        resampled_x = resampled_x.detach()
+
+        # Ego must stay exactly equal to logged ego.
+        resampled_x[ego_mask] = clean_x[ego_mask]
+
+        # --------------------------------------------------------------
+        # 5. Safety stabilization.
+        #
+        # Prevent immature models from producing catastrophic initial states.
+        # These bounds can be relaxed after the model becomes strong.
+        # --------------------------------------------------------------
+
+        # Position: clamp vector magnitude, not each axis independently.
+        pos_delta = resampled_x[..., :2] - clean_x[..., :2]
+        pos_norm = pos_delta.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+
+        pos_scale = (
+                max_pos_delta / pos_norm
+        ).clamp(max=1.0)
+
+        resampled_x[..., :2] = (
+                clean_x[..., :2]
+                + pos_delta * pos_scale
+        )
+
+        # Heading: enforce unit cosine/sine vector.
+        heading_vec = resampled_x[..., 2:4]
+        heading_vec = heading_vec / heading_vec.norm(
+            dim=-1,
+            keepdim=True,
+        ).clamp_min(1e-6)
+
+        resampled_x[..., 2:4] = heading_vec
+
+        # Shape: constrain relative change.
+        clean_shape = clean_x[..., 4:6]
+
+        shape_min = (
+                clean_shape * (1.0 - max_shape_ratio)
+        ).clamp_min(0.1)
+
+        shape_max = (
+                clean_shape * (1.0 + max_shape_ratio)
+        ).clamp_min(0.2)
+
+        resampled_shape = resampled_x[..., 4:6]
+        resampled_shape = torch.maximum(resampled_shape, shape_min)
+        resampled_shape = torch.minimum(resampled_shape, shape_max)
+
+        resampled_x[..., 4:6] = resampled_shape
+
+        # Velocity: clamp change magnitude.
+        vel_delta = resampled_x[..., 6:8] - clean_x[..., 6:8]
+        vel_norm = vel_delta.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+
+        vel_scale = (
+                max_vel_delta / vel_norm
+        ).clamp(max=1.0)
+
+        resampled_x[..., 6:8] = (
+                clean_x[..., 6:8]
+                + vel_delta * vel_scale
+        )
+
+        resampled_x[ego_mask] = clean_x[ego_mask]
+
+        info = {
+            "applied": torch.tensor(True, device=clean_x.device),
+            "strength": strength_scene[:, 0, 0],
+            "mean_position_error": (
+                    resampled_x[:, 0, :2] - clean_x[:, 0, :2]
+            ).norm(dim=-1).mean(),
+            "mean_velocity_error": (
+                    resampled_x[:, 0, 6:8] - clean_x[:, 0, 6:8]
+            ).norm(dim=-1).mean(),
+        }
+
+        return resampled_x[:, 0], info
 
 
 def return_decay(step, decay_type):

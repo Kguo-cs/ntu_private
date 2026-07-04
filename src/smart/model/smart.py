@@ -65,6 +65,7 @@ class SMART(LightningModule):
         self.log_epoch = -1
         self.val_open_loop = model_config.val_open_loop
         self.val_closed_loop = model_config.val_closed_loop
+
         self.token_processor = TokenProcessor(**model_config.token_processor)
 
         self.encoder = SMARTDecoder(

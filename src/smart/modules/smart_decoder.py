@@ -23,6 +23,15 @@ from src.smart.modules.map_decoder import SMARTMapDecoder
 from src.smart.modules.agent_decoder import SMARTAgentDecoder
 from src.smart.diffusion.initial_diffusion import InitDiffusion
 
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    angle_between_2d_vectors,
+rotate_to_local,
+infer_prev_pose
+)
 
 class SMARTDecoder(nn.Module):
 
@@ -63,6 +72,7 @@ class SMARTDecoder(nn.Module):
         self.pred_init=token_processor.pred_init
         self.learn_init=token_processor.learn_init
         self.finetune=finetune
+        self.token_processor=token_processor
 
         self.use_lcf=reward_weight!=0
         self.use_kl_penalty=False
@@ -168,6 +178,33 @@ class SMARTDecoder(nn.Module):
         else:
             map_feature = self.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
+
+        self.init_decoder.eval()
+        gt_initial_pos, gt_initial_heading, gt_initial_idx, shape, gt_initial_vel = self.init_decoder(tokenized_agent,resampling=True)
+        self.init_decoder.train()
+
+        pos=tokenized_agent["gt_traj_10hz"]
+        heading=tokenized_agent["gt_head_10hz"]
+        valid= tokenized_agent["gt_valid_10hz"]
+        token_traj=tokenized_agent["token_traj"]
+        agent_shape=tokenized_agent["token_agent_shape"]
+        token_traj_all = tokenized_agent["token_traj_all"]
+
+        pos0, head0 = infer_prev_pose(gt_initial_pos[:, :1], gt_initial_heading[:, :1], gt_initial_idx[:, -1:], token_traj_all)
+
+        pos[:,5]=gt_initial_pos[:,0]
+        heading[:,5]=gt_initial_heading[:,0]
+        pos[:,0]=pos0[:,0]
+        heading[:,0]=head0[:,0]
+
+        token_dict = self.token_processor._match_agent_token(
+            valid=valid,
+            pos=pos,
+            heading=heading,
+            agent_shape=agent_shape,
+            token_traj=token_traj,
+        )
+        tokenized_agent.update(token_dict)
 
         if self.learn_init and self.finetune and not self.gail:
             pred_dict={}

@@ -56,7 +56,6 @@ class TokenProcessor(torch.nn.Module):
         self.learn_init=learn_init
         self.learn_autoencoder = learn_autoencoder
 
-        self.noise=False
         self.use_bird=False
         self.use_token=True
         self.use_goal=False
@@ -81,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
 
         if not self.training:
             tokenized_map = self.tokenize_map(data)
-            tokenized_agent = self.tokenize_agent(data)
+            tokenized_agent = self.tokenize_agent(data,tokenized_map)
 
             if self.pred_init:
                 self.get_init(tokenized_agent)
@@ -245,7 +244,7 @@ class TokenProcessor(torch.nn.Module):
         return tokenized_map
 
 
-    def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
+    def tokenize_agent(self, data: HeteroData,tokenized_map) -> Dict[str, Tensor]:
         # ! collate width/length, traj tokens for current batch
         agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
             data["agent"]["type"]
@@ -266,48 +265,6 @@ class TokenProcessor(torch.nn.Module):
 
         shape=data["agent"]["shape"].clone()
 
-        if self.pred_init and not self.learn_init and self.training and not self.traj_diffusion:
-            std=0.05
-
-            pd=torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*std*2
-            hd=torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*std
-
-            pos[:,5]=pos[:,5]+pd
-            heading[:,5]=heading[:,5]+hd
-            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.1
-
-            pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*std
-            heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*std/2
-
-            error_dist=10
-
-            # ego_mask = data["agent"]["role"][:, 0].bool()
-            #
-            # pos, heading, vel, shape, perturb_info = (
-            #     self._perturb_initial_context(
-            #         pos=pos,
-            #         heading=heading,
-            #         vel=vel,
-            #         shape=shape,
-            #         valid=valid,
-            #         agent_type=data["agent"]["type"].long(),
-            #         ego_mask=ego_mask,
-            #         recovery_steps=self.shift * 2,
-            #     )
-            # )
-            #
-            # # The previous value 10 is excessively permissive.
-            # # The perturbation is temporally coherent, so 1.0–2.0 is sufficient.
-            # error_dist = 0.8
-        else:
-            error_dist=0.3
-
-        # role_mask = data["agent"]["role"]
-
-        # pred_mask = role_mask[:, 0] | role_mask[:, 2]
-
-        # ego_mask=data["agent"]["role"][:, 0]
-
         # ! prepare output dict
         tokenized_agent = {
             "num_graphs": data.num_graphs,
@@ -327,6 +284,52 @@ class TokenProcessor(torch.nn.Module):
             "gt_valid_10hz": valid,
             #"pred_mask":pred_mask,
         }
+
+
+        if self.pred_init and not self.learn_init and self.training and not self.traj_diffusion:
+            # std=0.05
+            #
+            # pd=torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*std*2
+            # hd=torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*std
+            #
+            # pos[:,5]=pos[:,5]+pd
+            # heading[:,5]=heading[:,5]+hd
+            # shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.1
+            #
+            # pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*std
+            # heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*std/2
+            #
+            # error_dist=10
+            # ego_mask = data["agent"]["role"][:, 0].bool()
+            #
+            # pos, heading, vel, shape, perturb_info = (
+            #     self._perturb_initial_context(
+            #         pos=pos,
+            #         heading=heading,
+            #         vel=vel,
+            #         shape=shape,
+            #         valid=valid,
+            #         agent_type=data["agent"]["type"].long(),
+            #         ego_mask=ego_mask,
+            #         recovery_steps=self.shift * 2,
+            #     )
+            # )
+            #
+            # # The previous value 10 is excessively permissive.
+            # # The perturbation is temporally coherent, so 1.0–2.0 is sufficient.
+            # error_dist = 0.8
+            # tokenized_agent["shape"]=shape
+
+            error_dist=0.3
+        else:
+            error_dist=0.3
+
+        # role_mask = data["agent"]["role"]
+
+        # pred_mask = role_mask[:, 0] | role_mask[:, 2]
+
+        # ego_mask=data["agent"]["role"][:, 0]
+
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
             tokenized_agent[f"trajectory_token_{k}"] =getattr(self,f"trajectory_token_{k}")
@@ -335,8 +338,6 @@ class TokenProcessor(torch.nn.Module):
         if not self.training:
             # [n_agent]
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
-
-        #batch = data["agent"]["batch"]
 
         token_dict = self._match_agent_token(
             valid=valid,
@@ -407,11 +408,6 @@ class TokenProcessor(torch.nn.Module):
             min_dist, token_idx_gt = torch.min(all_dist, dim=-1)  # [n_agent]
 
             #out_dict["gt_idx"].append(token_idx_gt)
-
-            # if self.training and self.noise:
-            #     topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
-            #     sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
-            #     token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
@@ -696,13 +692,7 @@ class TokenProcessor(torch.nn.Module):
                     (self.map_token_sample_pt[:,:,1:] - map["traj_pos_local"].unsqueeze(1)) ** 2,
                     dim=(-2, -1),
                 )  # [n_pl, n_token]
-                if   self.noise:
-                    topk_indices = torch.argsort(dist, dim=1)[:, :8]
-                    sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
-                    token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
-                else:
-                    token_idx = torch.argmin(dist, dim=-1)
-
+                token_idx = torch.argmin(dist, dim=-1)
                 tokenized_map["token_idx"] = token_idx
 
                 tokenized_map["traj_pos_local"] = map["traj_pos_local"]
@@ -780,7 +770,11 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent["num_graphs"]=data.num_graphs*81
                     tokenized_agent["non_ego_valid"] =valid[:,~ego_mask]
             else:
-                tokenized_agent=self.tokenize_agent(data)
+                tokenized_agent=self.tokenize_agent(data,tokenized_map)
+
+                if self.pred_init:
+                    self.get_init(tokenized_agent)
+
         else:
             if  "initial_pos" in agent.keys():
 
