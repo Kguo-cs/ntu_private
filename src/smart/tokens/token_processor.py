@@ -267,24 +267,38 @@ class TokenProcessor(torch.nn.Module):
         shape=data["agent"]["shape"].clone()
 
         if self.pred_init and not self.learn_init and self.training and not self.traj_diffusion:
-            ego_mask = data["agent"]["role"][:, 0].bool()
+            std=0.05
 
-            pos, heading, vel, shape, perturb_info = (
-                self._perturb_initial_context(
-                    pos=pos,
-                    heading=heading,
-                    vel=vel,
-                    shape=shape,
-                    valid=valid,
-                    agent_type=data["agent"]["type"].long(),
-                    ego_mask=ego_mask,
-                    recovery_steps=self.shift * 2,
-                )
-            )
+            pd=torch.randn_like(pos[:,5]).clamp(min=-3,max=3)*std*2
+            hd=torch.randn_like(heading[:,5]).clamp(min=-3,max=3)*std
 
-            # The previous value 10 is excessively permissive.
-            # The perturbation is temporally coherent, so 1.0–2.0 is sufficient.
-            error_dist = 0.8
+            pos[:,5]=pos[:,5]+pd
+            heading[:,5]=heading[:,5]+hd
+            shape=shape+torch.randn_like(shape).clamp(min=-3,max=3)*0.1
+
+            pos[:,0]=pos[:,0]+pd+torch.randn_like(pos[:,0]).clamp(min=-3,max=3)*std
+            heading[:,0]=heading[:,0]+hd+torch.randn_like(heading[:,0]).clamp(min=-3,max=3)*std/2
+
+            error_dist=10
+
+            # ego_mask = data["agent"]["role"][:, 0].bool()
+            #
+            # pos, heading, vel, shape, perturb_info = (
+            #     self._perturb_initial_context(
+            #         pos=pos,
+            #         heading=heading,
+            #         vel=vel,
+            #         shape=shape,
+            #         valid=valid,
+            #         agent_type=data["agent"]["type"].long(),
+            #         ego_mask=ego_mask,
+            #         recovery_steps=self.shift * 2,
+            #     )
+            # )
+            #
+            # # The previous value 10 is excessively permissive.
+            # # The perturbation is temporally coherent, so 1.0–2.0 is sufficient.
+            # error_dist = 0.8
         else:
             error_dist=0.3
 
