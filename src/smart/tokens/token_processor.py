@@ -284,7 +284,7 @@ class TokenProcessor(torch.nn.Module):
 
             # The previous value 10 is excessively permissive.
             # The perturbation is temporally coherent, so 1.0–2.0 is sufficient.
-            error_dist = 1.5
+            error_dist = 0.8
         else:
             error_dist=0.3
 
