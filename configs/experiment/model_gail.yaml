@@ -14,8 +14,6 @@ model:
     decoder:
       dis_a2a_radius: 10
       dis_a2a_neighbor: 20
-      dis_weight: 20
-      dist_decay: 3
 
 #ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
 ckpt_path: "./waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt"

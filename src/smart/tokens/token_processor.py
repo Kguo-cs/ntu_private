@@ -859,4 +859,4 @@ class TokenProcessor(torch.nn.Module):
                 self, f"agent_token_all_{k}"
             )[:, -1].flatten(1, 2)
 
-        return tokenized_map, tokenized_agent
+        return tokenized_map, tokenized_agent#1030

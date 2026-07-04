@@ -83,12 +83,12 @@ class SMART(LightningModule):
                     if not self.encoder.gail or self.training_rollout_len==1:
                         for p in self.encoder.agent_encoder.parameters():
                             p.requires_grad = False
+
+                    if self.encoder.init_decoder.G1.use_ref:
+                        for p in self.encoder.init_decoder.G1.ref_model.parameters():
+                            p.requires_grad = False
                 else:
                     for p in self.encoder.init_decoder.parameters():
-                        p.requires_grad = False
-
-                if self.encoder.init_decoder.G1.use_ref:
-                    for p in self.encoder.init_decoder.G1.ref_model.parameters():
                         p.requires_grad = False
 
         self.n_vis_batch = model_config.n_vis_batch

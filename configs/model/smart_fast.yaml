@@ -28,7 +28,7 @@ model_config:
     dis_a2a_radius: 0
     dis_a2a_neighbor: 0
 
-    dis_weight: 5
+    dis_weight: 20
     dist_decay: 3
     reward_weight: 0
     reward_decay: 2.5
