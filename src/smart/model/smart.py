@@ -410,7 +410,15 @@ class SMART(LightningModule):
 
                     for key, value in epoch_wosac_metrics.items():#minADE is the time average distance for evaluated agent
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
-
+                        # self.log(
+                        #     str(key),
+                        #     value,
+                        #     on_step=False,
+                        #     on_epoch=True,
+                        #     prog_bar=False,
+                        #     sync_dist=True,
+                        #     rank_zero_only=False,
+                        # )
                 self.wosac_metrics.reset()
                 self.minADE.reset()
 

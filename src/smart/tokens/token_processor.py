@@ -933,13 +933,23 @@ class TokenProcessor(torch.nn.Module):
         #
         # Keep 20% clean samples to avoid creating a train-test mismatch.
         # ------------------------------------------------------------------
+        # severity_prob = torch.tensor(
+        #     [0.30, 0.50, 0.18, 0.02],
+        #     device=device,
+        #     dtype=dtype,
+        # )
+        # severity_values = torch.tensor(
+        #     [0.0, 0.5, 1.0, 1.5],
+        #     device=device,
+        #     dtype=dtype,
+        # )
         severity_prob = torch.tensor(
-            [0.30, 0.50, 0.18, 0.02],
+            [0.20, 0.45, 0.30, 0.05],
             device=device,
             dtype=dtype,
         )
         severity_values = torch.tensor(
-            [0.0, 0.5, 1.0, 1.5],
+            [0.0, 0.5, 1.0, 1.8],
             device=device,
             dtype=dtype,
         )
@@ -973,26 +983,26 @@ class TokenProcessor(torch.nn.Module):
         #   relative speed scale
         #   log shape scale
         # ------------------------------------------------------------------
-        # sigma_table = pos.new_tensor(
-        #     [
-        #         # longitudinal, lateral, heading, speed, shape
-        #         [0.35, 0.18, math.radians(3.0), 0.05, 0.020],  # vehicle
-        #         [0.18, 0.18, math.radians(8.0), 0.10, 0.015],  # pedestrian
-        #         [0.25, 0.18, math.radians(5.0), 0.08, 0.020],  # cyclist
-        #     ]
-        # )
         sigma_table = pos.new_tensor(
             [
-                # longitudinal [m], lateral [m], heading [rad],
-                # relative speed scale, log shape scale
-
-                [0.15, 0.08, math.radians(1.5), 0.025, 0.008],  # vehicle
-                [0.10, 0.10, math.radians(4.0), 0.050, 0.008],  # pedestrian
-                [0.13, 0.10, math.radians(3.0), 0.040, 0.008],  # cyclist
-            ],
-            dtype=pos.dtype,
-            device=pos.device,
+                # longitudinal, lateral, heading, speed, shape
+                [0.35, 0.18, math.radians(3.0), 0.05, 0.020],  # vehicle
+                [0.18, 0.18, math.radians(8.0), 0.10, 0.015],  # pedestrian
+                [0.25, 0.18, math.radians(5.0), 0.08, 0.020],  # cyclist
+            ]
         )
+        # sigma_table = pos.new_tensor(
+        #     [
+        #         # longitudinal [m], lateral [m], heading [rad],
+        #         # relative speed scale, log shape scale
+        #
+        #         [0.15, 0.08, math.radians(1.5), 0.025, 0.008],  # vehicle
+        #         [0.10, 0.10, math.radians(4.0), 0.050, 0.008],  # pedestrian
+        #         [0.13, 0.10, math.radians(3.0), 0.040, 0.008],  # cyclist
+        #     ],
+        #     dtype=pos.dtype,
+        #     device=pos.device,
+        # )
         sigma = sigma_table[safe_type] * severity[:, None]
 
         random_noise = torch.randn(
