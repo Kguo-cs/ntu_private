@@ -15,7 +15,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
-task_name: model40_resample_mid_prob1 #perturb5e4 #less
+task_name: model40_resample_less_prob1 #perturb5e4 #less
 
 trainer:
   #val_check_interval: 0.0000002
