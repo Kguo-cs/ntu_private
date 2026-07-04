@@ -1130,12 +1130,12 @@ class ScaleFlow(nn.Module):
             # max_pos_delta=0.75,
             # max_vel_delta=1.00,
             # max_shape_ratio=0.05,
-            timestep_shift=0.25,
-            min_strength = 0.005,
-            max_strength = 0.12,
-            max_pos_delta = 0.40,
-            max_vel_delta = 0.60,
-            max_shape_ratio = 0.03,
+            timestep_shift=0.25/2,
+            min_strength = 0.005/2,
+            max_strength = 0.12/2,
+            max_pos_delta = 0.40/2,
+            max_vel_delta = 0.60/2,
+            max_shape_ratio = 0.03/2,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Generate model-error-aware initial states by self-resampling.
 
