@@ -173,15 +173,6 @@ class IQ_SoftQ(LightningModule):
 
             action_nll = action_nll + loss
 
-        if "pos_loss" in pred.keys():
-            pos_loss=pred["pos_loss"]
-            heading_loss=pred["heading_loss"]
-
-            self._log_train('train/pos_loss', pos_loss)
-            self._log_train('train/heading_loss', heading_loss)
-
-            action_nll=pos_loss+heading_loss
-
         return action_nll,log_prob
 
     def get_reward(
