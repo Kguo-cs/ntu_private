@@ -409,17 +409,13 @@ class SMART(LightningModule):
 
                         self.metric_logger.reset()
 
-                    for key, value in epoch_wosac_metrics.items():#minADE is the time average distance for evaluated agent
-                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
-                        # self.log(
-                        #     str(key),
-                        #     value,
-                        #     on_step=False,
-                        #     on_epoch=True,
-                        #     prog_bar=False,
-                        #     sync_dist=True,
-                        #     rank_zero_only=False,
-                        # )
+                    scalar_metrics = {
+                        str(key): _to_python_scalar(value, str(key))
+                        for key, value in epoch_wosac_metrics.items()
+                    }
+
+                    for key, value in scalar_metrics.items():#minADE is the time average distance for evaluated agent
+                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
                 self.wosac_metrics.reset()
                 self.minADE.reset()
 
@@ -637,6 +633,47 @@ class SMART(LightningModule):
             )
 
         return z
+
     def on_test_epoch_end(self):
         if self.global_rank == 0:
             self.wosac_submission.save_sub_file()
+
+import numbers
+
+def _to_python_scalar(value, name: str) -> float:
+    """Convert a metric value to a plain finite Python float."""
+
+    if isinstance(value, torch.Tensor):
+        value = value.detach()
+
+        if value.numel() != 1:
+            raise ValueError(
+                f"Metric {name!r} must be scalar, but got "
+                f"shape={tuple(value.shape)}, numel={value.numel()}."
+            )
+
+        value = value.float().cpu().item()
+
+    elif isinstance(value, np.ndarray):
+        if value.size != 1:
+            raise ValueError(
+                f"Metric {name!r} must be scalar, but got "
+                f"NumPy shape={value.shape}, size={value.size}."
+            )
+        value = value.item()
+
+    elif isinstance(value, np.generic):
+        value = value.item()
+
+    elif isinstance(value, numbers.Number):
+        value = float(value)
+
+    else:
+        raise TypeError(
+            f"Unsupported metric type for {name!r}: {type(value).__name__}"
+        )
+
+    value = float(value)
+
+
+    return value
