@@ -398,7 +398,6 @@ class ScaleFlow(nn.Module):
 
                 z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
-            denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
             with torch.no_grad():
                 if self.use_ref:
@@ -438,6 +437,7 @@ class ScaleFlow(nn.Module):
                 model_tokenized_agent,
                 initial_map_feature,
             )
+            denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
             if self.x_pred:
                 v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
@@ -513,7 +513,7 @@ class ScaleFlow(nn.Module):
                         surrogate_2 = clipped_ratio * advantages_pg
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
-                        policy_loss = -(log_prob * advantages_pg).mean()*100
+                        policy_loss = -(log_prob * advantages_pg).mean()*10
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 
@@ -1080,8 +1080,6 @@ class ScaleFlow(nn.Module):
             raise ValueError(f"Unsupported sde_type: {sde_type}")
 
         log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
-        log_prob = torch.nan_to_num(log_prob, nan=0.0, posinf=0.0, neginf=0.0)
-        log_prob = log_prob.clamp(-self.init_logprob_clip, self.init_logprob_clip)
 
         prev_sample = self.model.denormalize(prev_sample)
 
