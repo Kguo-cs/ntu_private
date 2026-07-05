@@ -56,6 +56,10 @@ from torch_scatter import scatter_mean
 from typing import Dict, Mapping, Optional, Tuple
 
 
+# TempFlow-GRPO adaptation:
+#   1. deterministic flow with one time-indexed SDE branch per rollout;
+#   2. noise-aware, mean-one weighting of the PPO objective;
+#   3. optional seed-level groups sharing the same initial latent noise.
 class ScaleFlow(nn.Module):
 
     def __init__(self, args, token_processor,gail):
@@ -124,7 +128,7 @@ class ScaleFlow(nn.Module):
         else:
             self.use_sde=False
 
-        self.noise_level = 0.7
+        self.noise_level = float(getattr(args, "noise_level", 0.7))
 
         self.rationorm = False
 
@@ -140,10 +144,42 @@ class ScaleFlow(nn.Module):
 
         self.mc_num = 1
 
-        self.init_adv_clip = 3.0
-        self.init_logprob_clip = 50.0
-        self.init_ppo_clip = 0.2
-        self.use_init_ppo_ratio = False
+        self.init_adv_clip = float(getattr(args, "init_adv_clip", 3.0))
+        self.init_logprob_clip = float(getattr(args, "init_logprob_clip", 50.0))
+        self.init_ppo_clip = float(getattr(args, "init_ppo_clip", 0.2))
+
+        # TempFlow-GRPO options. All options are backward compatible with old configs.
+        # A rollout follows deterministic flow except for one designated SDE branch step.
+        self.use_tempflow_grpo = bool(
+            getattr(args, "use_tempflow_grpo", False)
+        )
+        self.use_init_ppo_ratio = bool(
+            getattr(args, "use_init_ppo_ratio", False)
+        )
+        self.tempflow_group_advantages = bool(
+            getattr(args, "tempflow_group_advantages", True)
+        )
+        self.tempflow_stratified_branching = bool(
+            getattr(args, "tempflow_stratified_branching", True)
+        )
+        self.tempflow_seed_group_size = int(
+            getattr(args, "tempflow_seed_group_size", 1)
+        )
+        self.tempflow_branch_min_step = int(
+            getattr(args, "tempflow_branch_min_step", 1)
+        )
+        self.tempflow_branch_max_step = int(
+            getattr(args, "tempflow_branch_max_step", -1)
+        )
+        self.tempflow_weight_min = float(
+            getattr(args, "tempflow_weight_min", 0.25)
+        )
+        self.tempflow_weight_max = float(
+            getattr(args, "tempflow_weight_max", 4.0)
+        )
+        self.tempflow_weight_eps = float(
+            getattr(args, "tempflow_weight_eps", 1e-6)
+        )
 
         if self.use_nft:
             self.old_model = copy.deepcopy(self.model)
@@ -192,12 +228,33 @@ class ScaleFlow(nn.Module):
         self.apply(weight_init)
 
 
-    def _sanitize_init_advantages(self, advantages, ego_mask, selected_agent_idx=None):
-        """Return finite, clipped advantages aligned to sampled SDE transitions."""
+    def _sanitize_init_advantages(
+            self,
+            advantages,
+            ego_mask,
+            selected_agent_idx=None,
+            group_ids=None,
+    ):
+        """Return finite, clipped advantages aligned to sampled SDE transitions.
+
+        When ``group_ids`` is supplied, corresponding agents from repeated scenes are
+        normalized within the same seed group. This is the seed-level GRPO grouping
+        used by TempFlow-GRPO. Without valid groups, the original batch-level
+        normalization is retained.
+        """
         if advantages is None:
             return None
+
         advantages = advantages.detach().to(dtype=torch.float32)
-        advantages = torch.nan_to_num(advantages, nan=0.0, posinf=0.0, neginf=0.0)
+        advantages = torch.nan_to_num(
+            advantages,
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
+
+        if advantages.ndim > 1:
+            advantages = advantages.reshape(advantages.shape[0], -1).mean(dim=-1)
 
         if selected_agent_idx is not None:
             if advantages.shape[0] != ego_mask.shape[0]:
@@ -206,12 +263,214 @@ class ScaleFlow(nn.Module):
                     f"advantages={tuple(advantages.shape)}, ego_mask={tuple(ego_mask.shape)}"
                 )
             advantages = advantages[selected_agent_idx]
+            if group_ids is not None:
+                group_ids = group_ids[selected_agent_idx]
 
-        if advantages.numel() > 1:
+        use_group_norm = (
+            group_ids is not None
+            and group_ids.numel() == advantages.numel()
+            and torch.unique(group_ids).numel() < group_ids.numel()
+        )
+
+        if use_group_norm:
+            _, inverse = torch.unique(group_ids.long(), return_inverse=True)
+            num_groups = int(inverse.max().item()) + 1
+
+            group_mean = scatter_mean(advantages, inverse, dim=0, dim_size=num_groups)
+            centered = advantages - group_mean[inverse]
+            group_var = scatter_mean(
+                centered.square(),
+                inverse,
+                dim=0,
+                dim_size=num_groups,
+            )
+            group_count = torch.bincount(inverse, minlength=num_groups)
+            normalized = centered / group_var[inverse].sqrt().clamp_min(1e-6)
+
+            # A singleton has no valid within-group comparison and receives zero
+            # policy-gradient advantage rather than an unstable normalized value.
+            advantages = torch.where(
+                group_count[inverse] > 1,
+                normalized,
+                torch.zeros_like(normalized),
+            )
+        elif advantages.numel() > 1:
             advantages = advantages - advantages.mean()
             advantages = advantages / advantages.std(unbiased=False).clamp_min(1e-6)
 
         return advantages.clamp(-self.init_adv_clip, self.init_adv_clip)
+
+    def _resolve_tempflow_seed_groups(self, tokenized_agent, num_graphs, device):
+        """Resolve graph-level seed groups for repeated copies of the same scene."""
+        supplied = tokenized_agent.get("tempflow_seed_group_id", None)
+        if supplied is not None:
+            group_ids = torch.as_tensor(supplied, device=device, dtype=torch.long)
+            if group_ids.numel() != num_graphs:
+                raise RuntimeError(
+                    "tempflow_seed_group_id must contain one id per graph: "
+                    f"got {group_ids.numel()} ids for {num_graphs} graphs"
+                )
+            return group_ids.reshape(num_graphs)
+
+        group_size = max(self.tempflow_seed_group_size, 1)
+        return torch.arange(num_graphs, device=device, dtype=torch.long) // group_size
+
+    def _build_tempflow_agent_groups(
+            self,
+            agent_batch,
+            init_agent_type,
+            seed_group_ids,
+            num_graphs,
+    ):
+        """Group corresponding agents across scene replicas and validate layout."""
+        local_rank = torch.empty_like(agent_batch)
+        graph_indices = []
+        max_agents = 0
+
+        for graph_idx in range(num_graphs):
+            idx = torch.nonzero(agent_batch == graph_idx, as_tuple=False).flatten()
+            graph_indices.append(idx)
+            local_rank[idx] = torch.arange(idx.numel(), device=agent_batch.device)
+            max_agents = max(max_agents, int(idx.numel()))
+
+        for seed_group in torch.unique(seed_group_ids):
+            members = torch.nonzero(
+                seed_group_ids == seed_group,
+                as_tuple=False,
+            ).flatten()
+            if members.numel() <= 1:
+                continue
+
+            reference = graph_indices[int(members[0].item())]
+            reference_types = init_agent_type[reference]
+            for member in members[1:]:
+                idx = graph_indices[int(member.item())]
+                if idx.numel() != reference.numel() or not torch.equal(
+                    init_agent_type[idx],
+                    reference_types,
+                ):
+                    raise RuntimeError(
+                        "Graphs in a TempFlow seed group must have identical agent "
+                        "counts, ordering, and types. Duplicate each scene before "
+                        "collation and keep replica ordering unchanged."
+                    )
+
+        stride = max(max_agents, 1) + 1
+        return seed_group_ids[agent_batch] * stride + local_rank, graph_indices
+
+    @staticmethod
+    def _share_tempflow_initial_noise(z, seed_group_ids, graph_indices):
+        """Copy one initial latent seed to every scene replica in each seed group."""
+        z = z.clone()
+        for seed_group in torch.unique(seed_group_ids):
+            members = torch.nonzero(
+                seed_group_ids == seed_group,
+                as_tuple=False,
+            ).flatten()
+            if members.numel() <= 1:
+                continue
+
+            source_idx = graph_indices[int(members[0].item())]
+            source_noise = z[source_idx].clone()
+            for member in members[1:]:
+                target_idx = graph_indices[int(member.item())]
+                z[target_idx] = source_noise
+        return z
+
+    def _sample_tempflow_branch_steps(
+            self,
+            tokenized_agent,
+            seed_group_ids,
+            num_graphs,
+            steps,
+            device,
+    ):
+        """Choose one SDE branch time per graph, stratified inside seed groups."""
+        supplied = tokenized_agent.get("tempflow_branch_step_override", None)
+        if supplied is not None:
+            branch_steps = torch.as_tensor(supplied, device=device, dtype=torch.long)
+            if branch_steps.numel() != num_graphs:
+                raise RuntimeError(
+                    "tempflow_branch_step_override must contain one step per graph: "
+                    f"got {branch_steps.numel()} values for {num_graphs} graphs"
+                )
+            if torch.any((branch_steps < 0) | (branch_steps >= steps)):
+                raise RuntimeError(
+                    f"tempflow_branch_step_override must be in [0, {steps - 1}]"
+                )
+            return branch_steps.reshape(num_graphs)
+
+        min_step = min(max(self.tempflow_branch_min_step, 0), steps - 1)
+        configured_max = self.tempflow_branch_max_step
+        max_step = steps - 1 if configured_max < 0 else configured_max
+        max_step = min(max(max_step, min_step), steps - 1)
+        candidates = torch.arange(min_step, max_step + 1, device=device)
+
+        branch_steps = torch.empty(num_graphs, device=device, dtype=torch.long)
+        if not self.tempflow_stratified_branching:
+            random_idx = torch.randint(0, candidates.numel(), (num_graphs,), device=device)
+            return candidates[random_idx]
+
+        # Scene replicas sharing one initial noise seed cover the full time range
+        # instead of clustering around adjacent branch steps.
+        num_candidates = candidates.numel()
+        for seed_group in torch.unique(seed_group_ids):
+            members = torch.nonzero(
+                seed_group_ids == seed_group,
+                as_tuple=False,
+            ).flatten()
+            num_members = members.numel()
+
+            if num_members <= num_candidates:
+                edges = torch.linspace(
+                    0,
+                    num_candidates,
+                    num_members + 1,
+                    device=device,
+                )
+                low = edges[:-1].floor().long()
+                high = (edges[1:].ceil().long() - 1).clamp_max(
+                    num_candidates - 1
+                )
+                high = torch.maximum(high, low)
+                width = high - low + 1
+                sampled_idx = low + (
+                    torch.rand(num_members, device=device) * width
+                ).floor().long()
+                sampled_idx = sampled_idx[torch.randperm(num_members, device=device)]
+            else:
+                sampled_idx = torch.arange(num_members, device=device) % num_candidates
+                sampled_idx = sampled_idx[torch.randperm(num_members, device=device)]
+
+            branch_steps[members] = candidates[sampled_idx]
+
+        return branch_steps
+
+    def _tempflow_noise_weights(self, std_dev_t):
+        """Convert SDE diffusion coefficients into mean-one policy weights."""
+        # if not self.use_tempflow_grpo:
+        #     return std_dev_t.new_ones(std_dev_t.shape[0])
+        #
+        # Dimension-specific flow schedules may produce a vector coefficient.
+        # RMS gives one effective noise scale per sampled transition.
+        raw_weight = std_dev_t.detach().reshape(std_dev_t.shape[0], -1)
+        raw_weight = raw_weight.square().mean(dim=-1).sqrt()
+        raw_weight = torch.nan_to_num(
+            raw_weight,
+            nan=0.0,
+            posinf=self.tempflow_weight_max,
+            neginf=0.0,
+        )
+        normalized = raw_weight / raw_weight.mean().clamp_min(
+            self.tempflow_weight_eps
+        )
+        bounded = normalized.clamp(
+            min=self.tempflow_weight_min,
+            max=self.tempflow_weight_max,
+        )
+        # Preserve the TempFlow convention that the average weight is one, so
+        # enabling temporal weighting does not silently change the PG loss scale.
+        return bounded / bounded.mean().clamp_min(self.tempflow_weight_eps)
 
     def adaptive_x0_loss_per_sample(self,pred_x0, target_x0):
         """
@@ -360,10 +619,18 @@ class ScaleFlow(nn.Module):
                     "gen_agent_idx",
                     torch.arange(z_sampled.shape[0], device=z_sampled.device),
                 )
+                tempflow_group_ids = None
+                if self.use_tempflow_grpo and self.tempflow_group_advantages:
+                    tempflow_group_ids = tokenized_agent.get(
+                        "tempflow_agent_group_id",
+                        None,
+                    )
+
                 advantages = self._sanitize_init_advantages(
                     raw_advantages,
                     ego_mask,
                     selected_agent_idx=selected_agent_idx,
+                    group_ids=tempflow_group_ids,
                 )
             else:
                 advantages = raw_advantages
@@ -499,20 +766,47 @@ class ScaleFlow(nn.Module):
                         prev_sample=prev_sample[sampled_non_ego]
                     )
                     advantages_pg = advantages[sampled_non_ego]
+                    time_weight = self._tempflow_noise_weights(std_dev_t)
+
+                    tokenized_agent["tempflow_weight_mean"] = time_weight.mean().detach()
+                    tokenized_agent["tempflow_weight_min"] = time_weight.min().detach()
+                    tokenized_agent["tempflow_weight_max"] = time_weight.max().detach()
+
                     if self.use_init_ppo_ratio and old_log_prob is not None:
                         old_lp = old_log_prob[sampled_non_ego].detach()
-                        old_lp = torch.nan_to_num(old_lp, nan=0.0, posinf=0.0, neginf=0.0)
-                        old_lp = old_lp.clamp(-self.init_logprob_clip, self.init_logprob_clip)
-                        ratio = torch.exp((log_prob - old_lp).clamp(-10.0, 10.0))
+                        old_lp = torch.nan_to_num(
+                            old_lp,
+                            nan=0.0,
+                            posinf=0.0,
+                            neginf=0.0,
+                        )
+                        old_lp = old_lp.clamp(
+                            -self.init_logprob_clip,
+                            self.init_logprob_clip,
+                        )
+                        log_ratio = (log_prob - old_lp).clamp(-10.0, 10.0)
+                        ratio = torch.exp(log_ratio)
                         clipped_ratio = ratio.clamp(
                             1.0 - self.init_ppo_clip,
                             1.0 + self.init_ppo_clip,
                         )
                         surrogate_1 = ratio * advantages_pg
                         surrogate_2 = clipped_ratio * advantages_pg
-                        policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
+                        clipped_surrogate = torch.minimum(
+                            surrogate_1,
+                            surrogate_2,
+                        )
+                        policy_loss = -(time_weight * clipped_surrogate).mean()
+
+                        tokenized_agent["tempflow_ratio_mean"] = ratio.mean().detach()
+                        tokenized_agent["tempflow_clip_fraction"] = (
+                            (ratio < 1.0 - self.init_ppo_clip)
+                            | (ratio > 1.0 + self.init_ppo_clip)
+                        ).float().mean().detach()
                     else:
-                        policy_loss = -(log_prob * advantages_pg).mean()
+                        policy_loss = -(
+                            time_weight * log_prob * advantages_pg
+                        ).mean()
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 
@@ -846,11 +1140,6 @@ class ScaleFlow(nn.Module):
             z = torch.randn(num_agents, num_samples, self.model.m_delta_dim,
                             device=agent_batch.device)  # .clamp(min=-3,max=3)#*0.5#*0.9 #
 
-        # Element-wise log probability: [num_agents, num_samples, m_delta_dim]
-        # z_log_prob = -0.5 * (
-        #         z.square() + math.log(2.0 * math.pi)
-        # ).sum(dim=-1)
-
         z = self.model.denormalize(z, init_agent_type)
 
         diff_input, diff_output = self.model.get_input(tokenized_agent)
@@ -870,6 +1159,41 @@ class ScaleFlow(nn.Module):
             std[:, :, 4:6] = std[:, :, 4:6] * 2
 
             z = std * torch.randn_like(z) + x_pred_noise[:, :, :8]
+
+        if self.use_sde and self.use_tempflow_grpo:
+            seed_group_ids = self._resolve_tempflow_seed_groups(
+                tokenized_agent,
+                num_graphs,
+                agent_batch.device,
+            )
+            tempflow_agent_group_ids, graph_indices = (
+                self._build_tempflow_agent_groups(
+                    agent_batch,
+                    init_agent_type,
+                    seed_group_ids,
+                    num_graphs,
+                )
+            )
+            z = self._share_tempflow_initial_noise(
+                z,
+                seed_group_ids,
+                graph_indices,
+            )
+        else:
+            # Preserve legacy behavior when TempFlow-GRPO is disabled.
+            seed_group_ids = torch.arange(
+                num_graphs,
+                device=agent_batch.device,
+                dtype=torch.long,
+            )
+            tempflow_agent_group_ids = torch.arange(
+                num_agents,
+                device=agent_batch.device,
+                dtype=torch.long,
+            )
+
+        tokenized_agent["tempflow_seed_group_id"] = seed_group_ids
+        tokenized_agent["tempflow_agent_group_id"] = tempflow_agent_group_ids
 
         z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
@@ -931,17 +1255,36 @@ class ScaleFlow(nn.Module):
         noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 
         if self.use_sde:
-            t_rand = torch.randint(0, steps, (num_graphs,), device=agent_batch.device)
+            if self.use_tempflow_grpo:
+                branch_step_graph = self._sample_tempflow_branch_steps(
+                    tokenized_agent,
+                    seed_group_ids,
+                    num_graphs,
+                    steps,
+                    agent_batch.device,
+                )
+            else:
+                branch_step_graph = torch.randint(
+                    0,
+                    steps,
+                    (num_graphs,),
+                    device=agent_batch.device,
+                )
 
-            t_rand = t_rand[agent_batch]
-
+            branch_step_agent = branch_step_graph[agent_batch]
             noise_level[
-                torch.arange(num_agents, device=agent_batch.device), t_rand, 0
+                torch.arange(num_agents, device=agent_batch.device),
+                branch_step_agent,
+                0,
             ] = self.noise_level
 
             noise_mask = noise_level[:, :, 0] > 0
-
             noise_level = noise_level[:, :, None]
+
+            tokenized_agent["tempflow_branch_step"] = branch_step_graph
+            tokenized_agent["tempflow_branch_time"] = (
+                branch_step_graph.to(dtype=timesteps.dtype) / float(steps)
+            )
 
         for i in range(steps):  # - 1
             t = timesteps[i]
@@ -1003,7 +1346,13 @@ class ScaleFlow(nn.Module):
             tokenized_agent["sde_z"] = gen_z
             tokenized_agent["sde_t"] = gen_t
             tokenized_agent["gen_agent_idx"] = selected_agent_idx
-            tokenized_agent["noise_feat"]=torch.stack(feat_list, dim=1)[noise_mask]
+            tokenized_agent["tempflow_selected_branch_step"] = (
+                branch_step_agent[selected_agent_idx]
+            )
+            tokenized_agent["tempflow_selected_seed_group"] = (
+                seed_group_ids[agent_batch[selected_agent_idx]]
+            )
+            tokenized_agent["noise_feat"] = torch.stack(feat_list, dim=1)[noise_mask]
             #tokenized_agent["z_log_prob"]=z_log_prob
         else:
             tokenized_agent["pred_z_list"] = torch.cat(z_list, dim=1)
