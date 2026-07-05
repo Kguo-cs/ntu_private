@@ -58,7 +58,7 @@ from typing import Dict, Mapping, Optional, Tuple
 
 class ScaleFlow(nn.Module):
 
-    def __init__(self, args, token_processor):
+    def __init__(self, args, token_processor,gail):
         super().__init__()
         self.diff_type = args.diff_type
         self.guid_sampling = args.guid_sampling
@@ -119,7 +119,10 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = True
+        if gail and token_processor.learn_init:
+            self.use_sde = True
+        else:
+            self.use_sde=False
 
         self.noise_level = 0.7
 
@@ -510,7 +513,7 @@ class ScaleFlow(nn.Module):
                         surrogate_2 = clipped_ratio * advantages_pg
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
-                        policy_loss = -(log_prob * advantages_pg).mean()*1
+                        policy_loss = -(log_prob * advantages_pg).mean()*10
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 
@@ -812,9 +815,6 @@ class ScaleFlow(nn.Module):
                     + t_next[increasing] * pred_x0[increasing]
             )
         elif self.use_sde and torch.any(noise_level > 0):
-            # Only the selected noisy scenes use stochastic SDE transition.
-            # Non-selected scenes take deterministic Euler steps; otherwise
-            # noise_level == 0 creates log(0)/0 in the SDE density.
             sde_mask = noise_level.reshape(noise_level.shape[0], -1).amax(dim=-1) > 0
             z_next = z + (t_next - t_n) * v_pred
             if torch.any(sde_mask):

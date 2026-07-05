@@ -118,10 +118,7 @@ class SMARTDecoder(nn.Module):
         )
 
         if self.pred_init:
-            # if self.gail:
-            #     self.init_decoder = self.agent_encoder.init_decoder#InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)#
-            # else:
-            self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)#
+            self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor,self.gail)#
             self.sep_map= self.init_decoder.sep_map
 
             if self.init_decoder.sep_map:

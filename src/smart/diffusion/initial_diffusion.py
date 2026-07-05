@@ -26,6 +26,7 @@ class InitDiffusion(nn.Module):
                 num_heads: int,
                 num_freq_bands,
                 token_processor,
+                gail
         ) -> None:
         super(InitDiffusion, self).__init__()
 
@@ -55,7 +56,7 @@ class InitDiffusion(nn.Module):
         if self.ldm:
             self.G1=LDM()
         else:
-            self.G1 = ScaleFlow(args,token_processor)
+            self.G1 = ScaleFlow(args,token_processor,gail)
 
         self.use_gan = False
 
