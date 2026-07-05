@@ -11,14 +11,14 @@ model:
 
     finetune: True
 
-#    decoder:
+    decoder:
 #      pl2pl_radius: 300
-#      pl2a_radius: 300
-#      a2a_radius: 300
+      pl2a_radius: 300
+      a2a_radius: 300
 
 ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
-task_name: bc64_n30_finetune
+task_name: bc64_n30_finetune_r300
 
 trainer:
 #  check_val_every_n_epoch: 2
