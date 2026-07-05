@@ -119,7 +119,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster = False
 
-        self.use_sde = False
+        self.use_sde = True
 
         self.noise_level = 0.7
 
