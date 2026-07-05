@@ -16,7 +16,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
-task_name: model32_a60_gp001shape10_len10_token
+task_name: model32_a60_gp001shape10_len10_tw_token
 
 trainer:
   val_check_interval: 0.25
