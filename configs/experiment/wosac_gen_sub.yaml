@@ -30,9 +30,7 @@ model:
 
     decoder:
       #hist_drop_prob: 0.1 #0.1 #0.1
-
       dis_a2a_radius: 0
-      dis_a2a_neighbor: 20
 
     token_processor:
       pred_init: True

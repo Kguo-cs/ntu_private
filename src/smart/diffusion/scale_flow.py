@@ -805,7 +805,7 @@ class ScaleFlow(nn.Module):
                         ).float().mean().detach()
                     else:
                         policy_loss = -(
-                            time_weight * log_prob * advantages_pg
+                            1 * log_prob * advantages_pg
                         ).mean()
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
