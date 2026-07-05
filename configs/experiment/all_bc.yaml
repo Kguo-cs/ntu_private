@@ -7,7 +7,7 @@ model:
   model_config:
     token_processor:
       pred_init: True
-      learn_init: True
+      learn_init: False
 
 #    decoder:
 #      pl2pl_radius: 300
@@ -16,7 +16,7 @@ model:
 
 ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
-task_name: bc_init64_n30 #_r300
+task_name: bc64_n30 #_r300
 
 trainer:
 #  check_val_every_n_epoch: 2

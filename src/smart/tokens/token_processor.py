@@ -770,13 +770,13 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent["num_graphs"]=data.num_graphs*81
                     tokenized_agent["non_ego_valid"] =valid[:,~ego_mask]
             else:
-                self.eval()
+               # self.eval()
                 tokenized_agent=self.tokenize_agent(data,tokenized_map)
 
-                if self.pred_init:
-                    self.get_init(tokenized_agent)
+                # if self.pred_init:
+                #     self.get_init(tokenized_agent)
 
-                self.train()
+              #  self.train()
 
         else:
             if  "initial_pos" in agent.keys():
