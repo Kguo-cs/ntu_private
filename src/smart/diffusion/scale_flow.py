@@ -448,8 +448,8 @@ class ScaleFlow(nn.Module):
 
     def _tempflow_noise_weights(self, std_dev_t):
         """Convert SDE diffusion coefficients into mean-one policy weights."""
-        # if not self.use_tempflow_grpo:
-        #     return std_dev_t.new_ones(std_dev_t.shape[0])
+        if not self.use_tempflow_grpo:
+            return std_dev_t.new_ones(std_dev_t.shape[0])
         #
         # Dimension-specific flow schedules may produce a vector coefficient.
         # RMS gives one effective noise scale per sampled transition.
