@@ -57,14 +57,13 @@ class AgentTokenEncoder(nn.Module):
             num_freq_bands=num_freq_bands
         )
 
-        self.discriminator=discriminator
+        self.discriminator=False
         self.use_state_action=False
 
         self.traj_diffusion=traj_diffusion
 
         if self.traj_diffusion:
             input_dim_token=4*3+1
-
 
         if self.discriminator:
             if self.use_state_action:

@@ -151,7 +151,7 @@ class ScaleFlow(nn.Module):
         # TempFlow-GRPO options. All options are backward compatible with old configs.
         # A rollout follows deterministic flow except for one designated SDE branch step.
         self.use_tempflow_grpo = bool(
-            getattr(args, "use_tempflow_grpo", False)
+            getattr(args, "use_tempflow_grpo", self.use_sde)
         )
         self.use_init_ppo_ratio = bool(
             getattr(args, "use_init_ppo_ratio", False)
