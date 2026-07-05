@@ -513,9 +513,7 @@ class ScaleFlow(nn.Module):
                         surrogate_2 = clipped_ratio * advantages_pg
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
-
-                        z_log_prob= tokenized_agent["z_log_prob"]
-                        policy_loss = -(log_prob * advantages_pg*z_log_prob).mean()*100
+                        policy_loss = -(log_prob * advantages_pg).mean()*100
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 
@@ -850,9 +848,9 @@ class ScaleFlow(nn.Module):
                             device=agent_batch.device)  # .clamp(min=-3,max=3)#*0.5#*0.9 #
 
         # Element-wise log probability: [num_agents, num_samples, m_delta_dim]
-        z_log_prob = -0.5 * (
-                z.square() + math.log(2.0 * math.pi)
-        ).sum(dim=-1)
+        # z_log_prob = -0.5 * (
+        #         z.square() + math.log(2.0 * math.pi)
+        # ).sum(dim=-1)
 
         z = self.model.denormalize(z, init_agent_type)
 
@@ -983,6 +981,8 @@ class ScaleFlow(nn.Module):
 
             z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
+            feat_list.append(tokenized_agent["noise_feat"])
+
             x_list.append(x_cond)
             z_list.append(z.clone())
             t_list.append(t_n.clone())
@@ -1004,7 +1004,8 @@ class ScaleFlow(nn.Module):
             tokenized_agent["sde_z"] = gen_z
             tokenized_agent["sde_t"] = gen_t
             tokenized_agent["gen_agent_idx"] = selected_agent_idx
-            tokenized_agent["z_log_prob"]=z_log_prob
+            tokenized_agent["noise_feat"]=torch.stack(feat_list, dim=1)[noise_mask]
+            #tokenized_agent["z_log_prob"]=z_log_prob
         else:
             tokenized_agent["pred_z_list"] = torch.cat(z_list, dim=1)
         tokenized_agent["gen_z"] = z
