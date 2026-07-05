@@ -435,13 +435,13 @@ class IQ_SoftQ(LightningModule):
         if self.token_processor.learn_init:
             intial_value=self.encoder.init_value_network(tokenized_agent_rollout["noise_feat"])[:,0]
 
-
         if 'feat_a' in tokenized_agent_rollout.keys():
             feat_a = tokenized_agent_rollout["feat_a"]#.detach()
 
             value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
 
-            value=torch.cat([intial_value[None],value],dim=0)
+            if self.token_processor.learn_init:
+                value=torch.cat([intial_value[None],value],dim=0)
         else:
             value = intial_value
 

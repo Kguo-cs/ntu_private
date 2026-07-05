@@ -15,10 +15,9 @@ model:
       dis_a2a_radius: 10
       dis_a2a_neighbor: 20
 
-#ckpt_path: "./waymo_data/xflow256_val64_epoch=57-step=110374-valmeta=0.6447.ckpt"
-ckpt_path: "./waymo_data/xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt"
+ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
-task_name: model32_value1e3_onlyinter #gp001shape10 #score1___gpinter2 #gp001_shape10 #_dis5e5
+task_name: model32_gp001shape10_len10
 
 trainer:
   val_check_interval: 0.25
