@@ -398,6 +398,7 @@ class ScaleFlow(nn.Module):
 
                 z_sampled = (1 - t_n_sampled) * e_sampled + t_n_sampled * x_sampled
 
+            denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
             with torch.no_grad():
                 if self.use_ref:
@@ -425,7 +426,6 @@ class ScaleFlow(nn.Module):
 
             t_all = torch.cat((t_n_sampled, t), dim=0)
             z_all =  torch.cat((z_sampled, z), dim=0)
-            #model_tokenized_agent = tokenized_agent
             model_tokenized_agent = self.repeat_input_copy(
                 tokenized_agent,
                 self.mc_num + 1,
@@ -437,16 +437,15 @@ class ScaleFlow(nn.Module):
                 model_tokenized_agent,
                 initial_map_feature,
             )
-            denom = (1.0 - t_n_sampled).clamp_min(self.t_eps)
 
             if self.x_pred:
                 v_pred = (x_pred_all[:len(z_sampled)] - z_sampled) / denom
             else:
                 v_pred = x_pred_all[:len(z_sampled)]
 
-            adv_clip_max = 3
-
             if self.use_nft:
+                adv_clip_max = 3
+
                 beta = 1
                 forward_prediction = v_pred  # v=(x0-z)/(1-t)     z=(1-t)*e+t*x0
                 x0 = x_sampled
@@ -513,7 +512,7 @@ class ScaleFlow(nn.Module):
                         surrogate_2 = clipped_ratio * advantages_pg
                         policy_loss = -torch.minimum(surrogate_1, surrogate_2).mean()
                     else:
-                        policy_loss = -(log_prob * advantages_pg).mean()*10
+                        policy_loss = -(log_prob * advantages_pg).mean()
             else:
                 new_pred_x0 = x_pred_all[:len(z_sampled)]
 

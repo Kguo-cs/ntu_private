@@ -934,6 +934,10 @@ xflow512_n30_pta_epoch=63-step=60928-valmeta=0.6434.ckpt
 
 all128_ref_mc2_loss001_clip001decay999_epoch=4-step=57072-valmeta=0.6481.ckpt
 
+xflow512_newW_epoch=63-step=60928-valmeta=0.6374.ckpt
+
+
+bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt
 
 
 
