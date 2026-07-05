@@ -151,7 +151,7 @@ class ScaleFlow(nn.Module):
         # TempFlow-GRPO options. All options are backward compatible with old configs.
         # A rollout follows deterministic flow except for one designated SDE branch step.
         self.use_tempflow_grpo = bool(
-            getattr(args, "use_tempflow_grpo", self.use_sde)
+            getattr(args, "use_tempflow_grpo", False)
         )
         self.use_init_ppo_ratio = bool(
             getattr(args, "use_init_ppo_ratio", False)
@@ -163,7 +163,7 @@ class ScaleFlow(nn.Module):
             getattr(args, "tempflow_stratified_branching", True)
         )
         self.tempflow_seed_group_size = int(
-            getattr(args, "tempflow_seed_group_size", 1)
+            getattr(args, "tempflow_seed_group_size", 2)
         )
         self.tempflow_branch_min_step = int(
             getattr(args, "tempflow_branch_min_step", 1)
@@ -448,9 +448,9 @@ class ScaleFlow(nn.Module):
 
     def _tempflow_noise_weights(self, std_dev_t):
         """Convert SDE diffusion coefficients into mean-one policy weights."""
-        if not self.use_tempflow_grpo:
-            return std_dev_t.new_ones(std_dev_t.shape[0])
-        #
+        # if not self.use_tempflow_grpo:
+        #     return std_dev_t.new_ones(std_dev_t.shape[0])
+
         # Dimension-specific flow schedules may produce a vector coefficient.
         # RMS gives one effective noise scale per sampled transition.
         raw_weight = std_dev_t.detach().reshape(std_dev_t.shape[0], -1)
