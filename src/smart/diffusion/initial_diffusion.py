@@ -175,12 +175,6 @@ class InitDiffusion(nn.Module):
         else:
             initial_map_feature=tokenized_agent["initial_map_feature"]
 
-        # pos_idx = get_type_position_index(init_agent_batch, tokenized_agent["init_agent_type"], num_types=3)
-        #
-        # tokenized_agent["pos_feat"] = sinusoidal_embedding(
-        #     pos_idx[:, None] + 1, self.G1.hidden_dim
-        # )
-
         if self.training:
             diff_input,diff_output=self.G1.model.get_input(tokenized_agent)
 
