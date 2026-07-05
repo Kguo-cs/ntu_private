@@ -26,7 +26,6 @@ model_config:
     time_span: 60
 
     dis_a2a_radius: 0
-    dis_a2a_neighbor: 0
 
     dis_weight: 20
     dist_decay: 3

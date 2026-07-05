@@ -12,12 +12,11 @@ model:
 
     finetune: true
     decoder:
-      dis_a2a_radius: 10
-      dis_a2a_neighbor: 20
+      dis_a2a_radius: 60
 
 ckpt_path: "./waymo_data/xflow512_n30.ckpt"
 
-task_name: model32_gp001shape10_len10
+task_name: model32_a60_gp001shape10_len10
 
 trainer:
   val_check_interval: 0.25
