@@ -263,7 +263,7 @@ def get_type_position_index(
 
 def gaussian_nll_2d(mu, sigma, target):
     dx = target - mu
-    sigma = torch.clamp(sigma.exp(), min=1e-5)
+    sigma = torch.clamp(sigma.exp(), min=1e-3)
 
     n = target.shape[-1]
 
@@ -531,7 +531,8 @@ def get_diff_loss(
     tokenized_agent, fake_state,real_state,z,e,t,base_t=None,t_dt=None,
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2, w_vel=0.2,
+   # w_pos=0.1/ 5, w_heading=0.5/ 5, w_shape=0.2/ 5, w_vel=0.2/ 5,
+    w_pos=0.1, w_heading=0.1, w_shape=0.1, w_vel=0.1,
     # w_pos = 0.0015,
     # w_heading = 0.5,
     # w_shape = 0.3,
@@ -611,7 +612,7 @@ def get_diff_loss(
 
    # match_loss=scatter_mean(match_loss,batch)
 
-    return match_loss / 5, pos_loss, heading_loss, shape_loss, vel_loss, col_loss.mean()
+    return match_loss , pos_loss, heading_loss, shape_loss, vel_loss, col_loss.mean()
 
 
 def sample_linear_t(
