@@ -57,7 +57,7 @@ class AgentTokenEncoder(nn.Module):
             num_freq_bands=num_freq_bands
         )
 
-        self.discriminator=False
+        self.discriminator=discriminator
         self.use_state_action=False
 
         self.traj_diffusion=traj_diffusion

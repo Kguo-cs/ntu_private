@@ -940,6 +940,11 @@ xflow512_newW_epoch=63-step=60928-valmeta=0.6374.ckpt
 bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt
 
 
+bc_init64_n30_r300_epoch=15-step=121760-valmeta=0.6456.ckpt
+
+
+
+
 
 #if only interact reward , sequential diffusion
 
