@@ -261,9 +261,9 @@ def get_type_position_index(
 
     return pos_idx
 
-def gaussian_nll_2d(mu, sigma, target):
+def gaussian_nll_2d(mu, sigma, target,min=1e-3):
     dx = target - mu
-    sigma = torch.clamp(sigma.exp(), min=1e-3)
+    sigma = torch.clamp(sigma.exp(), min=min)
 
     n = target.shape[-1]
 
@@ -334,10 +334,10 @@ def matching_loss(
 
         pos_std,heading_std, shape_std,vel_std=fake_state[:, 8:10], fake_state[:, 10:12], fake_state[:, 12:14], fake_state[:, 14:]
 
-        pos_loss=gaussian_nll_2d(fake_pos,pos_std, real_pos).mean()
-        heading_loss = gaussian_nll_2d(fake_heading,heading_std, real_heading).mean()
-        shape_loss = gaussian_nll_2d(fake_shape, shape_std,real_shape).mean()
-        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel).mean()
+        pos_loss=gaussian_nll_2d(fake_pos,pos_std, real_pos,min=1e-3).mean()
+        heading_loss = gaussian_nll_2d(fake_heading,heading_std, real_heading, min=1e-2).mean()
+        shape_loss = gaussian_nll_2d(fake_shape, shape_std,real_shape, min=1e-2).mean()
+        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel, min=1e-2).mean()
     else:
         K=8
         mean = fake_state[:, :8 * K].reshape(-1,K,8)
