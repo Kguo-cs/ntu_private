@@ -343,7 +343,7 @@ class InterativeDecoder(nn.Module):
         weight = rewards = None
 
         if self.discriminator:
-            valid_ego_reward = next_token_logits[:, 0].detach()
+            scene_reward = next_token_logits[:, 0].detach()
 
             if self.use_decompose:
                 valid_number = int(feat_a_later_mask.sum().item())
@@ -375,31 +375,37 @@ class InterativeDecoder(nn.Module):
                 )
 
                 if train_repeat_mask_later is not None:
-                    interact_reward = valid_interact_reward[
+                    interaction_reward = valid_interact_reward[
                         train_repeat_mask_later
                     ]
                 else:
-                    interact_reward = valid_interact_reward
+                    interaction_reward = valid_interact_reward
 
-                ego_rewards = valid_ego_reward + interact_reward#
+                scene_reward = scene_reward.clamp(-5.0, 5.0)
+                interaction_reward = interaction_reward.clamp(-5.0, 5.0)
+
+                total_reward = scene_reward + interaction_reward#
+
+                total_reward = total_reward.clamp(-8.0, 8.0)
+
                 next_token_logits = (
                     next_token_logits[:, 0],
                     interact_logits[:, 0],
                 )
-                nei_rewards = torch.zeros_like(ego_rewards)
+                nei_rewards = torch.zeros_like(total_reward)
             else:
                 next_token_logits = (
                     next_token_logits[:, 0],
                     next_token_logits[:0, 0],
                 )
-                ego_rewards = valid_ego_reward
-                valid_interact_reward = valid_ego_reward[:0]
-                nei_rewards = ego_rewards[:0]
+                total_reward = scene_reward
+                valid_interact_reward = scene_reward[:0]
+                nei_rewards = total_reward[:0]
 
             rewards = (
-                ego_rewards,
+                total_reward,
                 nei_rewards,
-                valid_ego_reward,
+                total_reward,
                 valid_interact_reward,
             )
 
