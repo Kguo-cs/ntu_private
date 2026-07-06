@@ -351,16 +351,27 @@ class InterativeDecoder(nn.Module):
                 weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
                 #weight = weight.clamp_max(max=100)
 
-                weight_logit = interact_logits[:, 0].detach() * weight
+                #weight_logit = interact_logits[:, 0].detach() * weight
 
                 # end_index is indexed in the compressed post-start full-agent
                 # space, so dim_size must be the number of nodes in that same
                 # space.
-                valid_interact_reward = scatter_sum(
-                    weight_logit,
-                    end_index,
-                    dim=0,
-                    dim_size=valid_number,
+                # valid_interact_reward = scatter_sum(
+                #     weight_logit,
+                #     end_index,
+                #     dim=0,
+                #     dim_size=valid_number,
+                # )
+
+                valid_interact_reward, edge_weights, effective_mass = (
+                    aggregate_interaction_reward(
+                        interaction_logits=interact_logits[:, 0].detach(),
+                        distances=dist,
+                        destination_index=end_index,
+                        num_nodes=valid_number,
+                        distance_decay=self.dis_decay,
+                        interaction_reward_weight=self.dis_weight,
+                    )
                 )
 
                 if train_repeat_mask_later is not None:
@@ -601,3 +612,74 @@ class InterativeDecoder(nn.Module):
             weight,
             (edge_index_a2a, r_a2a, relative_pos),
         )
+
+from torch import Tensor
+from torch_scatter import scatter_sum
+
+def aggregate_interaction_reward(
+        interaction_logits: Tensor,
+        distances: Tensor,
+        destination_index: Tensor,
+        num_nodes: int,
+        distance_decay: float,
+        interaction_reward_weight: float,
+        eps: float = 1e-6,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Aggregate edge-level interaction logits into node-level rewards.
+
+    The normalization prevents interaction reward magnitude from growing
+    linearly with the number of neighbors, while preserving attenuation when
+    all neighbors are far away.
+
+    Args:
+        interaction_logits:
+            Edge-level discriminator logits with shape [E].
+        distances:
+            Edge distances in meters with shape [E].
+        destination_index:
+            Destination node index for every edge, shape [E].
+        num_nodes:
+            Number of destination nodes.
+        distance_decay:
+            Positive exponential-decay scale in meters.
+        interaction_reward_weight:
+            Relative contribution of the interaction branch.
+        eps:
+            Numerical stability constant.
+
+    Returns:
+        weighted_reward:
+            Node-level interaction reward with shape [num_nodes].
+        edge_weights:
+            Unnormalized distance weights with shape [E].
+        effective_mass:
+            Sum of incoming edge weights per node.
+    """
+    if distance_decay <= 0:
+        raise ValueError(
+            f"distance_decay must be positive, got {distance_decay}."
+        )
+
+    edge_weights = torch.exp(-distances / distance_decay)
+
+    weighted_sum = scatter_sum(
+        edge_weights * interaction_logits,
+        destination_index,
+        dim=0,
+        dim_size=num_nodes,
+    )
+    effective_mass = scatter_sum(
+        edge_weights,
+        destination_index,
+        dim=0,
+        dim_size=num_nodes,
+    )
+
+    # If mass < 1, distance attenuation remains active.
+    # If mass > 1, aggregation becomes a weighted average.
+    normalizer = effective_mass.clamp_min(1.0)
+
+    interaction_reward = weighted_sum / (normalizer + eps)
+    interaction_reward = interaction_reward_weight * interaction_reward
+
+    return interaction_reward, edge_weights, effective_mass
