@@ -263,7 +263,7 @@ def get_type_position_index(
 
 def gaussian_nll_2d(mu, sigma, target,min=1e-3):
     dx = target - mu
-    sigma = torch.clamp(sigma.exp(), min=min)
+    sigma = torch.clamp(sigma.exp(), min=1e-4)
 
     n = target.shape[-1]
 
