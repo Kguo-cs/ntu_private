@@ -1,5 +1,69 @@
 import torch
+import torch
+import torch.nn.functional as F
+from torch import Tensor
+from torch_scatter import scatter_sum
 
+
+def destination_normalized_interaction_bce(
+    logits: Tensor,
+    target: float,
+    distance_weight: Tensor,
+    destination_index: Tensor,
+    num_nodes: int,
+    eps: float = 1e-8,
+) -> Tensor:
+    """Compute interaction BCE without density-dependent loss scaling.
+
+    Each destination agent contributes approximately one loss term, regardless
+    of how many incoming interaction edges it has.
+    """
+    if logits.numel() == 0:
+        return logits.new_zeros(())
+
+    logits = logits.reshape(-1)
+    distance_weight = distance_weight.reshape(-1).detach()
+    destination_index = destination_index.reshape(-1)
+
+    if logits.shape != distance_weight.shape:
+        raise ValueError(
+            "logits and distance_weight must have the same shape, "
+            f"got {tuple(logits.shape)} and "
+            f"{tuple(distance_weight.shape)}."
+        )
+
+    targets = torch.full_like(logits, fill_value=target)
+
+    edge_loss = F.binary_cross_entropy_with_logits(
+        logits,
+        targets,
+        reduction="none",
+    )
+
+    weighted_loss_sum = scatter_sum(
+        edge_loss * distance_weight,
+        destination_index,
+        dim=0,
+        dim_size=num_nodes,
+    )
+
+    weight_mass = scatter_sum(
+        distance_weight,
+        destination_index,
+        dim=0,
+        dim_size=num_nodes,
+    )
+
+    # Equivalent to:
+    # confidence_i * weighted_average_loss_i,
+    # where confidence_i = min(weight_mass_i, 1).
+    node_loss = weighted_loss_sum / weight_mass.clamp_min(1.0)
+
+    valid_node_mask = weight_mass > eps
+    if not valid_node_mask.any():
+        return logits.new_zeros(())
+
+    return node_loss[valid_node_mask].mean()
 
 def _select_ego_logits(
     ego_logits: torch.Tensor,

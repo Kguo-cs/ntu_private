@@ -9,7 +9,7 @@ import random
 import copy
 
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
-from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,ZeroCenteredGradientPenalty
+from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,ZeroCenteredGradientPenalty,destination_normalized_interaction_bce
 from torch_scatter import scatter_sum
 from src.smart.diffusion.diffusion_utils import multi_circle_collision_loss_mem_efficient
 
@@ -265,10 +265,21 @@ class IQ_SoftQ(LightningModule):
         if has_interact_logits:
             interaction_weight = disc_out[3].detach()
 
-            interact_bce_loss = _weighted_bce_with_logits(
+            # interact_bce_loss = _weighted_bce_with_logits(
+            #     logits=interact_logits,
+            #     target=target,
+            #     weight=interaction_weight,
+            # )
+            edge_index_a2a = disc_out[1][0]
+            destination_index = edge_index_a2a[1]
+            num_interaction_nodes = int(destination_index.max().item()) + 1
+
+            interact_bce_loss = destination_normalized_interaction_bce(
                 logits=interact_logits,
                 target=target,
-                weight=interaction_weight,
+                distance_weight=interaction_weight,
+                destination_index=destination_index,
+                num_nodes=num_interaction_nodes,
             )
 
             combined_logits = torch.cat(
