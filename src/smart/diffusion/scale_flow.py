@@ -884,10 +884,10 @@ class ScaleFlow(nn.Module):
                 *([1] * (x_pred.ndim - 1)),
             )
 
-            x_pred = torch.where(
+            x_pred[:,:,:x.shape[-1]] = torch.where(
                 ego_mask_expand,
                 x.detach(),
-                x_pred,
+                x_pred[:,:,:x.shape[-1]]
             )
 
         match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
@@ -1052,7 +1052,7 @@ class ScaleFlow(nn.Module):
         if self.x_pred:
 
             if x_cond.shape[-1] != z.shape[-1]:
-                x_cond = x_cond[..., :z.shape[-1]] + torch.randn_like(z) * (x_cond[..., z.shape[-1]:])
+                x_cond = x_cond[..., :z.shape[-1]] + torch.randn_like(z) * (x_cond[..., z.shape[-1]:].exp())
             else:
                 x_cond = x_cond[..., :z.shape[-1]]
 
