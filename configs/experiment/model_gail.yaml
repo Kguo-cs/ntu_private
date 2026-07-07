@@ -18,7 +18,7 @@ model:
 
 ckpt_path: "./waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt"
 
-task_name: model32_gp001_dise5_w10_3_Rnormclip8 #_oldw
+task_name: model32_gp001_dise5_w10_3_clip8 #_oldwRnorm
 
 trainer:
   val_check_interval: 0.25

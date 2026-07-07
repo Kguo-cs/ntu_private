@@ -349,30 +349,26 @@ class InterativeDecoder(nn.Module):
                 valid_number = int(feat_a_later_mask.sum().item())
 
                 weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
-                #weight = weight.clamp_max(max=100)
 
-                #weight_logit = interact_logits[:, 0].detach() * weight
+                weight_logit = interact_logits[:, 0].detach() * weight
 
-                # end_index is indexed in the compressed post-start full-agent
-                # space, so dim_size must be the number of nodes in that same
-                # space.
-                # valid_interact_reward = scatter_sum(
-                #     weight_logit,
-                #     end_index,
-                #     dim=0,
-                #     dim_size=valid_number,
-                # )
-
-                valid_interact_reward, edge_weights, effective_mass = (
-                    aggregate_interaction_reward(
-                        interaction_logits=interact_logits[:, 0].detach(),
-                        distances=dist,
-                        destination_index=end_index,
-                        num_nodes=valid_number,
-                        distance_decay=self.dis_decay,
-                        interaction_reward_weight=self.dis_weight,
-                    )
+                valid_interact_reward = scatter_sum(
+                    weight_logit,
+                    end_index,
+                    dim=0,
+                    dim_size=valid_number,
                 )
+
+                # valid_interact_reward, edge_weights, effective_mass = (
+                #     aggregate_interaction_reward(
+                #         interaction_logits=interact_logits[:, 0].detach(),
+                #         distances=dist,
+                #         destination_index=end_index,
+                #         num_nodes=valid_number,
+                #         distance_decay=self.dis_decay,
+                #         interaction_reward_weight=self.dis_weight,
+                #     )
+                # )
 
                 if train_repeat_mask_later is not None:
                     interaction_reward = valid_interact_reward[
