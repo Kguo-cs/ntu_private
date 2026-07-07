@@ -16,7 +16,7 @@ model:
       dis_weight: 10
       dist_decay:  3
 
-ckpt_path: "./waymo_data/xflow512_n30.ckpt"
+ckpt_path: "./waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt"
 
 task_name: model32_a10_edgegp001_dise5_w10_3_normclip8
 
