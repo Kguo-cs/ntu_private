@@ -310,7 +310,7 @@ class IQ_SoftQ(LightningModule):
             # )
 
             combined_logits = torch.cat(
-                [ego_logits.reshape(-1), interact_logits.reshape(-1)],
+                [ego_logits.reshape(-1),map_logit.reshape(-1), interact_logits.reshape(-1)],
                 dim=0,
             )
         else:
