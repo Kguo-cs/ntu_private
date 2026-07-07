@@ -277,7 +277,19 @@ class IQ_SoftQ(LightningModule):
         has_nei_rewards = _has_elements(nei_rewards)
         has_interact_logits = _has_elements(interact_logits)
 
+        ego_score = torch.sigmoid(ego_logits)
+        map_score = torch.sigmoid(map_logit)
+
+        self._log_train(f"train/{key}_ego_score",ego_score.mean()  )
+        self._log_train(f"train/{key}_map_score",map_score.mean()  )
+
         if has_interact_logits:
+            interact_score = torch.sigmoid(interact_logits)
+
+            self._log_train(f"train/{key}_inter_score", interact_score.mean() )
+
+            self._log_train(  f"train/{key}_interact_logits", interact_logits.mean() )
+
             interaction_weight = disc_out[3].detach()
 
             interact_bce_loss = _weighted_bce_with_logits(
@@ -314,6 +326,11 @@ class IQ_SoftQ(LightningModule):
 
             if has_nei_rewards:
                 nei_rewards = _reshape_valid_rewards(nei_rewards, mask_t, "nei_rewards")
+                all_rewards = ego_rewards + nei_rewards
+
+                self._log_train(   f"train/{key}_all_rewards",all_rewards.mean() )
+
+                self._log_train(   f"train/{key}_nei_rewards", nei_rewards.mean())
 
         self._log_train(   f"train/{key}_rewards",    ego_rewards.mean() )
 
@@ -322,24 +339,6 @@ class IQ_SoftQ(LightningModule):
 
         if _has_elements(interact_reward):
             self._log_train(  f"train/{key}_interact_reward", interact_reward.mean()  )
-
-        if has_nei_rewards:
-            all_rewards = ego_rewards + nei_rewards
-
-            self._log_train(   f"train/{key}_all_rewards",all_rewards.mean() )
-
-            self._log_train(   f"train/{key}_nei_rewards", nei_rewards.mean())
-
-        ego_score = torch.sigmoid(ego_logits)
-
-        self._log_train(f"train/{key}_ego_score",ego_score.mean()  )
-
-        if has_interact_logits:
-            interact_score = torch.sigmoid(interact_logits)
-
-            self._log_train(f"train/{key}_inter_score", interact_score.mean() )
-
-            self._log_train(  f"train/{key}_interact_logits", interact_logits.mean() )
 
         disc_val = torch.sigmoid(combined_logits)
 
