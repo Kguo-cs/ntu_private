@@ -344,9 +344,9 @@ class InterativeDecoder(nn.Module):
         weight = rewards = None
 
         if self.discriminator:
-            next_token_logits=next_token_logits+map_logit
+            next_token_logits=next_token_logits
 
-            scene_reward = next_token_logits[:, 0].detach()
+            scene_reward = next_token_logits[:, 0].detach()+map_logit[:, 0].detach()
 
             if self.use_decompose:
                 valid_number = int(feat_a_later_mask.sum().item())
@@ -390,6 +390,7 @@ class InterativeDecoder(nn.Module):
                 next_token_logits = (
                     next_token_logits[:, 0],
                     interact_logits[:, 0],
+                    map_logit[:, 0]
                 )
                 nei_rewards = torch.zeros_like(total_reward)
             else:

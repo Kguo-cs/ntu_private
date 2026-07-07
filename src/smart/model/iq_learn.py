@@ -231,7 +231,7 @@ class IQ_SoftQ(LightningModule):
             shape,
         )
 
-        ego_logits, interact_logits = disc_out[0]
+        ego_logits, interact_logits,map_logit = disc_out[0]
 
         (
             ego_rewards,
@@ -259,6 +259,20 @@ class IQ_SoftQ(LightningModule):
             target=target,
             weight=torch.ones_like(ego_logits)
         )
+
+        map_logit = _select_ego_logits(
+            ego_logits=map_logit,
+            dis_mask=dis_mask,
+            mask_t=mask_t,
+        )
+
+        map_bce_loss = _weighted_bce_with_logits(
+            logits=map_logit,
+            target=target,
+            weight=torch.ones_like(ego_logits)
+        )
+        ego_bce_loss=ego_bce_loss+map_bce_loss
+
 
         has_nei_rewards = _has_elements(nei_rewards)
         has_interact_logits = _has_elements(interact_logits)
