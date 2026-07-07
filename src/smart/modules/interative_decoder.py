@@ -157,15 +157,18 @@ class InterativeDecoder(nn.Module):
                 ]
             )
 
+        self.pred_map_logit=False
+
         if self.discriminator:
             if self.use_decompose:
                 self.interact_head = MLPLayer(
                     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-                self.map_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                )
+                if self.pred_map_logit:
+                    self.map_head = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
 
                 if self.use_full_feature:
                     self.all_head = MLPLayer(
@@ -275,8 +278,10 @@ class InterativeDecoder(nn.Module):
                     feat_a_pt = self.pt2a_attn_layers[layer_i](
                         (feat_map, feat_a), r_pl2a, edge_index_pl2a
                     )
-
-                    map_logit= self.map_head(feat_a_pt[-current_len:][ego_later_within_valid])
+                    if self.pred_map_logit:
+                        map_logit= self.map_head(feat_a_pt[-current_len:][ego_later_within_valid])[:, 0]
+                    else:
+                        feat_a=feat_a_pt
 
                 if self.use_full_feature:
                     feat_a_all = self.a2a_attn_layers[layer_i](
@@ -346,7 +351,12 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             next_token_logits=next_token_logits
 
-            scene_reward = next_token_logits[:, 0].detach()+map_logit[:, 0].detach()
+            scene_reward = next_token_logits[:, 0].detach()
+
+            if self.pred_map_logit:
+                scene_reward=scene_reward+map_logit.detach()
+            else:
+                map_logit=None
 
             if self.use_decompose:
                 valid_number = int(feat_a_later_mask.sum().item())
@@ -390,7 +400,7 @@ class InterativeDecoder(nn.Module):
                 next_token_logits = (
                     next_token_logits[:, 0],
                     interact_logits[:, 0],
-                    map_logit[:, 0]
+                    map_logit
                 )
                 nei_rewards = torch.zeros_like(total_reward)
             else:

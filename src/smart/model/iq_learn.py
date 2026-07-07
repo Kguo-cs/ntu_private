@@ -260,33 +260,28 @@ class IQ_SoftQ(LightningModule):
             weight=torch.ones_like(ego_logits)
         )
 
-        map_logit = _select_ego_logits(
-            ego_logits=map_logit,
-            dis_mask=dis_mask,
-            mask_t=mask_t,
-        )
+        self._log_train(f"train/{key}_ego_score", torch.sigmoid(ego_logits).mean())
 
-        map_bce_loss = _weighted_bce_with_logits(
-            logits=map_logit,
-            target=target,
-            weight=torch.ones_like(ego_logits)
-        )
-        ego_bce_loss=ego_bce_loss+map_bce_loss
+        if _has_elements(map_logit):
+            map_logit = _select_ego_logits(
+                ego_logits=map_logit,
+                dis_mask=dis_mask,
+                mask_t=mask_t,
+            )
 
+            map_bce_loss = _weighted_bce_with_logits(
+                logits=map_logit,
+                target=target,
+                weight=torch.ones_like(ego_logits)
+            )
+            ego_bce_loss=ego_bce_loss+map_bce_loss
 
-        has_nei_rewards = _has_elements(nei_rewards)
-        has_interact_logits = _has_elements(interact_logits)
+            self._log_train(f"train/{key}_map_score",torch.sigmoid(map_logit).mean()  )
 
-        ego_score = torch.sigmoid(ego_logits)
-        map_score = torch.sigmoid(map_logit)
+            ego_logits=torch.cat([ego_logits,map_logit],dim=0)
 
-        self._log_train(f"train/{key}_ego_score",ego_score.mean()  )
-        self._log_train(f"train/{key}_map_score",map_score.mean()  )
-
-        if has_interact_logits:
-            interact_score = torch.sigmoid(interact_logits)
-
-            self._log_train(f"train/{key}_inter_score", interact_score.mean() )
+        if _has_elements(interact_logits):
+            self._log_train(f"train/{key}_inter_score", torch.sigmoid(interact_logits).mean() )
 
             self._log_train(  f"train/{key}_interact_logits", interact_logits.mean() )
 
@@ -310,7 +305,7 @@ class IQ_SoftQ(LightningModule):
             # )
 
             combined_logits = torch.cat(
-                [ego_logits.reshape(-1),map_logit.reshape(-1), interact_logits.reshape(-1)],
+                [ego_logits.reshape(-1), interact_logits.reshape(-1)],
                 dim=0,
             )
         else:
@@ -319,12 +314,10 @@ class IQ_SoftQ(LightningModule):
 
         disc_loss =  ego_bce_loss +interact_bce_loss
 
-        # Reshape only policy rewards because these are consumed by the policy
-        # update as a [time, agent] reward matrix.
         if key == "agent":
             ego_rewards = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
-            if has_nei_rewards:
+            if _has_elements(nei_rewards):
                 nei_rewards = _reshape_valid_rewards(nei_rewards, mask_t, "nei_rewards")
                 all_rewards = ego_rewards + nei_rewards
 
@@ -345,61 +338,65 @@ class IQ_SoftQ(LightningModule):
         self._log_train(f"train/{key}_disc_val",   disc_val.mean() )
 
         self._log_train( f"train/{key}_disc_val_std", disc_val.std(unbiased=False) )
+
         if use_gp_this_step:
             gamma = 0.01 #l1 loss
 
+            edge_index_a2a = disc_out[1][0]
+            destination_index = edge_index_a2a[1]
+            num_interaction_nodes = int(destination_index.max().item()) + 1
 
             gp_valid_mask = tokenized_agent["valid_mask"].bool().clone()
 
             if self.dis_start_step > 0:
                 gp_valid_mask[:, : self.dis_start_step] = False
 
-            # critic_score = (
-            #     ego_logits,
-            #     interact_logits,
-            #     interaction_weight,
-            #     destination_index,
-            #     num_interaction_nodes,  # recommended: explicit graph node count
-            # )
-            #
-            # (
-            #     regularization_loss,
-            #     scene_gp,
-            #     interaction_gp,
-            #     raw_gp,
-            # ) = ZeroCenteredGradientPenalty_edge(
-            #     sampled_pos=sampled_pos,
-            #     sampled_heading=sampled_heading,
-            #     shape=shape,
-            #     critic_score=critic_score,
-            #     valid_mask=gp_valid_mask,
-            #     gamma=0.01,
-            #     interaction_gamma=0.01,
-            #     position_scale=1.0,
-            #     heading_scale=1.0,
-            #     shape_scale=1.0,
-            #     interaction_min_mass=1.0,
-            #     detach_edge_weight=True,
-            # )
-            #
+            critic_score = (
+                ego_logits,
+                interact_logits,
+                interaction_weight,
+                destination_index,
+                num_interaction_nodes,  # recommended: explicit graph node count
+            )
+
             (
                 regularization_loss,
-                penalty_pos,
-                penalty_head,
-                penalty_shape,
-            ) = ZeroCenteredGradientPenalty(
+                scene_gp,
+                interaction_gp,
+                raw_gp,
+            ) = ZeroCenteredGradientPenalty_edge(
                 sampled_pos=sampled_pos,
                 sampled_heading=sampled_heading,
                 shape=shape,
-                critic_score=combined_logits.sum(),#[combined_logits.abs()>1]
+                critic_score=critic_score,
                 valid_mask=gp_valid_mask,
-                gamma=gamma,
+                gamma=0.01,
+                interaction_gamma=0.01,
+                position_scale=1.0,
+                heading_scale=1.0,
+                shape_scale=1.0,
+                interaction_min_mass=1.0,
+                detach_edge_weight=True,
             )
             #
-            self._log_train(f"train/{key}_gp", regularization_loss)
-            self._log_train(f"train/{key}_pos_gp", penalty_pos)
-            self._log_train(f"train/{key}_head_gp", penalty_head)
-            self._log_train(f"train/{key}_shape_gp", penalty_shape)
+            # (
+            #     regularization_loss,
+            #     penalty_pos,
+            #     penalty_head,
+            #     penalty_shape,
+            # ) = ZeroCenteredGradientPenalty(
+            #     sampled_pos=sampled_pos,
+            #     sampled_heading=sampled_heading,
+            #     shape=shape,
+            #     critic_score=combined_logits.sum(),#[combined_logits.abs()>1]
+            #     valid_mask=gp_valid_mask,
+            #     gamma=gamma,
+            # )
+            # #
+            # self._log_train(f"train/{key}_gp", regularization_loss)
+            # self._log_train(f"train/{key}_pos_gp", penalty_pos)
+            # self._log_train(f"train/{key}_head_gp", penalty_head)
+            # self._log_train(f"train/{key}_shape_gp", penalty_shape)
 
             ego_rewards=ego_rewards.detach()
         else:
