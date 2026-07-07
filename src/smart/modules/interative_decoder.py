@@ -276,7 +276,7 @@ class InterativeDecoder(nn.Module):
                         (feat_map, feat_a), r_pl2a, edge_index_pl2a
                     )
 
-                    map_logit= self.map_head(feat_a_pt)
+                    map_logit= self.map_head(feat_a_pt[-current_len:][ego_later_within_valid])
 
                 if self.use_full_feature:
                     feat_a_all = self.a2a_attn_layers[layer_i](
@@ -318,12 +318,7 @@ class InterativeDecoder(nn.Module):
 
             feat_a = self.t_attn_layers[layer_i](feat_a, r_t, edge_index_t)
 
-            # feat_a[-0:] incorrectly returns all features.  Handle scenes
-            # without current valid agents explicitly.
-            if current_len == 0:
-                feat_a = feat_a[:0]
-            else:
-                feat_a = feat_a[-current_len:]
+            feat_a = feat_a[-current_len:]
 
         if self.edge_encoder.rollout_traj:
             if pred_mask is not None:
