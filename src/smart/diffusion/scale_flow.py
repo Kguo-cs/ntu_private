@@ -1380,27 +1380,21 @@ class ScaleFlow(nn.Module):
         scale = self.model.normal_scale[None].clamp_min(eps)
         model_output = model_output / scale
         sample = self.model.normalize(sample)
+        sigma_max=0.95
 
         if prev_sample is not None:
             prev_sample = self.model.normalize(prev_sample)
 
-        sigma = sigma.clamp(min=eps, max=1.0 - eps)
-        sigma_prev = sigma_prev.clamp(min=eps, max=1.0 - eps)
         dt = sigma_prev - sigma
-        sqrt_neg_dt = (-dt).clamp_min(eps).sqrt()
 
         if sde_type == 'sde':
-            denom = (1.0 - sigma).clamp_min(eps)
-            std_dev_t = torch.sqrt((sigma / denom).clamp_min(eps)) * noise_level
-            std_dev_t = std_dev_t.clamp_min(eps)
+            std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_max, sigma))) * noise_level
 
-            prev_sample_mean = sample * (
-                    1.0 + std_dev_t.square() / (2.0 * sigma) * dt
-            ) + model_output * (
-                                       1.0 + std_dev_t.square() * (1.0 - sigma) / (2.0 * sigma)
-                               ) * dt
+            prev_sample_mean = sample * (1 + std_dev_t ** 2 / (2 * sigma) * dt) + model_output * (
+                        1 + std_dev_t ** 2 * (1 - sigma) / (2 * sigma)) * dt
 
-            std = (std_dev_t * sqrt_neg_dt).clamp_min(eps)
+
+            std = (std_dev_t * torch.sqrt(-1*dt))
 
             if prev_sample is None:
                 variance_noise = torch.randn_like(model_output)

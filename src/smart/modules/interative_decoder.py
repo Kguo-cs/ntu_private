@@ -280,8 +280,8 @@ class InterativeDecoder(nn.Module):
                     )
                     if self.pred_map_logit:
                         map_logit= self.map_head(feat_a_pt[-current_len:][ego_later_within_valid])[:, 0]
-                    # else:
-                    #     feat_a=feat_a_pt
+                    else:
+                        feat_a=feat_a_pt
 
                 if self.use_full_feature:
                     feat_a_all = self.a2a_attn_layers[layer_i](
@@ -340,7 +340,7 @@ class InterativeDecoder(nn.Module):
             feat_a = feat_a[pred_repeat_mask]
 
         if self.discriminator:
-            feat_a=feat_a+feat_a_pt
+           # feat_a=feat_a+feat_a_pt
             # Select post-start ego nodes using the actual validity mask.
             # Do not assume that all agents are valid at early timesteps.
             feat_a = feat_a[ego_later_within_valid]
