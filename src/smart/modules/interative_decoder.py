@@ -355,7 +355,7 @@ class InterativeDecoder(nn.Module):
             scene_reward = next_token_logits[:, 0].detach()
 
             if self.pred_map_logit:
-                scene_reward=scene_reward+map_logit.detach()
+                scene_reward=scene_reward+map_logit.detach()*2
             else:
                 map_logit=None
 
