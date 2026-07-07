@@ -236,8 +236,8 @@ class IQ_SoftQ(LightningModule):
         (
             ego_rewards,
             nei_rewards,
-            valid_ego_reward,
-            valid_interact_reward,
+            scene_reward,
+            interact_reward,
         ) = disc_out[2]
 
         # During validation or rollout, only return the policy reward grid.
@@ -301,16 +301,13 @@ class IQ_SoftQ(LightningModule):
             if has_nei_rewards:
                 nei_rewards = _reshape_valid_rewards(nei_rewards, mask_t, "nei_rewards")
 
-        # ----------------------------
-        # Logging
-        # ----------------------------
         self._log_train(   f"train/{key}_rewards",    ego_rewards.mean() )
 
-        if _has_elements(valid_ego_reward):
-            self._log_train(  f"train/{key}_valid_ego_reward", valid_ego_reward.mean() )
+        if _has_elements(scene_reward):
+            self._log_train(  f"train/{key}_scene_reward", scene_reward.mean() )
 
-        if _has_elements(valid_interact_reward):
-            self._log_train(  f"train/{key}_valid_interact_reward", valid_interact_reward.mean()  )
+        if _has_elements(interact_reward):
+            self._log_train(  f"train/{key}_interact_reward", interact_reward.mean()  )
 
         if has_nei_rewards:
             all_rewards = ego_rewards + nei_rewards

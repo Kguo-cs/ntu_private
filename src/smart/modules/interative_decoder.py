@@ -377,12 +377,12 @@ class InterativeDecoder(nn.Module):
                 else:
                     interaction_reward = valid_interact_reward
 
-                scene_reward = scene_reward.clamp(-5.0, 5.0)
-                interaction_reward = interaction_reward.clamp(-5.0, 5.0)
-
+                # scene_reward = scene_reward.clamp(-5.0, 5.0)
+                # interaction_reward = interaction_reward.clamp(-5.0, 5.0)
+                #
                 total_reward = scene_reward + interaction_reward#
 
-                total_reward = total_reward.clamp(-8.0, 8.0)
+                #total_reward = total_reward.clamp(-8.0, 8.0)
 
                 next_token_logits = (
                     next_token_logits[:, 0],
@@ -401,7 +401,7 @@ class InterativeDecoder(nn.Module):
             rewards = (
                 total_reward,
                 nei_rewards,
-                total_reward,
+                scene_reward,
                 valid_interact_reward,
             )
 
