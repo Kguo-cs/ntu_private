@@ -254,7 +254,7 @@ class InitDenoiser(nn.Module):
         self.num_classes = 3
         self.shape_dim = 2
         self.m_delta_dim = 8
-        self.output_dim =16 #self.m_delta_dim
+        self.output_dim =8 #self.m_delta_dim
 
         self.register_buffer("normal_mean", torch.zeros(1, self.m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, self.m_delta_dim))
