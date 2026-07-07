@@ -268,7 +268,7 @@ class InterativeDecoder(nn.Module):
                     feat_a = feat_a[train_repeat_mask]
 
                 if not self.token_processor.use_bird:
-                    feat_a = self.pt2a_attn_layers[layer_i](
+                    feat_a_pt = self.pt2a_attn_layers[layer_i](
                         (feat_map, feat_a), r_pl2a, edge_index_pl2a
                     )
 
@@ -336,13 +336,19 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             # Select post-start ego nodes using the actual validity mask.
             # Do not assume that all agents are valid at early timesteps.
+            feat_a=feat_a+feat_a_pt
+
             feat_a = feat_a[ego_later_within_valid]
+
+
 
         next_token_logits = self.token_predict_head(feat_a)
 
         weight = rewards = None
 
         if self.discriminator:
+            next_token_logits=next_token_logits
+
             scene_reward = next_token_logits[:, 0].detach()
 
             if self.use_decompose:
