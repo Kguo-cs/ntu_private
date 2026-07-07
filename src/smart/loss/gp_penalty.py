@@ -447,87 +447,29 @@ def ZeroCenteredGradientPenalty(
     The discriminator locally differentiates through the fixed graph topology.
     Padding entries are excluded from the normalization.
     """
-    ego_logits, interaction_logits,edge_weight,destination_index = critic_score
 
-    interaction_node_logits, interaction_mass = (
-        aggregate_interaction_logits_for_gp(
-            interaction_logits=interaction_logits,
-            edge_weight=edge_weight,
-            destination_index=destination_index,
-        )
-    )
-
-    valid_interaction_nodes = interaction_mass > 1e-6
-
-    scene_score = (
-        ego_logits.mean()
-        if ego_logits.numel() > 0
-        else ego_logits.new_zeros(())
-    )
-
-    interaction_score = (
-        interaction_node_logits[valid_interaction_nodes].mean()
-        if valid_interaction_nodes.any()
-        else ego_logits.new_zeros(())
-    )
-
-    scene_gradients = torch.autograd.grad(
-        outputs=scene_score,
+    gradients = torch.autograd.grad(
+        outputs=critic_score,
         inputs=(sampled_pos, sampled_heading, shape),
         create_graph=True,
         retain_graph=True,
         allow_unused=True,
     )
 
-    interaction_gradients = torch.autograd.grad(
-        outputs=interaction_score,
-        inputs=(sampled_pos, sampled_heading, shape),
-        create_graph=True,
-        retain_graph=True,
-        allow_unused=True,
-    )
-    scene_gp = (
-            0.5
-            * gamma
-            * mean_squared_gradient_norm(scene_gradients, scene_score)
-    )
+    grad_pos, grad_heading, grad_shape = gradients
+    valid_mask = valid_mask.bool()
+    valid_agent_mask = valid_mask.any(dim=-1)
 
-    interaction_gp = (
-            0.5
-            * gamma
-            * mean_squared_gradient_norm(
-        interaction_gradients,
-        interaction_score,
-    )
-    )
+    pos_penalty = _masked_square_norm_mean(grad_pos, valid_mask, critic_score)
+    heading_penalty = _masked_square_norm_mean(grad_heading, valid_mask, critic_score)
+    shape_penalty = _masked_square_norm_mean(grad_shape, valid_agent_mask, critic_score)
 
-    gp = scene_gp + interaction_gp
-    # gradients = torch.autograd.grad(
-    #     outputs=critic_score,
-    #     inputs=(sampled_pos, sampled_heading, shape),
-    #     create_graph=True,
-    #     retain_graph=True,
-    #     allow_unused=True,
-    # )
-
-    # grad_pos, grad_heading, grad_shape = gradients
-    # valid_mask = valid_mask.bool()
-    # valid_agent_mask = valid_mask.any(dim=-1)
-    #
-    # pos_penalty = _masked_square_norm_mean(grad_pos, valid_mask, critic_score)
-    # heading_penalty = _masked_square_norm_mean(grad_heading, valid_mask, critic_score)
-    # shape_penalty = _masked_square_norm_mean(grad_shape, valid_agent_mask, critic_score)
-    #
-    # scale = gamma / 2.0
+    scale = gamma / 2.0
     return (
-        gp,
-        scene_gp,
-        interaction_gp,
-        gp
-        # scale * (pos_penalty + heading_penalty + shape_penalty*10),
-        # scale * pos_penalty,
-        # scale * heading_penalty,
-        # scale * shape_penalty,
+        scale * (pos_penalty + heading_penalty + shape_penalty*10),
+        scale * pos_penalty,
+        scale * heading_penalty,
+        scale * shape_penalty,
     )
 
 

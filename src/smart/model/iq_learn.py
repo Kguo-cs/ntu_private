@@ -9,7 +9,7 @@ import random
 import copy
 
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
-from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,destination_normalized_interaction_bce
+from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,destination_normalized_interaction_bce,ZeroCenteredGradientPenalty
 from torch_scatter import scatter_sum
 from src.smart.diffusion.diffusion_utils import multi_circle_collision_loss_mem_efficient
 from src.smart.loss.edge_gp import ZeroCenteredGradientPenalty_edge
@@ -338,57 +338,58 @@ class IQ_SoftQ(LightningModule):
         if use_gp_this_step:
             gamma = 0.01 #l1 loss
 
-            critic_score = (
-                ego_logits,
-                interact_logits,
-                interaction_weight,
-                destination_index,
-                num_interaction_nodes,  # recommended: explicit graph node count
-            )
 
             gp_valid_mask = tokenized_agent["valid_mask"].bool().clone()
 
             if self.dis_start_step > 0:
                 gp_valid_mask[:, : self.dis_start_step] = False
 
-            (
-                regularization_loss,
-                scene_gp,
-                interaction_gp,
-                raw_gp,
-            ) = ZeroCenteredGradientPenalty_edge(
-                sampled_pos=sampled_pos,
-                sampled_heading=sampled_heading,
-                shape=shape,
-                critic_score=critic_score,
-                valid_mask=gp_valid_mask,
-                gamma=0.01,
-                interaction_gamma=0.01,
-                position_scale=1.0,
-                heading_scale=1.0,
-                shape_scale=1.0,
-                interaction_min_mass=1.0,
-                detach_edge_weight=True,
-            )
+            # critic_score = (
+            #     ego_logits,
+            #     interact_logits,
+            #     interaction_weight,
+            #     destination_index,
+            #     num_interaction_nodes,  # recommended: explicit graph node count
+            # )
             #
             # (
             #     regularization_loss,
-            #     penalty_pos,
-            #     penalty_head,
-            #     penalty_shape,
-            # ) = ZeroCenteredGradientPenalty(
+            #     scene_gp,
+            #     interaction_gp,
+            #     raw_gp,
+            # ) = ZeroCenteredGradientPenalty_edge(
             #     sampled_pos=sampled_pos,
             #     sampled_heading=sampled_heading,
             #     shape=shape,
-            #     critic_score=combined_logits.sum(),#[combined_logits.abs()>1]
-            #     valid_mask=tokenized_agent["valid_mask"],
-            #     gamma=gamma,
+            #     critic_score=critic_score,
+            #     valid_mask=gp_valid_mask,
+            #     gamma=0.01,
+            #     interaction_gamma=0.01,
+            #     position_scale=1.0,
+            #     heading_scale=1.0,
+            #     shape_scale=1.0,
+            #     interaction_min_mass=1.0,
+            #     detach_edge_weight=True,
             # )
             #
+            (
+                regularization_loss,
+                penalty_pos,
+                penalty_head,
+                penalty_shape,
+            ) = ZeroCenteredGradientPenalty(
+                sampled_pos=sampled_pos,
+                sampled_heading=sampled_heading,
+                shape=shape,
+                critic_score=combined_logits.sum(),#[combined_logits.abs()>1]
+                valid_mask=gp_valid_mask,
+                gamma=gamma,
+            )
+            #
             self._log_train(f"train/{key}_gp", regularization_loss)
-            # self._log_train(f"train/{key}_pos_gp", penalty_pos)
-            # self._log_train(f"train/{key}_head_gp", penalty_head)
-            # self._log_train(f"train/{key}_shape_gp", penalty_shape)
+            self._log_train(f"train/{key}_pos_gp", penalty_pos)
+            self._log_train(f"train/{key}_head_gp", penalty_head)
+            self._log_train(f"train/{key}_shape_gp", penalty_shape)
 
             ego_rewards=ego_rewards.detach()
         else:
