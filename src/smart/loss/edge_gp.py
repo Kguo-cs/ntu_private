@@ -576,28 +576,11 @@ def ZeroCenteredGradientPenalty_edge(
         raw_total_penalty:
             Unscaled scene + interaction gradient norm penalty.
     """
-    if len(critic_score) not in {4, 5}:
-        raise ValueError(
-            "critic_score must contain 4 or 5 entries: "
-            "(ego_logits, interaction_logits, edge_weight, "
-            "destination_index[, num_nodes])."
-        )
 
     ego_logits = critic_score[0]
     interaction_logits = critic_score[1]
     edge_weight = critic_score[2]
     destination_index = critic_score[3]
-
-    if len(critic_score) == 5:
-        critic_num_nodes = int(critic_score[4])
-
-        if num_nodes is not None and int(num_nodes) != critic_num_nodes:
-            raise ValueError(
-                "num_nodes argument conflicts with critic_score num_nodes: "
-                f"{num_nodes} versus {critic_num_nodes}."
-            )
-
-        num_nodes = critic_num_nodes
 
     valid_mask = valid_mask.to(
         device=sampled_pos.device,
@@ -666,72 +649,72 @@ def ZeroCenteredGradientPenalty_edge(
         if num_nodes is None:
             num_nodes = int(destination_index_flat.max().item()) + 1
 
-        node_valid_mask = _infer_interaction_node_valid_mask(
-            valid_mask=valid_mask,
-            num_nodes=num_nodes,
-            device=interaction_logits.device,
+        # node_valid_mask = _infer_interaction_node_valid_mask(
+        #     valid_mask=valid_mask,
+        #     num_nodes=num_nodes,
+        #     device=interaction_logits.device,
+        # )
+        #
+        # (
+        #     interaction_node_logits,
+        #     interaction_mass,
+        # ) = aggregate_interaction_logits_for_gp(
+        #     interaction_logits=interaction_logits_flat,
+        #     destination_index=destination_index_flat,
+        #     edge_weight=edge_weight,
+        #     num_nodes=num_nodes,
+        #     node_valid_mask=node_valid_mask,
+        #     min_mass=interaction_min_mass,
+        #     detach_edge_weight=detach_edge_weight,
+        # )
+        #
+        # valid_interaction_nodes = (
+        #     node_valid_mask
+        #     & (interaction_mass > 1e-6)
+        # )
+        interaction_score=(interaction_logits*edge_weight).sum()
+
+            # Same reasoning as scene_score: use sum, then average the
+            # resulting input gradients over valid entries.
+        # interaction_score = (
+        #     interaction_node_logits[valid_interaction_nodes]
+        #     .sum()
+        # )
+
+        interaction_gradients = _safe_autograd_grad(
+            score=interaction_score,
+            inputs=(
+                sampled_pos,
+                sampled_heading,
+                shape,
+            ),
         )
 
         (
-            interaction_node_logits,
-            interaction_mass,
-        ) = aggregate_interaction_logits_for_gp(
-            interaction_logits=interaction_logits_flat,
-            destination_index=destination_index_flat,
-            edge_weight=edge_weight,
-            num_nodes=num_nodes,
-            node_valid_mask=node_valid_mask,
-            min_mass=interaction_min_mass,
-            detach_edge_weight=detach_edge_weight,
+            interaction_raw_penalty,
+            interaction_pos_penalty,
+            interaction_heading_penalty,
+            interaction_shape_penalty,
+        ) = _compute_branch_raw_penalty(
+            gradients=interaction_gradients,
+            sampled_pos=sampled_pos,
+            sampled_heading=sampled_heading,
+            shape=shape,
+            valid_mask=valid_mask,
+            position_scale=position_scale,
+            heading_scale=heading_scale,
+            shape_scale=shape_scale,
         )
 
-        valid_interaction_nodes = (
-            node_valid_mask
-            & (interaction_mass > 1e-6)
+        interaction_gp = (
+            0.5
+            * interaction_gamma
+            * interaction_raw_penalty
         )
 
-        if torch.any(valid_interaction_nodes):
-            # Same reasoning as scene_score: use sum, then average the
-            # resulting input gradients over valid entries.
-            interaction_score = (
-                interaction_node_logits[valid_interaction_nodes]
-                .sum()
-            )
-
-            interaction_gradients = _safe_autograd_grad(
-                score=interaction_score,
-                inputs=(
-                    sampled_pos,
-                    sampled_heading,
-                    shape,
-                ),
-            )
-
-            (
-                interaction_raw_penalty,
-                interaction_pos_penalty,
-                interaction_heading_penalty,
-                interaction_shape_penalty,
-            ) = _compute_branch_raw_penalty(
-                gradients=interaction_gradients,
-                sampled_pos=sampled_pos,
-                sampled_heading=sampled_heading,
-                shape=shape,
-                valid_mask=valid_mask,
-                position_scale=position_scale,
-                heading_scale=heading_scale,
-                shape_scale=shape_scale,
-            )
-
-            interaction_gp = (
-                0.5
-                * interaction_gamma
-                * interaction_raw_penalty
-            )
-
-        else:
-            interaction_raw_penalty = _zero(sampled_pos)
-            interaction_gp = _zero(sampled_pos)
+        # else:
+        #     interaction_raw_penalty = _zero(sampled_pos)
+        #     interaction_gp = _zero(sampled_pos)
 
     total_gp = scene_gp + interaction_gp
 

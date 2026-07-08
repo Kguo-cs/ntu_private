@@ -344,7 +344,6 @@ class IQ_SoftQ(LightningModule):
 
             edge_index_a2a = disc_out[1][0]
             destination_index = edge_index_a2a[1]
-            num_interaction_nodes = int(destination_index.max().item()) + 1
 
             gp_valid_mask = tokenized_agent["valid_mask"].bool().clone()
 
@@ -356,7 +355,6 @@ class IQ_SoftQ(LightningModule):
                 interact_logits,
                 interaction_weight,
                 destination_index,
-                num_interaction_nodes,  # recommended: explicit graph node count
             )
 
             (
@@ -370,8 +368,8 @@ class IQ_SoftQ(LightningModule):
                 shape=shape,
                 critic_score=critic_score,
                 valid_mask=gp_valid_mask,
-                gamma=0.1,
-                interaction_gamma=0.1,
+                gamma=0.01,
+                interaction_gamma=0.01,
                 position_scale=1.0,
                 heading_scale=1.0,
                 shape_scale=1.0,
