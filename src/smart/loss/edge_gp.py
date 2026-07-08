@@ -649,37 +649,38 @@ def ZeroCenteredGradientPenalty_edge(
         if num_nodes is None:
             num_nodes = int(destination_index_flat.max().item()) + 1
 
-        # node_valid_mask = _infer_interaction_node_valid_mask(
-        #     valid_mask=valid_mask,
-        #     num_nodes=num_nodes,
-        #     device=interaction_logits.device,
-        # )
-        #
-        # (
-        #     interaction_node_logits,
-        #     interaction_mass,
-        # ) = aggregate_interaction_logits_for_gp(
-        #     interaction_logits=interaction_logits_flat,
-        #     destination_index=destination_index_flat,
-        #     edge_weight=edge_weight,
-        #     num_nodes=num_nodes,
-        #     node_valid_mask=node_valid_mask,
-        #     min_mass=interaction_min_mass,
-        #     detach_edge_weight=detach_edge_weight,
-        # )
-        #
-        # valid_interaction_nodes = (
-        #     node_valid_mask
-        #     & (interaction_mass > 1e-6)
-        # )
-        interaction_score=(interaction_logits*edge_weight).sum()
+        node_valid_mask = _infer_interaction_node_valid_mask(
+            valid_mask=valid_mask,
+            num_nodes=num_nodes,
+            device=interaction_logits.device,
+        )
+
+        (
+            interaction_node_logits,
+            interaction_mass,
+        ) = aggregate_interaction_logits_for_gp(
+            interaction_logits=interaction_logits_flat,
+            destination_index=destination_index_flat,
+            edge_weight=edge_weight,
+            num_nodes=num_nodes,
+            node_valid_mask=node_valid_mask,
+            min_mass=interaction_min_mass,
+            detach_edge_weight=detach_edge_weight,
+        )
+
+        valid_interaction_nodes = (
+            node_valid_mask
+            & (interaction_mass > 1e-6)
+        )
+        interaction_score = (
+            interaction_node_logits[valid_interaction_nodes]
+            .sum()
+        )
+
+        #interaction_score=(interaction_logits*edge_weight).sum()
 
             # Same reasoning as scene_score: use sum, then average the
             # resulting input gradients over valid entries.
-        # interaction_score = (
-        #     interaction_node_logits[valid_interaction_nodes]
-        #     .sum()
-        # )
 
         interaction_gradients = _safe_autograd_grad(
             score=interaction_score,
