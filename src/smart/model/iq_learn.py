@@ -369,14 +369,17 @@ class IQ_SoftQ(LightningModule):
                 critic_score=critic_score,
                 valid_mask=gp_valid_mask,
                 gamma=0.01,
-                interaction_gamma=0.01,
+                interaction_gamma=0.001,
                 position_scale=1.0,
                 heading_scale=1.0,
                 shape_scale=1.0,
                 interaction_min_mass=1.0,
                 detach_edge_weight=True,
             )
-            #
+            self._log_train(f"train/{key}_gp", regularization_loss)
+            self._log_train(f"train/scene_gp", scene_gp)
+            self._log_train(f"train/interaction_gp", interaction_gp)
+
             # (
             #     regularization_loss,
             #     penalty_pos,
