@@ -18,7 +18,7 @@ model:
 
 ckpt_path: "./waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt"
 
-task_name: model32_edgegp001_0001min1e5_dise5 #scattersum_logitlosssum_map2 #_oldwRnorm_w10_3_pl10shape1
+task_name: model32_edgegp001inter01_dise5 #_0001min1e5scattersum_logitlosssum_map2 #_oldwRnorm_w10_3_pl10shape1
 
 trainer:
   val_check_interval: 0.25
