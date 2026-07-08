@@ -362,7 +362,7 @@ class InterativeDecoder(nn.Module):
             if self.use_decompose:
                 valid_number = int(feat_a_later_mask.sum().item())
                 #
-                # weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
+                weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
                 #
                 # #weight=torch.ones_like(weight)
                 #
