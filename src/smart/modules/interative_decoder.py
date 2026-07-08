@@ -364,6 +364,8 @@ class InterativeDecoder(nn.Module):
 
                 weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
 
+                weight=torch.ones_like(weight)
+
                 weight_logit = interact_logits[:, 0].detach() * weight
 
                 valid_interact_reward = scatter_sum(

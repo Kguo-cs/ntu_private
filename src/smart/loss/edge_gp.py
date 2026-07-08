@@ -672,7 +672,7 @@ def ZeroCenteredGradientPenalty_edge(
         #     node_valid_mask
         #     & (interaction_mass > 1e-6)
         # )
-        interaction_score=(interaction_logits*edge_weight).mean()
+        interaction_score=(interaction_logits*edge_weight).sum()
 
             # Same reasoning as scene_score: use sum, then average the
             # resulting input gradients over valid entries.

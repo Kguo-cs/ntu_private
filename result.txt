@@ -949,7 +949,7 @@ bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt
 model32_a60_gp001shape10_len10_token-epoch=2-step=68484-valmeta=0.6490.ckpt
 
 
-
+model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
 
 #if only interact reward , sequential diffusion
 
