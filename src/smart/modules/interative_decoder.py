@@ -361,30 +361,30 @@ class InterativeDecoder(nn.Module):
 
             if self.use_decompose:
                 valid_number = int(feat_a_later_mask.sum().item())
-
-                weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
-
-                #weight=torch.ones_like(weight)
-
-                weight_logit = interact_logits[:, 0].detach() * weight
-
-                valid_interact_reward = scatter_sum(
-                    weight_logit,
-                    end_index,
-                    dim=0,
-                    dim_size=valid_number,
-                )
-
-                # valid_interact_reward, edge_weights, effective_mass = (
-                #     aggregate_interaction_reward(
-                #         interaction_logits=interact_logits[:, 0].detach(),
-                #         distances=dist,
-                #         destination_index=end_index,
-                #         num_nodes=valid_number,
-                #         distance_decay=self.dis_decay,
-                #         interaction_reward_weight=self.dis_weight,
-                #     )
+                #
+                # weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
+                #
+                # #weight=torch.ones_like(weight)
+                #
+                # weight_logit = interact_logits[:, 0].detach() * weight
+                #
+                # valid_interact_reward = scatter_sum(
+                #     weight_logit,
+                #     end_index,
+                #     dim=0,
+                #     dim_size=valid_number,
                 # )
+
+                valid_interact_reward, edge_weights, effective_mass = (
+                    aggregate_interaction_reward(
+                        interaction_logits=interact_logits[:, 0].detach(),
+                        distances=dist,
+                        destination_index=end_index,
+                        num_nodes=valid_number,
+                        distance_decay=self.dis_decay,
+                        interaction_reward_weight=self.dis_weight,
+                    )
+                )
 
                 if train_repeat_mask_later is not None:
                     interaction_reward = valid_interact_reward[
@@ -674,10 +674,6 @@ def aggregate_interaction_reward(
         effective_mass:
             Sum of incoming edge weights per node.
     """
-    if distance_decay <= 0:
-        raise ValueError(
-            f"distance_decay must be positive, got {distance_decay}."
-        )
 
     edge_weights = torch.exp(-distances / distance_decay)
 
@@ -696,7 +692,7 @@ def aggregate_interaction_reward(
 
     # If mass < 1, distance attenuation remains active.
     # If mass > 1, aggregation becomes a weighted average.
-    normalizer = effective_mass.clamp_min(1.0)
+    normalizer = effective_mass.clamp_min(1e-5)
 
     interaction_reward = weighted_sum / (normalizer + eps)
     interaction_reward = interaction_reward_weight * interaction_reward
