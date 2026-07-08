@@ -286,23 +286,23 @@ class IQ_SoftQ(LightningModule):
             self._log_train(  f"train/{key}_interact_logits", interact_logits.mean() )
 
             interaction_weight = disc_out[3].detach()
-
-            interact_bce_loss = _weighted_bce_with_logits(
-                logits=interact_logits,
-                target=target,
-                weight=interaction_weight,
-            )
-            # edge_index_a2a = disc_out[1][0]
-            # destination_index = edge_index_a2a[1]
-            # num_interaction_nodes = int(destination_index.max().item()) + 1
             #
-            # interact_bce_loss = destination_normalized_interaction_bce(
+            # interact_bce_loss = _weighted_bce_with_logits(
             #     logits=interact_logits,
             #     target=target,
-            #     distance_weight=interaction_weight,
-            #     destination_index=destination_index,
-            #     num_nodes=num_interaction_nodes,
+            #     weight=interaction_weight,
             # )
+            edge_index_a2a = disc_out[1][0]
+            destination_index = edge_index_a2a[1]
+            num_interaction_nodes = int(destination_index.max().item()) + 1
+
+            interact_bce_loss = destination_normalized_interaction_bce(
+                logits=interact_logits,
+                target=target,
+                distance_weight=interaction_weight,
+                destination_index=destination_index,
+                num_nodes=num_interaction_nodes,
+            )
 
             combined_logits = torch.cat(
                 [ego_logits.reshape(-1), interact_logits.reshape(-1)],

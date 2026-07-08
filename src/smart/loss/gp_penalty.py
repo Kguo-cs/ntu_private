@@ -57,7 +57,7 @@ def destination_normalized_interaction_bce(
     # Equivalent to:
     # confidence_i * weighted_average_loss_i,
     # where confidence_i = min(weight_mass_i, 1).
-    node_loss = weighted_loss_sum / weight_mass.clamp_min(1.0)
+    node_loss = weighted_loss_sum / weight_mass.clamp_min(1e-5)
 
     valid_node_mask = weight_mass > eps
     if not valid_node_mask.any():
