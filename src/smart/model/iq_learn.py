@@ -370,10 +370,10 @@ class IQ_SoftQ(LightningModule):
                 valid_mask=gp_valid_mask,
                 gamma=0.01,
                 interaction_gamma=0.01,
-                position_scale=10.0,
+                position_scale=1.0,
                 heading_scale=1.0,
                 shape_scale=1.0,
-                interaction_min_mass=1,
+                interaction_min_mass=10,
                 detach_edge_weight=True,
             )
             self._log_train(f"train/{key}_gp", regularization_loss)
