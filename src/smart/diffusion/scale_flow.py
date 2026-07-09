@@ -1140,17 +1140,17 @@ class ScaleFlow(nn.Module):
             z = torch.randn(num_agents, num_samples, self.model.m_delta_dim,
                             device=agent_batch.device) #*0.9 # .clamp(min=-3,max=3)#*0.5# #
 
-        clip_min = torch.tensor(
-            [-83.783, -79.270, -1.000, -1.000, 0.564, 0.593, -4.535, -9.342],
-            device=z.device,
-            dtype=z.dtype,
-        )
-
-        clip_max = torch.tensor(
-            [100.118, 81.043, 1.000, 1.000, 20.335, 3.835, 31.341, 3.648],
-            device=z.device,
-            dtype=z.dtype,
-        )
+        # clip_min = torch.tensor(
+        #     [-83.783, -79.270, -1.000, -1.000, 0.564, 0.593, -4.535, -9.342],
+        #     device=z.device,
+        #     dtype=z.dtype,
+        # )
+        #
+        # clip_max = torch.tensor(
+        #     [100.118, 81.043, 1.000, 1.000, 20.335, 3.835, 31.341, 3.648],
+        #     device=z.device,
+        #     dtype=z.dtype,
+        # )
 
         z = self.model.denormalize(z, init_agent_type)
 
