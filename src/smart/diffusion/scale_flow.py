@@ -130,6 +130,27 @@ class ScaleFlow(nn.Module):
 
         self.noise_level = float(getattr(args, "noise_level", 0.7))
 
+        # Sampling options. The default preserves the original 20-step Euler path.
+        # Set sampling_mode="heun_low_noise" for the requested 10-step RK2 sampler.
+        self.sampling_mode = str(
+            getattr(args, "sampling_mode", "euler_uniform")
+        ).lower()
+        self.euler_infer_steps = int(
+            getattr(args, "euler_infer_steps", 20)
+        )
+        self.heun_infer_steps = int(
+            getattr(args, "heun_infer_steps", 10)
+        )
+        self.low_noise_schedule_power = float(
+            getattr(args, "low_noise_schedule_power", 2.0)
+        )
+        # x-prediction has a singular velocity conversion at t=1. The default
+        # uses endpoint-safe midpoint RK2 on the last interval, retaining exactly
+        # two evaluations per step without querying the model at t=1.
+        self.heun_endpoint_mode = str(
+            getattr(args, "heun_endpoint_mode", "midpoint")
+        ).lower()
+
         self.rationorm = False
 
         self.global_step = 0
@@ -999,6 +1020,130 @@ class ScaleFlow(nn.Module):
             print(bin_mean)
             #print(self.bin_count/self.bin_count.sum())
 
+    @staticmethod
+    def _normalize_sampling_mode(mode):
+        """Normalize user-facing sampler aliases to ``<solver>_<schedule>``."""
+        mode = str(mode).strip().lower().replace("-", "_")
+        aliases = {
+            "euler": "euler_uniform",
+            "heun": "heun_uniform",
+            "euler_uniform": "euler_uniform",
+            "heun_uniform": "heun_uniform",
+            "euler_low_noise": "euler_low_noise",
+            "euler_low_noise_dense": "euler_low_noise",
+            "heun_low_noise": "heun_low_noise",
+            "heun_low_noise_dense": "heun_low_noise",
+        }
+        if mode not in aliases:
+            raise ValueError(
+                f"Unsupported sampling_mode={mode!r}. Expected one of: "
+                "euler_uniform, euler_low_noise, heun_uniform, "
+                "heun_low_noise."
+            )
+        return aliases[mode]
+
+    def _resolve_sampling_config(
+            self,
+            infer_steps=None,
+            sampling_mode=None,
+            schedule_power=None,
+    ):
+        mode = self._normalize_sampling_mode(
+            self.sampling_mode if sampling_mode is None else sampling_mode
+        )
+        solver, schedule_name = mode.split("_", maxsplit=1)
+
+        if infer_steps is None:
+            steps = (
+                self.heun_infer_steps
+                if solver == "heun"
+                else self.euler_infer_steps
+            )
+        else:
+            steps = int(infer_steps)
+
+        if steps <= 0:
+            raise ValueError(f"infer_steps must be positive, got {steps}")
+
+        power = (
+            self.low_noise_schedule_power
+            if schedule_power is None
+            else float(schedule_power)
+        )
+        if schedule_name == "low_noise" and power <= 1.0:
+            raise ValueError(
+                "A low-noise-dense schedule requires schedule_power > 1. "
+                f"Got {power}."
+            )
+
+        if solver == "heun" and self.model.pred_gmm:
+            raise ValueError(
+                "Heun sampling requires a deterministic vector field, but "
+                "model.pred_gmm=True samples a new mixture component at each "
+                "function evaluation. Use Euler or disable stochastic GMM "
+                "sampling during ODE integration."
+            )
+
+        endpoint_mode = self.heun_endpoint_mode.replace("-", "_")
+        if endpoint_mode not in {"euler", "midpoint", "heun"}:
+            raise ValueError(
+                "heun_endpoint_mode must be one of 'euler', 'midpoint', or "
+                f"'heun'; got {self.heun_endpoint_mode!r}."
+            )
+
+        return solver, schedule_name, steps, power, endpoint_mode
+
+    @staticmethod
+    def _build_sampling_timesteps(
+            steps,
+            device,
+            schedule_name="uniform",
+            power=2.0,
+            dtype=torch.float32,
+            endpoint_eps=0.0,
+    ):
+        """Create base flow times, where t=0 is noise and t=1 is data."""
+        s = torch.linspace(0.0, 1.0, steps + 1, device=device, dtype=dtype)
+
+        if schedule_name == "uniform":
+            timesteps = s
+        elif schedule_name == "low_noise":
+            # For x-prediction, do not place internal solver nodes inside the
+            # clamped region 1 - t < endpoint_eps. Keep the penultimate node at
+            # 1 - endpoint_eps so the final Euler projection remains exact.
+            endpoint_eps = float(max(endpoint_eps, 0.0))
+            if endpoint_eps > 0.0 and steps > 1:
+                body_s = torch.linspace(
+                    0.0,
+                    1.0,
+                    steps,
+                    device=device,
+                    dtype=dtype,
+                )
+                body = (1.0 - endpoint_eps) * (
+                    1.0 - (1.0 - body_s).pow(power)
+                )
+                timesteps = torch.cat([body, body.new_ones(1)], dim=0)
+            else:
+                # dt becomes progressively smaller near t=1 (low-noise end).
+                timesteps = 1.0 - (1.0 - s).pow(power)
+        else:
+            raise ValueError(f"Unsupported schedule_name={schedule_name!r}")
+
+        # Avoid small floating-point endpoint drift and validate monotonicity.
+        timesteps[0] = 0.0
+        timesteps[-1] = 1.0
+        if torch.any(timesteps[1:] <= timesteps[:-1]):
+            raise RuntimeError(
+                f"Sampling timesteps must be strictly increasing: {timesteps}"
+            )
+        return timesteps
+
+    @staticmethod
+    def _is_final_base_step(t_next):
+        t_next_tensor = torch.as_tensor(t_next)
+        return bool(torch.all(t_next_tensor >= 1.0 - 1e-7).item())
+
     @torch.no_grad()
     def _forward_sample(self, z, t_n, t_next, labels):
         tokenized_agent, initial_map_feature, eval_mask = labels
@@ -1127,12 +1272,175 @@ class ScaleFlow(nn.Module):
         return z, pred_x0, t_n, log_prob
 
     @torch.no_grad()
-    def sample(self, tokenized_agent, initial_map_feature, eval_mask, infer_steps=20, num_samples=1):
+    def _heun_step(
+            self,
+            z,
+            t,
+            t_next,
+            labels,
+            noise_level,
+            endpoint_mode="midpoint",
+            sde_inspired=False,
+    ):
+        """Second-order deterministic update with an optional stochastic branch.
+
+        Deterministic agents use Heun's explicit trapezoidal correction. When
+        ``x_pred`` is enabled, the default uses endpoint-safe midpoint RK2 on the
+        final interval, avoiding a denoiser evaluation exactly at t=1.
+        Agents selected for the TempFlow/SDE branch retain the original Euler-SDE
+        transition and its exact stored log probability.
+        """
+        # The cluster path contains discrete agent insertion/re-noising and is not
+        # a smooth ODE interval. Preserve its original Euler semantics.
+        if self.use_cluster:
+            return self._euler_step(
+                z,
+                t,
+                t_next,
+                labels,
+                noise_level,
+                sde_inspired=sde_inspired,
+            )
+
+        if sde_inspired:
+            gamma = 1.0
+            h_base = t_next - t
+            alpha = torch.clamp(
+                1.0 - gamma * h_base * (1.0 - t_next),
+                min=0.0,
+                max=1.0,
+            )
+            e = self.model.denormalize(torch.randn_like(z))
+            t = alpha * t
+            z = alpha * z + (1.0 - alpha) * e
+
+        v_start, t_start, t_end, pred_x0_start = self._forward_sample(
+            z,
+            t,
+            t_next,
+            labels,
+        )
+        tokenized_agent, initial_map_feature, eval_mask = labels
+
+        # Keep features aligned with the start-of-step transition used by the
+        # SDE log-probability branch. The corrector call may overwrite this key.
+        noise_feat_start = tokenized_agent.get("noise_feat", None)
+        step_size = t_end - t_start
+        is_final = self._is_final_base_step(t_next)
+
+        if self.x_pred and is_final and endpoint_mode == "euler":
+            # For x-prediction, h = 1 - t on the final interval, so this update
+            # directly projects to the predicted clean sample without querying
+            # the singular endpoint velocity.
+            pred_x0_corrector = pred_x0_start
+            z_deterministic = z + step_size * v_start
+        elif self.x_pred and is_final and endpoint_mode == "midpoint":
+            # Endpoint-safe RK2: keep two evaluations, avoid t=1, and undo the
+            # inference-only denominator clamp at the safe midpoint.
+            t_mid = 0.5 * (t + t_next)
+
+            num_agents = z.shape[0]
+            t_mid_mapped = torch.full(
+                (num_agents, 1, 1),
+                t_mid,
+                device=z.device,
+                dtype=t_start.dtype,
+            )
+            t_mid_mapped, _ = self.model.schedule(
+                t_mid_mapped,
+                z,
+                tokenized_agent,
+            )
+            ego_mask = tokenized_agent["ego_mask"]
+            if eval_mask is not None:
+                ego_mask = ego_mask[eval_mask]
+            t_mid_mapped[ego_mask] = 1.0
+            if self.use_scale:
+                t_mid_mapped[tokenized_agent["padding_mask"]] = 0.0
+
+            z_mid = z + (t_mid_mapped - t_start) * v_start
+            v_corrector, t_mid_eval, _, pred_x0_corrector = self._forward_sample(
+                z_mid,
+                t_mid,
+                t_mid,
+                labels,
+            )
+            # _forward_sample uses t_eps to stabilize x-prediction. At the final
+            # midpoint we are still safely away from t=1, so undo that clamp to
+            # recover the mathematically correct instantaneous velocity. This
+            # also preserves classifier-free guidance because it rescales the
+            # already-guided velocity rather than reconstructing it from x_cond.
+            denom_stable = (1.0 - t_mid_eval).clamp_min(self.t_eps)
+            denom_actual = (1.0 - t_mid_eval).clamp_min(1e-6)
+            rescale = torch.where(
+                step_size.abs() > 0,
+                denom_stable / denom_actual,
+                torch.ones_like(denom_actual),
+            )
+            v_corrector = v_corrector * rescale
+            z_deterministic = z + step_size * v_corrector
+        else:
+            # Classical Heun predictor-corrector.
+            z_predictor = z + step_size * v_start
+            v_corrector, _, _, pred_x0_corrector = self._forward_sample(
+                z_predictor,
+                t_next,
+                t_next,
+                labels,
+            )
+            z_deterministic = z + 0.5 * step_size * (
+                v_start + v_corrector
+            )
+
+        if noise_feat_start is not None:
+            tokenized_agent["noise_feat"] = noise_feat_start
+
+        log_prob = z.new_zeros(z.shape[0])
+
+        if self.use_sde and torch.any(noise_level > 0):
+            sde_mask = (
+                noise_level.reshape(noise_level.shape[0], -1).amax(dim=-1) > 0
+            )
+            z_next = z_deterministic
+            if torch.any(sde_mask):
+                z_sde, log_prob_sde, _, _ = self.sde_step_with_logprob(
+                    1.0 - t_start[sde_mask],
+                    1.0 - t_end[sde_mask],
+                    -v_start[sde_mask],
+                    z[sde_mask],
+                    noise_level[sde_mask],
+                )
+                z_next[sde_mask] = z_sde
+                log_prob[sde_mask] = log_prob_sde
+        else:
+            z_next = z_deterministic
+
+        return z_next, pred_x0_corrector, t_start, log_prob
+
+    @torch.no_grad()
+    def sample(
+            self,
+            tokenized_agent,
+            initial_map_feature,
+            eval_mask,
+            infer_steps=None,
+            num_samples=1,
+            sampling_mode=None,
+            schedule_power=None,
+    ):
 
         agent_batch = tokenized_agent["init_agent_batch"]
         num_graphs = tokenized_agent["num_graphs"]
         init_agent_type = tokenized_agent["init_agent_type"]
         num_agents = len(agent_batch)
+
+        solver, schedule_name, infer_steps, schedule_power, endpoint_mode = (
+            self._resolve_sampling_config(
+                infer_steps=infer_steps,
+                sampling_mode=sampling_mode,
+                schedule_power=schedule_power,
+            )
+        )
 
         if self.use_uniform:
             z = torch.rand(num_agents, num_samples, self.model.m_delta_dim, device=agent_batch.device) * 2 - 1
@@ -1264,7 +1572,26 @@ class ScaleFlow(nn.Module):
         else:
             steps = infer_steps
 
-        timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device).pow(2/3)
+        timesteps = self._build_sampling_timesteps(
+            steps,
+            device=agent_batch.device,
+            schedule_name=schedule_name,
+            power=schedule_power,
+            dtype=torch.float32,
+            endpoint_eps=self.t_eps if self.x_pred else 0.0,
+        )
+
+        tokenized_agent["sampling_solver"] = solver
+        tokenized_agent["sampling_schedule"] = schedule_name
+        tokenized_agent["sampling_schedule_power"] = schedule_power
+        tokenized_agent["sampling_timesteps"] = timesteps.detach().clone()
+        if solver == "heun" and not self.use_cluster:
+            expected_nfe = 2 * steps
+            if self.x_pred and endpoint_mode == "euler":
+                expected_nfe -= 1
+        else:
+            expected_nfe = steps
+        tokenized_agent["sampling_expected_nfe"] = expected_nfe
 
         noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 
@@ -1296,9 +1623,9 @@ class ScaleFlow(nn.Module):
             noise_level = noise_level[:, :, None]
 
             tokenized_agent["tempflow_branch_step"] = branch_step_graph
-            tokenized_agent["tempflow_branch_time"] = (
-                branch_step_graph.to(dtype=timesteps.dtype) / float(steps)
-            )
+            tokenized_agent["tempflow_branch_time"] = timesteps[
+                branch_step_graph
+            ].detach()
 
         for i in range(steps):  # - 1
             t = timesteps[i]
@@ -1323,17 +1650,35 @@ class ScaleFlow(nn.Module):
                     t = noise_scedule[:, i][agent_batch][eval_mask]
                     t_next = noise_scedule[:, i + 1][agent_batch][eval_mask][:, None, None]
 
-                z[eval_mask], x_cond, t_n, log_prob = self._euler_step(
+                step_fn = self._heun_step if solver == "heun" else self._euler_step
+                step_kwargs = (
+                    {"endpoint_mode": endpoint_mode}
+                    if solver == "heun"
+                    else {}
+                )
+                z[eval_mask], x_cond, t_n, log_prob = step_fn(
                     z[eval_mask],
                     t,
                     t_next,
                     (tokenized_agent, initial_map_feature, eval_mask),
                     noise_level[eval_mask, i],
+                    **step_kwargs,
                 )
             else:
-                z, x_cond, t_n, log_prob = self._euler_step(z, t, t_next,
-                                                            (tokenized_agent, initial_map_feature, eval_mask),
-                                                            noise_level[:, i])
+                step_fn = self._heun_step if solver == "heun" else self._euler_step
+                step_kwargs = (
+                    {"endpoint_mode": endpoint_mode}
+                    if solver == "heun"
+                    else {}
+                )
+                z, x_cond, t_n, log_prob = step_fn(
+                    z,
+                    t,
+                    t_next,
+                    (tokenized_agent, initial_map_feature, eval_mask),
+                    noise_level[:, i],
+                    **step_kwargs,
+                )
 
             #z = torch.clamp(z, min=clip_min, max=clip_max)
 
