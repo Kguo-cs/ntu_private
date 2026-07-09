@@ -1335,6 +1335,8 @@ class ScaleFlow(nn.Module):
                                                             (tokenized_agent, initial_map_feature, eval_mask),
                                                             noise_level[:, i])
 
+            z = torch.clamp(z, min=clip_min, max=clip_max)
+
             z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
             feat_list.append(tokenized_agent["noise_feat"])
@@ -1343,10 +1345,6 @@ class ScaleFlow(nn.Module):
             z_list.append(z.clone())
             t_list.append(t_n.clone())
             log_prob_list.append(log_prob)
-
-
-            # Clips each feature independently along the last dimension.
-            x = torch.clamp(x, min=clip_min, max=clip_max)
 
 
         t_list.append(torch.ones_like(t_n))
