@@ -692,7 +692,7 @@ def aggregate_interaction_reward(
 
     # If mass < 1, distance attenuation remains active.
     # If mass > 1, aggregation becomes a weighted average.
-    normalizer = effective_mass.clamp_min(1e-5)
+    normalizer = effective_mass.clamp_min(1)
 
     interaction_reward = weighted_sum / (normalizer + eps)
     interaction_reward = interaction_reward_weight * interaction_reward
