@@ -373,7 +373,7 @@ class IQ_SoftQ(LightningModule):
                 position_scale=1.0,
                 heading_scale=1.0,
                 shape_scale=1.0,
-                interaction_min_mass=10,
+                interaction_min_mass=1,
                 detach_edge_weight=True,
             )
             self._log_train(f"train/{key}_gp", regularization_loss)

@@ -1264,7 +1264,7 @@ class ScaleFlow(nn.Module):
         else:
             steps = infer_steps
 
-        timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device)  # .pow(2/3)
+        timesteps = torch.linspace(0, 1, steps + 1, device=agent_batch.device).pow(2/3)
 
         noise_level = torch.zeros(num_agents, steps, 1, device=agent_batch.device)
 
