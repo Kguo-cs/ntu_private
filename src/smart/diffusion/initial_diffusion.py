@@ -259,7 +259,7 @@ class InitDiffusion(nn.Module):
                 else:
                     pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None,
                                                        infer_steps=10,
-                                                       sampling_mode="heun_low_noise",
+                                                       sampling_mode="heun_uniform",
                                                        schedule_power=1.0,
                                                        )
 
