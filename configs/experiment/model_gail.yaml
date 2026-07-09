@@ -18,7 +18,7 @@ model:
 
 ckpt_path: "./waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt"
 
-task_name: model32_edge001_scale09 #intergp001 #_w1 #_dise5 #_min1
+task_name: model32_edge001_clip #intergp001 #_w1 #_dise5 #_min1
 
 trainer:
   val_check_interval: 0.25
