@@ -366,25 +366,25 @@ class InterativeDecoder(nn.Module):
 
                 #weight=torch.ones_like(weight)
 
-                weight_logit = interact_logits[:, 0].detach() * weight
-
-                valid_interact_reward = scatter_sum(
-                    weight_logit,
-                    end_index,
-                    dim=0,
-                    dim_size=valid_number,
-                )
-
-                # valid_interact_reward, edge_weights, effective_mass = (
-                #     aggregate_interaction_reward(
-                #         interaction_logits=interact_logits[:, 0].detach(),
-                #         distances=dist,
-                #         destination_index=end_index,
-                #         num_nodes=valid_number,
-                #         distance_decay=self.dis_decay,
-                #         interaction_reward_weight=self.dis_weight,
-                #     )
+                # weight_logit = interact_logits[:, 0].detach() * weight
+                #
+                # valid_interact_reward = scatter_sum(
+                #     weight_logit,
+                #     end_index,
+                #     dim=0,
+                #     dim_size=valid_number,
                 # )
+
+                valid_interact_reward, edge_weights, effective_mass = (
+                    aggregate_interaction_reward(
+                        interaction_logits=interact_logits[:, 0].detach(),
+                        distances=dist,
+                        destination_index=end_index,
+                        num_nodes=valid_number,
+                        distance_decay=self.dis_decay,
+                        interaction_reward_weight=self.dis_weight,
+                    )
+                )
                 #
                 if train_repeat_mask_later is not None:
                     interaction_reward = valid_interact_reward[
@@ -692,7 +692,7 @@ def aggregate_interaction_reward(
 
     # If mass < 1, distance attenuation remains active.
     # If mass > 1, aggregation becomes a weighted average.
-    normalizer = effective_mass.clamp_min(1e-5)
+    normalizer = effective_mass.clamp_min(1)
 
     interaction_reward = weighted_sum / (normalizer + eps)
     interaction_reward = interaction_reward_weight * interaction_reward

@@ -1154,7 +1154,7 @@ class ScaleFlow(nn.Module):
 
         z = self.model.denormalize(z, init_agent_type)
 
-        z = torch.clamp(z, min=clip_min, max=clip_max)
+       # z = torch.clamp(z, min=clip_min, max=clip_max)
 
         diff_input, diff_output = self.model.get_input(tokenized_agent)
 
