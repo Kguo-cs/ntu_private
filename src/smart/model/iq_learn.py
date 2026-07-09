@@ -371,8 +371,8 @@ class IQ_SoftQ(LightningModule):
                 gamma=0.01,
                 interaction_gamma=0.01,
                 position_scale=1.0,
-                heading_scale=1.0,
-                shape_scale=10.0,
+                heading_scale=10.0,
+                shape_scale=1.0,
                 interaction_min_mass=1,
                 detach_edge_weight=True,
             )
