@@ -1335,7 +1335,7 @@ class ScaleFlow(nn.Module):
                                                             (tokenized_agent, initial_map_feature, eval_mask),
                                                             noise_level[:, i])
 
-            z = torch.clamp(z, min=clip_min, max=clip_max)
+            #z = torch.clamp(z, min=clip_min, max=clip_max)
 
             z[tokenized_agent["ego_mask"]] = diff_input[tokenized_agent["ego_mask"]]
 
