@@ -100,7 +100,9 @@ class SMART(LightningModule):
         if self.token_processor.pred_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
             working_dir = os.getcwd()
-            if (('keguo' in working_dir) or ("guoke" in working_dir)):
+            if ('keguo' in working_dir) :
+                self.para_num=64
+            elif ("guoke" in working_dir):
                 self.para_num=32
             else:
                 self.para_num=1
