@@ -73,7 +73,7 @@ class SMART(LightningModule):
             finetune=model_config.finetune
         )
 
-        self.training_rollout_len=18
+        self.training_rollout_len=10
 
         if  model_config.finetune:
             for p in self.encoder.map_encoder.parameters():
