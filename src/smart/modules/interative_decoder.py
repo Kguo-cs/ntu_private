@@ -157,7 +157,7 @@ class InterativeDecoder(nn.Module):
                 ]
             )
 
-        self.pred_map_logit=False
+        self.pred_map_logit=True
 
         if self.discriminator:
             if self.use_decompose:
