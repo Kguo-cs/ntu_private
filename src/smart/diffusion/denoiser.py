@@ -259,9 +259,6 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_mean", torch.zeros(1, self.m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, self.m_delta_dim))
 
-        self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
-        self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
-
         # Different groups can still use different schedules.
         self.schedule = LearnableGroupedPowerSchedule(
             group_dims=(2, 2, 2, self.m_delta_dim - 6)
@@ -346,6 +343,9 @@ class InitDenoiser(nn.Module):
 
     def _maybe_init_normalizer(self, diff_output: torch.Tensor) -> None:
         if not torch.all(self.normal_mean == 0):
+            if self.normal_scale[0][0]<20:
+                self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
+                self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
             return
 
         with torch.no_grad():
