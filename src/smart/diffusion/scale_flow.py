@@ -525,7 +525,7 @@ class ScaleFlow(nn.Module):
         else:
             e = torch.randn_like(x)
 
-        fake_idx=get_closest_sum_idx_fast(e[:,0],self.model.normalize(x)[:,0],tokenized_agent,all_state=True)
+        fake_idx=get_closest_sum_idx(e[:,0],self.model.normalize(x)[:,0],tokenized_agent,all_state=True)
 
         e=e[fake_idx]
 
