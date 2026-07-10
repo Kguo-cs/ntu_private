@@ -2,7 +2,7 @@ from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 import math
 import torch
-
+import numpy as np
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_local,
@@ -526,6 +526,187 @@ def get_closest_sum_idx(
     fake_idx=torch.cat(fake_idx_all)[inv_real_idx]
 
     return fake_idx
+
+
+@torch.no_grad()
+def get_closest_sum_idx_fast(
+    fake_state: torch.Tensor,
+    real_state: torch.Tensor,
+    tokenized_agent,
+    all_state: bool = False,
+    use_all_type: bool = False,
+) -> torch.Tensor:
+    """
+    Exact one-to-one Hungarian matching inside each group.
+
+    Returns:
+        fake_idx: [N]
+            fake_state[fake_idx[i]] is assigned to real_state[i].
+    """
+    if fake_state.shape[0] != real_state.shape[0]:
+        raise ValueError(
+            "fake_state and real_state must have the same number of states: "
+            f"{fake_state.shape[0]} vs {real_state.shape[0]}"
+        )
+
+    num_states = fake_state.shape[0]
+    output_device = fake_state.device
+
+    if num_states == 0:
+        return torch.empty(
+            0,
+            dtype=torch.long,
+            device=output_device,
+        )
+
+    fake_feat = fake_state if all_state else fake_state[:, :2]
+    real_feat = real_state if all_state else real_state[:, :2]
+
+    # ------------------------------------------------------------
+    # Transfer features to CPU only once.
+    # scipy.linear_sum_assignment is CPU-based anyway.
+    # ------------------------------------------------------------
+    fake_np = (
+        fake_feat.detach()
+        .to(device="cpu", dtype=torch.float32)
+        .contiguous()
+        .numpy()
+    )
+    real_np = (
+        real_feat.detach()
+        .to(device="cpu", dtype=torch.float32)
+        .contiguous()
+        .numpy()
+    )
+
+    # ------------------------------------------------------------
+    # Build groups by sorting rather than repeatedly constructing
+    # full-length Boolean masks.
+    # ------------------------------------------------------------
+    if use_all_type:
+        batch_tensor = torch.as_tensor(tokenized_agent)[-num_states:]
+
+        batch_np = (
+            batch_tensor.detach()
+            .to(device="cpu", dtype=torch.long)
+            .numpy()
+        )
+
+        order = np.argsort(batch_np, kind="stable")
+        sorted_batch = batch_np[order]
+
+        group_change = (
+            sorted_batch[1:] != sorted_batch[:-1]
+        )
+    else:
+        batch_tensor = tokenized_agent["batch"][-num_states:]
+        type_tensor = tokenized_agent["type"][-num_states:]
+
+        batch_np = (
+            batch_tensor.detach()
+            .to(device="cpu", dtype=torch.long)
+            .numpy()
+        )
+        type_np = (
+            type_tensor.detach()
+            .to(device="cpu", dtype=torch.long)
+            .numpy()
+        )
+
+        # Lexicographic ordering by (batch, type).
+        order = np.lexsort((type_np, batch_np))
+
+        sorted_batch = batch_np[order]
+        sorted_type = type_np[order]
+
+        group_change = (
+            (sorted_batch[1:] != sorted_batch[:-1])
+            | (sorted_type[1:] != sorted_type[:-1])
+        )
+
+    group_starts = np.concatenate(
+        (
+            np.array([0], dtype=np.int64),
+            np.flatnonzero(group_change).astype(np.int64) + 1,
+        )
+    )
+    group_ends = np.concatenate(
+        (
+            group_starts[1:],
+            np.array([num_states], dtype=np.int64),
+        )
+    )
+
+    # Default identity assignment also handles singleton groups.
+    matched_fake_idx = np.arange(
+        num_states,
+        dtype=np.int64,
+    )
+
+    # ------------------------------------------------------------
+    # Exact Hungarian matching inside each group.
+    # ------------------------------------------------------------
+    for start, end in zip(group_starts, group_ends):
+        idx = order[start:end]
+        group_size = end - start
+
+        if group_size <= 1:
+            continue
+
+        real_group = real_np[idx]  # [M, D]
+        fake_group = fake_np[idx]  # [M, D]
+
+        # Squared Euclidean distance without an [M, M, D]
+        # intermediate tensor:
+        #
+        # ||r-f||² = ||r||² + ||f||² - 2 r f^T
+        real_sq = np.sum(
+            real_group * real_group,
+            axis=1,
+            keepdims=True,
+        )
+        fake_sq = np.sum(
+            fake_group * fake_group,
+            axis=1,
+            keepdims=True,
+        ).T
+
+        cost = (
+            real_sq
+            + fake_sq
+            - 2.0 * real_group @ fake_group.T
+        )
+
+        # Remove tiny negative values caused by floating-point error.
+        np.maximum(cost, 0.0, out=cost)
+
+        if not np.isfinite(cost).all():
+            raise ValueError(
+                "Non-finite values were found in the matching "
+                f"cost matrix for a group of size {group_size}."
+            )
+
+        # Avoid calling scipy for the common two-agent case.
+        if group_size == 2:
+            identity_cost = cost[0, 0] + cost[1, 1]
+            swap_cost = cost[0, 1] + cost[1, 0]
+
+            if swap_cost < identity_cost:
+                matched_fake_idx[idx[0]] = idx[1]
+                matched_fake_idx[idx[1]] = idx[0]
+            else:
+                matched_fake_idx[idx] = idx
+
+            continue
+
+        row, col = linear_sum_assignment(cost)
+
+        # Directly store the assignment in original real-state order.
+        matched_fake_idx[idx[row]] = idx[col]
+
+    return torch.from_numpy(
+        matched_fake_idx
+    ).to(device=output_device)
 
 def get_diff_loss(
     tokenized_agent, fake_state,real_state,z,e,t,base_t=None,t_dt=None,

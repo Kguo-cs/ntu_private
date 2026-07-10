@@ -48,7 +48,7 @@ from .denoiser import InitDenoiser
 from src.smart.diffusion.diffusion_planner.sde import SDE, VPSDE_linear
 from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP, model_wrapper, DPM_Solver
 from src.smart.layers import MLPLayer
-from src.smart.diffusion.diffusion_utils import get_diff_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last
+from src.smart.diffusion.diffusion_utils import get_diff_loss,get_closest_sum_idx,get_type_position_index,sort_agents_by_xy_keep_last,get_closest_sum_idx_fast
 from src.smart.diffusion.dit.dit import DiT
 import torch
 
@@ -525,9 +525,9 @@ class ScaleFlow(nn.Module):
         else:
             e = torch.randn_like(x)
 
-        #fake_idx=get_closest_sum_idx(e[:,0],self.model.normalize(x)[:,0],tokenized_agent,all_state=True)
+        fake_idx=get_closest_sum_idx_fast(e[:,0],self.model.normalize(x)[:,0],tokenized_agent,all_state=True)
 
-       # e=e[fake_idx]
+        e=e[fake_idx]
 
         e = self.model.denormalize(e, init_agent_type)
 
