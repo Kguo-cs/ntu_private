@@ -345,7 +345,7 @@ class InitDenoiser(nn.Module):
         if not torch.all(self.normal_mean == 0):
             if self.normal_scale[0][0]<20:
                 self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
-                self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
+                #self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
             return
 
         with torch.no_grad():
