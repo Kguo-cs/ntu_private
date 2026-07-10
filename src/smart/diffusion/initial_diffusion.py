@@ -258,9 +258,9 @@ class InitDiffusion(nn.Module):
                     pred_init, x_list = self.G1.self_resample_initial_state(tokenized_agent, initial_map_feature, 0)
                 else:
                     pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None,
-                                                       infer_steps=10,
-                                                       sampling_mode="heun_low_noise",
-                                                       schedule_power=2.0,
+                                                       # infer_steps=10,
+                                                       # sampling_mode="heun_low_noise",
+                                                       # schedule_power=2.0,
                                                        )
 
                 if self.latent_diffusion:

@@ -29,15 +29,18 @@ mv ntu_private sim
 cd sim
 git checkout scale
 
-conda create -y -n sim python=3.11.9
-conda activate sim
+conda create -y -n sim1 python=3.11.9
+conda activate sim1
 conda install -y -c conda-forge ffmpeg=4.3.2
 pip install torch_geometric==2.6.1
-pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
-pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
+pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu130
+pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.9.0+cu130.html
 pip install -r install/requirements.txt
 pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.7
 pip install shapely==2.1.1
+
+pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
 
 sudo apt install curl
 crontab -e
