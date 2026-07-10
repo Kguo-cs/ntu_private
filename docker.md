@@ -41,6 +41,7 @@ pip install shapely==2.1.1
 
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
+rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  ke@10.87.225.106:~/miniconda3/envs/sim1/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
 sudo apt install curl
 crontab -e
@@ -52,5 +53,4 @@ ke ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/systemctl
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.225.106:~/code/sim/src/waymo_data/full/
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_a_light ke@10.87.225.106:~/code/sim/src/waymo_data/full/
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init5 ke@10.87.225.106:~/code/sim/src/waymo_data/full/
-rsync -avz  /home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/map_metric_features.py  ke@10.87.225.106:~/miniconda3/envs/sim/lib/python3.11/site-packages/waymo_open_dataset/wdl_limited/sim_agents_metrics/
 
