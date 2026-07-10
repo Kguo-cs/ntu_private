@@ -847,13 +847,6 @@ dit256_sample20_mos1sample32256_sde0_epoch=63-step=121792.ckpt
 
 test: 0.6484
 
-model32_203_bclen10_meanweight_epoch=3-step=98922.ckpt
-
-model22_nopred_new
-
-model22_nopred_new_val4_start0
-
-
 model22_initfeat_logitgp001_01nll
 
 0.6496
@@ -879,12 +872,6 @@ all24_t10r10_gp8_logit01_noinit_sde07_epoch=1-step=85224-valmeta=0.6641.ckpt
 model24_t10r10_gp8_logit01_value_val64_epoch=4-step=202920-valmeta=0.6519.ckpt
 
 0.6500
-
-model24_t10r10_gp2_logit001_dis5e5_valuedetach_epoch=4-step=202920-valmeta=0.6520.ckpt
-
-
-model24_t10r10_gp2_logit001_valuedetach_epoch=4-step=202920-valmeta=0.6515.ckpt
-
 
 model24_valuedetach_dis2_expert_epoch=2-step=64934-valmeta=0.6521.ckpt
 
@@ -914,16 +901,6 @@ xflow512_wrap_300_epoch=63-valmeta=0.6458.ckpt
 
 0.6453
 
-xflow512_wrap_300_all_power_epoch=63-step=60928-valmeta=0.6446.ckpt
-
-
-
-xflow512_nopower_epoch=63-step=60928-valmeta=0.6490.ckpt
-
-
-xflow512_wrap_300_all_power_epoch=63-step=60928-valmeta=0.6446.ckpt
-
-
 xflow512_n30.ckpt
 
 0.64696
@@ -932,31 +909,10 @@ xflow512_n30_pta_epoch=63-step=60928-valmeta=0.6434.ckpt
 
 0.6468
 
-all128_ref_mc2_loss001_clip001decay999_epoch=4-step=57072-valmeta=0.6481.ckpt
-
-xflow512_newW_epoch=63-step=60928-valmeta=0.6374.ckpt
-
-
-bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt
-
-bc_init64_n30_r300_epoch=15-step=121760-valmeta=0.6456.ckpt
-
 
 bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt
 
 0.64699
-
-model32_a60_gp001shape10_len10_token-epoch=2-step=68484-valmeta=0.6490.ckpt
-
-
-model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
-
-model32_gp001shape1_dise5_logitlosssum-epoch=2-step=76092-valmeta=0.6513.ckpt
-
-
-model32_edgegp001w1_dise5-epoch=3-step=114138-valmeta=0.6547.ckpt
-
-
 
 my
 
