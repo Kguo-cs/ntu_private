@@ -14,7 +14,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_edgegp001w1_dise5/2026-
 
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow512_n30/2026-06-29_23-07-13/bc/hgdzbse9/checkpoints/last.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_noisevhead1/2026-07-10_06-56-12/bc/whb7xxoi/checkpoints/last.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_matchfast/2026-07-10_09-59-08/bc/oyllzy9c/checkpoints/xflow512_matchfast-epoch=29-step=28560-valmeta=0.6454.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo

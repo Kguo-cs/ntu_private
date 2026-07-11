@@ -100,8 +100,8 @@ class WOSACSubmission(Metric):
             if rollout.scenario_id not in self.submission_scenario_id:
                 self.submission_scenario_id.append(rollout.scenario_id)
                 self.buffer_scenario_rollouts.append(rollout)
-                if len(self.buffer_scenario_rollouts) > 300:
-                    self._save_shard()
+                #if len(self.buffer_scenario_rollouts) > 300:
+                self._save_shard()
 
     def save_sub_file(self) -> None:
         self._save_shard()

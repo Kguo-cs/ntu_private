@@ -18,132 +18,6 @@ from src.smart.utils import (
     weight_init,
 )
 from .noise_schedule import LearnableGroupedPowerSchedule
-#
-#
-# class DenoiserStateEmbedder(nn.Module):
-#     """AgentTokenEncoder-style embedding block for the initial-state denoiser.
-#
-#     The old denoiser mixed state projection, type embedding, noise embedding,
-#     and ego embedding directly inside ``InitDenoiser.forward``. This module
-#     follows the same structure as ``AgentTokenEncoder``:
-#
-#         1. build continuous state features;
-#         2. build categorical type/shape embeddings;
-#         3. embed continuous features with ``FourierEmbedding``;
-#         4. fuse state embedding with diffusion-time/noise embedding.
-#
-#     For the default state layout:
-#         [x, y, heading_cos, heading_sin, length, width, vel_x, vel_y]
-#
-#     shape uses dims 4:6 as categorical/context embedding, while the remaining
-#     continuous state uses dims [:4] and [6:].
-#     """
-#
-#     def __init__(
-#         self,
-#         hidden_dim: int,
-#         num_freq_bands: int,
-#         m_delta_dim: int,
-#         num_classes: int = 3,
-#         shape_dim: int = 2,
-#     ) -> None:
-#         super().__init__()
-#
-#         if m_delta_dim < 8:
-#             raise ValueError(
-#                 f"InitDenoiser expects state dim >= 8, got m_delta_dim={m_delta_dim}."
-#             )
-#
-#         self.hidden_dim = hidden_dim
-#         self.m_delta_dim = m_delta_dim
-#         self.num_classes = num_classes
-#         self.shape_dim = shape_dim
-#
-#         # Same categorical style as AgentTokenEncoder:
-#         # type embedding + shape embedding are injected into FourierEmbedding.
-#         self.type_a_emb = nn.Embedding(num_classes + 1, hidden_dim)
-#         self.shape_emb = MLPLayer(shape_dim, hidden_dim, hidden_dim)
-#
-#         # Continuous state excludes [length, width], because shape is handled
-#         # as a categorical/context embedding, like AgentTokenEncoder.
-#         self.state_feature_dim =m_delta_dim - shape_dim
-#
-#         self.x_a_emb = FourierEmbedding(
-#             input_dim=self.state_feature_dim,
-#             hidden_dim=hidden_dim,
-#             num_freq_bands=num_freq_bands,
-#         )
-#         #self.beta_emb = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)
-#
-#         self.beta_emb = FourierEmbedding(
-#             input_dim=m_delta_dim,
-#             hidden_dim=hidden_dim,
-#             num_freq_bands=num_freq_bands,
-#         )
-#
-#         self.fusion_emb = MLPEmbedding(
-#             input_dim=hidden_dim * 2,
-#             hidden_dim=hidden_dim,
-#         )
-#
-#     def _state_continuous_feature(self, m_delta: torch.Tensor) -> torch.Tensor:
-#         """Return continuous denoising features excluding shape dims 4:6."""
-#         return torch.cat([m_delta[:, :4], m_delta[:, 6:]], dim=-1)#m_delta[:, 6:]#
-#
-#     def _format_beta(self, beta: torch.Tensor, target_dim: int) -> torch.Tensor:
-#         """Accept beta as [N], [N, D], or [N, 1, D] and return [N, D]."""
-#         if beta.ndim == 3:
-#             beta = beta[:, 0]
-#         elif beta.ndim == 1:
-#             beta = beta[:, None]
-#
-#         if beta.shape[-1] == 1:
-#             beta = beta.expand(-1, target_dim)
-#
-#         if beta.shape[-1] != target_dim:
-#             raise ValueError(
-#                 f"beta last dim must be {target_dim}, got beta.shape={tuple(beta.shape)}."
-#             )
-#
-#         return beta
-#
-#     def get_embedding(
-#         self,
-#         m_delta: torch.Tensor,
-#         beta: torch.Tensor,
-#         agent_type: torch.Tensor,
-#     ) -> torch.Tensor:
-#         """AgentTokenEncoder-like embedding entry point."""
-#         beta = self._format_beta(beta, self.m_delta_dim)
-#
-#         state_feature = self._state_continuous_feature(m_delta)
-#         agent_shape = m_delta[:, 4:6]
-#
-#         categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
-#             agent_shape[..., : self.shape_dim]
-#         )#+self.beta_emb( beta )
-#
-#         state_emb = self.x_a_emb(
-#             continuous_inputs=state_feature,
-#             categorical_embs=categorical_embs,
-#         )
-#
-#         beta_emb = self.beta_emb(
-#             continuous_inputs=beta,
-#         )
-#
-#         state_emb=self.fusion_emb(torch.cat([state_emb, beta_emb], dim=-1))
-#
-#         return state_emb
-#
-#     def forward(
-#         self,
-#         m_delta: torch.Tensor,
-#         beta: torch.Tensor,
-#         agent_type: torch.Tensor,
-#     ) -> torch.Tensor:
-#         return self.get_embedding(m_delta, beta, agent_type)
-
 
 class InitDenoiser(nn.Module):
     """Cleaned initial-state denoiser.
@@ -229,8 +103,8 @@ class InitDenoiser(nn.Module):
         self.schedule_loss = False
         self.use_return_conditioned = False
         self.use_prev_condition = False
-        self.use_cfg_cond = False
         self.label_drop_prob = 0.0
+        self.map_drop_prob=0.0
 
         if mean_flow:
             raise NotImplementedError("mean_flow=True was removed from the cleaned InitDenoiser.")
@@ -345,7 +219,7 @@ class InitDenoiser(nn.Module):
         if not torch.all(self.normal_mean == 0):
             if self.normal_scale[0][2]>1.5:
                 self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
-                # self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
+            #     # self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
             #     self.normal_mean = torch.tensor(
             #         [[
             #             0,  # x
@@ -600,21 +474,20 @@ class InitDenoiser(nn.Module):
     # Graph denoising
     # ---------------------------------------------------------------------
     def _apply_graph_attention(
-        self,
-        feat_a: torch.Tensor,
-        pos_s: torch.Tensor,
-        theta: torch.Tensor,
-        batch: torch.Tensor,
-        tokenized_agent,
-        map_feature: Mapping[str, torch.Tensor],
-        num_graphs: int,
+            self,
+            feat_a: torch.Tensor,
+            pos_s: torch.Tensor,
+            theta: torch.Tensor,
+            batch: torch.Tensor,
+            tokenized_agent,
+            map_feature: Mapping[str, torch.Tensor],
+            num_graphs: int,
+            use_map_condition: bool = True,
     ) -> torch.Tensor:
-        batch_pl = map_feature["batch"]
-        pos_pl = map_feature["position"]
-        orient_pl = map_feature["orientation"]
-        feat_map = self.lane_embed(map_feature["pt_token"])
-
-        head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
+        head_vector_s = torch.stack(
+            [theta.cos(), theta.sin()],
+            dim=-1,
+        )
 
         edge_index_a2a, r_a2a, *_ = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,
@@ -628,76 +501,79 @@ class InitDenoiser(nn.Module):
             layer_num=self.num_layers,
             counter_feat_a=None,
             dis_edge_mask=None,
-           # feat_a=feat_a,
         )
 
-        # If the agent batch has been repeated for MC/SDE samples, map_feature is
-        # still stored over the original scenes. Reconstruct [N, S] agent tensors
-        # for map-to-agent attention, following the old implementation.
-        if batch_pl.numel() > 0 and int(batch_pl.max().item()) != num_graphs - 1:
-            if "agent_valid" not in tokenized_agent:
-                batch_for_map = tokenized_agent["repeat_batch"]
-                n_step = batch_for_map.shape[1]
+        if use_map_condition:
+            batch_pl = map_feature["batch"]
+            pos_pl = map_feature["position"]
+            orient_pl = map_feature["orientation"]
+            feat_map = self.lane_embed(map_feature["pt_token"])
 
-                pos_for_map = pos_s.reshape(n_step, -1, 2).transpose(0, 1)
-                theta_for_map = theta.reshape(n_step, -1).transpose(0, 1)
-                mask_for_map = torch.ones_like(batch_for_map, dtype=torch.bool)
+            if batch_pl.numel() > 0 and int(batch_pl.max().item()) != num_graphs - 1:
+                if "agent_valid" not in tokenized_agent:
+                    batch_for_map = tokenized_agent["repeat_batch"]
+                    n_step = batch_for_map.shape[1]
+
+                    pos_for_map = pos_s.reshape(n_step, -1, 2).transpose(0, 1)
+                    theta_for_map = theta.reshape(n_step, -1).transpose(0, 1)
+                    mask_for_map = torch.ones_like(batch_for_map, dtype=torch.bool)
+                else:
+                    valid = tokenized_agent["agent_valid"]
+                    n_step = valid.shape[0]
+
+                    pos_global, theta_global = transform_to_global(
+                        pos_s,
+                        theta,
+                        tokenized_agent["batch_ego_pos"],
+                        tokenized_agent["batch_ego_heading"],
+                    )
+
+                    pos_b = torch.zeros(
+                        [valid.shape[0], valid.shape[1], 2],
+                        device=pos_s.device,
+                        dtype=pos_s.dtype,
+                    )
+                    theta_b = torch.zeros(
+                        [valid.shape[0], valid.shape[1]],
+                        device=theta.device,
+                        dtype=theta.dtype,
+                    )
+
+                    pos_b[valid] = pos_global
+                    theta_b[valid] = theta_global
+
+                    pos_for_map = pos_b.transpose(0, 1)
+                    theta_for_map = theta_b.transpose(0, 1)
+                    mask_for_map = valid.transpose(0, 1)
+                    batch_for_map = tokenized_agent["batch_a"].unsqueeze(1).repeat(
+                        1,
+                        n_step,
+                    )
             else:
-                valid = tokenized_agent["agent_valid"]
-                n_step = valid.shape[0]
+                pos_for_map = pos_s
+                theta_for_map = theta
+                mask_for_map = None
+                batch_for_map = batch
 
-                pos_global, theta_global = transform_to_global(
-                    pos_s,
-                    theta,
-                    tokenized_agent["batch_ego_pos"],
-                    tokenized_agent["batch_ego_heading"],
-                )
+            head_vector_for_map = torch.stack(
+                [theta_for_map.cos(), theta_for_map.sin()],
+                dim=-1,
+            )
 
-                pos_b = torch.zeros(
-                    [valid.shape[0], valid.shape[1], 2],
-                    device=pos_s.device,
-                    dtype=pos_s.dtype,
-                )
-                theta_b = torch.zeros(
-                    [valid.shape[0], valid.shape[1]],
-                    device=theta.device,
-                    dtype=theta.dtype,
-                )
-
-                pos_b[valid] = pos_global
-                theta_b[valid] = theta_global
-
-                pos_for_map = pos_b.transpose(0, 1)
-                theta_for_map = theta_b.transpose(0, 1)
-                mask_for_map = valid.transpose(0, 1)
-                batch_for_map = tokenized_agent["batch_a"].unsqueeze(1).repeat(1, n_step)
-        else:
-            pos_for_map = pos_s
-            theta_for_map = theta
-            mask_for_map = None
-            batch_for_map = batch
-
-        head_vector_for_map = torch.stack(
-            [theta_for_map.cos(), theta_for_map.sin()],
-            dim=-1,
-        )
-
-        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-            pos_pl=pos_pl,
-            orient_pl=orient_pl,
-            pos_a=pos_for_map,
-            head_a=theta_for_map,
-            head_vector_a=head_vector_for_map,
-            mask=mask_for_map,
-            batch_s=batch_for_map,
-            batch_pl=batch_pl,
-            pl2a_radius=300,
-            max_num_neighbors=30,
-            agent_train_mask=None,
-            layer_num=self.num_layers,
-            #feat_a=feat_a,
-            #feat_map=feat_map
-        )
+            edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                pos_pl=pos_pl,
+                orient_pl=orient_pl,
+                pos_a=pos_for_map,
+                head_a=theta_for_map,
+                head_vector_a=head_vector_for_map,
+                mask=mask_for_map,
+                batch_s=batch_for_map,
+                batch_pl=batch_pl,
+                pl2a_radius=300,
+                max_num_neighbors=30,
+                agent_train_mask=None,
+                layer_num=self.num_layers,
+            )
 
         for layer_i in range(self.num_layers):
             feat_a = self.a2a_attn_layers[layer_i](
@@ -705,11 +581,13 @@ class InitDenoiser(nn.Module):
                 r_a2a,
                 edge_index_a2a,
             )
-            feat_a = self.pt2a_attn_layers[layer_i](
-                (feat_map, feat_a),
-                r_pl2a,
-                edge_index_pl2a,
-            )
+
+            if use_map_condition:
+                feat_a = self.pt2a_attn_layers[layer_i](
+                    (feat_map, feat_a),
+                    r_pl2a,
+                    edge_index_pl2a,
+                )
 
         return self.to_out_m_delta(feat_a)
 
@@ -724,6 +602,7 @@ class InitDenoiser(nn.Module):
         map_feature: Mapping[str, torch.Tensor],
         eval_mask: Optional[torch.Tensor] = None,
         mode: int = 1,
+        use_map_condition: Optional[bool] = True,
     ) -> torch.Tensor:
         m_delta = m_delta.reshape(m_delta.shape[0], -1)
 
@@ -746,6 +625,14 @@ class InitDenoiser(nn.Module):
             mode=mode,
         )
 
+        if use_map_condition:
+            if self.training and self.map_drop_prob > 0:
+                use_map_condition = (
+                        torch.rand((), device=m_delta.device) >= self.map_drop_prob
+                )
+            else:
+                use_map_condition = True
+
         res = self._apply_graph_attention(
             feat_a=feat_a,
             pos_s=pos_s,
@@ -754,6 +641,7 @@ class InitDenoiser(nn.Module):
             tokenized_agent=tokenized_agent,
             map_feature=map_feature,
             num_graphs=num_graphs,
+            use_map_condition=use_map_condition
         )
 
         res_theta = torch.atan2(res[:, 3], res[:, 2])
