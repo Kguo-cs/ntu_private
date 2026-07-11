@@ -18,8 +18,8 @@ model:
       temp: 1.0
     wosac_submission:
       is_active: true
-      method_name: "ScaleFlow"
-      authors: Ke Guo
+      method_name: "Flow"
+      authors: ke
       affiliation: ntu
       description: Tro
       method_link: anonymous

@@ -926,6 +926,11 @@ model32_a60_gp001_len10_dise5.ckpt
 
 model32_gp001shape1_dise5_logitlosssum-epoch=2-step=76092-valmeta=0.6513.ckpt
 
+model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
+
+
+
+
 
 take all position for generation
 simformer: For each
