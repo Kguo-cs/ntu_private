@@ -103,7 +103,7 @@ class InitDenoiser(nn.Module):
         self.schedule_loss = False
         self.use_return_conditioned = False
         self.use_prev_condition = False
-        self.label_drop_prob = 0.0
+        self.label_drop_prob = 0.1
         self.map_drop_prob=0.0
 
         if mean_flow:
@@ -217,8 +217,8 @@ class InitDenoiser(nn.Module):
 
     def _maybe_init_normalizer(self, diff_output: torch.Tensor) -> None:
         if not torch.all(self.normal_mean == 0):
-            if self.normal_scale[0][2]>1.5:
-                self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
+            # if self.normal_scale[0][2]>1.5:
+            #     # self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
             #     # self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
             #     self.normal_mean = torch.tensor(
             #         [[
