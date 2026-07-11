@@ -931,6 +931,7 @@ model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
 xflow512_matchfast-epoch=29-step=28560-valmeta=0.6454.ckpt
 
 
+xflow512_matchfast_noisevhead1-epoch=31-step=30464-valmeta=0.6480.ckpt
 
 
 

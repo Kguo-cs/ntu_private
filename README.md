@@ -10,7 +10,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_noisevhead1.ckpt ke@10.87.2
 
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_edgegp001w1_dise5/2026-07-08_10-55-56/bc/6y5modkv/checkpoints/model32_edgegp001w1_dise5-epoch=3-step=114138-valmeta=0.6547.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_matchfast_noisevhead1/2026-07-11_11-24-05/bc/k8s45sdr/checkpoints/xflow512_matchfast_noisevhead1-epoch=31-step=30464-valmeta=0.6480.ckpt ./
 
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow512_n30/2026-06-29_23-07-13/bc/hgdzbse9/checkpoints/last.ckpt ./
 

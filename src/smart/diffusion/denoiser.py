@@ -103,7 +103,7 @@ class InitDenoiser(nn.Module):
         self.schedule_loss = False
         self.use_return_conditioned = False
         self.use_prev_condition = False
-        self.label_drop_prob = 0.0
+        self.label_drop_prob = 0.1
         self.map_drop_prob=0.0
 
         if mean_flow:
@@ -338,14 +338,6 @@ class InitDenoiser(nn.Module):
 
         return diff_input, diff_output
 
-    # ---------------------------------------------------------------------
-    # Embedding helpers
-    # ---------------------------------------------------------------------
-    def drop_labels(self, labels: torch.Tensor, mode: int) -> torch.Tensor:
-        if mode == 1:
-            drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
-            return torch.where(drop, torch.full_like(labels, self.num_classes), labels)
-        return torch.full_like(labels, self.num_classes)
 
     def _format_beta(self, beta: torch.Tensor, n_agent: int) -> torch.Tensor:
         if beta.ndim == 3:
@@ -435,16 +427,26 @@ class InitDenoiser(nn.Module):
         tokenized_agent,
         mode: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+
+        theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
+        pos_s = m_delta[:, :2]
+
+        ego_embedding = self._ego_context_embedding(
+            pos_s=pos_s,
+            theta=theta,
+            batch=batch,
+            tokenized_agent=tokenized_agent,
+        )
+
         if self.label_drop_prob > 0:
-            if self.training:
-                agent_type = self.drop_labels(agent_type, mode)
+            if self.training and mode == 1:
+                drop = torch.rand(agent_type.shape[0], device=agent_type.device) < self.label_drop_prob
+                agent_type =torch.where(drop, torch.full_like(agent_type, self.num_classes), agent_type)
+                ego_embedding=torch.where(drop[:, None], torch.full_like(ego_embedding, 0), ego_embedding)
             elif mode == 0:
                 agent_type = torch.full_like(agent_type, self.num_classes)
 
         beta = self._format_beta(beta, m_delta.shape[0])
-
-        theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
-        pos_s = m_delta[:, :2]
 
         if self.init_embedding_mode == "new":
             feat_a = self.state_embedder(
@@ -458,13 +460,6 @@ class InitDenoiser(nn.Module):
                 beta=beta,
                 agent_type=agent_type,
             )
-
-        ego_embedding = self._ego_context_embedding(
-            pos_s=pos_s,
-            theta=theta,
-            batch=batch,
-            tokenized_agent=tokenized_agent,
-        )
 
         feat_a = feat_a + ego_embedding
 
@@ -507,7 +502,7 @@ class InitDenoiser(nn.Module):
             batch_pl = map_feature["batch"]
             pos_pl = map_feature["position"]
             orient_pl = map_feature["orientation"]
-            feat_map = self.lane_embed(map_feature["pt_token"])
+            feat_map = map_feature["pt_token"]
 
             if batch_pl.numel() > 0 and int(batch_pl.max().item()) != num_graphs - 1:
                 if "agent_valid" not in tokenized_agent:
@@ -607,7 +602,7 @@ class InitDenoiser(nn.Module):
         m_delta = m_delta.reshape(m_delta.shape[0], -1)
 
         batch = tokenized_agent["init_agent_batch"]
-        agent_type = tokenized_agent["init_agent_type"].long()
+        agent_type = tokenized_agent["init_agent_type"]
         num_graphs = tokenized_agent["num_graphs"]
 
         if eval_mask is not None:
@@ -646,18 +641,11 @@ class InitDenoiser(nn.Module):
 
         res_theta = torch.atan2(res[:, 3], res[:, 2])
 
-        if self.x_pred:
-            base_pos = m_delta[:, :2]
-        else:
-            base_pos = torch.zeros_like(m_delta[:, :2])
-
-        base_theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
-
         local_pos, local_theta = transform_to_global(
             res[:, :2],
             res_theta,
-            base_pos,
-            base_theta,
+            pos_s,
+            theta,
         )
 
         res = torch.cat(

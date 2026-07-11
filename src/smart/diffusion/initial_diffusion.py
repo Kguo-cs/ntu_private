@@ -163,6 +163,7 @@ class InitDiffusion(nn.Module):
                                                        ego_position[batch_pl],
                                                        ego_heading[batch_pl],
                                                        )
+            feat_map = self.G1.model.lane_embed(feat_map)
 
             initial_map_feature = {
                 "pt_token": feat_map,
