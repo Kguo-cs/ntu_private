@@ -410,6 +410,7 @@ def validate_submission_metadata(
                 f"acknowledgement is False",
             )
 
+import re
 
 def validate_wosac_tar(
     tar_path: str | Path,
@@ -452,19 +453,33 @@ def validate_wosac_tar(
                 if not member.isfile():
                     continue
 
-                num_archive_files += 1
-
                 if "submission.binproto" not in member.name:
+                    continue
+
+                match = re.search(
+                    r"submission\.binproto-(\d+)-of-(\d+)",
+                    member.name,
+                )
+
+                if match is None:
                     add_warning(
                         warnings,
-                        f"{member.name}: unexpected archive member; skipped",
+                        f"{member.name}: cannot determine shard index; skipped",
                     )
                     continue
 
+                shard_index = int(match.group(1))
+                total_shards = int(match.group(2))
+
+                if shard_index < 57:
+                    continue
+
+                num_archive_files += 1
                 num_shards += 1
 
                 print(
-                    f"[INFO] Checking shard {num_shards}: "
+                    f"[INFO] Checking shard index {shard_index} "
+                    f"({shard_index + 1}/{total_shards}): "
                     f"{member.name}",
                     flush=True,
                 )
@@ -529,7 +544,7 @@ def validate_wosac_tar(
                     continue
 
                 for scenario_index, scenario in enumerate(
-                    submission.scenario_rollouts
+                        submission.scenario_rollouts
                 ):
                     num_scenarios += 1
 

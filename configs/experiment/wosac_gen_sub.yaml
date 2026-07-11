@@ -30,7 +30,7 @@ model:
 
     decoder:
       #hist_drop_prob: 0.1 #0.1 #0.1
-      dis_a2a_radius: 10
+      dis_a2a_radius: 0
 #      pl2pl_radius: 300
 #      pl2a_radius: 300
 #      a2a_radius: 300
@@ -39,7 +39,7 @@ model:
       learn_init: False
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/xflow512_noisevhead1.ckpt"
 
 trainer:
   limit_train_batches: 1.0

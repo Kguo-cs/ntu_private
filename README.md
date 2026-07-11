@@ -6,7 +6,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/bc_init64_n30_epoch=15-step=121760-v
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_noisevhead1.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 
 
@@ -14,7 +14,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_edgegp001w1_dise5/2026-
 
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow512_n30/2026-06-29_23-07-13/bc/hgdzbse9/checkpoints/last.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/model32_gp001shape1_dise5_logitlosssum/2026-07-07_08-18-58/bc/peftk9y9/checkpoints/model32_gp001shape1_dise5_logitlosssum-epoch=2-step=76092-valmeta=0.6513.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_noisevhead1/2026-07-10_06-56-12/bc/whb7xxoi/checkpoints/last.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
