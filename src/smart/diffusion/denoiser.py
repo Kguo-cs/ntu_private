@@ -103,7 +103,7 @@ class InitDenoiser(nn.Module):
         self.schedule_loss = False
         self.use_return_conditioned = False
         self.use_prev_condition = False
-        self.label_drop_prob = 0.1
+        self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
 
         if mean_flow:
@@ -132,6 +132,11 @@ class InitDenoiser(nn.Module):
 
         self.register_buffer("normal_mean", torch.zeros(1, self.m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, self.m_delta_dim))
+
+        self.use_cfg_cond=False
+
+        if self.use_cfg_cond:
+            self.cfg_embed = MLPLayer(1, self.hidden_dim, self.hidden_dim)
 
         # Different groups can still use different schedules.
         self.schedule = LearnableGroupedPowerSchedule(
@@ -392,7 +397,6 @@ class InitDenoiser(nn.Module):
             ],
             dim=-1,
         )
-        #ego_features =type_count
 
         return self.ego_embed(ego_features)
 
@@ -462,6 +466,13 @@ class InitDenoiser(nn.Module):
             )
 
         feat_a = feat_a + ego_embedding
+
+        if self.use_cfg_cond:
+            cfg=tokenized_agent["cfg"]
+
+            cfg_embed =self.cfg_embed(cfg[:,None])[batch]
+
+            feat_a=feat_a+cfg_embed
 
         return feat_a, pos_s, theta
 

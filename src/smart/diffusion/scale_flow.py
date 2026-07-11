@@ -908,6 +908,51 @@ class ScaleFlow(nn.Module):
             x_pred=self.x_pred,
         )
 
+
+        if self.model.use_prev_condition :
+            tokenized_agent["prev_x"]=x_pred[:,0].detach()#.clone()
+
+            # mask=torch.rand(len(x_pred))<0.5
+            #
+            # tokenized_agent["prev_x"][mask]=0
+
+            x_pred_con = self.model(z, t, tokenized_agent, initial_map_feature)
+
+
+            if self.model.use_cfg_cond:
+                denom = (1 - t).clamp_min(0.05)  # /t.clamp_min(self.t_eps)torch.ones_like(t) #
+
+                v_no_sc = (x_pred - z) /denom
+                v_sc = (x_pred_con - z) / denom
+
+                v_target = (x-z)/denom
+
+                v_target_guidance =v_target+ (1 - 1 / tokenized_agent["cfg"][agent_batch][:,None,None]) * (v_sc - v_no_sc)
+
+                collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+                    tokenized_agent,
+                    v_sc[:,0],
+                    v_target_guidance[:,0].detach(),
+                    z[:,0],
+                    e[:,0],
+                    t[:,0],
+                    #   use_match=True,
+                    use_col=False,
+                    x_pred=False
+                )
+            else:
+                collision_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1, collision_loss1 = get_matching_loss(
+                    tokenized_agent,
+                    x_pred_con[:,0],
+                    x[:,0],
+                    z[:,0],
+                    e[:,0],
+                    t[:,0],
+                    #   use_match=True,
+                    use_col=False,
+                    x_pred=self.x_pred
+                )
+
         #self.debug_loss_vs_timestep(base_t[:,0,0],match_loss,ego_mask)
 
         loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
