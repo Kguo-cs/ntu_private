@@ -163,11 +163,6 @@ def process_file(filename):
 
     torch.save(data, output_path)
 
-    # output_path = os.path.join(ouput_data_directory, filename)
-
-    # Save the tokenized data
-    # with open(output_path, "wb") as f:
-    #     pickle.dump(data, f)
 
 
 # if __name__ == "__main__":

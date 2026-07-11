@@ -164,6 +164,9 @@ class SMART(LightningModule):
         return loss
 
     def validation_step(self, data, batch_idx):
+        if batch_idx < 47:
+            return None
+
         tokenized_map, tokenized_agent = self.token_processor(data)
 
         # # ! open-loop vlidation
@@ -267,6 +270,7 @@ class SMART(LightningModule):
                         if type(_gpu_dict_sync[k]) is list:
                             _gpu_dict_sync[k] = _gpu_dict_sync[k][0]
                     scenario_rollouts = get_scenario_rollouts(**_gpu_dict_sync)
+                    self.wosac_submission.i_file=batch_idx
                     self.wosac_submission.aggregate_rollouts(scenario_rollouts)
                 self.wosac_submission.reset()
 

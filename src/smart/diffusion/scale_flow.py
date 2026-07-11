@@ -1014,7 +1014,6 @@ class ScaleFlow(nn.Module):
         if self.use_cluster:
             t_n = t_n[:, None, None]
         else:
-
             t_n = torch.full((num_agents, 1, 1), t_n, device=z.device)
             t_next = torch.full((num_agents, 1, 1), t_next, device=z.device)
 

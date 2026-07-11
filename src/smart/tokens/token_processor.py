@@ -138,18 +138,19 @@ class TokenProcessor(torch.nn.Module):
         tokenized_agent["ego_pos2"]=torch.cat([pos0,tokenized_agent["sampled_pos"][ego_mask, :2]],dim=1)
         tokenized_agent["ego_heading2"]=torch.cat([head0,tokenized_agent["sampled_heading"][ego_mask, :2]],dim=1)
 
-        cur_idx = tokenized_agent["sampled_idx"][:, 1].clone()
-
         prev_idx= tokenized_agent["sampled_idx"][:, 0].clone()
 
         invalid_mask = ~tokenized_agent["token_mask"][:, 0]
 
+        cur_idx = tokenized_agent["sampled_idx"][:, 1].clone()
+
         prev_idx[invalid_mask] = cur_idx[invalid_mask]
 
-        cur_traj = token_traj_all[torch.arange(len(cur_idx), device=cur_idx.device), cur_idx]
         prev_traj = token_traj_all[torch.arange(len(prev_idx), device=prev_idx.device), prev_idx]
 
         if init_idx==1:
+            cur_traj = token_traj_all[torch.arange(len(cur_idx), device=cur_idx.device), cur_idx]
+
             tokenized_agent["local_vel"] = cur_traj[:, -1].mean(-2) / 0.5
 
             if self.pred_2step:
@@ -279,9 +280,9 @@ class TokenProcessor(torch.nn.Module):
            # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
            # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
            # "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-            "gt_traj_10hz": pos,
-            "gt_head_10hz": heading,
-            "gt_valid_10hz": valid,
+           #  "gt_traj_10hz": pos,
+           #  "gt_head_10hz": heading,
+           #  "gt_valid_10hz": valid,
             #"pred_mask":pred_mask,
         }
 
