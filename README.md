@@ -12,7 +12,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_noisevhead1.ckpt ke@10.87.2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_matchfast_noisevhead1/2026-07-11_11-24-05/bc/k8s45sdr/checkpoints/xflow512_matchfast_noisevhead1-epoch=31-step=30464-valmeta=0.6480.ckpt ./
 
-rsync -avz ke@10.87.225.106:~/code/sim/src/logs/xflow512_n30/2026-06-29_23-07-13/bc/hgdzbse9/checkpoints/last.ckpt ./
+rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_matchfast/2026-07-10_09-59-08/bc/oyllzy9c/checkpoints/xflow512_matchfast-epoch=29-step=28560-valmeta=0.6454.ckpt ./
 
