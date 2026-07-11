@@ -50,7 +50,7 @@ class WOSACSubmission(Metric):
             self.buffer_scenario_rollouts = []
             self.i_file = 0
             self.submission_dir = (
-                '/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40'
+                '/home/ke/code/sim/src/logs/my'
                 # hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
             )
             self.submission_dir = Path(self.submission_dir) / "wosac_submission"

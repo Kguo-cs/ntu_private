@@ -13,14 +13,15 @@ model:
     #n_batch_wosac_metric: 0
 
 #ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
-ckpt_path: "./waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt"
+#ckpt_path: "./waymo_data/bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt"
+ckpt_path: "./waymo_data/xflow512_matchfast_noisevhead1-epoch=31-step=30464-valmeta=0.6480.ckpt"
 
-task_name: xflow512_ego01_cfg2 #matchfast_noiseposvhead1 #_pta #colmax50 #scene #_seq #_seqWeightsceneshift16a1noclip #shiftpower #_pow3 #map1000 #6080 #selector_feat_fix4
+task_name: xflow512_ego01_cfg2_matchfast_noiseposvhead1 #_pta #colmax50 #scene #_seq #_seqWeightsceneshift16a1noclip #shiftpower #_pow3 #map1000 #6080 #selector_feat_fix4
 
 trainer:
   check_val_every_n_epoch: 4
   #val_check_interval: 0.0000002
-  max_epochs: 32
+  max_epochs: 96
 
 data:
   train_batch_size: 512
