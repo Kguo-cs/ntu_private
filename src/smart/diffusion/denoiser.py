@@ -103,7 +103,7 @@ class InitDenoiser(nn.Module):
         self.schedule_loss = False
         self.use_return_conditioned = False
         self.use_prev_condition = False
-        self.label_drop_prob = 0.1
+        self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
 
         if mean_flow:
