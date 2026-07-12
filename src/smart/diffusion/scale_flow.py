@@ -159,27 +159,6 @@ class ScaleFlow(nn.Module):
 
         return advantages.clamp(-self.init_adv_clip, self.init_adv_clip)
 
-    # ------------------------------------------------------------------
-    # MeanFlow interval plumbing
-    # ------------------------------------------------------------------
-    def _set_meanflow_interval(self, tokenized_agent, t_cur, t_ref):
-        old_values = {
-            key: tokenized_agent.get(key, None)
-            for key in ("meanflow_t", "meanflow_r", "meanflow_h")
-        }
-        tokenized_agent["meanflow_t"] = t_cur
-        tokenized_agent["meanflow_r"] = t_ref
-        tokenized_agent["meanflow_h"] = (t_ref - t_cur).clamp_min(0.0)
-        return old_values
-
-    @staticmethod
-    def _restore_meanflow_interval(tokenized_agent, old_values) -> None:
-        for key, value in old_values.items():
-            if value is None:
-                tokenized_agent.pop(key, None)
-            else:
-                tokenized_agent[key] = value
-
     def _meanflow_u(
         self,
         z: torch.Tensor,
@@ -192,19 +171,17 @@ class ScaleFlow(nn.Module):
         use_map_condition: bool = True,
     ) -> torch.Tensor:
         """Return u_theta(z_t, t, r), the interval-average velocity."""
-        old_values = self._set_meanflow_interval(tokenized_agent, t_cur, t_ref)
-        try:
-            out = self.model(
-                z,
-                t_cur,
-                tokenized_agent,
-                map_feature,
-                eval_mask,
-                mode=mode,
-                use_map_condition=use_map_condition,
-            )
-        finally:
-            self._restore_meanflow_interval(tokenized_agent, old_values)
+
+        tokenized_agent["meanflow_h"] = (t_ref - t_cur).clamp_min(0.0)
+        out = self.model(
+            z,
+            t_cur,
+            tokenized_agent,
+            map_feature,
+            eval_mask,
+            mode=mode,
+            use_map_condition=use_map_condition,
+        )
         return out
 
     def _sample_ref_time(self, t: torch.Tensor, ego_mask: torch.Tensor) -> torch.Tensor:
@@ -219,7 +196,7 @@ class ScaleFlow(nn.Module):
             use_global = torch.rand_like(t[..., :1]) < self.imf_global_ratio
             r = torch.where(use_global, torch.ones_like(r), r)
 
-        return torch.where(ego_mask[:, None], torch.ones_like(r), r).clamp(0.0, 1.0)
+        return r
 
     # ------------------------------------------------------------------
     # Model-output interpretation
@@ -345,7 +322,7 @@ class ScaleFlow(nn.Module):
         tangent = (v_boundary.detach(), torch.ones_like(t), torch.zeros_like(r))
         if self.imf_jvp_detach:
             with torch.no_grad():
-            #     _, du_dt = jvp(u_func, (z, t, r), tangent)
+                #_, du_dt = jvp(u_func, (z, t, r), tangent)
                 eps = float(getattr(self, "imf_fd_eps", 1e-3))
                 dt_eps = torch.full_like(t, eps)
 
@@ -371,15 +348,8 @@ class ScaleFlow(nn.Module):
         else:
             _, du_dt = jvp(u_func, (z, t, r), tangent)
 
-        delta = (r - t).clamp_min(0.0)
-        if self.imf_jvp_detach:
-            du_dt = du_dt.detach()
-
         # Forward-time iMF identity: v = u - (r - t) * d_t u.
-        v_reparam = u_pred - delta * du_dt
-
-        ego_view = ego_mask.view(ego_mask.shape[0], *([1] * (v_reparam.ndim - 1)))
-        v_reparam = torch.where(ego_view, torch.zeros_like(v_reparam), v_reparam)
+        v_reparam = u_pred - (r - t) * du_dt
 
         loss = get_diff_loss(
             tokenized_agent,

@@ -766,12 +766,17 @@ def get_diff_loss(
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
 
-    denom = (1 - t).clamp_min(t_eps)
+    t_mask = (t > 0) & (t < 1)
 
-    denom_sq = denom.square()
-    t_mask=(t>0) & (t<1)
+    if x_pred:
 
-    inv_denom_sq = denom_sq.reciprocal()*t_mask.float()#*t_dt.square()#.clamp(max=max_loss_weight)
+        denom = (1 - t).clamp_min(t_eps)
+
+        denom_sq = denom.square()
+
+        inv_denom_sq = denom_sq.reciprocal()*t_mask.float()#*t_dt.square()#.clamp(max=max_loss_weight)
+    else:
+        inv_denom_sq  = t_mask.float()
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
         real_state,
