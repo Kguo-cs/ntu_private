@@ -39,7 +39,7 @@ class ScaleFlow(nn.Module):
         self.use_dit = bool(getattr(args, "use_dit", False))
 
         # MeanFlow / iMF options.
-        self.use_imf = bool(getattr(args, "use_imf", False))
+        self.use_imf = bool(getattr(args, "use_imf", True))
         self.imf_interval_ratio = float(getattr(args, "imf_interval_ratio", 0.30))
         self.imf_global_ratio = float(getattr(args, "imf_global_ratio", 0.0))
         self.imf_jvp_detach = bool(getattr(args, "imf_jvp_detach", True))
@@ -345,7 +345,29 @@ class ScaleFlow(nn.Module):
         tangent = (v_boundary.detach(), torch.ones_like(t), torch.zeros_like(r))
         if self.imf_jvp_detach:
             with torch.no_grad():
-                _, du_dt = jvp(u_func, (z, t, r), tangent)
+            #     _, du_dt = jvp(u_func, (z, t, r), tangent)
+                eps = float(getattr(self, "imf_fd_eps", 1e-3))
+                dt_eps = torch.full_like(t, eps)
+
+                # Avoid stepping beyond t=1 too much.
+                max_dt = (1.0 - t).clamp_min(0.0)
+                dt_eps = torch.minimum(dt_eps, max_dt)
+
+                valid_fd = dt_eps > 1e-8
+
+                # Total derivative direction:
+                #   dz/dt = v_boundary
+                #   dt/dt = 1
+                #   dr/dt = 0
+                z_plus = z.detach() + dt_eps * v_boundary
+                t_plus = (t.detach() + dt_eps).clamp_max(1.0)
+                r_plus = r.detach()
+
+                u_plus = u_func(z_plus, t_plus, r_plus).detach()
+
+                denom = dt_eps.clamp_min(1e-6)
+                du_dt = (u_plus - u_pred.detach()) / denom
+                du_dt = torch.where(valid_fd, du_dt, torch.zeros_like(du_dt))
         else:
             _, du_dt = jvp(u_func, (z, t, r), tangent)
 
