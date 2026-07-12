@@ -525,12 +525,11 @@ class ScaleFlow(nn.Module):
         else:
             e = torch.randn_like(x)
 
-        e = self.model.denormalize(e, init_agent_type)
-
-        fake_idx=get_closest_sum_idx_fast(e[:,0],x[:,0],tokenized_agent,all_state=True)
+        fake_idx=get_closest_sum_idx_fast(e[:,0],self.model.normalize(x)[:,0],tokenized_agent,all_state=True)
 
         e=e[fake_idx]
 
+        e = self.model.denormalize(e, init_agent_type)
 
         if self.learn_noise:
             t = torch.zeros((len(agent_batch), 1, self.model.m_delta_dim), device=x.device, dtype=torch.float32)
