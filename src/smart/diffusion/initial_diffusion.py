@@ -76,14 +76,10 @@ class InitDiffusion(nn.Module):
         ego_heading = tokenized_agent["initial_heading"][ego_mask]
 
         if "ego_feat" not in tokenized_agent.keys():
-            init_agent_batch = tokenized_agent["batch"]
-            tokenized_agent["init_agent_batch"] = init_agent_batch
+            batch = tokenized_agent["batch"]
 
-            tokenized_agent["batch_ego_pos"] = ego_position[init_agent_batch]
-            tokenized_agent["batch_ego_heading"] = ego_heading[init_agent_batch]
-
-            init_agent_type = tokenized_agent["type"].long()
-            tokenized_agent["init_agent_type"] = init_agent_type
+            tokenized_agent["batch_ego_pos"] = ego_position[batch]
+            tokenized_agent["batch_ego_heading"] = ego_heading[batch]
 
             if "ego_traj" not in tokenized_agent.keys():
                 if self.G1.model.use_rel_ego:
@@ -114,7 +110,7 @@ class InitDiffusion(nn.Module):
                 )[0].flatten(1, 2)
 
             num_types = 3
-            idx = init_agent_batch * num_types + init_agent_type
+            idx = batch * num_types + tokenized_agent["type"]
 
             type_counts = torch.bincount(
                 idx,
@@ -127,11 +123,11 @@ class InitDiffusion(nn.Module):
             tokenized_agent["ego_feat"] = ego_feat
         else:
             ego_feat = tokenized_agent["ego_feat"]
-            init_agent_batch = tokenized_agent["init_agent_batch"]
+            batch = tokenized_agent["batch"]
 
         if not self.G1.model.use_rel_ego and not self.learn_autoencoder:
             ego_embedding=self.G1.ego_embedding1(ego_feat)
-            ego_embedding = ego_embedding[init_agent_batch]
+            ego_embedding = ego_embedding[batch]
 
             tokenized_agent["ego_embedding"] = ego_embedding
 
@@ -190,7 +186,7 @@ class InitDiffusion(nn.Module):
                     with torch.no_grad():
                         pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None)
 
-                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init,None, init_agent_batch,None)
+                    col_reward,end_idx,start_idx=multi_circle_collision_loss_mem_efficient(pred_init,None, batch,None)
 
                     N = len(pred_init)
 
@@ -210,7 +206,7 @@ class InitDiffusion(nn.Module):
 
                     col_reward_agent=-col_reward_end-col_reward_start
                     #
-                    # batch=tokenized_agent["init_agent_batch"]
+                    # batch=tokenized_agent["batch"]
                     #
                     # same_batch = batch[:, None] == batch[None, :]
                     # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
@@ -256,9 +252,9 @@ class InitDiffusion(nn.Module):
                 pred_init = self.autoencoder.loss(diff_input, tokenized_agent, initial_map_feature)[-1]
             else:
                 if resampling:
-                    pred_init, x_list = self.G1.self_resample_initial_state(tokenized_agent, initial_map_feature, 0)
+                    pred_init = self.G1.self_resample_initial_state(tokenized_agent, initial_map_feature, 0)
                 else:
-                    pred_init, x_list = self.G1.sample(tokenized_agent, initial_map_feature, None,
+                    pred_init = self.G1.sample(tokenized_agent, initial_map_feature,
                                                        # infer_steps=10,
                                                        # sampling_mode="heun_low_noise",
                                                        # schedule_power=2.0,

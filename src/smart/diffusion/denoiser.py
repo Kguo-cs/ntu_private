@@ -41,6 +41,12 @@ class InitDenoiser(nn.Module):
     The embedding path can be selected by ``init_embedding_mode``:
         - "new": AgentTokenEncoder-style Fourier/categorical fusion.
         - "original": old denoiser MLP-addition embedding.
+
+    MeanFlow/iMF support:
+        When ``mean_flow=True``, the model output is interpreted as the
+        interval-average velocity u(z_t,t,r). The current time remains ``beta``;
+        the interval length h=r-t is read from ``tokenized_agent["meanflow_h"]``
+        and embedded additively.
     """
 
     def __init__(
@@ -79,12 +85,8 @@ class InitDenoiser(nn.Module):
         self.diff_type = diff_type
         self.m_dim = m_dim
         self.x_pred = x_pred
+        self.mean_flow = bool(mean_flow)
         self.token_processor = token_processor
-        if init_embedding_mode not in {"new", "original"}:
-            raise ValueError(
-                "init_embedding_mode must be either 'new' or 'original', "
-                f"got {init_embedding_mode!r}."
-            )
         self.init_embedding_mode = init_embedding_mode
 
         # Keep attributes used by ScaleFlow.
@@ -99,31 +101,18 @@ class InitDenoiser(nn.Module):
         self.use_dit = False
         self.use_bin = False
         self.learn_noise = False
-        self.pred_gmm = False
         self.schedule_loss = False
         self.use_return_conditioned = False
         self.use_prev_condition = False
         self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
 
-        if mean_flow:
-            raise NotImplementedError("mean_flow=True was removed from the cleaned InitDenoiser.")
+        # mean_flow=True is supported by adding an interval-length embedding
+        # through tokenized_agent["meanflow_h"]. If the caller does not set it,
+        # h defaults to zero and the model behaves like a boundary velocity model.
 
         if learn_noise:
             raise NotImplementedError("learn_noise=True was removed from the cleaned InitDenoiser.")
-
-        if pred_all_pos or getattr(token_processor, "pred_all_pos", False):
-            raise NotImplementedError(
-                "pred_all_pos/use_all_pos was removed from the cleaned InitDenoiser. "
-                "Use the standard 8D initial state layout instead."
-            )
-
-        if getattr(token_processor, "pred_2step", False):
-            # The embedding module supports D > 8, but get_output semantics for
-            # two-step prediction depend on the old branch. Keep it explicit.
-            raise NotImplementedError(
-                "token_processor.pred_2step=True needs a separate get_output definition."
-            )
 
         self.num_classes = 3
         self.shape_dim = 2
@@ -142,6 +131,14 @@ class InitDenoiser(nn.Module):
         self.schedule = LearnableGroupedPowerSchedule(
             group_dims=(2, 2, 2, self.m_delta_dim - 6)
         )
+
+        if self.mean_flow:
+            # Extra embedding for the MeanFlow interval length h = r - t.
+            # beta still carries the current time t; h lets the same denoiser
+            # distinguish u(z_t,t,t) from u(z_t,t,r).
+            self.meanflow_h_embedding = MLPLayer(
+                1, hidden_dim, hidden_dim
+            )
 
         if self.init_embedding_mode == "new":
 
@@ -214,11 +211,11 @@ class InitDenoiser(nn.Module):
     # ---------------------------------------------------------------------
     def normalize(self, input: torch.Tensor) -> torch.Tensor:
         scale = self.normal_scale.clamp_min(1e-6)
-        return (input - self.normal_mean[None]) / scale[None]
+        return (input - self.normal_mean) / scale
 
-    def denormalize(self, input: torch.Tensor, init_agent_type=None) -> torch.Tensor:
+    def denormalize(self, input: torch.Tensor) -> torch.Tensor:
         scale = self.normal_scale.clamp_min(1e-6)
-        return input * scale[None] + self.normal_mean[None]
+        return input * scale + self.normal_mean
 
     def _maybe_init_normalizer(self, diff_output: torch.Tensor) -> None:
         if not torch.all(self.normal_mean == 0):
@@ -266,7 +263,7 @@ class InitDenoiser(nn.Module):
             set to all True in ``InitDiffusion.forward``. This cleaned version
             therefore treats every agent as part of the
             initial-state generation set and uses explicit all-agent metadata:
-                ``init_agent_batch`` and ``init_agent_type``.
+                ``batch`` and ``type``.
         """
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
@@ -303,11 +300,6 @@ class InitDenoiser(nn.Module):
             ],
             dim=-1,
         )
-
-        # Ensure forward() has the same agent-level metadata as m_init.
-        tokenized_agent["init_agent_batch"] = tokenized_agent["batch"]
-        tokenized_agent["init_agent_type"] = tokenized_agent["type"].long()
-        tokenized_agent["num_graphs"] = int(tokenized_agent["batch"].max().item()) + 1
 
         diff_input = m_init
         diff_output = m_init
@@ -437,6 +429,10 @@ class InitDenoiser(nn.Module):
                 beta=beta,
                 agent_type=agent_type,
             )
+
+        if self.mean_flow:
+            meanflow_h = tokenized_agent["meanflow_h"]
+            feat_a = feat_a + self.meanflow_h_embedding(meanflow_h)
 
         feat_a = feat_a + ego_embedding
 
@@ -570,23 +566,20 @@ class InitDenoiser(nn.Module):
 
         return self.to_out_m_delta(feat_a)
 
-    # ---------------------------------------------------------------------
-    # Forward
-    # ---------------------------------------------------------------------
     def forward(
         self,
         m_delta: torch.Tensor,
         beta: torch.Tensor,
         tokenized_agent,
         map_feature: Mapping[str, torch.Tensor],
-        eval_mask: Optional[torch.Tensor] = None,
+        eval_mask: torch.Tensor,
         mode: int = 1,
         use_map_condition: Optional[bool] = True,
     ) -> torch.Tensor:
         m_delta = m_delta.reshape(m_delta.shape[0], -1)
 
-        batch = tokenized_agent["init_agent_batch"]
-        agent_type = tokenized_agent["init_agent_type"]
+        batch = tokenized_agent["batch"]
+        agent_type = tokenized_agent["type"]
         num_graphs = tokenized_agent["num_graphs"]
 
         if eval_mask is not None:
@@ -623,30 +616,31 @@ class InitDenoiser(nn.Module):
             use_map_condition=use_map_condition
         )
 
-        res_theta = torch.atan2(res[:, 3], res[:, 2])
+        if self.x_pred :
+            res_theta = torch.atan2(res[:, 3], res[:, 2])
 
-        local_pos, local_theta = transform_to_global(
-            res[:, :2],
-            res_theta,
-            pos_s,
-            theta,
-        )
+            local_pos, local_theta = transform_to_global(
+                res[:, :2],
+                res_theta,
+                pos_s,
+                theta,
+            )
 
-        res = torch.cat(
-            [
-                local_pos,
-                torch.cos(local_theta)[:, None],
-                torch.sin(local_theta)[:, None],
-                res[:, 4:],
-            ],
-            dim=-1,
-        )
+            res = torch.cat(
+                [
+                    local_pos,
+                    torch.cos(local_theta)[:, None],
+                    torch.sin(local_theta)[:, None],
+                    res[:, 4:],
+                ],
+                dim=-1,
+            )
 
         ego_mask = tokenized_agent.get("ego_mask", None)
         if not self.training and len(beta)==len(ego_mask): #and torch.all(beta[~ego_mask] == 0):
             tokenized_agent["noise_feat"] = feat_a
 
-        return res[:, None]
+        return res
 
     def get_output(self, pred_init: torch.Tensor, tokenized_agent):
         """Convert generated local all-agent initial state back to global fields."""

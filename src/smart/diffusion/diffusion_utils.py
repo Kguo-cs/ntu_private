@@ -324,8 +324,8 @@ def matching_loss(
 
 
     if fake_state.shape[-1]<16:
-        pos_loss = _robust_component_loss(fake_pos, real_pos, beta=0, use_huber=True)
-        heading_loss = _robust_component_loss(fake_heading, real_heading, beta=0, use_huber=True)
+        pos_loss = _robust_component_loss(fake_pos, real_pos, beta=0, use_huber=False)
+        heading_loss = _robust_component_loss(fake_heading, real_heading, beta=0, use_huber=False)
         shape_loss = _robust_component_loss(fake_shape, real_shape, beta=huber_beta, use_huber=use_huber)
         vel_loss = _robust_component_loss(fake_vel, real_vel, beta=huber_beta, use_huber=use_huber)
 
@@ -784,9 +784,9 @@ def get_diff_loss(
         real_state,
         fake_state,
         w_pos=w_pos * inv_denom_sq[:, 0],
-        w_heading=w_heading * inv_denom_sq[:, 2],
-        w_shape=w_shape * inv_denom_sq[:, 4],
-        w_vel=w_vel * inv_denom_sq[:, 6],
+        w_heading=w_heading * inv_denom_sq[:, 0],
+        w_shape=w_shape * inv_denom_sq[:, 0],
+        w_vel=w_vel * inv_denom_sq[:, 0],
         use_huber=use_huber,
         huber_beta=huber_beta,
     )
@@ -837,3 +837,39 @@ def calculate_shift(
     b = base_shift - m * base_seq_len
     mu = image_seq_len * m + b
     return mu
+
+
+def adaptive_x0_loss_per_sample(pred_x0, target_x0):
+    """
+    pred_x0:   [B, A, T, D]
+    target_x0: [B, A, T, D]
+    valid_mask:[B, A, T]
+    return:    [B]
+    """
+    err = pred_x0 - target_x0
+
+    mse = err.square()  # [B, A, T, D]
+    l1 = err.abs().mean(dim=-1, keepdim=True)
+    l1 = l1.clamp_min(1e-5).detach()
+
+    loss = (mse / l1).mean(dim=-1)  # [B, A, T]
+    # denom = (1 - t_n_sampled[:, 0]).clamp_min(self.t_eps)
+    # denom_sq = denom.square()
+    # sampled_match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
+    #     tokenized_agent,
+    #     x_pred[:, 0],
+    #     x_sampled[:, 0],
+    #     z_sampled[:, 0],
+    #     e_sampled[:, 0],
+    #     t_n_sampled[:, 0],
+    #     use_col=False,
+    #     x_pred=self.x_pred
+    # )
+
+    # inv_denom_sq = denom_sq.reciprocal()
+    # mse_Loss = F.mse_loss(x_pred[:, 0] / scale, x_sampled[:, 0] / scale, reduction="none")
+    # # l1_Loss=F.l1_loss(x_pred[:, 0] /scale, x_sampled[:, 0]/scale , reduction="none").mean(-1, keepdim=True).clip(min=0.00001).detach()
+    # #
+    # sampled_match_loss = (mse_Loss * inv_denom_sq).mean(-1).reshape(self.mc_num, -1).mean(0)
+    #
+    return -loss.mean(dim=1)*0.1
