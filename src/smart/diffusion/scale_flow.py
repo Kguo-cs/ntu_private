@@ -39,7 +39,7 @@ class ScaleFlow(nn.Module):
         self.use_dit = bool(getattr(args, "use_dit", False))
 
         # MeanFlow / iMF options.
-        self.use_imf = bool(getattr(args, "use_imf", True))
+        self.use_imf = bool(getattr(args, "use_imf", False))
         self.imf_interval_ratio = float(getattr(args, "imf_interval_ratio", 0.30))
         self.imf_global_ratio = float(getattr(args, "imf_global_ratio", 0.0))
         self.imf_jvp_detach = bool(getattr(args, "imf_jvp_detach", True))
