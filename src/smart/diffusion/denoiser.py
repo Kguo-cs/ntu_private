@@ -103,7 +103,7 @@ class InitDenoiser(nn.Module):
         self.schedule_loss = False
         self.use_return_conditioned = False
         self.use_prev_condition = False
-        self.label_drop_prob = 0.0
+        self.label_drop_prob = 0.1
         self.map_drop_prob=0.0
 
         if mean_flow:
@@ -445,8 +445,8 @@ class InitDenoiser(nn.Module):
         if self.label_drop_prob > 0:
             if self.training and mode == 1:
                 drop = torch.rand(agent_type.shape[0], device=agent_type.device) < self.label_drop_prob
-                # agent_type =torch.where(drop, torch.full_like(agent_type, self.num_classes), agent_type)
-                ego_embedding=torch.where(drop[:, None], torch.full_like(ego_embedding, 0), ego_embedding)
+                agent_type =torch.where(drop, torch.full_like(agent_type, self.num_classes), agent_type)
+                #ego_embedding=torch.where(drop[:, None], torch.full_like(ego_embedding, 0), ego_embedding)
             elif mode == 0:
                 agent_type = torch.full_like(agent_type, self.num_classes)
 
