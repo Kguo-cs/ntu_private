@@ -766,7 +766,7 @@ def get_diff_loss(
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
 
-    t_mask = (t > 0) & (t < 1)
+    t_mask = (t[:,0] > 0) & (t[:,0] < 1)
 
     if x_pred:
 
@@ -774,13 +774,13 @@ def get_diff_loss(
 
         denom_sq = denom.square()
 
-        inv_denom_sq = denom_sq.reciprocal()*t_mask.float()#*t_dt.square()#.clamp(max=max_loss_weight)
+        inv_denom_sq = denom_sq.reciprocal()[t_mask]#*t_dt.square()#.clamp(max=max_loss_weight)
     else:
-        inv_denom_sq  = t_mask.float()
+        inv_denom_sq  = t_mask.float()[t_mask]
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        real_state,
-        fake_state,
+        real_state[t_mask],
+        fake_state[t_mask],
         w_pos=w_pos * inv_denom_sq[:, 0],
         w_heading=w_heading * inv_denom_sq[:, 0],
         w_shape=w_shape * inv_denom_sq[:, 0],
