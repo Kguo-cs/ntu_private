@@ -274,7 +274,7 @@ class IQ_SoftQ(LightningModule):
                 target=target,
                 weight=torch.ones_like(ego_logits)
             )
-            ego_bce_loss=ego_bce_loss+map_bce_loss*2
+            ego_bce_loss=ego_bce_loss+map_bce_loss
 
             self._log_train(f"train/{key}_map_score",torch.sigmoid(map_logit).mean()  )
 

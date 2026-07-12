@@ -462,7 +462,7 @@ class SMART(LightningModule):
         # ! only closed-loop vlidation
         pred_traj, pred_z, pred_head ,pred_sizes= [], [], [],[]
         for _ in range(self.n_rollout_closed_val):
-            pred = self.encoder.agent_encoder.inference(
+            pred = self.encoder.agent_encoder.inference(self.encoder.init_decoder,
                 tokenized_agent, map_feature,  # post_sampling=True
             )
             pred_traj.append(pred["pred_traj_10hz"])

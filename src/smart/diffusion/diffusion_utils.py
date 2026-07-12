@@ -712,7 +712,7 @@ def get_diff_loss(
     tokenized_agent, fake_state,real_state,z,e,t,base_t=None,t_dt=None,
     scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     t_eps=0.05,
-    w_pos=0.1/ 5, w_heading=0.5/ 5, w_shape=0.2/ 5, w_vel=0.2/ 5,
+    w_pos=0.1/ 5, w_heading=5/ 5, w_shape=0.2/ 5, w_vel=0.2/ 5,
     #w_pos=0.1, w_heading=0.1, w_shape=0.1, w_vel=0.1,
     # w_pos = 0.0015,
     # w_heading = 0.5,

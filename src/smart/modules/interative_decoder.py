@@ -355,7 +355,7 @@ class InterativeDecoder(nn.Module):
             scene_reward = next_token_logits[:, 0].detach()
 
             if self.pred_map_logit:
-                scene_reward=scene_reward+map_logit.detach()*2
+                scene_reward=scene_reward+map_logit.detach()
             else:
                 map_logit=None
 
@@ -692,7 +692,7 @@ def aggregate_interaction_reward(
 
     # If mass < 1, distance attenuation remains active.
     # If mass > 1, aggregation becomes a weighted average.
-    normalizer = effective_mass.clamp_min(1e-5)
+    normalizer = effective_mass.clamp_min(1)
 
     interaction_reward = weighted_sum / (normalizer + eps)
     interaction_reward = interaction_reward_weight * interaction_reward
