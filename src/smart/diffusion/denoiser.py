@@ -222,8 +222,8 @@ class InitDenoiser(nn.Module):
 
     def _maybe_init_normalizer(self, diff_output: torch.Tensor) -> None:
         if not torch.all(self.normal_mean == 0):
-            if self.normal_scale[0][0]<20:
-                self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
+            # if self.normal_scale[0][0]<20:
+            #     self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
             # if self.normal_scale[0][2]>1.5:
             #     self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
             #     # self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2

@@ -6,7 +6,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_matchfast_noisevhead1-epoch
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_matchfast_noisevhead1-epoch=31-step=30464-valmeta=0.6480.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_matchfast_noisevhead1-epoch=31-step=30464-valmeta=0.6480.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_matchfast-epoch=29-step=28560-valmeta=0.6454.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 
 
