@@ -40,8 +40,8 @@ class ScaleFlow(nn.Module):
 
         # MeanFlow / iMF options.
         self.use_imf = bool(getattr(args, "use_imf", False))
-        self.imf_interval_ratio = float(getattr(args, "imf_interval_ratio", 0.25))
-        self.imf_global_ratio = float(getattr(args, "imf_global_ratio", 0.15))
+        self.imf_interval_ratio = float(getattr(args, "imf_interval_ratio", 0.30))
+        self.imf_global_ratio = float(getattr(args, "imf_global_ratio", 0.0))
         self.imf_jvp_detach = bool(getattr(args, "imf_jvp_detach", True))
 
         if self.use_dit:
@@ -307,21 +307,16 @@ class ScaleFlow(nn.Module):
         ego_view = ego_mask.view(ego_mask.shape[0], 1)
         x_pred = torch.where(ego_view, x.detach(), x0)
 
-        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
+        loss = get_diff_loss(
             tokenized_agent,
             x_pred,
             x,
-            z,
-            noise,
             t,
-            base_t=base_t,
-            t_dt=t_dt,
-            t_eps=self.t_eps,
+            self.t_eps,
             use_col=True,
             x_pred=self.x_pred,
         )
 
-        loss = (match_loss, collision_loss , pos_loss, heading_loss, shape_loss, vel_loss)
         return loss, x_pred, z, t
 
     def _meanflow_supervised_loss(self, x, out, tokenized_agent, map_feature):
@@ -364,28 +359,17 @@ class ScaleFlow(nn.Module):
         ego_view = ego_mask.view(ego_mask.shape[0], *([1] * (v_reparam.ndim - 1)))
         v_reparam = torch.where(ego_view, torch.zeros_like(v_reparam), v_reparam)
 
-        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
+        loss = get_diff_loss(
             tokenized_agent,
             v_reparam,
-            x,
-            z,
-            noise,
+            x-noise,
             t,
-            base_t=base_t,
-            t_dt=t_dt,
-            t_eps=0.0,
-            use_col=True,
+            self.t_eps,
+            use_col=False,
             x_pred=False,
         )
 
-        with torch.no_grad():
-            _, x_pred = self._model_velocity(z, t, tokenized_agent, map_feature, t_next=torch.ones_like(t))
-            x_pred = torch.where(ego_view, x.detach(), x_pred)
-
-        loss = (match_loss, collision_loss , pos_loss, heading_loss, shape_loss, vel_loss)
-        tokenized_agent["imf_loss"] = match_loss.detach().mean()
-        tokenized_agent["imf_delta_mean"] = delta.detach().mean()
-        return loss, x_pred, z, t
+        return loss, None, z, t
 
     # ------------------------------------------------------------------
     # Advantage / SDE finetuning
@@ -425,12 +409,8 @@ class ScaleFlow(nn.Module):
                 tokenized_agent,
                 pred_for_loss,
                 x,
-                z,
-                noise,
                 t,
-                base_t=base_t,
-                t_dt=t_dt,
-                t_eps=self.t_eps,
+                self.t_eps,
                 use_col=True,
                 x_pred=self.x_pred,
             )

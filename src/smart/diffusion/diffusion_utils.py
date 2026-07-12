@@ -709,9 +709,7 @@ def get_closest_sum_idx_fast(
     ).to(device=output_device)
 
 def get_diff_loss(
-    tokenized_agent, fake_state,real_state,z,e,t,base_t=None,t_dt=None,
-    scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
-    t_eps=0.05,
+    tokenized_agent, fake_state,real_state,t,t_eps,scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
     w_pos=0.1/ 5, w_heading=0.5/ 5, w_shape=0.2/ 5, w_vel=0.2/ 5,
     #w_pos=0.1, w_heading=0.1, w_shape=0.1, w_vel=0.1,
     # w_pos = 0.0015,
@@ -768,12 +766,7 @@ def get_diff_loss(
     else:
         col_loss = torch.zeros_like(fake_state.mean())  #.detach().detach()
 
-    if x_pred:
-        denom = (1 - t).clamp_min(t_eps)
-    else:
-        real_state = (real_state - e)#*t_dt.detach()
-
-        denom= torch.ones_like(t)
+    denom = (1 - t).clamp_min(t_eps)
 
     denom_sq = denom.square()
     t_mask=(t>0) & (t<1)
@@ -793,7 +786,7 @@ def get_diff_loss(
 
    # match_loss=scatter_mean(match_loss,batch)
 
-    return match_loss , pos_loss, heading_loss, shape_loss, vel_loss, col_loss.mean()
+    return match_loss, col_loss.mean() , pos_loss, heading_loss, shape_loss, vel_loss
 
 
 def sample_linear_t(
