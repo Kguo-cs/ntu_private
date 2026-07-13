@@ -6,7 +6,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_noiseposvhead1_l1pos-
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_match_noiseposvhead1_l1pos-epoch=47-step=45696-valmeta=0.6488.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_noiseposvhead1_l1pos-epoch=47-step=45696-valmeta=0.6488.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_noiseposvhead1_posheadl1-epoch=55-step=53312-valmeta=0.6484.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 
 
@@ -14,7 +14,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_match_noiseposvhead1_l
 
 rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_matchfast/2026-07-10_09-59-08/bc/oyllzy9c/checkpoints/xflow512_matchfast-epoch=29-step=28560-valmeta=0.6454.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_match_noiseposvhead1_posheadl1/2026-07-12_07-21-35/bc/tqueyxyy/checkpoints/xflow512_match_noiseposvhead1_posheadl1-epoch=55-step=53312-valmeta=0.6484.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
