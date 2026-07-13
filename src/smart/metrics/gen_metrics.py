@@ -149,6 +149,7 @@ def compute_gen_samples(
     samples,
     gt_samples,
     gt_dist,
+    compute_mmd=True
 ):
     """Append generated and, when needed, ground-truth scene data."""
     init_timestep = 5
@@ -182,79 +183,70 @@ def compute_gen_samples(
             graph_valid = real_valid[graph_mask].detach().cpu().numpy().astype(bool)
             graph_types = real_type[graph_mask].detach().cpu().numpy()
 
-            if len(real_agents_full) == 0:
-                raise ValueError(f"Graph {graph_index} contains no agents")
 
-            ego_index = MODEL_EGO_INDEX % len(real_agents_full)
-            lane_vectors = _extract_center_lane_vectors_in_ego(
-                scenario=scenario,
-                ego_xy=real_agents_full[ego_index, REAL_POS],
-                ego_heading=float(real_agents_full[ego_index, REAL_HEADING]),
-            )
+            if compute_mmd:
+                ego_index = MODEL_EGO_INDEX % len(real_agents_full)
+                lane_vectors = _extract_center_lane_vectors_in_ego(
+                    scenario=scenario,
+                    ego_xy=real_agents_full[ego_index, REAL_POS],
+                    ego_heading=float(real_agents_full[ego_index, REAL_HEADING]),
+                )
 
-            # Exact TrafficGen semantics, adapted only for this model's type
-            # encoding: model type 0 corresponds to Waymo TYPE_VEHICLE == 1.
-            selected_index = get_select_index(
-                lane_vectors=lane_vectors,
-                positions=real_agents_full[:, REAL_POS],
-                velocities=real_agents_full[:, REAL_VEL],
-                headings=real_agents_full[:, REAL_HEADING],
-                valid=graph_valid,
-                object_types=graph_types,
-                ego_index=ego_index,
-                vehicle_type=0,
-                lane_range=50.0,
-                lane_dist_thres=5.0,
-                max_agent_num=32,
-                raster_resolution=0.25,
-                randomize_agents=False,
-            )
+                # Exact TrafficGen semantics, adapted only for this model's type
+                # encoding: model type 0 corresponds to Waymo TYPE_VEHICLE == 1.
+                selected_index = get_select_index(
+                    lane_vectors=lane_vectors,
+                    positions=real_agents_full[:, REAL_POS],
+                    velocities=real_agents_full[:, REAL_VEL],
+                    headings=real_agents_full[:, REAL_HEADING],
+                    valid=graph_valid,
+                    object_types=graph_types,
+                    ego_index=ego_index,
+                    vehicle_type=0,
+                    lane_range=50.0,
+                    lane_dist_thres=5.0,
+                    max_agent_num=32,
+                    raster_resolution=0.25,
+                    randomize_agents=False,
+                )
+                select_agents=real_agents_full[selected_index]
+            else:
+                select_agents=None
 
             valid_vehicle = graph_valid & (graph_types == 0)
             gt_samples.append(
                 {
                     "lanes": centerlines,
-                    "lane_vectors": lane_vectors,
+                    #"lane_vectors": lane_vectors,
                     "vehicles": real_agents_full[valid_vehicle],
-                    "all_agents": real_agents_full[graph_valid],
-                    "select_index": selected_index,
-                    "select_agents": real_agents_full[selected_index],
+                    # "all_agents": real_agents_full[graph_valid],
+                    # "select_index": selected_index,
+                    "select_agents": select_agents
                 }
-            )
-
-        if output_index >= len(gt_samples):
-            raise IndexError(
-                "gt_samples and samples are not aligned; cannot reuse selection indices"
             )
 
         graph_mask = batch == graph_index
         generated_agents_full = generated_state[graph_mask].detach().cpu().numpy()
-        graph_valid = (
-            data["agent"]["valid_mask"][:, init_timestep][graph_mask]
-            .detach()
-            .cpu()
-            .numpy()
-            .astype(bool)
-        )
         graph_types = agent_type[graph_mask].detach().cpu().numpy()
+        valid_vehicle =  (graph_types == 0)
+        samples.append({
+            "vehicles": generated_agents_full[valid_vehicle]
+        })
 
-        selected_index = np.asarray(
-            gt_samples[output_index]["select_index"], dtype=np.int64
-        )
-        if np.any(selected_index >= len(generated_agents_full)):
-            raise IndexError(
-                "TrafficGen selection indices do not match generated-agent order"
-            )
-
-        valid_vehicle = graph_valid & (graph_types == 0)
-        samples.append(
-            {
-                "vehicles": generated_agents_full[valid_vehicle],
-                "all_agents": generated_agents_full[graph_valid],
-                "select_index": selected_index,
-                "agents": generated_agents_full[selected_index],
-            }
-        )
+        # if compute_mmd:
+        #
+        #     selected_index = np.asarray(
+        #         gt_samples[output_index]["select_index"], dtype=np.int64
+        #     )
+        #     sampled_dict
+        #
+        # samples.append(
+        #     {
+        #         "all_agents": generated_agents_full[graph_mask],
+        #         "select_index": selected_index,
+        #         "agents": generated_agents_full[selected_index],
+        #     }
+        # )
 
 
 # centerlines = data['road_points']
@@ -694,7 +686,7 @@ def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
 
 
     # MMD needs paired generated-vs-real scenes, so gt_samples must be available.
-    if 'all_agents' in samples[0].keys():
+    if gt_samples[0]['select_agents'] is not None:
         mmd_metrics = compute_mmd_metrics(samples, gt_samples)
         metrics.update(mmd_metrics)
         # all_mmd_metrics = compute_mmd_metrics(samples, gt_samples,"all_")

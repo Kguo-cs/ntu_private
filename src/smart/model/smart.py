@@ -244,7 +244,7 @@ class SMART(LightningModule):
 
                 if not self.wosac_submission.is_active:
                     compute_gen_samples(data, tokenized_agent, pred_traj, pred_vels, pred_head, pred_sizes, self.samples,
-                                        self.gt_samples,self.gt_dist)
+                                        self.gt_samples,self.gt_dist,compute_mmd=self.para_num>1)
             else:
                 pred_traj=pred_traj[:,:,-80:]
                 pred_z=pred_z[:,:,-80:]
