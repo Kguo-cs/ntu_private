@@ -128,8 +128,8 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             # 20 point each
 
             unified_data = {
+                'vehicles': vehicles,
                 "all_agents": state[(batch == b)].cpu().numpy(),
-                'vehicles': vehicles
             }
             samples.append(unified_data)
 
