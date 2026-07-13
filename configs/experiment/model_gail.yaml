@@ -31,6 +31,6 @@ trainer:
 data:
   train_batch_size: 32 #6
   val_batch_size: 256
-  num_workers: 1
+ # num_workers: 1
 
 action: finetune
