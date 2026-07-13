@@ -164,7 +164,7 @@ class EdgeEncoder(nn.Module):
             batch_s = batch_s[mask]
 
         if a2a_edge_index is None:
-            edge_index_a2a = radiusGraphNearest(x=pos_s.detach(),
+            edge_index_a2a = radiusGraphNearest(x=pos_s,
                                                 r=max_radius,
                                                 batch=batch_s,
                                                 loop=False,

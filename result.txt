@@ -918,6 +918,9 @@ my
 
 model32_edgegp001w1_dise5-epoch=3-step=114138-valmeta=0.6547.ckpt
 
+test: 0.6491
+
+
 
 model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
 

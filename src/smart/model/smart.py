@@ -164,9 +164,9 @@ class SMART(LightningModule):
         return loss
 
     def validation_step(self, data, batch_idx):
-        # if batch_idx < 113:
+        # if batch_idx < 14:
         #     return None
-        #
+
         tokenized_map, tokenized_agent = self.token_processor(data)
 
         # # ! open-loop vlidation
@@ -455,6 +455,9 @@ class SMART(LightningModule):
         return [optimizer], [lr_scheduler]
 
     def test_step(self, data, batch_idx):
+        # if batch_idx < 14:
+        #     return None
+
         tokenized_map, tokenized_agent = self.token_processor(data)
         map_feature = self.encoder.map_encoder(tokenized_map)
         tokenized_agent["map_feature"] = map_feature

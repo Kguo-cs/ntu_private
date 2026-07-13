@@ -324,10 +324,10 @@ def matching_loss(
 
 
     if fake_state.shape[-1]<16:
-        pos_loss = _robust_component_loss(fake_pos, real_pos, beta=0, use_huber=True)
-        heading_loss = _robust_component_loss(fake_heading, real_heading, beta=0, use_huber=False)
-        shape_loss = _robust_component_loss(fake_shape, real_shape, beta=huber_beta, use_huber=use_huber)
-        vel_loss = _robust_component_loss(fake_vel, real_vel, beta=huber_beta, use_huber=use_huber)
+        pos_loss = _robust_component_loss(fake_pos, real_pos, beta=1, use_huber=True)
+        heading_loss = _robust_component_loss(fake_heading, real_heading, beta=1, use_huber=True)
+        shape_loss = _robust_component_loss(fake_shape, real_shape, beta=1, use_huber=True)
+        vel_loss = _robust_component_loss(fake_vel, real_vel, beta=1, use_huber=True)
 
     elif fake_state.shape[-1]==16:
         fake_vel = fake_state[:, 6:8]
@@ -774,13 +774,13 @@ def get_diff_loss(
 
         denom_sq = denom.square()
 
-        inv_denom_sq = denom_sq.reciprocal()[t_mask]#*t_dt.square()#.clamp(max=max_loss_weight)
+        inv_denom_sq = denom_sq.reciprocal()*t_mask.float()#*t_dt.square()#.clamp(max=max_loss_weight)
     else:
-        inv_denom_sq  = t_mask.float()[t_mask]
+        inv_denom_sq  = t_mask.float()
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        real_state[t_mask],
-        fake_state[t_mask],
+        real_state,
+        fake_state,
         w_pos=w_pos * inv_denom_sq[:, 0],
         w_heading=w_heading * inv_denom_sq[:, 0],
         w_shape=w_shape * inv_denom_sq[:, 0],
