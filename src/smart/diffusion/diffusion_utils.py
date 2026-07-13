@@ -326,7 +326,7 @@ def matching_loss(
     if fake_state.shape[-1]<16:
         pos_loss = _robust_component_loss(fake_pos, real_pos, beta=0, use_huber=True)
         heading_loss = _robust_component_loss(fake_heading, real_heading, beta=0, use_huber=True)
-        shape_loss = _robust_component_loss(fake_shape, real_shape, beta=1, use_huber=False)
+        shape_loss = _robust_component_loss(fake_shape, real_shape, beta=0, use_huber=True)
         vel_loss = _robust_component_loss(fake_vel, real_vel, beta=1, use_huber=False)
 
     elif fake_state.shape[-1]==16:

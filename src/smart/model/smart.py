@@ -455,7 +455,7 @@ class SMART(LightningModule):
         return [optimizer], [lr_scheduler]
 
     def test_step(self, data, batch_idx):
-        if batch_idx < 3:
+        if batch_idx < 68:
             return None
 
         tokenized_map, tokenized_agent = self.token_processor(data)
