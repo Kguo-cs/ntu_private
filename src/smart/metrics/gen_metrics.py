@@ -1,167 +1,270 @@
 import numpy as np
-from scipy.spatial import distance
+import tensorflow as tf
 import torch
-import numpy as np
+from scipy.spatial import distance
 from waymo_open_dataset.protos import (
     scenario_pb2,
     sim_agents_metrics_pb2,
     sim_agents_submission_pb2,
 )
-from data_preprocess import  decode_map_features_from_proto
-import tensorflow as tf
+
+from data_preprocess import decode_map_features_from_proto
 from .mmd_metric import compute_mmd_metrics
-from .trafficgen_metrics import _get_trafficgen_data
+from .trafficgen_metrics import (
+    _extract_center_lane_vectors_in_ego,
+    get_select_index,
+)
 
-def resample_polyline(points, num_points=20):
-    """Resample a polyline to `num_points` equally spaced points along its arc-length."""
-    # Calculate the cumulative distances along the polyline
-    distances = np.sqrt(((points[1:] - points[:-1]) ** 2).sum(axis=1))
-    cumulative_distances = np.insert(np.cumsum(distances), 0, 0)
 
-    # Create an array of 20 evenly spaced distance values along the polyline
-    target_distances = np.linspace(0, cumulative_distances[-1], num=num_points)
+# State layouts used below.
+REAL_POS = slice(0, 2)
+REAL_TYPE = 10
+REAL_VEL = slice(7, 9)
+REAL_HEADING = 9
+MODEL_EGO_INDEX = -1  # This codebase stores the ego as the last local agent.
 
-    # Interpolate to find x and y values at these target distances
-    x_new = np.interp(target_distances, cumulative_distances, points[:, 0])
-    y_new = np.interp(target_distances, cumulative_distances, points[:, 1])
 
-    # Combine x and y coordinates into a single array
-    new_points = np.stack((x_new, y_new), axis=-1)
+def resample_polyline(points: np.ndarray, num_points: int = 20) -> np.ndarray:
+    """Resample a polyline at uniformly spaced arc-length positions."""
+    points = np.asarray(points, dtype=np.float32)
+    if len(points) == 0:
+        return np.empty((0, 2), dtype=np.float32)
+    if len(points) == 1:
+        return np.repeat(points[:, :2], num_points, axis=0)
 
-    return new_points
+    segment_length = np.linalg.norm(np.diff(points[:, :2], axis=0), axis=1)
+    arc_length = np.concatenate(([0.0], np.cumsum(segment_length)))
 
-def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_sizes,samples,gt_samples,gt_dist):
-    pred_vel = torch.stack(pred_vel, dim=1)
+    if arc_length[-1] <= 1e-8:
+        return np.repeat(points[:1, :2], num_points, axis=0)
 
-    pred_speeds=pred_vel.norm(dim=-1)
-    gt_init_timestep=5
-    gen_init_timestep=5
+    target = np.linspace(0.0, arc_length[-1], num_points)
+    return np.stack(
+        (
+            np.interp(target, arc_length, points[:, 0]),
+            np.interp(target, arc_length, points[:, 1]),
+        ),
+        axis=-1,
+    ).astype(np.float32, copy=False)
 
-    batch = tokenized_agent["batch"]
-    cos = torch.cos(pred_head[:, :, gen_init_timestep])
-    sin = torch.sin(pred_head[:, :, gen_init_timestep])
+
+def _load_scenario(tfrecord_path: str):
+    """Read the single Waymo Scenario stored in one TFRecord file."""
+    scenario = scenario_pb2.Scenario()
+    records = tf.data.TFRecordDataset([tfrecord_path], compression_type="")
+    for record in records:
+        scenario.ParseFromString(bytes(record.numpy()))
+        return scenario
+    raise ValueError(f"No Scenario record found in {tfrecord_path}")
+
+
+def _extract_resampled_centerlines(scenario, num_points: int = 100) -> np.ndarray:
+    """Extract non-bike centerlines for the JSD lane metrics."""
+    map_info = decode_map_features_from_proto(scenario.map_features)
+    all_polylines = map_info["all_polylines"]
+    centerlines = []
+
+    for lane in map_info["lane"]:
+        if lane["type"] == 3:  # bike lane in the current preprocessing convention
+            continue
+
+        start, end = lane["polyline_index"]
+        lane_points = all_polylines[start:end]
+        if len(lane_points) == 0:
+            continue
+        centerlines.append(resample_polyline(lane_points, num_points=num_points))
+
+    if not centerlines:
+        return np.empty((0, num_points, 2), dtype=np.float32)
+    return np.stack(centerlines, axis=0)
+
+
+def _build_real_state(data, timestep: int, batch: torch.Tensor):
+    """Build valid real-agent states.
+
+    Columns:
+        x, y, speed, cos(h), sin(h), length, width, vx, vy, heading, type
+    """
+    valid = data["agent"]["valid_mask"][:, timestep]
+    velocity = data["agent"]["velocity"][:, timestep]
+    heading = data["agent"]["heading"][:, timestep]
 
     state = torch.cat(
-        [pred_traj[:, :, gen_init_timestep], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, gen_init_timestep, :2],pred_vel],
-        dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-    type = tokenized_agent["type"]
+        (
+            data["agent"]["position"][:, timestep, :2],
+            velocity.norm(dim=-1, keepdim=True),
+            heading.cos().unsqueeze(-1),
+            heading.sin().unsqueeze(-1),
+            data["agent"]["shape"][:, :2],
+            velocity,
+            heading.unsqueeze(-1),
+            data["agent"]["type"].unsqueeze(-1),
+        ),
+        dim=-1,
+    )
+
+    return state[valid], batch[valid], data["agent"]["type"][valid]
+
+
+def _build_generated_state(
+    pred_traj,
+    pred_vel,
+    pred_head,
+    pred_sizes,
+    timestep: int,
+):
+    """Build generated states with shape ``[agent, sample, 9]``.
+
+    Columns:
+        x, y, speed, cos(h), sin(h), length, width, vx, vy
+    """
+    if isinstance(pred_vel, (list, tuple)):
+        pred_vel = torch.stack(pred_vel, dim=1)
+
+    heading = pred_head[:, :, timestep]
+    return torch.cat(
+        (
+            pred_traj[:, :, timestep],
+            pred_vel.norm(dim=-1, keepdim=True),
+            heading.cos().unsqueeze(-1),
+            heading.sin().unsqueeze(-1),
+            pred_sizes[:, :, timestep, :2],
+            pred_vel,
+        ),
+        dim=-1,
+    )
+
+
+def compute_gen_samples(
+    data,
+    tokenized_agent,
+    pred_traj,
+    pred_vel,
+    pred_head,
+    pred_sizes,
+    samples,
+    gt_samples,
+    gt_dist,
+):
+    """Append generated and, when needed, ground-truth scene data."""
+    init_timestep = 5
+    batch = tokenized_agent["batch"]
+    agent_type = tokenized_agent["type"]
+
+    generated_state = _build_generated_state(
+        pred_traj=pred_traj,
+        pred_vel=pred_vel,
+        pred_head=pred_head,
+        pred_sizes=pred_sizes,
+        timestep=init_timestep,
+    )
 
     if gt_dist is None:
-        valid=data["agent"]["valid_mask"][:, gt_init_timestep]#9051
+        real_state, real_batch, real_type = _build_real_state(
+            data=data,
+            timestep=init_timestep,
+            batch=batch,
+        )
 
-        gt_vel =data["agent"]["velocity"][:, gt_init_timestep]
-        gt_speed = gt_vel.norm(dim=-1)
-        gt_cos = torch.cos(data["agent"]["heading"][:, gt_init_timestep])
-        gt_sin = torch.sin(data["agent"]["heading"][:, gt_init_timestep])
-        gt_shape = data["agent"]["shape"]
-        gt_pos = data["agent"]["position"][:, gt_init_timestep, :2]
-        gt_type= data["agent"]["type"][valid]
-        gt_id=data["agent"]["id"][valid]
-        gt_batch=batch[valid]
-
-        real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2],gt_vel],
-                               dim=-1)[valid]  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-
-    for b in range(data.num_graphs):
-        vehicles = state[(batch == b) & (type == 0)].cpu().numpy()
+    for graph_index in range(data.num_graphs):
+        output_index = len(samples)
 
         if gt_dist is None:
+            scenario = _load_scenario(data["tfrecord_path"][graph_index])
+            centerlines = _extract_resampled_centerlines(scenario)
 
-            scenario_file = data["tfrecord_path"][b]
+            graph_mask = (real_batch == graph_index )
+            real_agents = real_state[graph_mask & (real_type == 0)].detach().cpu().numpy()
 
-            scenario = scenario_pb2.Scenario()
-            for data_b in tf.data.TFRecordDataset([scenario_file], compression_type=""):
-                scenario.ParseFromString(bytes(data_b.numpy()))
+            ego_index = MODEL_EGO_INDEX % len(real_agents)
+            lane_vectors = _extract_center_lane_vectors_in_ego(
+                scenario=scenario,
+                ego_xy=real_agents[ego_index, REAL_POS],
+                ego_heading=float(real_agents[ego_index, REAL_HEADING]),
+            )
 
+            # Do not pass model object types here: in this codebase type 0 is a
+            # valid vehicle, whereas Waymo proto type 0 means unset/invalid.
+            selected_index = get_select_index(
+                lane_vectors=lane_vectors,
+                positions=real_agents[:, REAL_POS],
+                velocities=real_agents[:, REAL_VEL],
+                headings=real_agents[:, REAL_HEADING],
+                ego_index=ego_index,
+            )
 
-            map_infos = decode_map_features_from_proto(scenario.map_features)
-            all_polylines = map_infos["all_polylines"]
-            compact_centerlines = []
+            gt_samples.append(
+                {
+                    "lanes": centerlines,
+                    # "lane_vectors": lane_vectors,
+                    "vehicles": real_agents,
+                    # "all_agents": real_agents,
+                    # "select_index": selected_index,
+                    "trafficgen_vehicles": real_agents[selected_index],
+                }
+            )
 
-            for lane in map_infos["lane"]:
-                lane_type = lane['type']
-                polyline_index = lane['polyline_index']
-                if lane_type == 3:  # lane_type == 0 or
-                    continue
-
-                lane_point = all_polylines[polyline_index[0]:polyline_index[1]]
-
-                resampled_lane = resample_polyline(lane_point, num_points=100)
-                compact_centerlines.append(resampled_lane)
-
-            compact_centerlines = np.stack(compact_centerlines, axis=0)
-
-            # centerlines = data['road_points']
-            # lanes = {}
-
-            # for lane_id in data['road_info']['lane']:
-            #     lane_type = data['road_info']['lane'][lane_id]['type']
-            #     if lane_type == 'TYPE_UNDEFINED' or lane_type == 'TYPE_BIKE_LANE':
-            #         continue
-            #
-            #     my_lane = data['road_info']['lane'][lane_id]['polyline']
-            #     lanes[int(lane_id)] = my_lane[:, :2]
-            #
-            # compact_lane.append(data['lane_graph']['lanes'][lane_id])
-            #
-            # compact_lane_graph_scene = self.normalize_compact_lane_graph(copy.deepcopy(compact_lane_graph),
-            #                                                              normalize_dict)
-            # compact_lane_graph = self.get_lane_graph_within_fov(compact_lane_graph_scene)
-
-            # resampled_lanes = []
-            # idx_to_id = {}
-            # id_to_idx = {}
-            # i = 0
-            #
-            # for lane_id in compact_lane_graph['lanes']:
-            #     lane = compact_lane_graph['lanes'][lane_id]
-            #     resampled_lane = resample_polyline(lane, num_points=self.cfg.num_points_per_lane)
-            #     resampled_lanes.append(resampled_lane)
-            #
-            # resampled_lanes = np.array(resampled_lanes)
-            # num_lanes = min(len(resampled_lanes), self.cfg.max_num_lanes)
-            # dist_to_origin = np.linalg.norm(resampled_lanes, axis=-1).min(1)
-            # closest_lane_ids = np.argsort(dist_to_origin)[:num_lanes]
-            # road_points = resampled_lanes[closest_lane_ids]
-            # remove_offroad vehicle, fov: 64*64 in metres, max 30 agent
-
-            # 20 point each
-
-            unified_data = {
-                'vehicles': vehicles,
-                "all_agents": state[(batch == b)].cpu().numpy(),
+        # if output_index >= len(gt_samples):
+        #     raise IndexError(
+        #         "gt_samples and samples are not aligned; cannot reuse selection indices"
+        #     )
+        #
+        graph_mask = batch == graph_index
+        # generated_agents = generated_state[graph_mask].detach().cpu().numpy()
+        generated_vehicles = generated_state[
+            graph_mask & (agent_type == 0)
+        ].detach().cpu().numpy()
+        #
+        # selected_index = np.asarray(
+        #     gt_samples[output_index]["select_index"], dtype=np.int64
+        # )
+        # selected_index = selected_index[selected_index < len(generated_agents)]
+        #
+        samples.append(
+            {
+                "vehicles": generated_vehicles,
+                # "all_agents": generated_agents,
+                # "select_index": selected_index,
+                # "agents": generated_agents[selected_index],
             }
-            samples.append(unified_data)
+        )
 
-            gt_id_b=gt_id[gt_batch==b]
 
-            real_vehicles = real_state[(gt_batch == b) & (gt_type == 0)].cpu().numpy()
+# centerlines = data['road_points']
+# lanes = {}
 
-            all_agents=real_state[gt_batch == b]
+# for lane_id in data['road_info']['lane']:
+#     lane_type = data['road_info']['lane'][lane_id]['type']
+#     if lane_type == 'TYPE_UNDEFINED' or lane_type == 'TYPE_BIKE_LANE':
+#         continue
+#
+#     my_lane = data['road_info']['lane'][lane_id]['polyline']
+#     lanes[int(lane_id)] = my_lane[:, :2]
+#
+# compact_lane.append(data['lane_graph']['lanes'][lane_id])
+#
+# compact_lane_graph_scene = self.normalize_compact_lane_graph(copy.deepcopy(compact_lane_graph),
+#                                                              normalize_dict)
+# compact_lane_graph = self.get_lane_graph_within_fov(compact_lane_graph_scene)
 
-            PZH_TRACK_NAMES=_get_trafficgen_data(scenario,current_t=gt_init_timestep)
+# resampled_lanes = []
+# idx_to_id = {}
+# id_to_idx = {}
+# i = 0
+#
+# for lane_id in compact_lane_graph['lanes']:
+#     lane = compact_lane_graph['lanes'][lane_id]
+#     resampled_lane = resample_polyline(lane, num_points=self.cfg.num_points_per_lane)
+#     resampled_lanes.append(resampled_lane)
+#
+# resampled_lanes = np.array(resampled_lanes)
+# num_lanes = min(len(resampled_lanes), self.cfg.max_num_lanes)
+# dist_to_origin = np.linalg.norm(resampled_lanes, axis=-1).min(1)
+# closest_lane_ids = np.argsort(dist_to_origin)[:num_lanes]
+# road_points = resampled_lanes[closest_lane_ids]
+# remove_offroad vehicle, fov: 64*64 in metres, max 30 agent
 
-            mask=torch.isin(gt_id_b,torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device))
-            # mask1=torch.isin(torch.Tensor(PZH_TRACK_NAMES.astype(np.long)).to(device=gt_id.device),gt_id_b)
-            #
-            # print(torch.all(mask1))
-
-            select_agents=all_agents[mask].cpu().numpy()
-
-            unified_data = {
-                'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-                'vehicles': real_vehicles,
-                "agents": select_agents,
-               # "all_agents": all_agents.cpu().numpy()
-            }
-
-            gt_samples.append(unified_data)
-        else:
-            unified_data = {
-                'vehicles': vehicles,
-                "all_agents": state[(batch == b)].cpu().numpy()
-            }
-            samples.append(unified_data)
+# 20 point each
 
 # unified format for computing metrics
 # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]

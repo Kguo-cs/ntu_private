@@ -140,8 +140,8 @@ def compute_mmd_metrics(samples, gt_samples, key='',device="cpu"):
     kernel_num = 1
 
     for i in range(len(samples)):
-        vehicles_gen_all = samples[i]["all_agents"]
-        vehicles_real = gt_samples[i][key+"agents"]
+        vehicles_gen_all = samples[i]["vehicles"]
+        vehicles_real = gt_samples[i][key+"trafficgen_vehicles"]
 
         vehicles_real = _vehicles_to_torch(vehicles_real, device=device)
 

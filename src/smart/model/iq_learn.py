@@ -149,7 +149,7 @@ class IQ_SoftQ(LightningModule):
                 self._log_train('train/heading_loss', heading_loss)
                 self._log_train('train/shape_loss', shape_loss)
                 self._log_train('train/vel_loss', vel_loss)
-                self._log_train('train/rl_loss', collision_loss)
+                self._log_train('train/col_loss', collision_loss)
 
 
                 # if self.encoder.init_decoder.G1.model.learn_schedule:

@@ -1,25 +1,17 @@
-"""Fast TrafficGen initial-state agent selection utilities.
+"""Fast and explicit TrafficGen-style agent selection.
 
-This module replaces the slow `_get_trafficgen_data()` path that only returned
-`ret["PZH_TRACK_NAMES"][ret["agent_mask"]]` after building a large intermediate
-TrafficGen-style sample.  The fast path computes the same first-frame selection
-mask directly from the Waymo scenario proto:
+The public API separates three concerns:
+1. extract one Waymo frame;
+2. extract center-lane vectors in the SDC frame;
+3. select valid agents and return integer indices.
 
-    valid agent
-    non-zero object type
-    within ego-centered 50m range
-    close to a center lane
-    velocity direction roughly aligned with heading
-    heading roughly aligned with the nearest center-lane segment
-
-It avoids extracting all timesteps, dynamic map states, unsampled lanes,
-boundaries, crosswalks, rest map tokens, vector-based representations, and
-padding/case-list construction.
+`get_select_index` always returns ``np.int64`` indices, never a boolean mask.
 """
 
 from __future__ import annotations
 
-from typing import Iterable, Tuple
+from dataclasses import dataclass
+from typing import Iterable
 
 import numpy as np
 
@@ -30,81 +22,113 @@ DEFAULT_LANE_DIST_THRES = 5.0
 DEFAULT_LANE_SAMPLE_NUM = 10
 DEFAULT_MAX_CENTER_VECTORS = 384
 
-
 CENTER_LANE_TYPES = {1, 2, 3}
 
 
-def rotate(x, y, angle):
-    """Rotate x/y by `angle` and return [..., 2].
+@dataclass(frozen=True)
+class TrafficGenSelection:
+    """Selection result in SDC-first agent order."""
 
-    This keeps the old function name for backward compatibility, but the module
-    no longer depends on torch.  `x`, `y`, and `angle` can be scalars or NumPy
-    arrays that broadcast together.
-    """
+    lane_vectors: np.ndarray
+    selected_index: np.ndarray
+    selected_track_ids: np.ndarray
+
+
+def rotate_xy(xy: np.ndarray, angle: float) -> np.ndarray:
+    """Rotate 2-D vectors counter-clockwise by ``angle`` radians."""
+    xy = np.asarray(xy, dtype=np.float32)
+    cos_a = np.cos(angle)
+    sin_a = np.sin(angle)
+
+    x = xy[..., 0]
+    y = xy[..., 1]
     return np.stack(
-        [
-            np.cos(angle) * x - np.sin(angle) * y,
-            np.sin(angle) * x + np.cos(angle) * y,
-        ],
+        (cos_a * x - sin_a * y, sin_a * x + cos_a * y),
         axis=-1,
     )
 
 
+def wrap_angle(angle: np.ndarray) -> np.ndarray:
+    """Wrap angles to ``[-pi, pi)``."""
+    return (angle + np.pi) % (2.0 * np.pi) - np.pi
+
+
+# Backward-compatible aliases used by older code.
+def rotate(x, y, angle):
+    return rotate_xy(np.stack((x, y), axis=-1), angle)
+
+
 def cal_rel_dir(dir1, dir2):
-    """Vectorized signed angular difference `dir1 - dir2` in [-pi, pi)."""
-    return (dir1 - dir2 + np.pi) % (2.0 * np.pi) - np.pi
+    return wrap_angle(np.asarray(dir1) - np.asarray(dir2))
 
 
-def _sample_polyline_xy(polyline: Iterable, sample_num: int) -> np.ndarray:
-    """TrafficGen-style polyline downsampling for Waymo proto points."""
-    points = np.asarray([[p.x, p.y] for p in polyline], dtype=np.float32)
-    if points.shape[0] == 0:
-        return points.reshape(0, 2)
-    if points.shape[0] < sample_num:
+def _sample_polyline_xy(polyline: Iterable, stride: int) -> np.ndarray:
+    """Read proto points and downsample them with a fixed stride."""
+    if stride <= 0:
+        raise ValueError(f"stride must be positive, got {stride}")
+
+    points = np.asarray([(point.x, point.y) for point in polyline], dtype=np.float32)
+    if len(points) == 0:
+        return np.empty((0, 2), dtype=np.float32)
+    if len(points) < stride:
         return points
-    return points[::sample_num]
+    return points[::stride]
 
 
-def _sdc_first_track_order(num_tracks: int, sdc_index: int) -> list[int]:
-    """Return local track indices after swapping SDC to index 0."""
-    if sdc_index < 0 or sdc_index >= num_tracks:
-        raise IndexError(f"Invalid sdc_track_index={sdc_index} for {num_tracks} tracks")
-    return [sdc_index] + [idx for idx in range(num_tracks) if idx != sdc_index]
+def _sdc_first_track_order(num_tracks: int, sdc_index: int) -> np.ndarray:
+    """Return scenario-track indices with the SDC at local index 0."""
+    if not 0 <= sdc_index < num_tracks:
+        raise IndexError(
+            f"Invalid sdc_track_index={sdc_index} for {num_tracks} tracks"
+        )
+
+    other = np.arange(num_tracks, dtype=np.int64)
+    other = other[other != sdc_index]
+    return np.concatenate((np.asarray([sdc_index], dtype=np.int64), other))
 
 
-def _extract_current_agents_and_names(scenario, current_t: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Extract one timestep of agents with SDC placed at index 0.
+def _extract_current_agents_and_names(
+    scenario,
+    current_t: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Extract one frame in SDC-first order.
 
     Returns:
-        agent: [N, 6], columns are x, y, vx, vy, heading, object_type.
-        valid: [N], bool valid mask at current_t.
-        names: [N], object array of track ids in the same SDC-first order.
+        positions: ``[N, 2]``
+        velocities: ``[N, 2]``
+        headings: ``[N]``
+        object_types: ``[N]``; Waymo type 0 means unset/invalid
+        valid: ``[N]``
+        track_ids: ``[N]``
     """
-    tracks = scenario.tracks
-    order = _sdc_first_track_order(len(tracks), int(scenario.sdc_track_index))
+    order = _sdc_first_track_order(
+        num_tracks=len(scenario.tracks),
+        sdc_index=int(scenario.sdc_track_index),
+    )
 
+    num_agents = len(order)
+    positions = np.zeros((num_agents, 2), dtype=np.float32)
+    velocities = np.zeros((num_agents, 2), dtype=np.float32)
+    headings = np.zeros(num_agents, dtype=np.float32)
+    object_types = np.zeros(num_agents, dtype=np.int32)
+    valid = np.zeros(num_agents, dtype=bool)
+    track_ids = np.empty(num_agents, dtype=object)
 
-    agent = np.zeros((len(order), 6), dtype=np.float32)
-    valid = np.zeros((len(order),), dtype=bool)
-    names = np.empty((len(order),), dtype=object)
+    for local_index, track_index in enumerate(order):
+        track = scenario.tracks[int(track_index)]
+        track_ids[local_index] = track.id
+        object_types[local_index] = int(track.object_type)
 
-    for out_idx, track_idx in enumerate(order):
-        track = tracks[track_idx]
-        names[out_idx] = track.id
-        agent[out_idx, 5] = track.object_type
-
-        if current_t < 0 or current_t >= len(track.states):
+        if not 0 <= current_t < len(track.states):
             continue
 
         state = track.states[current_t]
-        agent[out_idx, 0] = state.center_x
-        agent[out_idx, 1] = state.center_y
-        agent[out_idx, 2] = state.velocity_x
-        agent[out_idx, 3] = state.velocity_y
-        agent[out_idx, 4] = state.heading
-        valid[out_idx] = bool(state.valid)
+        positions[local_index] = (state.center_x, state.center_y)
+        velocities[local_index] = (state.velocity_x, state.velocity_y)
+        headings[local_index] = state.heading
+        valid[local_index] = bool(state.valid)
 
-    return agent, valid, names
+    return positions, velocities, headings, object_types, valid, track_ids
 
 
 def _extract_center_lane_vectors_in_ego(
@@ -115,50 +139,199 @@ def _extract_center_lane_vectors_in_ego(
     sample_num: int = DEFAULT_LANE_SAMPLE_NUM,
     max_center_vectors: int = DEFAULT_MAX_CENTER_VECTORS,
 ) -> np.ndarray:
-    """Extract center-lane vectors in ego coordinates.
+    """Extract lane segments as ``[x1, y1, x2, y2]`` in the ego frame."""
+    all_segments: list[np.ndarray] = []
 
-    This is the only map component needed for the TrafficGen start-agent mask.
-    It matches the old path's center lane filter (`lane.type in {1,2,3}`),
-    endpoint-in-range mask, sorting by distance to ego, and truncation to 384
-    center vectors.
-
-    Returns:
-        vectors: [K, 4], columns are x1, y1, x2, y2 in ego coordinates.
-    """
-    vectors = []
-
-    for map_feature in scenario.map_features:
-        if not map_feature.HasField("lane"):
+    for feature in scenario.map_features:
+        if not feature.HasField("lane"):
             continue
 
-        lane = map_feature.lane
+        lane = feature.lane
         if int(lane.type) not in CENTER_LANE_TYPES:
             continue
 
-        points = _sample_polyline_xy(lane.polyline, sample_num=sample_num)
-        if points.shape[0] < 2:
+        points = _sample_polyline_xy(lane.polyline, stride=sample_num)
+        if len(points) < 2:
             continue
 
-        points = points - ego_xy[None, :]
-        points = rotate(points[:, 0], points[:, 1], -ego_heading)
-
-        point_mask = (np.abs(points[:, 0]) < lane_range) & (np.abs(points[:, 1]) < lane_range)
-        segment_mask = point_mask[:-1] & point_mask[1:]
-        if not np.any(segment_mask):
+        ego_points = rotate_xy(points - np.asarray(ego_xy)[None, :], -ego_heading)
+        point_in_range = np.all(np.abs(ego_points) < lane_range, axis=-1)
+        segment_in_range = point_in_range[:-1] & point_in_range[1:]
+        if not np.any(segment_in_range):
             continue
 
-        segment = np.concatenate([points[:-1], points[1:]], axis=-1)[segment_mask]
-        vectors.append(segment.astype(np.float32, copy=False))
+        segments = np.concatenate((ego_points[:-1], ego_points[1:]), axis=-1)
+        all_segments.append(segments[segment_in_range])
 
-    if not vectors:
-        return np.zeros((0, 4), dtype=np.float32)
+    if not all_segments:
+        return np.empty((0, 4), dtype=np.float32)
 
-    vectors = np.concatenate(vectors, axis=0)
+    lane_vectors = np.concatenate(all_segments, axis=0).astype(np.float32, copy=False)
 
-    # Match process_lane(): sort by first endpoint distance and keep first 384.
-    order = np.argsort(vectors[:, 0] ** 2 + vectors[:, 1] ** 2)
-    vectors = vectors[order]
-    return vectors[:max_center_vectors]
+    # Preserve TrafficGen's ordering: nearest first endpoint first, then truncate.
+    distance_sq = np.sum(lane_vectors[:, :2] ** 2, axis=-1)
+    nearest_first = np.argsort(distance_sq)
+    return lane_vectors[nearest_first[:max_center_vectors]]
+
+
+def get_select_index(
+    lane_vectors: np.ndarray,
+    positions: np.ndarray,
+    velocities: np.ndarray,
+    headings: np.ndarray,
+    valid: np.ndarray | None = None,
+    object_types: np.ndarray | None = None,
+    *,
+    ego_index: int = 0,
+    lane_range: float = DEFAULT_LANE_RANGE,
+    lane_dist_thres: float = DEFAULT_LANE_DIST_THRES,
+    min_speed: float = 0.1,
+    max_velocity_heading_error: float = np.pi / 6.0,
+    max_lane_heading_error: float = np.pi / 4.0,
+) -> np.ndarray:
+    """Return selected agent indices.
+
+    All lane vectors must already be expressed in the ego coordinate frame.
+    Agent positions, velocities, and headings are provided in the world frame.
+
+    ``object_types`` is optional because model-side type 0 may mean "vehicle",
+    while Waymo proto type 0 means "unset".  When supplied, type 0 is removed.
+    The ego is always retained.
+    """
+    lane_vectors = np.asarray(lane_vectors, dtype=np.float32).reshape(-1, 4)
+    positions = np.asarray(positions, dtype=np.float32)
+    velocities = np.asarray(velocities, dtype=np.float32)
+    headings = np.asarray(headings, dtype=np.float32).reshape(-1)
+
+    num_agents = len(positions)
+    if positions.shape != (num_agents, 2):
+        raise ValueError(f"positions must have shape [N, 2], got {positions.shape}")
+    if velocities.shape != (num_agents, 2):
+        raise ValueError(f"velocities must have shape [N, 2], got {velocities.shape}")
+    if headings.shape != (num_agents,):
+        raise ValueError(f"headings must have shape [N], got {headings.shape}")
+    if num_agents == 0:
+        return np.empty(0, dtype=np.int64)
+
+    ego_index = int(ego_index) % num_agents
+
+    if valid is None:
+        candidate = np.ones(num_agents, dtype=bool)
+    else:
+        candidate = np.asarray(valid, dtype=bool).reshape(-1).copy()
+        if candidate.shape != (num_agents,):
+            raise ValueError(f"valid must have shape [N], got {candidate.shape}")
+
+    if object_types is not None:
+        # object_types = np.asarray(object_types).reshape(-1)
+        # if object_types.shape != (num_agents,):
+        #     raise ValueError(
+        #         f"object_types must have shape [N], got {object_types.shape}"
+        #     )
+        candidate &= object_types == 0
+
+    ego_xy = positions[ego_index]
+    ego_heading = float(headings[ego_index])
+
+    relative_xy = rotate_xy(positions - ego_xy, -ego_heading)
+    relative_velocity = rotate_xy(velocities, -ego_heading)
+    relative_heading = wrap_angle(headings - ego_heading)
+
+    candidate &= np.all(np.abs(relative_xy) < lane_range, axis=-1)
+
+    if len(lane_vectors) == 0:
+        candidate[ego_index] = True
+        return np.flatnonzero(candidate).astype(np.int64, copy=False)
+
+    # Point-to-segment distance.  Using only segment midpoints incorrectly
+    # rejects agents near the ends of long lane vectors.
+    lane_start = lane_vectors[:, :2]
+    lane_delta = lane_vectors[:, 2:] - lane_start
+    lane_length_sq = np.sum(lane_delta**2, axis=-1)
+
+    agent_to_start = relative_xy[:, None, :] - lane_start[None, :, :]
+    projection = np.sum(agent_to_start * lane_delta[None, :, :], axis=-1)
+    projection /= np.maximum(lane_length_sq[None, :], 1e-8)
+    projection = np.clip(projection, 0.0, 1.0)
+
+    closest_point = (
+        lane_start[None, :, :]
+        + projection[..., None] * lane_delta[None, :, :]
+    )
+    distance = np.linalg.norm(relative_xy[:, None, :] - closest_point, axis=-1)
+    nearest_lane_index = np.argmin(distance, axis=1)
+    close_to_lane = distance[np.arange(num_agents), nearest_lane_index] < lane_dist_thres
+
+    nearest_lane = lane_vectors[nearest_lane_index]
+    lane_heading = np.arctan2(
+        nearest_lane[:, 3] - nearest_lane[:, 1],
+        nearest_lane[:, 2] - nearest_lane[:, 0],
+    )
+
+    speed = np.linalg.norm(relative_velocity, axis=-1)
+    velocity_heading = np.arctan2(relative_velocity[:, 1], relative_velocity[:, 0])
+    velocity_heading_error = wrap_angle(velocity_heading - relative_heading)
+    velocity_heading_error[speed < min_speed] = 0.0
+
+    lane_heading_error = wrap_angle(relative_heading - lane_heading)
+
+    selected = (
+        candidate
+        & close_to_lane
+        & (np.abs(velocity_heading_error) < max_velocity_heading_error)
+        & (np.abs(lane_heading_error) < max_lane_heading_error)
+    )
+    selected[ego_index] = True
+
+    return np.flatnonzero(selected).astype(np.int64, copy=False)
+
+
+def get_trafficgen_selection(
+    scenario,
+    current_t: int = DEFAULT_CURRENT_T,
+    lane_range: float = DEFAULT_LANE_RANGE,
+    lane_dist_thres: float = DEFAULT_LANE_DIST_THRES,
+    lane_sample_num: int = DEFAULT_LANE_SAMPLE_NUM,
+    max_center_vectors: int = DEFAULT_MAX_CENTER_VECTORS,
+) -> TrafficGenSelection:
+    """Compute lane vectors, selected indices, and track IDs from a scenario."""
+    (
+        positions,
+        velocities,
+        headings,
+        object_types,
+        valid,
+        track_ids,
+    ) = _extract_current_agents_and_names(scenario, current_t=current_t)
+
+    # `_extract_current_agents_and_names` explicitly puts SDC at index 0.
+    ego_index = 0
+    lane_vectors = _extract_center_lane_vectors_in_ego(
+        scenario=scenario,
+        ego_xy=positions[ego_index],
+        ego_heading=float(headings[ego_index]),
+        lane_range=lane_range,
+        sample_num=lane_sample_num,
+        max_center_vectors=max_center_vectors,
+    )
+
+    selected_index = get_select_index(
+        lane_vectors=lane_vectors,
+        positions=positions,
+        velocities=velocities,
+        headings=headings,
+        valid=valid,
+        object_types=object_types,
+        ego_index=ego_index,
+        lane_range=lane_range,
+        lane_dist_thres=lane_dist_thres,
+    )
+
+    return TrafficGenSelection(
+        lane_vectors=lane_vectors,
+        selected_index=selected_index,
+        selected_track_ids=track_ids[selected_index],
+    )
 
 
 def get_trafficgen_select_index_fast(
@@ -168,89 +341,17 @@ def get_trafficgen_select_index_fast(
     lane_dist_thres: float = DEFAULT_LANE_DIST_THRES,
     lane_sample_num: int = DEFAULT_LANE_SAMPLE_NUM,
     max_center_vectors: int = DEFAULT_MAX_CENTER_VECTORS,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Compute TrafficGen-selected agent indices and track names quickly.
-
-    Args:
-        scenario: Waymo scenario proto.
-        current_t: Initial timestep used by the old code. The uploaded file used
-            `data['all_agent'] = data['all_agent'][10:11]`, so the default is 10.
-        lane_range: Ego-frame square range in meters.
-        lane_dist_thres: Maximum distance to nearest center-lane segment midpoint.
-        lane_sample_num: Downsampling stride for lane polylines.
-        max_center_vectors: Number of nearest center vectors kept, matching the
-            old `process_map(..., center_num=384)` behavior.
-
-    Returns:
-        selected_index:
-            `np.ndarray[int64]` of indices in the SDC-first local agent order.
-            These can be used directly as `trafficgen_select_index`.
-        selected_names:
-            `np.ndarray[object]` of track ids in selected order.
-    """
-    agent, valid, names = _extract_current_agents_and_names(scenario, current_t=current_t)
-
-    if agent.shape[0] == 0:
-        return np.zeros((0,), dtype=np.int64), np.asarray([], dtype=object)
-
-    ego_xy = agent[0, :2].copy()
-    ego_heading = float(agent[0, 4])
-
-    rel_xy = rotate(agent[:, 0] - ego_xy[0], agent[:, 1] - ego_xy[1], -ego_heading)
-    rel_vel = rotate(agent[:, 2], agent[:, 3], -ego_heading)
-    rel_heading = agent[:, 4] - ego_heading
-
-    # Old mask: agent_mask * agent_type_mask, then range mask at first frame.
-    agent_mask = valid & (agent[:, 5] != 0)
-    agent_mask &= (np.abs(rel_xy[:, 0]) < lane_range) & (np.abs(rel_xy[:, 1]) < lane_range)
-
-    lane_vectors = _extract_center_lane_vectors_in_ego(
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compatibility API: return integer indices and selected track IDs."""
+    result = get_trafficgen_selection(
         scenario=scenario,
-        ego_xy=ego_xy,
-        ego_heading=ego_heading,
+        current_t=current_t,
         lane_range=lane_range,
-        sample_num=lane_sample_num,
+        lane_dist_thres=lane_dist_thres,
+        lane_sample_num=lane_sample_num,
         max_center_vectors=max_center_vectors,
     )
-
-    if lane_vectors.shape[0] == 0:
-        selected_mask = agent_mask.copy()
-        selected_mask[0] = True
-        selected_index = np.flatnonzero(selected_mask).astype(np.int64)
-        return selected_index, names[selected_index]
-
-    lane_midpoints = 0.5 * (lane_vectors[:, :2] + lane_vectors[:, 2:4])
-    dist = np.linalg.norm(rel_xy[:, None, :] - lane_midpoints[None, :, :], axis=-1)
-    nearest_vec_index = np.argmin(dist, axis=-1)
-    min_dist_to_lane = dist[np.arange(dist.shape[0]), nearest_vec_index]
-    min_dist_mask = min_dist_to_lane < lane_dist_thres
-
-    selected_vec = lane_vectors[nearest_vec_index]
-    lane_dir = np.arctan2(
-        selected_vec[:, 3] - selected_vec[:, 1],
-        selected_vec[:, 2] - selected_vec[:, 0],
-    )
-
-    speed = np.linalg.norm(rel_vel, axis=-1)
-    vel_dir = np.arctan2(rel_vel[:, 1], rel_vel[:, 0])
-
-    vel_relative_dir = cal_rel_dir(vel_dir, rel_heading)
-    vel_relative_dir[speed < 0.1] = 0.0
-
-    heading_relative_dir = cal_rel_dir(rel_heading, lane_dir)
-
-    selected_mask = (
-        agent_mask
-        & min_dist_mask
-        & (np.abs(vel_relative_dir) < np.pi / 6.0)
-        & (np.abs(heading_relative_dir) < np.pi / 4.0)
-    )
-
-    # TrafficGen always keeps the SDC.
-    selected_mask[0] = True
-
-    selected_index = np.flatnonzero(selected_mask).astype(np.int64)
-    return selected_index, names[selected_index]
+    return result.selected_index, result.selected_track_ids
 
 
 def get_trafficgen_track_names_fast(
@@ -261,25 +362,17 @@ def get_trafficgen_track_names_fast(
     lane_sample_num: int = DEFAULT_LANE_SAMPLE_NUM,
     max_center_vectors: int = DEFAULT_MAX_CENTER_VECTORS,
 ) -> np.ndarray:
-    """Return TrafficGen-selected track ids only."""
-    _, selected_names = get_trafficgen_select_index_fast(
+    """Return selected track IDs only."""
+    return get_trafficgen_selection(
         scenario=scenario,
         current_t=current_t,
         lane_range=lane_range,
         lane_dist_thres=lane_dist_thres,
         lane_sample_num=lane_sample_num,
         max_center_vectors=max_center_vectors,
-    )
-    return selected_names
+    ).selected_track_ids
 
 
-def _get_trafficgen_data(scenario,current_t):
-    """Backward-compatible wrapper for the old API.
-
-    Old behavior returned:
-        ret["PZH_TRACK_NAMES"][ret["agent_mask"]]
-
-    New behavior computes the same selected names directly without building
-    TrafficGen's full intermediate `ret` dictionary.
-    """
+def _get_trafficgen_data(scenario, current_t: int = DEFAULT_CURRENT_T) -> np.ndarray:
+    """Backward-compatible replacement for the old expensive extraction path."""
     return get_trafficgen_track_names_fast(scenario, current_t=current_t)
