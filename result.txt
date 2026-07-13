@@ -914,8 +914,6 @@ bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt
 
 0.64699
 
-my
-
 model32_edgegp001w1_dise5-epoch=3-step=114138-valmeta=0.6547.ckpt
 
 test: 0.6491
