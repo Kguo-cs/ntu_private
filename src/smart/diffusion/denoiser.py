@@ -216,8 +216,8 @@ class InitDenoiser(nn.Module):
 
     def _maybe_init_normalizer(self, diff_output: torch.Tensor) -> None:
         if not torch.all(self.normal_mean == 0):
-            if self.normal_scale[0][0]<20:
-                self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
+            # if self.normal_scale[0][0]<20:
+            #     self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
             # if self.normal_scale[0][2]>1.5:
             #     self.normal_scale[:, 2:6] = self.normal_scale[:, 2:6] * 0.5
             #     # self.normal_scale[:, :2] = self.normal_scale[:, :2] * 2
@@ -262,6 +262,9 @@ class InitDenoiser(nn.Module):
             initial-state generation set and uses explicit all-agent metadata:
                 ``batch`` and ``type``.
         """
+        if "expert_input" in tokenized_agent.keys():
+            return tokenized_agent["expert_input"], tokenized_agent["expert_input"]
+
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
@@ -366,7 +369,7 @@ class InitDenoiser(nn.Module):
         self,
         m_delta: torch.Tensor,
         beta: torch.Tensor,
-        agent_type: torch.Tensor,
+        agent_type_embed: torch.Tensor,
     ) -> torch.Tensor:
         """Original InitDenoiser embedding style.
 
@@ -381,7 +384,7 @@ class InitDenoiser(nn.Module):
 
         feat_a = self.proj_in_m_delta(m_delta[:, 4:])
         feat_a = feat_a + self.noise_embedding(beta)
-        feat_a = feat_a + self.type_a_emb(agent_type)
+        feat_a = feat_a + agent_type_embed
         return feat_a
 
     def _embed_agents(
@@ -412,6 +415,12 @@ class InitDenoiser(nn.Module):
             elif mode == 0:
                 agent_type = torch.full_like(agent_type, self.num_classes)
 
+        if "agent_type_embed" not in tokenized_agent or self.training:
+            agent_type_embed=self.type_a_emb(agent_type)
+            tokenized_agent["agent_type_embed"]=agent_type_embed
+        else:
+            agent_type_embed=tokenized_agent["agent_type_embed"]
+
         beta = self._format_beta(beta, m_delta.shape[0])
 
         if self.init_embedding_mode == "new":
@@ -424,7 +433,7 @@ class InitDenoiser(nn.Module):
             feat_a = self._original_state_embedding(
                 m_delta=m_delta,
                 beta=beta,
-                agent_type=agent_type,
+                agent_type_embed=agent_type_embed,
             )
 
         if self.mean_flow:

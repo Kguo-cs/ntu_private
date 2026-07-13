@@ -111,7 +111,7 @@ class ScaleFlow(nn.Module):
         batch = tokenized_agent["batch"]
         num_graphs = tokenized_agent["num_graphs"]
 
-        base_t = torch.rand((num_graphs, 1), device=device, dtype=torch.float32).sqrt()
+        base_t = torch.rand((num_graphs, 1), device=device, dtype=torch.float32)#.sqrt()
         t = base_t[batch]
         t_dt = torch.ones_like(t)
         return t, t_dt, base_t
@@ -254,7 +254,6 @@ class ScaleFlow(nn.Module):
     def get_loss(
         self,
         x: torch.Tensor,
-        out: torch.Tensor,
         tokenized_agent: HeteroData,
         initial_map_feature: Mapping[str, torch.Tensor],
     ):
@@ -263,21 +262,21 @@ class ScaleFlow(nn.Module):
         num_samples has been removed. Input x is used once as [N, D].
         """
         if "advantages" in tokenized_agent:
-            return self._loss_with_advantages(x, out, tokenized_agent, initial_map_feature)
+            return self._loss_with_advantages(x,  tokenized_agent, initial_map_feature)
 
         if self.use_imf:
-            return self._meanflow_supervised_loss(x, out, tokenized_agent, initial_map_feature)
-        return self._standard_supervised_loss(x, out, tokenized_agent, initial_map_feature)
+            return self._meanflow_supervised_loss(x,  tokenized_agent, initial_map_feature)
+        return self._standard_supervised_loss(x,  tokenized_agent, initial_map_feature)
 
-    def _prepare_supervised_batch(self, x, out, tokenized_agent):
+    def _prepare_supervised_batch(self, x,  tokenized_agent):
         noise = self._sample_noise(x, tokenized_agent)
         t, t_dt, base_t = self._sample_time(x, tokenized_agent)
         self._fix_conditioned_agents(x, noise, t, tokenized_agent)
         z = (1.0 - t) * noise + t * x
         return x, noise, t, t_dt, base_t, z
 
-    def _standard_supervised_loss(self, x, out, tokenized_agent, map_feature):
-        x, noise, t, t_dt, base_t, z = self._prepare_supervised_batch(x, out, tokenized_agent)
+    def _standard_supervised_loss(self, x,  tokenized_agent, map_feature):
+        x, noise, t, t_dt, base_t, z = self._prepare_supervised_batch(x,  tokenized_agent)
         ego_mask = tokenized_agent["ego_mask"]
 
         velocity, x0 = self._model_velocity(z, t, tokenized_agent, map_feature)
@@ -296,9 +295,9 @@ class ScaleFlow(nn.Module):
 
         return loss, x_pred, z, t
 
-    def _meanflow_supervised_loss(self, x, out, tokenized_agent, map_feature):
+    def _meanflow_supervised_loss(self, x,  tokenized_agent, map_feature):
 
-        x, noise, t, t_dt, base_t, z = self._prepare_supervised_batch(x, out, tokenized_agent)
+        x, noise, t, t_dt, base_t, z = self._prepare_supervised_batch(x,  tokenized_agent)
         ego_mask = tokenized_agent["ego_mask"]
 
         # A small fraction of true one-step points: t=0, r=1.
@@ -366,62 +365,29 @@ class ScaleFlow(nn.Module):
     # ------------------------------------------------------------------
     # Advantage / SDE finetuning
     # ------------------------------------------------------------------
-    def _loss_with_advantages(self, x, out, tokenized_agent, map_feature):
+    def _loss_with_advantages(self, x,  tokenized_agent, map_feature):
         """Supervised loss plus advantage-based policy loss.
 
         This keeps the old high-level behavior but removes num_samples/mc_num and
         TempFlow-specific group weighting.
         """
-        x, noise, t, t_dt, base_t, z = self._prepare_supervised_batch(x, out, tokenized_agent)
-        ego_mask = tokenized_agent["ego_mask"]
+
+        loss, x_pred, z, t=self._standard_supervised_loss(x,  tokenized_agent, map_feature)
 
         if self.use_sde:
-            policy_loss = self._sde_advantage_loss(tokenized_agent, map_feature, ego_mask)
+            policy_loss = self._sde_advantage_loss(tokenized_agent, map_feature)
         else:
-            policy_loss = self._direct_advantage_loss(tokenized_agent, map_feature, ego_mask)
+            policy_loss = self._direct_advantage_loss(tokenized_agent, map_feature)
 
-        # Keep a normal supervised term on the current expert batch.
-        if self.use_imf:
-            sup_loss, x_pred, z_cur, t_cur = self._meanflow_supervised_loss(
-                x, out, tokenized_agent, map_feature
-            )
-            match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss = sup_loss
-        else:
-            velocity, x0 = self._model_velocity(z, t, tokenized_agent, map_feature)
-            pred_for_loss = x0 if self.x_pred else velocity
-            ego_view = ego_mask.view(ego_mask.shape[0], *([1] * (pred_for_loss.ndim - 1)))
-            if self.x_pred:
-                pred_for_loss = torch.where(ego_view, x.detach(), pred_for_loss)
-                x_pred = pred_for_loss
-            else:
-                pred_for_loss = torch.where(ego_view, torch.zeros_like(pred_for_loss), pred_for_loss)
-                x_pred = torch.where(ego_view, x.detach(), x0)
+        tokenized_agent["rl_loss"] = policy_loss
+        return loss, x_pred, z, t
 
-            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_diff_loss(
-                tokenized_agent,
-                pred_for_loss,
-                x,
-                t,
-                self.t_eps,
-                use_col=True,
-                x_pred=self.x_pred,
-            )
-            z_cur, t_cur = z, t
+    def _sde_advantage_loss(self, tokenized_agent, map_feature):
 
-        tokenized_agent["pg_loss"] = policy_loss.detach()
-        loss = (match_loss, collision_loss + policy_loss, pos_loss, heading_loss, shape_loss, vel_loss)
-        return loss, x_pred, z_cur, t_cur
-
-    def _sde_advantage_loss(self, tokenized_agent, map_feature, ego_mask):
-        if "sde_z" not in tokenized_agent or "sde_t" not in tokenized_agent:
-            return next(self.parameters()).new_zeros(())
+        ego_mask=tokenized_agent["ego_mask"]
 
         z_sampled, prev_sample, old_log_prob = tokenized_agent["sde_z"]
         t_sampled, t_next_sampled = tokenized_agent["sde_t"]
-        selected_agent_idx = tokenized_agent.get(
-            "gen_agent_idx",
-            torch.arange(z_sampled.shape[0], device=z_sampled.device),
-        )
 
         velocity, _ = self._model_velocity(
             z_sampled,
@@ -431,11 +397,9 @@ class ScaleFlow(nn.Module):
             t_next=t_next_sampled if self.use_imf else None,
         )
 
-        non_ego = ~ego_mask[selected_agent_idx]
-        if non_ego.sum() == 0:
-            return z_sampled.new_zeros(())
+        non_ego = ~ego_mask
 
-        prev_sample_sde, log_prob, _, _ = self.sde_step_with_logprob(
+        _, log_prob, _, _ = self.sde_step_with_logprob(
             1.0 - t_sampled[non_ego],
             1.0 - t_next_sampled[non_ego],
             -velocity[non_ego],
@@ -443,13 +407,14 @@ class ScaleFlow(nn.Module):
             noise_level=self.noise_level,
             prev_sample=prev_sample[non_ego],
         )
-        del prev_sample_sde
 
-        advantages = self._sanitize_advantages(
-            tokenized_agent["advantages"],
-            ego_mask,
-            selected_agent_idx=selected_agent_idx,
-        )[non_ego]
+        advantages =tokenized_agent["advantages"][non_ego]
+
+        # advantages = self._sanitize_advantages(
+        #     tokenized_agent["advantages"],
+        #     ego_mask,
+        #     selected_agent_idx=selected_agent_idx,
+        # )[non_ego]
 
         if self.use_init_ppo_ratio and old_log_prob is not None:
             old_lp = old_log_prob[non_ego].detach()
@@ -469,13 +434,12 @@ class ScaleFlow(nn.Module):
 
         return -(log_prob * advantages).mean()
 
-    def _direct_advantage_loss(self, tokenized_agent, map_feature, ego_mask):
+    def _direct_advantage_loss(self, tokenized_agent, map_feature):
         """Non-SDE advantage loss based on x0 matching quality.
 
         This is the old lightweight PPO-like branch, but without mc_num/num_samples.
         """
-        if "gen_z" not in tokenized_agent:
-            return next(self.parameters()).new_zeros(())
+        ego_mask=tokenized_agent["ego_mask"]
 
         x_sampled = self._as_nd(tokenized_agent["gen_z"], "gen_z")
         e_sampled = torch.randn_like(x_sampled)
@@ -592,13 +556,14 @@ class ScaleFlow(nn.Module):
             diff_input, _ = self.model.get_input(tokenized_agent)
             tokenized_agent["expert_input"]=diff_input
 
-        timesteps = torch.linspace(0.0, 1.0, steps + 1, device=agent_batch.device).sqrt()
+        timesteps = torch.linspace(0.0, 1.0, steps + 1, device=agent_batch.device)#.sqrt()
 
         if self.use_sde:
             z_list = [z]
             x_list = []
             t_list = []
             log_prob_list = []
+            feat_list=[]
 
             noise_level = torch.zeros(n_agent, steps, 1, device=agent_batch.device)
 
@@ -606,7 +571,6 @@ class ScaleFlow(nn.Module):
             branch_step_agent = branch_step_graph[agent_batch]
             noise_level[torch.arange(n_agent, device=agent_batch.device), branch_step_agent, 0] = self.noise_level
             noise_mask = noise_level[:, :, 0] > 0
-            tokenized_agent["sde_branch_step"] = branch_step_graph
 
         for i in range(steps):
             z, x_pred, t, log_prob = self._sample_step(
@@ -623,20 +587,17 @@ class ScaleFlow(nn.Module):
                 x_list.append(x_pred)
                 t_list.append(t)
                 log_prob_list.append(log_prob)
-
-                if "noise_feat" in tokenized_agent:
-                    tokenized_agent["noise_feat_last"] = tokenized_agent["noise_feat"]
+                feat_list.append( tokenized_agent["noise_feat"])
 
         z[tokenized_agent["ego_mask"]]=tokenized_agent["expert_input"][tokenized_agent["ego_mask"]]
 
         if self.use_sde:
-            tokenized_agent["pred_z_list"] = torch.stack(z_list, dim=1)
-            tokenized_agent["gen_z"] = z
+            # tokenized_agent["pred_z_list"] = torch.stack(z_list, dim=1)
+            # tokenized_agent["gen_z"] = z
 
             z_stack = torch.stack(z_list, dim=1)          # [N, steps+1, D]
             t_stack = torch.stack(t_list + [torch.ones_like(t_list[-1])], dim=1)
             logp_stack = torch.stack(log_prob_list, dim=1)
-            selected_agent_idx = torch.arange(n_agent, device=agent_batch.device)[:, None].expand(n_agent, steps)[noise_mask]
 
             tokenized_agent["sde_z"] = (
                 z_stack[:, :-1][noise_mask],
@@ -647,9 +608,7 @@ class ScaleFlow(nn.Module):
                 t_stack[:, :-1][noise_mask],
                 t_stack[:, 1:][noise_mask],
             )
-            tokenized_agent["gen_agent_idx"] = selected_agent_idx
-            if branch_step_agent is not None:
-                tokenized_agent["sde_selected_branch_step"] = branch_step_agent[selected_agent_idx]
+            tokenized_agent["noise_feat"] = torch.stack(feat_list, dim=1)[noise_mask]
 
         return z
 

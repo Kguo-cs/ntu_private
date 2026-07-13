@@ -70,12 +70,13 @@ class InitDiffusion(nn.Module):
 
     def forward(self, tokenized_agent,resampling=False):
 
-        num_graphs = tokenized_agent["num_graphs"]
-        ego_mask = tokenized_agent["ego_mask"]
-        ego_position = tokenized_agent["initial_pos"][ego_mask]
-        ego_heading = tokenized_agent["initial_heading"][ego_mask]
 
         if "ego_feat" not in tokenized_agent.keys():
+            num_graphs = tokenized_agent["num_graphs"]
+            ego_mask = tokenized_agent["ego_mask"]
+            ego_position = tokenized_agent["initial_pos"][ego_mask]
+            ego_heading = tokenized_agent["initial_heading"][ego_mask]
+
             batch = tokenized_agent["batch"]
 
             tokenized_agent["batch_ego_pos"] = ego_position[batch]
@@ -116,8 +117,6 @@ class InitDiffusion(nn.Module):
                 idx,
                 minlength=num_graphs * num_types,
             ).view(-1, num_types)
-
-            tokenized_agent["type_counts"] = type_counts
 
             ego_feat = torch.cat([local_ego_traj, type_counts], dim=-1)
             tokenized_agent["ego_feat"] = ego_feat
@@ -235,7 +234,7 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent["advantages"]=advantage#advantage conditioned
 
-                loss,x_pred ,z,t = self.G1.get_loss(diff_input, diff_output,tokenized_agent, initial_map_feature)
+                loss,x_pred ,z,t = self.G1.get_loss(diff_input, tokenized_agent, initial_map_feature)
 
             match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss=loss
 

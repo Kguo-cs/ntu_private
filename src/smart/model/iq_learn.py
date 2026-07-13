@@ -612,7 +612,9 @@ class IQ_SoftQ(LightningModule):
             #                            ) / init_adv_non_ego.std(unbiased=False).clamp_min(1e-8)
 
 
-            match_loss, rl_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.init_decoder(tokenized_agent)
+            match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.init_decoder(tokenized_agent)
+
+            rl_loss=tokenized_agent["rl_loss"]
 
             self._log_train('train/match_loss', match_loss)
             self._log_train('train/pos_loss', pos_loss)
@@ -620,8 +622,9 @@ class IQ_SoftQ(LightningModule):
             self._log_train('train/shape_loss', shape_loss)
             self._log_train('train/vel_loss', vel_loss)
             self._log_train('train/rl_loss', rl_loss)
+            self._log_train('train/col_loss', col_loss)
 
-            init_loss=match_loss+rl_loss
+            init_loss=match_loss+rl_loss+col_loss
 
             init_optimizer.zero_grad()
 
