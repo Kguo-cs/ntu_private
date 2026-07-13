@@ -10,7 +10,7 @@ from waymo_open_dataset.protos import (
 
 from data_preprocess import decode_map_features_from_proto
 from .mmd_metric import compute_mmd_metrics
-from .trafficgen_metrics import (
+from .trafficgen_metrics1 import (
     _extract_center_lane_vectors_in_ego,
     get_select_index,
 )
@@ -80,7 +80,11 @@ def _extract_resampled_centerlines(scenario, num_points: int = 100) -> np.ndarra
 
 
 def _build_real_state(data, timestep: int, batch: torch.Tensor):
-    """Build valid real-agent states.
+    """Build real-agent states without deleting invalid slots.
+
+    Keeping the complete local agent order is necessary because TrafficGen
+    applies a validity mask but does not compress the agent array before
+    sorting and filtering.
 
     Columns:
         x, y, speed, cos(h), sin(h), length, width, vx, vy, heading, type
@@ -103,7 +107,7 @@ def _build_real_state(data, timestep: int, batch: torch.Tensor):
         dim=-1,
     )
 
-    return state[valid], batch[valid], data["agent"]["type"][valid]
+    return state, valid, batch, data["agent"]["type"]
 
 
 def _build_generated_state(
@@ -160,7 +164,7 @@ def compute_gen_samples(
     )
 
     if gt_dist is None:
-        real_state, real_batch, real_type = _build_real_state(
+        real_state, real_valid, real_batch, real_type = _build_real_state(
             data=data,
             timestep=init_timestep,
             batch=batch,
@@ -173,59 +177,82 @@ def compute_gen_samples(
             scenario = _load_scenario(data["tfrecord_path"][graph_index])
             centerlines = _extract_resampled_centerlines(scenario)
 
-            graph_mask = (real_batch == graph_index )
-            real_agents = real_state[graph_mask & (real_type == 0)].detach().cpu().numpy()
+            graph_mask = real_batch == graph_index
+            real_agents_full = real_state[graph_mask].detach().cpu().numpy()
+            graph_valid = real_valid[graph_mask].detach().cpu().numpy().astype(bool)
+            graph_types = real_type[graph_mask].detach().cpu().numpy()
 
-            ego_index = MODEL_EGO_INDEX % len(real_agents)
+            if len(real_agents_full) == 0:
+                raise ValueError(f"Graph {graph_index} contains no agents")
+
+            ego_index = MODEL_EGO_INDEX % len(real_agents_full)
             lane_vectors = _extract_center_lane_vectors_in_ego(
                 scenario=scenario,
-                ego_xy=real_agents[ego_index, REAL_POS],
-                ego_heading=float(real_agents[ego_index, REAL_HEADING]),
+                ego_xy=real_agents_full[ego_index, REAL_POS],
+                ego_heading=float(real_agents_full[ego_index, REAL_HEADING]),
             )
 
-            # Do not pass model object types here: in this codebase type 0 is a
-            # valid vehicle, whereas Waymo proto type 0 means unset/invalid.
+            # Exact TrafficGen semantics, adapted only for this model's type
+            # encoding: model type 0 corresponds to Waymo TYPE_VEHICLE == 1.
             selected_index = get_select_index(
                 lane_vectors=lane_vectors,
-                positions=real_agents[:, REAL_POS],
-                velocities=real_agents[:, REAL_VEL],
-                headings=real_agents[:, REAL_HEADING],
+                positions=real_agents_full[:, REAL_POS],
+                velocities=real_agents_full[:, REAL_VEL],
+                headings=real_agents_full[:, REAL_HEADING],
+                valid=graph_valid,
+                object_types=graph_types,
                 ego_index=ego_index,
+                vehicle_type=0,
+                lane_range=50.0,
+                lane_dist_thres=5.0,
+                max_agent_num=32,
+                raster_resolution=0.25,
+                randomize_agents=False,
             )
 
+            valid_vehicle = graph_valid & (graph_types == 0)
             gt_samples.append(
                 {
                     "lanes": centerlines,
-                    # "lane_vectors": lane_vectors,
-                    "vehicles": real_agents,
-                    # "all_agents": real_agents,
-                    # "select_index": selected_index,
-                    "trafficgen_vehicles": real_agents[selected_index],
+                    "lane_vectors": lane_vectors,
+                    "vehicles": real_agents_full[valid_vehicle],
+                    "all_agents": real_agents_full[graph_valid],
+                    "select_index": selected_index,
+                    "select_agents": real_agents_full[selected_index],
                 }
             )
 
-        # if output_index >= len(gt_samples):
-        #     raise IndexError(
-        #         "gt_samples and samples are not aligned; cannot reuse selection indices"
-        #     )
-        #
+        if output_index >= len(gt_samples):
+            raise IndexError(
+                "gt_samples and samples are not aligned; cannot reuse selection indices"
+            )
+
         graph_mask = batch == graph_index
-        # generated_agents = generated_state[graph_mask].detach().cpu().numpy()
-        generated_vehicles = generated_state[
-            graph_mask & (agent_type == 0)
-        ].detach().cpu().numpy()
-        #
-        # selected_index = np.asarray(
-        #     gt_samples[output_index]["select_index"], dtype=np.int64
-        # )
-        # selected_index = selected_index[selected_index < len(generated_agents)]
-        #
+        generated_agents_full = generated_state[graph_mask].detach().cpu().numpy()
+        graph_valid = (
+            data["agent"]["valid_mask"][:, init_timestep][graph_mask]
+            .detach()
+            .cpu()
+            .numpy()
+            .astype(bool)
+        )
+        graph_types = agent_type[graph_mask].detach().cpu().numpy()
+
+        selected_index = np.asarray(
+            gt_samples[output_index]["select_index"], dtype=np.int64
+        )
+        if np.any(selected_index >= len(generated_agents_full)):
+            raise IndexError(
+                "TrafficGen selection indices do not match generated-agent order"
+            )
+
+        valid_vehicle = graph_valid & (graph_types == 0)
         samples.append(
             {
-                "vehicles": generated_vehicles,
-                # "all_agents": generated_agents,
-                # "select_index": selected_index,
-                # "agents": generated_agents[selected_index],
+                "vehicles": generated_agents_full[valid_vehicle],
+                "all_agents": generated_agents_full[graph_valid],
+                "select_index": selected_index,
+                "agents": generated_agents_full[selected_index],
             }
         )
 
