@@ -111,7 +111,7 @@ class ScaleFlow(nn.Module):
         batch = tokenized_agent["batch"]
         num_graphs = tokenized_agent["num_graphs"]
 
-        base_t = torch.rand((num_graphs, 1), device=device, dtype=torch.float32)
+        base_t = torch.rand((num_graphs, 1), device=device, dtype=torch.float32).sqrt()
         t = base_t[batch]
         t_dt = torch.ones_like(t)
         return t, t_dt, base_t
@@ -592,7 +592,7 @@ class ScaleFlow(nn.Module):
             diff_input, _ = self.model.get_input(tokenized_agent)
             tokenized_agent["expert_input"]=diff_input
 
-        timesteps = torch.linspace(0.0, 1.0, steps + 1, device=agent_batch.device)
+        timesteps = torch.linspace(0.0, 1.0, steps + 1, device=agent_batch.device).sqrt()
 
         if self.use_sde:
             z_list = [z]
