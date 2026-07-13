@@ -111,9 +111,6 @@ class InitDenoiser(nn.Module):
         # through tokenized_agent["meanflow_h"]. If the caller does not set it,
         # h defaults to zero and the model behaves like a boundary velocity model.
 
-        if learn_noise:
-            raise NotImplementedError("learn_noise=True was removed from the cleaned InitDenoiser.")
-
         self.num_classes = 3
         self.shape_dim = 2
         self.m_delta_dim = 8
