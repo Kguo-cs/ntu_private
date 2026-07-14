@@ -27,9 +27,6 @@ from torch.distributions import Categorical
 from src.smart.utils.edge_utils import build_batch
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
-import numpy as np
-from src.smart.diffusion.initial_diffusion import InitDiffusion
-
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
