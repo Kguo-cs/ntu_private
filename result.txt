@@ -919,18 +919,8 @@ model32_edgegp001w1_dise5-epoch=3-step=114138-valmeta=0.6547.ckpt
 test: 0.6491
 
 
+xflow512_match_noiseposvhead1_posheadl1-epoch=59-step=57120-valmeta=0.6496.ckpt
 
-model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
-
-model32_a60_gp001_len10_dise5.ckpt
-
-model32_gp001shape1_dise5_logitlosssum-epoch=2-step=76092-valmeta=0.6513.ckpt
-
-xflow512_matchfast-epoch=29-step=28560-valmeta=0.6454.ckpt
-
-xflow512_noisevhead1.ckpt
-
-xflow512_matchfast_noisevhead1-epoch=31-step=30464-valmeta=0.6480.ckpt
 
 
 

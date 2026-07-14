@@ -90,9 +90,11 @@ class ScaleFlow(nn.Module):
     def _sample_noise(self, x: torch.Tensor, tokenized_agent: HeteroData) -> torch.Tensor:
         """Sample base noise and denormalize it to the data scale."""
         noise = torch.randn_like(x)
+        norm_x=self.model.normalize(x)
+        noise[tokenized_agent["ego_mask"]] = norm_x[tokenized_agent["ego_mask"]]
         fake_idx = get_closest_sum_idx_fast(
             noise,
-            self.model.normalize(x),
+            norm_x,
             tokenized_agent,
             all_state=True,
         )
