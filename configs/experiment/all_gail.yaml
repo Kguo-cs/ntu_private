@@ -21,8 +21,8 @@ ckpt_path: "./waymo_data/xflow512_match_noiseposvhead1_posheadl1-epoch=59-step=5
 task_name: all32_pg_match_vhead1_posheadl1_nogp #ref_clip01clip10 #_sde100 #los01pg100 #gp001shape10_loss001clip01_agent_nocopy #loss001_clip001decay__noref_dis1e5 #999 #Z_Newz #rewardNewMyexp01d2_l1 #ppo001loss01kl01_clip01ppow01kl001 # samplelossPos #_nocol #_large0shape10noshape10_exp_
 
 trainer:
-  val_check_interval: 0.25
- # val_check_interval: 0.000002
+ # val_check_interval: 0.25
+  val_check_interval: 0.000002
   max_epochs: 5
   gradient_clip_val: 0.0
 

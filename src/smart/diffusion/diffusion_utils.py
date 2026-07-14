@@ -326,8 +326,8 @@ def matching_loss(
     if fake_state.shape[-1]<16:
         pos_loss = _robust_component_loss(fake_pos, real_pos, beta=0, use_huber=True)
         heading_loss = _robust_component_loss(fake_heading, real_heading, beta=0, use_huber=True)
-        shape_loss = _robust_component_loss(fake_shape, real_shape, beta=0, use_huber=False)
-        vel_loss = _robust_component_loss(fake_vel, real_vel, beta=0, use_huber=False)
+        shape_loss = _robust_component_loss(fake_shape, real_shape, beta=0, use_huber=True)
+        vel_loss = _robust_component_loss(fake_vel, real_vel, beta=0, use_huber=True)
 
     elif fake_state.shape[-1]==16:
         fake_vel = fake_state[:, 6:8]
@@ -710,7 +710,7 @@ def get_closest_sum_idx_fast(
 
 def get_diff_loss(
     tokenized_agent, fake_state,real_state,t,t_eps,scale=1 ,all_state=False,use_col=False,use_all_type=False,use_match=False,x_pred=False,
-    w_pos=0.1/ 5, w_heading=0.5/ 5, w_shape=0.2/ 5, w_vel=0.2/ 5,
+    w_pos=0.1/ 5, w_heading=0.5/ 5, w_shape=0.2/ 5, w_vel=0.02/ 5,
     #w_pos=0.1, w_heading=0.1, w_shape=0.1, w_vel=0.1,
     # w_pos = 0.0015,
     # w_heading = 0.5,

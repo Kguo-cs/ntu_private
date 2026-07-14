@@ -51,7 +51,6 @@ from src.smart.utils import (
 import os
 from src.smart.tokens.token_processor import TokenProcessor
 
-
 class SMART(LightningModule):
 
     def __init__(self, model_config) -> None:
