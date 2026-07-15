@@ -97,7 +97,6 @@ class InitDenoiser(nn.Module):
         self.ego_rel = True
         self.use_scale = False
         self.use_all_type = False
-        self.use_all_pos = False
         self.use_dit = False
         self.use_bin = False
         self.learn_noise = False

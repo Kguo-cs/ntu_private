@@ -30,8 +30,6 @@ class InitDiffusion(nn.Module):
         ) -> None:
         super(InitDiffusion, self).__init__()
 
-        self.use_all_pos=token_processor.use_all_pos
-        self.pred_all_pos=token_processor.pred_all_pos
         self.token_processor=token_processor
 
         parser = ArgumentParser()
@@ -132,20 +130,17 @@ class InitDiffusion(nn.Module):
 
         if "initial_map_feature" not in tokenized_agent.keys():
             map_feature = tokenized_agent["map_feature"]
-            if self.use_all_pos:
-                initial_map_feature =map_feature
-            else:
-                batch_pl = map_feature["batch"]
-                pos_pt = map_feature["position"]
+            batch_pl = map_feature["batch"]
+            pos_pt = map_feature["position"]
 
-                if batch_pl.numel() == 0:
-                    initial_map_feature = {key: value for key, value in map_feature.items()}
-                else:
-                    ego_pos = ego_position.reshape(-1, num_graphs, 2)
-                    dist = torch.norm(ego_pos[:, batch_pl] - pos_pt[None], dim=-1).amin(0)
-                    initial_map_feature = {
-                        key: value[dist < self.token_processor.init_map_range] for key, value in map_feature.items()
-                    }
+            if batch_pl.numel() == 0:
+                initial_map_feature = {key: value for key, value in map_feature.items()}
+            else:
+                ego_pos = ego_position.reshape(-1, num_graphs, 2)
+                dist = torch.norm(ego_pos[:, batch_pl] - pos_pt[None], dim=-1).amin(0)
+                initial_map_feature = {
+                    key: value[dist < self.token_processor.init_map_range] for key, value in map_feature.items()
+                }
 
             batch_pl = initial_map_feature["batch"]
             pos_pl = initial_map_feature["position"]

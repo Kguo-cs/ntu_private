@@ -56,10 +56,6 @@ class TokenProcessor(torch.nn.Module):
         self.use_token = True
         self.use_goal = False
         self.init_map_range = 100
-        self.use_all_pos = False
-        self.pred_all_pos = False
-        self.pred_2step = False
-        self.traj_diffusion = False
         self.use_gradient_penalty = False
 
         module_dir = os.path.dirname(__file__)
@@ -165,10 +161,6 @@ class TokenProcessor(torch.nn.Module):
         row = torch.arange(len(velocity_idx), device=velocity_idx.device)
         selected = agent["token_traj_all"][row, velocity_idx]
         agent["local_vel"] = selected[:, -1].mean(-2) / 0.5
-
-        if self.pred_2step and agent["sampled_idx"].shape[1] > 1:
-            previous = agent["token_traj_all"][row, agent["sampled_idx"][:, 0]]
-            agent["prev_vel"] = previous[:, -1].mean(-2) / 0.5
 
     def init_map_token(self, path: str, sample_len: int = 3) -> None:
         with open(path, "rb") as file:
@@ -286,7 +278,7 @@ class TokenProcessor(torch.nn.Module):
                 agent_shape,
                 final_tokens,
                 shift=self.shift,
-                error_dist=1.0 if self.traj_diffusion else 0.3,
+                error_dist= 0.3,
             )
         )
         if "id" in raw:
@@ -695,7 +687,7 @@ class TokenProcessor(torch.nn.Module):
                     agent_shape=shapes,
                     token_traj=final_tokens,
                     shift=self.shift,
-                    error_dist=1.0 if self.traj_diffusion else 0.3,
+                    error_dist=0.3,
                 )
             )
             return result
