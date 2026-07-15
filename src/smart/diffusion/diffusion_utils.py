@@ -81,18 +81,18 @@ def _component_loss(
     use_huber: bool,
     huber_beta: float,
 ) -> Tensor:
-    # if use_huber:
-    #     if huber_beta <= 0:
-    #         raise ValueError("huber_beta must be positive")
-    #     loss = F.smooth_l1_loss(
-    #         prediction,
-    #         target,
-    #         beta=huber_beta,
-    #         reduction="none",
-    #     )
-    # else:
-    #     loss = F.mse_loss(prediction, target, reduction="none")
-    loss= F.l1_loss(prediction, target, reduction="none")
+    if use_huber:
+        # if huber_beta <= 0:
+        #     raise ValueError("huber_beta must be positive")
+        # loss = F.smooth_l1_loss(
+        #     prediction,
+        #     target,
+        #     beta=huber_beta,
+        #     reduction="none",
+        # )
+        loss=F.l1_loss(prediction, target, reduction="none")
+    else:
+        loss = F.mse_loss(prediction, target, reduction="none")
     return loss.mean(-1)
 
 
@@ -149,9 +149,9 @@ def matching_loss(
 
     if mode == "deterministic":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
-        pos_loss = _component_loss(fake_pos, real_pos, use_huber, huber_beta)
+        pos_loss = _component_loss(fake_pos, real_pos, True, huber_beta)
         heading_loss = _component_loss(
-            fake_heading, real_heading, use_huber, huber_beta
+            fake_heading, real_heading, True, huber_beta
         )
         shape_loss = _component_loss(fake_shape, real_shape, use_huber, huber_beta)
         vel_loss = _component_loss(fake_vel, real_vel, use_huber, huber_beta)
