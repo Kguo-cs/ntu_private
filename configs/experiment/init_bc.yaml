@@ -24,7 +24,7 @@ trainer:
   max_epochs: 32
 
 data:
-  train_batch_size: 512
+  train_batch_size: 2
   val_batch_size: 256
   train_raw_dir: ${paths.cache_root}/training_map2_init5 #init0_light #init0_light  #init10_inter
  # num_workers: 1

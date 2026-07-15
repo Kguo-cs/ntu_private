@@ -1,372 +1,408 @@
-from lightning import LightningModule
-import numpy as np
-import torch
-import torch.nn.functional as F
-import torch.nn as nn
-import time
-from collections import deque
-import random
-import copy
+"""Cleaner IQ/GAIL Lightning training module.
 
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch,rollout, compute_advantages,get_train_mask
-from src.smart.loss.gp_penalty import _select_ego_logits,_weighted_bce_with_logits,_has_elements,_reshape_valid_rewards,destination_normalized_interaction_bce,ZeroCenteredGradientPenalty
-from torch_scatter import scatter_sum
-from src.smart.diffusion.diffusion_utils import multi_circle_collision_loss_mem_efficient
+The public class and main method names are kept compatible with the original
+implementation, while the training stages are split into small helpers.
+"""
+
+from __future__ import annotations
+
+import copy
+from collections import deque
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
+
+import torch
+from lightning import LightningModule
+from torch import Tensor
+
 from src.smart.loss.edge_gp import ZeroCenteredGradientPenalty_edge
+from src.smart.loss.gp_penalty import (
+    _has_elements,
+    _reshape_valid_rewards,
+    _select_ego_logits,
+    _weighted_bce_with_logits,
+)
+from src.smart.loss.rollout_buffer import (
+    RunningMeanStdTorch,
+    compute_advantages,
+    get_train_mask,
+    rollout,
+)
+
+
+TensorDict = MutableMapping[str, Any]
+
+
+def _zero(reference: Tensor) -> Tensor:
+    return reference.new_zeros(())
+
+
+def _safe_mean(value: Any, reference: Tensor) -> Tensor:
+    if torch.is_tensor(value):
+        return value.mean() if value.numel() else _zero(reference)
+    return reference.new_tensor(float(value))
 
 
 class IQ_SoftQ(LightningModule):
+    """Joint supervised, GAIL, value, and initial-state trainer.
 
-    def __init__(self, model_config) -> None:
+    ``model_config`` must expose ``encoder`` and ``token_processor`` either as
+    attributes or mapping entries. This explicit contract replaces the invalid
+    ``LightningModule.__init__(model_config)`` call in the original code.
+    """
+
+    def __init__(self, model_config: Any) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
+
         self.gamma = 0.99
-        self.gail = self.encoder.gail
-        self.alpha = self.encoder.alpha
+        self.gail = bool(self.encoder.gail)
+        self.alpha = float(self.encoder.alpha)
 
-        self.buffer_len = 1
+        self.use_kl_penalty = bool(self.encoder.use_kl_penalty)
+        self.use_lcf = bool(self.encoder.use_lcf)
+        self.use_gradient_penalty = bool(self.token_processor.use_gradient_penalty)
+        self.pred_init = bool(self.token_processor.pred_init)
 
-        self.replay_buffer = deque(maxlen=self.buffer_len)
-
-        self.use_kl_penalty = self.encoder.use_kl_penalty
+        decoder = self.encoder.agent_encoder.interative_decoder
+        self.gail_start_step = int(decoder.gail_start_step)
+        self.dis_start_step = int(decoder.dis_start_step)
 
         if self.use_kl_penalty:
-            self.bc_net = copy.deepcopy(self.encoder.agent_encoder)
-
-            self.bc_net.target_net = True
-            for param in self.bc_net.parameters():
-                param.requires_grad = False
-            self.bc_net.eval()
-
+            self.bc_net = self._frozen_copy(self.encoder.agent_encoder)
             if self.encoder.map_encoder.type_pt_emb.weight.requires_grad:
-                self.bc_map_net = copy.deepcopy(self.encoder.map_encoder)
-
-                for param in self.bc_map_net.parameters():
-                    param.requires_grad = False
-
-                self.bc_map_net.eval()
+                self.bc_map_net = self._frozen_copy(self.encoder.map_encoder)
             else:
                 self.bc_map_net = None
 
         if self.gail:
-            self.return_meanstd = RunningMeanStdTorch(shape=(1))
-            # self.ego_return_meanstd = RunningMeanStdTorch(shape=(1))
-            # self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
+            self.return_meanstd = RunningMeanStdTorch(shape=(1,))
 
-        self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = self.token_processor.use_gradient_penalty
-        self.pred_init=self.token_processor.pred_init
+        init_uses_gan = self.pred_init and self.encoder.init_decoder.use_gan
+        if self.gail or init_uses_gan:
+            self.automatic_optimization = False
 
-        self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
-        self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
+    @staticmethod
+    def _get_component(config: Any, name: str) -> Any:
+        if hasattr(config, name):
+            return getattr(config, name)
+        if isinstance(config, Mapping) and name in config:
+            return config[name]
+        raise ValueError(f"model_config must provide '{name}'.")
 
-        if self.gail or (self.pred_init and self.encoder.init_decoder.use_gan):
+    @staticmethod
+    def _frozen_copy(module: torch.nn.Module) -> torch.nn.Module:
+        frozen = copy.deepcopy(module)
+        if hasattr(frozen, "target_net"):
+            frozen.target_net = True
+        frozen.requires_grad_(False)
+        frozen.eval()
+        return frozen
 
-            self.automatic_optimization=False
+    def _log_train(self, name: str, value: Any) -> None:
+        """Log every 50 optimizer steps and safely handle empty tensors."""
 
-    def _log_train(self, name, value):
-        """Throttle train logging to avoid W&B broken-pipe / socket overload."""
-        if self.global_step % 50 == 0:
-            return self.log(name, value, on_step=True,batch_size=1)
+        if self.global_step % 50 != 0:
+            return
+        if torch.is_tensor(value) and value.numel() == 0:
+            return
+        self.log(name, value, on_step=True, batch_size=1)
 
-    def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
+    # ------------------------------------------------------------------
+    # Supervised policy / initialization loss
+    # ------------------------------------------------------------------
+    def get_QV(
+        self,
+        tokenized_map: TensorDict,
+        tokenized_agent: TensorDict,
+        key: str = "expert",
+    ) -> tuple[Tensor, Tensor]:
+        """Compute policy NLL and optional initial-state loss.
 
-        if not self.pred_init:
-            tokenized_agent["train_mask"] = None
+        Returns:
+            total_loss: scalar tensor.
+            selected_log_prob: one-dimensional tensor; empty when unavailable.
+        """
 
-        pred = self.encoder(tokenized_map, tokenized_agent)
-
-        if key=="agent" and not self.pred_init:
-            tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
-
-        if "next_token_logits" in pred.keys():
-            if key=='expert':
-                start_step=0
-            else:
-                start_step=self.gail_start_step
-
-            valid_mask = tokenized_agent["valid_mask"][:, start_step:]
-            action = tokenized_agent["sampled_idx"][:, start_step + 1:]
-
-            train_mask = get_train_mask(tokenized_agent, start_step)  # t,a
-
-            if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
-                agent_train_mask=tokenized_agent["train_mask"]
-                valid_mask=valid_mask[agent_train_mask]
-                action=action[agent_train_mask]
-
-            train_mask=train_mask.flatten(0, 1)
-
-            action=action.transpose(0, 1).flatten(0, 1)[train_mask]
-
-            next_token_logits=pred["next_token_logits"]
-
-            if key == "expert":
-                action_valid=train_mask[valid_mask[:,:-1].transpose(0, 1).flatten(0, 1)]
-            else:
-                action_valid=train_mask
-
-            next_token_logits=next_token_logits[action_valid] / self.alpha
-
-            pi = torch.softmax(next_token_logits, dim=-1)
-
-            logpi = torch.log(pi + 1e-10)
-
-            log_prob = torch.gather(logpi, dim=-1, index=action.unsqueeze(-1)).squeeze(-1) #t,a
-
-            entropy = -torch.sum(pi * logpi, dim=-1)
-
-            action_nll=-log_prob.mean()
-
-            self._log_train("train/" + key + "_nll", action_nll)
-            self._log_train("train/" + key + "_entropy", entropy.mean())
+        if self.pred_init:
+            tokenized_agent["pred_mask"]=None
         else:
-            action_nll=log_prob=0
+            tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] & tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
-        if "initial_logit" in pred.keys():
+        prediction = self.encoder(tokenized_map, tokenized_agent)
+        reference = self._prediction_reference(prediction, tokenized_agent)
 
-            if self.encoder.init_decoder.use_gan:
-                # noncol_rate = get_col_rate(tokenized_agent, pred["initial_logit"][1])
-                #
-                # self._log_train('train/noncol_rate', noncol_rate.mean())
+        policy_loss, log_prob = self._policy_nll(prediction, tokenized_agent, key, reference)
+        init_loss = self._initial_prediction_loss(prediction, tokenized_agent, reference)
+        return policy_loss + init_loss, log_prob
 
-                loss=self.encoder.init_decoder.D.gan_update( self.log,self.optimizers(), self.encoder.init_decoder.G1,pred["initial_logit"])
-            elif self.encoder.init_decoder.learn_autoencoder:
-                rec_loss, agent_loss, kl_loss,pos_loss,heading_loss,shape_loss,vel_loss,_=pred[   "initial_logit"]
-                self._log_train('train/rec_loss', rec_loss)
-                self._log_train('train/agent_loss', agent_loss)
-                self._log_train('train/kl_loss', kl_loss)
-                self._log_train('train/pos_loss', pos_loss)
-                self._log_train('train/heading_loss', heading_loss)
-                self._log_train('train/shape_loss', shape_loss)
-                self._log_train('train/vel_loss', vel_loss)
+    @staticmethod
+    def _prediction_reference(prediction: Mapping[str, Any], agent: Mapping[str, Any]) -> Tensor:
+        for value in prediction.values():
+            if torch.is_tensor(value):
+                return value
+            if isinstance(value, (tuple, list)):
+                for item in value:
+                    if torch.is_tensor(item):
+                        return item
+        for value in agent.values():
+            if torch.is_tensor(value):
+                return value
+        raise ValueError("Could not find a tensor to determine device and dtype.")
 
-                loss=rec_loss
-            else:
-                match_loss,  collision_loss, pos_loss, heading_loss, shape_loss, vel_loss = pred[
-                    "initial_logit"]
-                self._log_train('train/match_loss', match_loss)
-                self._log_train('train/pos_loss', pos_loss)
-                self._log_train('train/heading_loss', heading_loss)
-                self._log_train('train/shape_loss', shape_loss)
-                self._log_train('train/vel_loss', vel_loss)
-                self._log_train('train/col_loss', collision_loss)
+    def _policy_nll(
+        self,
+        prediction: Mapping[str, Any],
+        agent: TensorDict,
+        key: str,
+        reference: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        logits = prediction.get("next_token_logits")
+        if logits is None:
+            return _zero(reference), reference.new_empty((0,))
 
+        start_step = 0 if key == "expert" else self.gail_start_step
+        valid_mask = agent["valid_mask"][:, start_step:].bool()
+        actions = agent["sampled_idx"][:, start_step + 1 :].long()
+        state_action_mask = get_train_mask(agent, start_step).bool()
 
-                # if self.encoder.init_decoder.G1.model.learn_schedule:
-                # gamma_groups=self.encoder.init_decoder.G1.model.schedule.gamma_groups
-                # self._log_train('train/pos_gamma', gamma_groups[0])
-                # self._log_train('train/heading_gamma', gamma_groups[1])
-                # self._log_train('train/shape_gamma', gamma_groups[2])
-                # self._log_train('train/vel_gamma', gamma_groups[3])
+        explicit_agent_mask = agent.get("train_mask")
+        if explicit_agent_mask is not None:
+            explicit_agent_mask = explicit_agent_mask.bool()
+            valid_mask = valid_mask[explicit_agent_mask]
+            actions = actions[explicit_agent_mask]
 
-                if "noise_std" in tokenized_agent.keys():
-                    std=tokenized_agent["noise_std"][:,0].mean(0)
-                else:
-                    std=self.encoder.init_decoder.G1.model.normal_scale[0]
+        flat_sa_mask = state_action_mask.reshape(-1)
+        flat_actions = actions.transpose(0, 1).reshape(-1)
 
-                self._log_train('train/pos_std', std[0:2].mean())
-                self._log_train('train/heading_std', std[2:4].mean())
-                self._log_train('train/shape_std', std[4:6].mean())
-                self._log_train('train/vel_std', std[6:8].mean())
+        if key == "expert":
+            # A transition is valid only when its source frame is valid.
+            state_valid = valid_mask[:, :-1].transpose(0, 1).reshape(-1)
+            logit_mask = flat_sa_mask[state_valid]
+        else:
+            logit_mask = flat_sa_mask
 
+        selected_logits = logits[logit_mask] / self.alpha
+        selected_actions = flat_actions[flat_sa_mask]
 
-                loss = match_loss + collision_loss
+        log_policy = selected_logits.log_softmax(dim=-1)
+        policy = log_policy.exp()
+        log_prob = log_policy.gather(1, selected_actions[:, None]).squeeze(1)
+        entropy = -(policy * log_policy).sum(dim=-1)
+        nll = -log_prob.mean()
 
-            action_nll = action_nll + loss
+        self._log_train(f"train/{key}_nll", nll)
+        self._log_train(f"train/{key}_entropy", entropy.mean())
+        return nll, log_prob
 
-        return action_nll,log_prob
+    def _initial_prediction_loss(
+        self,
+        prediction: Mapping[str, Any],
+        agent: TensorDict,
+        reference: Tensor,
+    ) -> Tensor:
+        result = prediction.get("initial_logit")
+        if result is None:
+            return _zero(reference)
 
+        init_decoder = self.encoder.init_decoder
+        if init_decoder.use_gan:
+            return init_decoder.D.gan_update(
+                self.log,
+                self.optimizers(),
+                init_decoder.G1,
+                result,
+            )
+
+        if init_decoder.learn_autoencoder:
+            (
+                reconstruction_loss,
+                agent_loss,
+                kl_loss,
+                pos_loss,
+                heading_loss,
+                shape_loss,
+                vel_loss,
+                _,
+            ) = result
+            metrics = {
+                "rec_loss": reconstruction_loss,
+                "agent_loss": agent_loss,
+                "kl_loss": kl_loss,
+                "pos_loss": pos_loss,
+                "heading_loss": heading_loss,
+                "shape_loss": shape_loss,
+                "vel_loss": vel_loss,
+            }
+            for name, value in metrics.items():
+                self._log_train(f"train/{name}", _safe_mean(value, reference))
+            return reconstruction_loss
+
+        match_loss, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss = result
+        metrics = {
+            "match_loss": match_loss,
+            "pos_loss": pos_loss,
+            "heading_loss": heading_loss,
+            "shape_loss": shape_loss,
+            "vel_loss": vel_loss,
+            "col_loss": collision_loss,
+        }
+        for name, value in metrics.items():
+            self._log_train(f"train/{name}", _safe_mean(value, reference))
+
+        noise_std = agent.get("noise_std")
+        if noise_std is not None:
+            std = noise_std[:, 0].mean(0)
+        else:
+            std = init_decoder.G1.model.normal_scale[0]
+        for name, value in zip(
+            ("pos_std", "heading_std", "shape_std", "vel_std"),
+            std.reshape(-1, 2).mean(-1),
+        ):
+            self._log_train(f"train/{name}", value)
+
+        return match_loss + collision_loss
+
+    # ------------------------------------------------------------------
+    # Discriminator
+    # ------------------------------------------------------------------
     def get_reward(
-            self,
-            tokenized_agent: dict,
-            key: str,
-            dis_mask: torch.Tensor | None = None,
+        self,
+        tokenized_agent: TensorDict,
+        key: str,
+        dis_mask: Optional[Tensor] = None,
     ):
+        """Compute discriminator loss and rewards.
+
+        Rewards returned for policy optimization are detached, preventing actor
+        backward from entering the discriminator graph.
+        """
+
+        if key not in {"expert", "agent"}:
+            raise ValueError(f"Unsupported discriminator sample type: {key!r}")
+
         discriminator = self.encoder.discriminator
+        agent = tokenized_agent
+        mask_t = self._discriminator_mask(agent)
 
-        # valid_mask: [A, T]
-        # mask_t:     [T_selected, A_selected]
-        mask_t = tokenized_agent["valid_mask"].transpose(0, 1)[
-            self.dis_start_step:
-        ]
+        if dis_mask is None:
+            dis_mask = mask_t.reshape(-1)
+        else:
+            dis_mask = dis_mask.bool()
+        agent["dis_mask"] = dis_mask
 
-        if not self.pred_init:
-            train_mask = tokenized_agent.get("train_mask")
+        sampled_pos = agent["sampled_pos"]
+        sampled_heading = agent["sampled_heading"]
+        shape = agent["shape"][..., :2]
 
-            if train_mask is not None:
-                train_mask = train_mask.bool()
-                mask_t = mask_t[:, train_mask]
-
-            if dis_mask is None or (self.pred_init and key == "agent"):
-                dis_mask = mask_t.flatten()
-
-            if dis_mask is not None:
-                dis_mask = dis_mask.bool()
-                tokenized_agent["dis_mask"] = dis_mask
-
-        sampled_pos = tokenized_agent["sampled_pos"]
-        sampled_heading = tokenized_agent["sampled_heading"]
-        shape = tokenized_agent["shape"][..., :2]
-
-        use_gp_this_step = (
-                self.use_gradient_penalty
-                and key == "expert"
-               # and self.global_step % 4 == 0
-        )
-
-        # The critic update must not backpropagate through rollout generation.
-        if use_gp_this_step:
+        use_gp = self.use_gradient_penalty and key == "expert" and discriminator.training
+        if use_gp:
             sampled_pos = sampled_pos.detach().requires_grad_(True)
             sampled_heading = sampled_heading.detach().requires_grad_(True)
             shape = shape.detach().requires_grad_(True)
 
         disc_out = discriminator.predict_agent(
-            tokenized_agent["sampled_idx"],
-            tokenized_agent["token_mask"],
-            tokenized_agent["valid_mask"],
+            agent["sampled_idx"],
+            agent["token_mask"],
+            agent["valid_mask"],
             sampled_pos,
             sampled_heading,
-            tokenized_agent,
-            tokenized_agent["map_feature"],
+            agent,
+            agent["map_feature"],
             shape,
         )
 
-        ego_logits, interact_logits,map_logit = disc_out[0]
+        (ego_logits, interaction_logits, map_logits) = disc_out[0]
+        ego_rewards, neighbour_rewards, scene_reward, interaction_reward = disc_out[2]
 
-        (
-            ego_rewards,
-            nei_rewards,
-            scene_reward,
-            interact_reward,
-        ) = disc_out[2]
-
-        # During validation or rollout, only return the policy reward grid.
         if not discriminator.training:
-            return _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
-
-        # Apply the same ego-logit mask to both expert and policy samples.
-        # This avoids training expert and generated samples on different subsets.
-        ego_logits = _select_ego_logits(
-            ego_logits=ego_logits,
-            dis_mask=dis_mask,
-            mask_t=mask_t,
-        )
+            return _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards").detach()
 
         target = 1.0 if key == "expert" else 0.0
-
-        ego_bce_loss = _weighted_bce_with_logits(
+        ego_logits = _select_ego_logits(ego_logits, dis_mask, mask_t)
+        ego_loss = _weighted_bce_with_logits(
             logits=ego_logits,
             target=target,
-            weight=torch.ones_like(ego_logits)
+            weight=torch.ones_like(ego_logits),
         )
+        combined_logits = [ego_logits.reshape(-1)]
 
         self._log_train(f"train/{key}_ego_score", torch.sigmoid(ego_logits).mean())
 
-        if _has_elements(map_logit):
-            map_logit = _select_ego_logits(
-                ego_logits=map_logit,
-                dis_mask=dis_mask,
-                mask_t=mask_t,
-            )
-
-            map_bce_loss = _weighted_bce_with_logits(
-                logits=map_logit,
+        if _has_elements(map_logits):
+            map_logits = _select_ego_logits(map_logits, dis_mask, mask_t)
+            map_loss = _weighted_bce_with_logits(
+                logits=map_logits,
                 target=target,
-                weight=torch.ones_like(ego_logits)
+                weight=torch.ones_like(map_logits),
             )
-            ego_bce_loss=ego_bce_loss+map_bce_loss
+            ego_loss = ego_loss + map_loss
+            combined_logits.append(map_logits.reshape(-1))
+            self._log_train(f"train/{key}_map_score", torch.sigmoid(map_logits).mean())
 
-            self._log_train(f"train/{key}_map_score",torch.sigmoid(map_logit).mean()  )
-
-            ego_logits=torch.cat([ego_logits,map_logit],dim=0)
-
-        if _has_elements(interact_logits):
-            self._log_train(f"train/{key}_inter_score", torch.sigmoid(interact_logits).mean() )
-
-            self._log_train(  f"train/{key}_interact_logits", interact_logits.mean() )
-
+        interaction_weight = None
+        if _has_elements(interaction_logits):
             interaction_weight = disc_out[3].detach()
-
-            interact_bce_loss = _weighted_bce_with_logits(
-                logits=interact_logits,
+            interaction_loss = _weighted_bce_with_logits(
+                logits=interaction_logits,
                 target=target,
                 weight=interaction_weight,
             )
-            # edge_index_a2a = disc_out[1][0]
-            # destination_index = edge_index_a2a[1]
-            # num_interaction_nodes = int(destination_index.max().item()) + 1
-            #
-            # interact_bce_loss = destination_normalized_interaction_bce(
-            #     logits=interact_logits,
-            #     target=target,
-            #     distance_weight=interaction_weight,
-            #     destination_index=destination_index,
-            #     num_nodes=num_interaction_nodes,
-            # )
-
-            combined_logits = torch.cat(
-                [ego_logits.reshape(-1), interact_logits.reshape(-1)],
-                dim=0,
+            combined_logits.append(interaction_logits.reshape(-1))
+            self._log_train(
+                f"train/{key}_inter_score",
+                torch.sigmoid(interaction_logits).mean(),
             )
         else:
-            interact_bce_loss = ego_logits.new_zeros(())
-            combined_logits = ego_logits.reshape(-1)
+            interaction_loss = _zero(ego_logits)
 
-        disc_loss =  ego_bce_loss +interact_bce_loss
+        discriminator_loss = ego_loss + interaction_loss
+        combined = torch.cat(combined_logits)
+        probabilities = combined.sigmoid()
+        self._log_train(f"train/{key}_disc_val", probabilities.mean())
+        self._log_train(
+            f"train/{key}_disc_val_std",
+            probabilities.std(unbiased=False),
+        )
 
-        if key == "agent":
-            ego_rewards = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
-
-            if _has_elements(nei_rewards):
-                nei_rewards = _reshape_valid_rewards(nei_rewards, mask_t, "nei_rewards")
-                all_rewards = ego_rewards + nei_rewards
-
-                self._log_train(   f"train/{key}_all_rewards",all_rewards.mean() )
-
-                self._log_train(   f"train/{key}_nei_rewards", nei_rewards.mean())
-
-        self._log_train(   f"train/{key}_rewards",    ego_rewards.mean() )
-
-        if _has_elements(scene_reward):
-            self._log_train(  f"train/{key}_scene_reward", scene_reward.mean() )
-
-        if _has_elements(interact_reward):
-            self._log_train(  f"train/{key}_interact_reward", interact_reward.mean()  )
-
-        disc_val = torch.sigmoid(combined_logits)
-
-        self._log_train(f"train/{key}_disc_val",   disc_val.mean() )
-
-        self._log_train( f"train/{key}_disc_val_std", disc_val.std(unbiased=False) )
-
-        if use_gp_this_step:
-            gamma = 0.01 #l1 loss
-
-            edge_index_a2a = disc_out[1][0]
-            destination_index = edge_index_a2a[1]
-
-            gp_valid_mask = tokenized_agent["valid_mask"].bool().clone()
-
-            if self.dis_start_step > 0:
-                gp_valid_mask[:, : self.dis_start_step] = False
-
-            critic_score = (
-                ego_logits,
-                interact_logits,
-                interaction_weight,
-                destination_index,
+        ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
+        neighbour_reward_grid = None
+        if _has_elements(neighbour_rewards):
+            neighbour_reward_grid = _reshape_valid_rewards(
+                neighbour_rewards,
+                mask_t,
+                "nei_rewards",
             )
 
-            (
-                regularization_loss,
-                scene_gp,
-                interaction_gp,
-                raw_gp,
-            ) = ZeroCenteredGradientPenalty_edge(
+        self._log_train(f"train/{key}_rewards", ego_reward_grid.mean())
+        if neighbour_reward_grid is not None:
+            self._log_train(f"train/{key}_nei_rewards", neighbour_reward_grid.mean())
+            self._log_train(
+                f"train/{key}_all_rewards",
+                (ego_reward_grid + neighbour_reward_grid).mean(),
+            )
+        if _has_elements(scene_reward):
+            self._log_train(f"train/{key}_scene_reward", scene_reward.mean())
+        if _has_elements(interaction_reward):
+            self._log_train(f"train/{key}_interact_reward", interaction_reward.mean())
+
+        gp_loss = _zero(ego_logits)
+        if use_gp:
+            if not _has_elements(interaction_logits):
+                raise ValueError("Edge gradient penalty requires interaction logits.")
+            edge_index = disc_out[1][0]
+            destination_index = edge_index[1]
+            gp_valid_mask = agent["valid_mask"].bool().clone()
+            gp_valid_mask[:, : self.dis_start_step] = False
+
+            gp_loss, scene_gp, interaction_gp, _ = ZeroCenteredGradientPenalty_edge(
                 sampled_pos=sampled_pos,
                 sampled_heading=sampled_heading,
                 shape=shape,
-                critic_score=critic_score,
+                critic_score=(
+                    ego_logits,
+                    interaction_logits,
+                    interaction_weight,
+                    destination_index,
+                ),
                 valid_mask=gp_valid_mask,
                 gamma=0.01,
                 interaction_gamma=0.01,
@@ -376,295 +412,254 @@ class IQ_SoftQ(LightningModule):
                 interaction_min_mass=1,
                 detach_edge_weight=True,
             )
-            self._log_train(f"train/{key}_gp", regularization_loss)
-            self._log_train(f"train/scene_gp", scene_gp)
-            self._log_train(f"train/interaction_gp", interaction_gp)
+            self._log_train(f"train/{key}_gp", gp_loss)
+            self._log_train("train/scene_gp", scene_gp)
+            self._log_train("train/interaction_gp", interaction_gp)
 
-            # (
-            #     regularization_loss,
-            #     penalty_pos,
-            #     penalty_head,
-            #     penalty_shape,
-            # ) = ZeroCenteredGradientPenalty(
-            #     sampled_pos=sampled_pos,
-            #     sampled_heading=sampled_heading,
-            #     shape=shape,
-            #     critic_score=combined_logits.sum(),#[combined_logits.abs()>1]
-            #     valid_mask=gp_valid_mask,
-            #     gamma=gamma,
-            # )
-            # #
-            # self._log_train(f"train/{key}_gp", regularization_loss)
-            # self._log_train(f"train/{key}_pos_gp", penalty_pos)
-            # self._log_train(f"train/{key}_head_gp", penalty_head)
-            # self._log_train(f"train/{key}_shape_gp", penalty_shape)
-
-            ego_rewards=ego_rewards.detach()
-        else:
-            regularization_loss = ego_logits.new_zeros(())
-
+        # Rewards are targets, never differentiable critic outputs for the actor.
         return (
-            disc_loss,
-            ego_rewards,
-            nei_rewards,
-            regularization_loss,
+            discriminator_loss,
+            ego_reward_grid.detach(),
+            None if neighbour_reward_grid is None else neighbour_reward_grid.detach(),
+            gp_loss,
             dis_mask,
         )
 
-    def iq_update(self, tokenized_map, tokenized_agent):
-        if self.global_step == 0 and self.encoder.init_decoder.G1.use_ref:
-            decay = 0
-            for src_param, tgt_param in zip(self.encoder.init_decoder.G1.model.parameters(), self.encoder.init_decoder.G1.ref_model.parameters(),
-                                            strict=True):
-                tgt_param.data.copy_(
-                    tgt_param.detach().data * decay + src_param.detach().clone().data * (1.0 - decay))
+    def _discriminator_mask(self, agent: Mapping[str, Any]) -> Tensor:
+        mask_t = agent["valid_mask"].bool().transpose(0, 1)[self.dis_start_step :]
+        if not self.pred_init:
+            train_mask = agent.get("train_mask")
+            if train_mask is not None:
+                mask_t = mask_t[:, train_mask.bool()]
+        return mask_t
 
-            self.encoder.init_decoder.G1.ref_model.eval()
+    # ------------------------------------------------------------------
+    # Complete update
+    # ------------------------------------------------------------------
+    def update(self, tokenized_map: TensorDict, tokenized_agent: TensorDict) -> Tensor:
+        self._initialize_reference_model_once()
 
-        if self.use_kl_penalty:
-            expert_nll= 0
-            map_feature = self.encoder.map_encoder(tokenized_map)
-            tokenized_agent["map_feature"] = map_feature
-            tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-        else:
-            if self.gail:
-                for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "token_mask"]:
-                    tokenized_agent[key] = tokenized_agent[key][:, :self.training_rollout_len]
-
-            expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent)
-
+        expert_agent = self._prepare_expert_agent(tokenized_agent)
+        expert_nll = self._expert_loss(tokenized_map, expert_agent)
         if not self.gail:
             return expert_nll
 
-
         if self.pred_init:
-            tokenized_agent["pred_mask"]=None
-
-            #  tokenized_agent["train_mask"] = tokenized_agent["token_mask"].all(1)
-           #  tokenized_agent["pred_mask"] =tokenized_agent["token_mask"].all(1)
+            expert_agent["pred_mask"] = None
         else:
-            tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] & tokenized_agent["token_mask"][:,self.start_step:].all(1)
-        expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+            expert_agent["train_mask"] = (
+                expert_agent["pred_mask"].bool()
+                & expert_agent["token_mask"][:, self.start_step :].all(dim=1)
+            )
 
-        tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
-
-        # agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step)
-
-        agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
-            tokenized_agent_rollout, "agent", expert_dis_mask
+        expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(
+            expert_agent,
+            "expert",
         )
-        # else:
-        critic_loss = expert_dis_loss + agent_dis_loss + agent_gp + expert_gp
 
+        rollout_agent = rollout(
+            self.encoder,
+            tokenized_map,
+            expert_agent,
+            self.validation_rollout_sampling,
+        )
+        agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+            rollout_agent,
+            "agent",
+            expert_dis_mask,
+        )
+
+        critic_loss = expert_dis_loss + agent_dis_loss + expert_gp + agent_gp
         self._log_train("train/critic_loss", critic_loss)
 
-        if self.token_processor.learn_init:
-            actor_optimizer, discriminator_optimizer, init_optimizer = self.optimizers()
+        actor_optimizer, discriminator_optimizer, init_optimizer = self._optimizers()
+        self._optimizer_step(discriminator_optimizer, critic_loss)
+
+        policy_loss, advantages_flat, advantages_2d = self._actor_value_loss(
+            tokenized_map,
+            rollout_agent,
+            agent_rewards,
+            expert_nll,
+        )
+        self._optimizer_step(actor_optimizer, policy_loss)
+
+        if init_optimizer is not None:
+            self._initial_state_update(
+                tokenized_agent,
+                advantages_flat,
+                advantages_2d,
+                init_optimizer,
+            )
+
+        # Returned only for progress reporting. Both optimizers already stepped.
+        return critic_loss.detach() + policy_loss.detach()
+
+    def _initialize_reference_model_once(self) -> None:
+        generator = self.encoder.init_decoder.G1
+        if self.global_step != 0 or not generator.use_ref:
+            return
+        with torch.no_grad():
+            for source, target in zip(
+                generator.model.parameters(),
+                generator.ref_model.parameters(),
+                strict=True,
+            ):
+                target.copy_(source)
+        generator.ref_model.requires_grad_(False)
+        generator.ref_model.eval()
+
+    def _prepare_expert_agent(self, tokenized_agent: TensorDict) -> TensorDict:
+        if self.gail:
+            length = int(self.training_rollout_len)
+            for key in (
+                "sampled_pos",
+                "sampled_heading",
+                "sampled_idx",
+                "valid_mask",
+                "token_mask",
+            ):
+                tokenized_agent[key] = tokenized_agent[key][:, :length]
+        return tokenized_agent
+
+    def _expert_loss(self, tokenized_map: TensorDict, agent: TensorDict) -> Tensor:
+        if self.use_kl_penalty:
+            map_feature = self.encoder.map_encoder(tokenized_map)
+            agent["map_feature"] = map_feature
+            agent["detach_map_feature"] = {
+                key: value.detach() for key, value in map_feature.items()
+            }
+            reference = next(iter(map_feature.values()))
+            return _zero(reference)
+        expert_nll, _ = self.get_QV(tokenized_map, agent, key="expert")
+        return expert_nll
+
+    def _optimizers(self):
+        optimizers = tuple(self.optimizers())
+        expected = 3 if self.token_processor.learn_init else 2
+        if len(optimizers) != expected:
+            raise RuntimeError(
+                f"Expected {expected} optimizers, received {len(optimizers)}."
+            )
+        if expected == 3:
+            actor, discriminator, initial = optimizers
         else:
-            actor_optimizer, discriminator_optimizer = self.optimizers()
+            actor, discriminator = optimizers
+            initial = None
+        return actor, discriminator, initial
 
-        discriminator_optimizer.zero_grad()
-        self.manual_backward(critic_loss)
-        discriminator_optimizer.step()
+    def _optimizer_step(self, optimizer, loss: Tensor) -> None:
+        optimizer.zero_grad(set_to_none=True)
+        self.manual_backward(loss)
+        optimizer.step()
 
-        #if not self.use_gradient_penalty:
-        # with torch.no_grad():
-        #     discriminator_was_training = self.encoder.discriminator.training
-        #     self.encoder.discriminator.eval()
-        #     agent_rewards = self.get_reward(
-        #         tokenized_agent_rollout, "agent", expert_dis_mask
-        #     )
-        #     self.encoder.discriminator.train(discriminator_was_training)
-        #
-        self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
+    def _actor_value_loss(
+        self,
+        tokenized_map: TensorDict,
+        rollout_agent: TensorDict,
+        rewards: Tensor,
+        expert_nll: Tensor,
+    ) -> tuple[Tensor, Tensor, Tensor]:
+        edge_encoder = self.encoder.agent_encoder.interative_decoder.edge_encoder
+        old_rollout_flag = edge_encoder.rollout_traj
+        edge_encoder.rollout_traj = True
+        try:
+            _, agent_log_prob = self.get_QV(tokenized_map, rollout_agent, key="agent")
+        finally:
+            edge_encoder.rollout_traj = old_rollout_flag
 
-        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')
-
-        self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
-
-        if self.token_processor.learn_init:
-            intial_value=self.encoder.init_value_network(tokenized_agent_rollout["noise_feat"])[:,0]
-
-        if 'feat_a' in tokenized_agent_rollout.keys():
-            feat_a = tokenized_agent_rollout["feat_a"]#.detach()
-
-            value = self.encoder.value_network(feat_a)[..., 0].view(-1,len(tokenized_agent_rollout["batch"]))
-
-            if self.token_processor.learn_init:
-                value=torch.cat([intial_value[None],value],dim=0)
-        else:
-            value = intial_value
-
-
-        advantages_2d, all_value_loss = compute_advantages(
-            agent_rewards[-len(value):],
+        value = self._value_predictions(rollout_agent)
+        advantages_2d, value_loss_elements = compute_advantages(
+            rewards[-len(value) :],
             value,
-            #infinite_horizon=True
         )
 
         advantages_flat = advantages_2d.reshape(-1)
         self.return_meanstd.update(advantages_flat.detach())
         advantages_flat = self.return_meanstd.normalize(advantages_flat)
 
-        if self.training_rollout_len>1:
-            ppo_advantages = advantages_flat[-len(agent_log_prob):]
+        if self.training_rollout_len > 1 and agent_log_prob.numel():
+            ppo_advantages = advantages_flat[-agent_log_prob.numel() :].detach()
             ppo_loss = -(agent_log_prob * ppo_advantages).mean()
-            self._log_train("train/ppo_loss", ppo_loss)
-            self._log_train("train/advantages", ppo_advantages.mean())
         else:
-            ppo_loss=0
+            ppo_loss = _zero(value)
 
         if self.token_processor.learn_init:
-            value_loss=all_value_loss[1:].mean()
-            init_value_loss=all_value_loss[:1].mean()
+            value_loss = value_loss_elements[1:].mean()
+            init_value_loss = value_loss_elements[:1].mean()
             self._log_train("train/init_value_loss", init_value_loss)
         else:
-            value_loss=all_value_loss.mean()
-            init_value_loss=0
+            value_loss = value_loss_elements.mean()
+            init_value_loss = _zero(value)
 
+        self._log_train("train/ppo_loss", ppo_loss)
         self._log_train("train/running_mean", self.return_meanstd.mean)
         self._log_train("train/running_var", self.return_meanstd.var)
         self._log_train("train/value_loss", value_loss)
 
-        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss+init_value_loss  #  agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + init_value_loss
+        return policy_loss, advantages_flat, advantages_2d
 
-        actor_optimizer.zero_grad()
-
-        self.manual_backward(policy_loss)
-
-        actor_optimizer.step()
-
+    def _value_predictions(self, rollout_agent: TensorDict) -> Tensor:
+        initial_value = None
         if self.token_processor.learn_init:
-            # noncol_rate=get_col_rate(tokenized_agent,tokenized_agent["pred_init"])
-            #
-            # self._log_train('train/noncol_rate', noncol_rate.mean())
+            initial_value = self.encoder.init_value_network(
+                rollout_agent["noise_feat"]
+            )[:, 0]
 
-            # For learn_init update: use the initial-state row explicitly.
-            advantages_2d_norm = advantages_flat.view_as(advantages_2d)
-            init_advantages = advantages_2d_norm[0].detach()#agent_rewards[0].detach() #
-            tokenized_agent["advantages"] = init_advantages
-            #
-            # pred_init=tokenized_agent["gen_z"][:,0]
-            # init_agent_batch=tokenized_agent["batch"]
-            #
-            # col_reward, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(pred_init, None,
-            #                                                                            init_agent_batch, None)
-            #
-            # N = len(pred_init)
-            #
-            # col_reward_end = scatter_sum(
-            #     col_reward,
-            #     end_idx,
-            #     dim=0,
-            #     dim_size=N
-            # )
-            #
-            # col_reward_start = scatter_sum(
-            #     col_reward,
-            #     start_idx,
-            #     dim=0,
-            #     dim_size=N
-            # )
-            #
-            # col_reward_agent = -col_reward_end - col_reward_start
-            # #
-            # # batch=tokenized_agent["init_agent_batch"]
-            # #
-            # # same_batch = batch[:, None] == batch[None, :]
-            # # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
-            # # edge_mask = same_batch & not_self
-            # #
-            # # pos=pred_init[:,:2]
-            # #
-            # # shape=pred_init[:, 4:6]
-            # #
-            # # r=torch.linalg.norm(shape,dim=-1)
-            # #
-            # # d=torch.linalg.norm(pos[:,None]-pos[None],dim=-1)
-            # #
-            # # r2=(r[:,None]+r[None])/2
-            # #
-            # # col_reward=d>r2
-            # # col_reward[~edge_mask]=True
-            # #
-            # # col_reward_agent=torch.all(col_reward,dim=-1)
-            #
-            # advantage = (col_reward_agent == 0).float()  # -0.5#col_reward <0 collision 0
-            #
-            # tokenized_agent["noncol_rate"] = advantage
-            #
-            # # advantages=(advantage-advantage.mean())/(advantage.std()+1e-5)#(advantage-0.771)/0.42
-            #
-            # tokenized_agent["advantages"] = advantage  # advantage conditioned
-            # init_return = agent_rewards.sum(dim=0).detach()
-            #
-            # non_ego = ~tokenized_agent_rollout["ego_mask"]
-            # init_advantages = torch.zeros_like(init_return)
-            #
-            # ret = init_return[non_ego]
-            # init_advantages[non_ego] = (
-            #                                    ret - ret.mean()
-            #                            ) / ret.std(unbiased=False).clamp_min(1e-8)
-            # Optional: normalize only non-ego init advantages.
-            # non_ego = ~tokenized_agent_rollout["ego_mask"]
-            # init_adv_non_ego = init_advantages[non_ego]
-            # init_advantages = init_advantages.clone()
-            # init_advantages[non_ego] = (
-            #                                    init_adv_non_ego - init_adv_non_ego.mean()
-            #                            ) / init_adv_non_ego.std(unbiased=False).clamp_min(1e-8)
+        if "feat_a" in rollout_agent:
+            batch_size = len(rollout_agent["batch"])
+            values = self.encoder.value_network(rollout_agent["feat_a"])[..., 0]
+            values = values.reshape(-1, batch_size)
+            if initial_value is not None:
+                values = torch.cat((initial_value[None], values), dim=0)
+            return values
 
+        if initial_value is None:
+            raise KeyError("Rollout must contain 'feat_a' when learn_init is disabled.")
+        return initial_value
 
-            match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss=self.encoder.init_decoder(tokenized_agent)
+    def _initial_state_update(
+        self,
+        tokenized_agent: TensorDict,
+        advantages_flat: Tensor,
+        advantages_2d: Tensor,
+        optimizer,
+    ) -> None:
+        normalized = advantages_flat.view_as(advantages_2d)
+        tokenized_agent["advantages"] = normalized[0].detach()
 
-            rl_loss=tokenized_agent["rl_loss"]
+        match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss = (
+            self.encoder.init_decoder(tokenized_agent)
+        )
+        rl_loss = tokenized_agent["rl_loss"]
+        reference = match_loss
+        metrics = {
+            "match_loss": match_loss,
+            "pos_loss": pos_loss,
+            "heading_loss": heading_loss,
+            "shape_loss": shape_loss,
+            "vel_loss": vel_loss,
+            "rl_loss": rl_loss,
+            "col_loss": col_loss,
+        }
+        for name, value in metrics.items():
+            self._log_train(f"train/{name}", _safe_mean(value, reference))
 
-            self._log_train('train/match_loss', match_loss)
-            self._log_train('train/pos_loss', pos_loss)
-            self._log_train('train/heading_loss', heading_loss)
-            self._log_train('train/shape_loss', shape_loss)
-            self._log_train('train/vel_loss', vel_loss)
-            self._log_train('train/rl_loss', rl_loss)
-            self._log_train('train/col_loss', col_loss)
+        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss)
 
-            init_loss=match_loss+rl_loss+col_loss
-
-            init_optimizer.zero_grad()
-
-            self.manual_backward(init_loss)
-
-            init_optimizer.step()
-
-        loss = critic_loss + policy_loss
-
-        return loss
-
-    def training_step(self, data, batch_idx):
-
+    # ------------------------------------------------------------------
+    # Lightning entry point
+    # ------------------------------------------------------------------
+    def training_step(self, data: Any, batch_idx: int) -> Tensor:
+        del batch_idx
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        if "max_dist"  in   tokenized_agent.keys():
-            max_dist=tokenized_agent["max_dist"]
-            reset_mask=tokenized_agent["reset_mask"]
-            token_mask=tokenized_agent["token_mask"]
-
-            self._log_train("train/mean_token_error", max_dist.mean().detach())
-            self._log_train("train/reset_mask", reset_mask[token_mask].float().mean().detach())
-
-        if "entry_token_invalid_mask"  in   tokenized_agent.keys():
-            entry_token_invalid_mask=tokenized_agent["entry_token_invalid_mask"]
-
-            self._log_train("train/entry_token_invalid", entry_token_invalid_mask.float().mean().detach())
-
-        loss = self.iq_update(tokenized_map, tokenized_agent)
-
+        loss = self.update(tokenized_map, tokenized_agent)
         self._log_train("train/loss", loss)
-        if "sampled_match_loss" in tokenized_agent.keys():
-            self._log_train('train/sampled_match_loss', tokenized_agent["sampled_match_loss"].mean())
-        if "clip_ratio" in tokenized_agent.keys():
-            self._log_train('train/clip_ratio', tokenized_agent["clip_ratio"].mean())
-        if "pg_loss" in tokenized_agent.keys():
-            self._log_train('train/pg_loss', tokenized_agent["pg_loss"])
-        if "noncol_rate" in tokenized_agent.keys():
-            self._log_train('train/noncol_rate', tokenized_agent["noncol_rate"].mean())
 
+        for key in ("sampled_match_loss", "clip_ratio", "noncol_rate"):
+            if key in tokenized_agent:
+                self._log_train(f"train/{key}", tokenized_agent[key].mean())
+        if "pg_loss" in tokenized_agent:
+            self._log_train("train/pg_loss", tokenized_agent["pg_loss"])
         return loss
