@@ -54,7 +54,7 @@ class SMARTAgentDecoder(nn.Module):
         traj_diffusion: bool = False,
     ) -> None:
         super().__init__()
-        del use_gail  # Kept in the signature for configuration compatibility.
+        self.use_gail= use_gail  # Kept in the signature for configuration compatibility.
 
         self.num_historical_steps = int(num_historical_steps)
         self.num_future_steps = int(num_future_steps)
@@ -191,8 +191,6 @@ class SMARTAgentDecoder(nn.Module):
         map_feature: Dict[str, torch.Tensor],
     ) -> Dict[str, torch.Tensor]:
         """Predict all available next-token targets."""
-        if tokenized_agent["sampled_idx"].shape[1] <= 1:
-            return {}
 
         logits, _, _, _, feat_a = self.predict_agent(
             sampled_idx=tokenized_agent["sampled_idx"][:, :-1],
@@ -207,81 +205,9 @@ class SMARTAgentDecoder(nn.Module):
 
         # These side effects are retained because rollout/value code consumes them.
         tokenized_agent["next_token_logits"] = logits
-        tokenized_agent["feat_a"] = feat_a
+        if self.use_gail:
+            tokenized_agent["feat_a"] = feat_a
         return {"next_token_logits": logits}
-
-    @staticmethod
-    def _latest_active_logits(
-        logits: torch.Tensor,
-        active_mask: torch.Tensor,
-        num_decoded_steps: int,
-    ):
-        """Return latest-step logits in active-agent order."""
-        num_agents = active_mask.numel()
-        num_active = int(active_mask.sum().item())
-
-        if num_active == 0:
-            return logits.new_empty((0, logits.shape[-1]))
-
-        if logits.ndim == 3:
-            if logits.shape[1] == num_agents:       # [T, N, K]
-                return logits[-1, active_mask]
-            if logits.shape[0] == num_agents:       # [N, T, K]
-                return logits[active_mask, -1]
-            raise ValueError(f"Unknown logit layout: {tuple(logits.shape)}")
-
-        if logits.ndim != 2:
-            raise ValueError(f"Expected 2-D or 3-D logits, got {tuple(logits.shape)}")
-
-        full_rows = num_decoded_steps * num_agents
-        active_rows = num_decoded_steps * num_active
-
-        if logits.shape[0] == full_rows:
-            return logits.reshape(num_decoded_steps, num_agents, -1)[-1, active_mask]
-        if logits.shape[0] == active_rows:
-            return logits.reshape(num_decoded_steps, num_active, -1)[-1]
-        if logits.shape[0] == num_active:           # already one selected block
-            return logits
-
-        raise ValueError(
-            "Cannot infer flattened logit layout: "
-            f"rows={logits.shape[0]}, decoded_steps={num_decoded_steps}, "
-            f"agents={num_agents}, active_agents={num_active}"
-        )
-
-    @staticmethod
-    def _cached_logits(logits, active_mask, current_step):
-        """Use cached logits only when their flattened layout is unambiguous."""
-        num_agents = active_mask.numel()
-        num_active = int(active_mask.sum().item())
-        step = current_step - 1
-
-        if num_active == 0:
-            return logits.new_empty((0, logits.shape[-1]))
-
-        if logits.ndim == 3:
-            if logits.shape[1] == num_agents and step < logits.shape[0]:
-                return logits[step, active_mask]
-            if logits.shape[0] == num_agents and step < logits.shape[1]:
-                return logits[active_mask, step]
-            return None
-
-        if logits.ndim != 2:
-            return None
-
-        for agents_per_step, use_mask in (
-            (num_agents, True),
-            (num_active, False),
-        ):
-            if logits.shape[0] % agents_per_step != 0:
-                continue
-            num_steps = logits.shape[0] // agents_per_step
-            if step >= num_steps:
-                continue
-            block = logits.reshape(num_steps, agents_per_step, -1)[step]
-            return block[active_mask] if use_mask else block
-
-        return None
 
     def _trim_cache(self, current_step):
         for name in ("pos_cache", "head_cache", "mask_cache", "head_vector_cache"):
@@ -295,26 +221,6 @@ class SMARTAgentDecoder(nn.Module):
                 feature[:current_step] for feature in value
             ]
 
-    def _sample_token(
-        self,
-        logits,
-        previous_idx,
-        active_mask,
-        num_decoded_steps,
-    ):
-        next_idx = previous_idx.clone()
-        if not active_mask.any():
-            return next_idx
-
-        logits = self._latest_active_logits(
-            logits,
-            active_mask,
-            num_decoded_steps,
-        )
-
-        next_idx[active_mask] = Categorical(logits=logits / self.alpha).sample()
-        return next_idx
-
     def _run_init_decoder(
         self,
         init_decoder,
@@ -323,13 +229,6 @@ class SMARTAgentDecoder(nn.Module):
         pred_head_10hz,
     ):
         pos, heading, sampled_idx, shape, local_vel = init_decoder(tokenized_agent)
-
-        if pos.ndim != 3 or pos.shape[-1] != 2:
-            raise ValueError(f"init position must be [N, T, 2], got {tuple(pos.shape)}")
-        if heading.shape != pos.shape[:2] or sampled_idx.shape != pos.shape[:2]:
-            raise ValueError("init heading/index must match init position timesteps")
-        if pos.shape[1] == 0:
-            raise ValueError("init_decoder returned no state")
 
         if "gt_z_raw" in tokenized_agent:
             # The original code inferred the previous pose using the last token,
@@ -373,10 +272,6 @@ class SMARTAgentDecoder(nn.Module):
 
         current_step = int(current_step)
         num_steps = int(max_step)
-        if current_step <= 0 and not self.pred_init:
-            raise ValueError(f"current_step must be positive, got {current_step}")
-        if num_steps < 0:
-            raise ValueError(f"max_step must be non-negative, got {num_steps}")
 
         pred_traj_10hz, pred_head_10hz = [], []
         initial_local_vel = None
@@ -423,14 +318,13 @@ class SMARTAgentDecoder(nn.Module):
 
         for rollout_step in range(num_steps):
             logits = None
-            decoded_steps = 1
 
             if rollout_step == 0 and cached_logits is not None and not self.pred_init:
-                logits = self._cached_logits(
-                    cached_logits,
-                    active_mask,
-                    current_step,
-                )
+                a_num = active_mask.sum()
+
+                logits = cached_logits[
+                    a_num * (current_step - 1):a_num * current_step]
+
                 if logits is not None:
                     self._trim_cache(current_step)
 
@@ -445,7 +339,6 @@ class SMARTAgentDecoder(nn.Module):
                     pos_in = pos_a[:, -2:]       # fixed: was two position steps
                     head_in = head_a[:, -1:]
 
-                decoded_steps = idx_in.shape[1]
                 logits, _, _, _, _ = self.predict_agent(
                     idx_in,
                     token_mask_in,
@@ -458,12 +351,8 @@ class SMARTAgentDecoder(nn.Module):
                     n_current=current_step + rollout_step - 1,
                 )
 
-            next_idx = self._sample_token(
-                logits,
-                sampled_idx[:, -1],
-                active_mask,
-                decoded_steps,
-            )
+            next_idx = Categorical(logits=logits[-len(active_mask):] / self.alpha).sample()
+
             sampled_idx = torch.cat((sampled_idx, next_idx[:, None]), dim=1)
 
             pos_a, head_a = self.get_next(
@@ -565,7 +454,6 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent: Dict[str, torch.Tensor],
         map_feature: Dict[str, torch.Tensor],
         sampling_scheme=None,
-        post_sampling=False,
         step_current_10hz=None,
         n_step_future_10hz=None,
     ) -> Dict[str, torch.Tensor]:
@@ -582,18 +470,8 @@ class SMARTAgentDecoder(nn.Module):
             else int(step_current_10hz)
         )
 
-        if future_10hz < 0 or current_10hz < 0:
-            raise ValueError("10 Hz step counts must be non-negative")
-        if future_10hz % self.shift != 0 or current_10hz % self.shift != 0:
-            raise ValueError(
-                f"10 Hz step counts must be divisible by token shift={self.shift}"
-            )
-
         future_tokens = future_10hz // self.shift
         current_tokens = current_10hz // self.shift
-
-        if current_tokens <= 0 and not self.pred_init:
-            raise ValueError("At least one current token state is required")
 
         return self.autoregressive_agent(
             init_decoder,
