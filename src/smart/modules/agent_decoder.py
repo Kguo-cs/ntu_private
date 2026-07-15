@@ -18,7 +18,7 @@ import torch.nn as nn
 from torch.distributions import Categorical
 
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
-from src.smart.modules.interative_decoder import InterativeDecoder
+from src.smart.modules.interact_decoder import InterativeDecoder
 from src.smart.utils import infer_prev_pose, transform_to_global
 from src.smart.utils.edge_utils import build_batch
 
