@@ -224,7 +224,7 @@ class SMARTDecoder(nn.Module):
             tokenized_map: Dict[str, Tensor],
             tokenized_agent: Dict[str, Tensor],
             post_sampling=False,
-        n_step_future_10hz=None,
+            n_step_future_10hz=None,
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_agent:
             map_feature = tokenized_agent["map_feature"]
@@ -235,6 +235,6 @@ class SMARTDecoder(nn.Module):
                 map_feature = self.map_encoder(tokenized_map)
 
         pred_dict = self.agent_encoder.inference(self.init_decoder,
-            tokenized_agent, map_feature, post_sampling,n_step_future_10hz=n_step_future_10hz
+            tokenized_agent, map_feature,n_step_future_10hz=n_step_future_10hz
         )
         return pred_dict

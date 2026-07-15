@@ -453,11 +453,9 @@ class SMARTAgentDecoder(nn.Module):
         init_decoder,
         tokenized_agent: Dict[str, torch.Tensor],
         map_feature: Dict[str, torch.Tensor],
-        sampling_scheme=None,
         step_current_10hz=None,
         n_step_future_10hz=None,
     ) -> Dict[str, torch.Tensor]:
-        del sampling_scheme, post_sampling  # Preserved API; not used here.
 
         future_10hz = (
             self.num_future_steps
