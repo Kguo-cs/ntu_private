@@ -81,14 +81,6 @@ class IQ_SoftQ(LightningModule):
             self.automatic_optimization = False
 
     @staticmethod
-    def _get_component(config: Any, name: str) -> Any:
-        if hasattr(config, name):
-            return getattr(config, name)
-        if isinstance(config, Mapping) and name in config:
-            return config[name]
-        raise ValueError(f"model_config must provide '{name}'.")
-
-    @staticmethod
     def _frozen_copy(module: torch.nn.Module) -> torch.nn.Module:
         frozen = copy.deepcopy(module)
         if hasattr(frozen, "target_net"):
@@ -109,7 +101,7 @@ class IQ_SoftQ(LightningModule):
     # ------------------------------------------------------------------
     # Supervised policy / initialization loss
     # ------------------------------------------------------------------
-    def get_QV(
+    def get_pred(
         self,
         tokenized_map: TensorDict,
         tokenized_agent: TensorDict,
@@ -121,12 +113,6 @@ class IQ_SoftQ(LightningModule):
             total_loss: scalar tensor.
             selected_log_prob: one-dimensional tensor; empty when unavailable.
         """
-
-        if self.pred_init:
-            tokenized_agent["pred_mask"]=None
-        else:
-            tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] & tokenized_agent["token_mask"][:,self.start_step:].all(1)
-
         prediction = self.encoder(tokenized_map, tokenized_agent)
         reference = self._prediction_reference(prediction, tokenized_agent)
 
@@ -530,7 +516,7 @@ class IQ_SoftQ(LightningModule):
             }
             reference = next(iter(map_feature.values()))
             return _zero(reference)
-        expert_nll, _ = self.get_QV(tokenized_map, agent, key="expert")
+        expert_nll, _ = self.get_pred(tokenized_map, agent, key="expert")
         return expert_nll
 
     def _optimizers(self):
@@ -563,7 +549,7 @@ class IQ_SoftQ(LightningModule):
         old_rollout_flag = edge_encoder.rollout_traj
         edge_encoder.rollout_traj = True
         try:
-            _, agent_log_prob = self.get_QV(tokenized_map, rollout_agent, key="agent")
+            _, agent_log_prob = self.get_pred(tokenized_map, rollout_agent, key="agent")
         finally:
             edge_encoder.rollout_traj = old_rollout_flag
 
