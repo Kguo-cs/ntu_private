@@ -4,13 +4,13 @@ kefu321
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_match_vhead1_posheadshapevl1-epoch=47-step=45696-valmeta=0.6502.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/model32_match_noisevhead1_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6527.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_match_noiseposvhead1_l1pos/2026-07-12_20-33-07/bc/15y4k8l4/checkpoints/xflow512_match_noiseposvhead1_l1pos-epoch=47-step=45696-valmeta=0.6488.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_match_noisevhead1_posheadl1_nogp/2026-07-14_12-30-22/bc/faud1iax/checkpoints/model32_match_noisevhead1_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6527.ckpt ./
 
 rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
 
