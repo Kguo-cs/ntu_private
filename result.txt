@@ -923,6 +923,15 @@ xflow512_match_noiseposvhead1_posheadl1-epoch=59-step=57120-valmeta=0.6496.ckpt
 
 
 
+model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
+
+test:
+
+
+xflow512_match_vhead1_posheadshapevl1-epoch=47-step=45696-valmeta=0.6502.ckpt
+
+
+
 
 take all position for generation
 simformer: For each

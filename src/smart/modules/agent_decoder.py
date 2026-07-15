@@ -177,22 +177,10 @@ class SMARTAgentDecoder(nn.Module):
 
                 pos5, head5=infer_prev_pose(pos_a[:,:1],head_a[:,:1],sampled_idx[:,-1:],token_traj_all)
 
-                if sampled_idx.shape[1]>1:
-                    pos_a=torch.cat([pos5,pos_a],dim=1)
-                    head_a=torch.cat([head5,head_a],dim=1)
-
-                    pos0, head0=infer_prev_pose(pos5, head5,sampled_idx[:,:1],token_traj_all)
-
-                    pred_traj_10hz.append(pos0)
-                    pred_head_10hz.append(head0)
-
-                    new_pos,new_head=self.get_next(sampled_idx[:,:1],pos0, head0,pred_traj_10hz,pred_head_10hz,tokenized_agent)
-                    new_pos1,new_head1=self.get_next(sampled_idx[:,1:2],pos5, head5,pred_traj_10hz,pred_head_10hz,tokenized_agent)
-
-                else:
-                    pred_traj_10hz.append(pos5)
-                    pred_head_10hz.append(head5)
-                    new_pos,new_head=self.get_next(sampled_idx[:,:1],pos5, head5,pred_traj_10hz,pred_head_10hz,tokenized_agent)
+                pred_traj_10hz.append(pos5)
+                pred_head_10hz.append(head5)
+                new_pos, new_head = self.get_next(sampled_idx[:, :1], pos5, head5, pred_traj_10hz, pred_head_10hz,
+                                                  tokenized_agent)
 
             current_step=pos_a.shape[1]
             if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
