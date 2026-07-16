@@ -243,31 +243,6 @@ class InterativeDecoder(nn.Module):
             f"Feature layout mismatch: got {len(features)}, expected {expected}."
         )
 
-    @staticmethod
-    def _align_token_embedding(
-        token_embedding: Optional[Tensor],
-        original_steps: int,
-        used_steps: int,
-        num_agents: int,
-    ) -> Optional[Tensor]:
-        if token_embedding is None:
-            return None
-
-        used_size = used_steps * num_agents
-        if len(token_embedding) == used_size:
-            return token_embedding
-
-        original_size = original_steps * num_agents
-        if (
-            used_steps == original_steps - 1
-            and len(token_embedding) == original_size
-        ):
-            return token_embedding.reshape(
-                original_steps, num_agents, -1
-            )[:-1].reshape(used_size, -1)
-
-        raise ValueError("token_embedding is not dense time-major.")
-
     def _update_cache(
         self,
         pos: Tensor,
@@ -395,7 +370,6 @@ class InterativeDecoder(nn.Module):
         mask_a: Tensor,
         n_current: int,
         inference_mask: Tensor,
-        token_embedding_later: Optional[Tensor],
         pred_mask: Optional[Tensor],
         feat_a_later_mask: Optional[Tensor] = None,
     ):
@@ -413,14 +387,6 @@ class InterativeDecoder(nn.Module):
             src, interaction_dst = edge_index_a2a
 
             destination_features = later_features
-            if token_embedding_later is not None:
-                if token_embedding_later.shape != later_features.shape:
-                    raise ValueError(
-                        "token embedding and later features are misaligned."
-                    )
-                destination_features = (
-                    destination_features + token_embedding_later
-                )
 
             interaction_logits = self.interact_head(torch.cat([
                 later_features[src],
@@ -484,9 +450,6 @@ class InterativeDecoder(nn.Module):
         scene_logit = token_logits[:, 0]
         scene_reward = scene_logit.detach()
 
-        assert interaction_logits is not None
-        assert interaction_dst is not None
-
         interaction_reward_all, edge_weight = aggregate_interaction_reward(
             logits=interaction_logits[:, 0].detach(),
             distances=dist,
@@ -530,9 +493,6 @@ class InterativeDecoder(nn.Module):
         tokenized_agent: dict,
         counter_feat_a: Optional[Tensor] = None,
     ):
-        if len(all_features) != 6:
-            raise ValueError("all_features must contain six tensors.")
-
         original_steps = all_features[3].shape[1]
         original_valid = _time_major(all_features[3].bool())
 
@@ -651,18 +611,6 @@ class InterativeDecoder(nn.Module):
             feat_a_later_mask = None
             train_for_edges = train_within_valid
 
-        token_embedding = self._align_token_embedding(
-            token_embedding,
-            original_steps,
-            num_steps,
-            num_agents,
-        )
-        token_embedding_later = None
-        if self.discriminator and token_embedding is not None:
-            token_embedding_later = token_embedding[
-                dense_valid
-            ][feat_a_later_mask]
-
         dis_edge_mask = None
         if self.discriminator and "dis_mask" in tokenized_agent:
             dis_mask = tokenized_agent["dis_mask"].bool()
@@ -733,7 +681,6 @@ class InterativeDecoder(nn.Module):
             mask_a=selected_mask,
             n_current=n_current,
             inference_mask=selected_inference,
-            token_embedding_later=token_embedding_later,
             pred_mask=selected_pred,
             feat_a_later_mask=feat_a_later_mask,
         )

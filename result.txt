@@ -925,10 +925,17 @@ xflow512_match_noiseposvhead1_posheadl1-epoch=59-step=57120-valmeta=0.6496.ckpt
 
 model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
 
-test:
+test: 0.6499
 
 
 xflow512_match_vhead1_posheadshapevl1-epoch=47-step=45696-valmeta=0.6502.ckpt
+
+
+model32_match_noisevhead1_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6527.ckpt
+
+test:
+
+model32_a60_match_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6546.ckpt
 
 
 

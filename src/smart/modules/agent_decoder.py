@@ -368,15 +368,12 @@ class SMARTAgentDecoder(nn.Module):
             token_mask = torch.cat((token_mask, active_mask[:, None]), dim=1)
 
         output = {
-            "num_graphs": tokenized_agent["num_graphs"],
-            "type": tokenized_agent["type"],
             "shape": shape,
-            "batch": tokenized_agent["batch"],
+            "sampled_idx": sampled_idx,
             "sampled_pos": pos_a,
             "sampled_heading": head_a,
             "valid_mask": mask,
             "token_mask": token_mask,
-            "sampled_idx": sampled_idx,
         }
 
         if "gt_z_raw" in tokenized_agent:
