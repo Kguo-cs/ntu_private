@@ -10,7 +10,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-ste
 
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_a60_match_posheadl1_nogp/2026-07-15_19-42-58/bc/rskm5t8x/checkpoints/model32_a60_match_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6546.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_a60_match_posheadl1_gp001/2026-07-16_22-59-34/bc/40dsph96/checkpoints/model32_a60_match_posheadl1_gp001-epoch=4-step=136968-valmeta=0.6558.ckpt ./
 
 rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
 
