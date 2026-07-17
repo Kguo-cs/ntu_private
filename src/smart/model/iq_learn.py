@@ -391,7 +391,7 @@ class IQ_SoftQ(LightningModule):
                 ),
                 valid_mask=gp_valid_mask,
                 gamma=0.01,
-                interaction_gamma=0.01,
+                interaction_gamma=0,
                 position_scale=1.0,
                 heading_scale=1.0,
                 shape_scale=1.0,
