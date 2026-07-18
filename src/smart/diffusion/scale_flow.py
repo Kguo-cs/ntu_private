@@ -75,7 +75,7 @@ class ScaleFlow(nn.Module):
 
         # Keep SDE + advantage finetuning, but remove TempFlow-specific parts.
         self.use_sde = bool(gail and getattr(token_processor, "learn_init", False))
-        self.noise_level = float(getattr(args, "noise_level", 0.1))
+        self.noise_level = float(getattr(args, "noise_level", 1))
         self.use_init_ppo_ratio = bool(getattr(args, "use_init_ppo_ratio", False))
         self.init_adv_clip = float(getattr(args, "init_adv_clip", 3.0))
         self.init_logprob_clip = float(getattr(args, "init_logprob_clip", 50.0))
