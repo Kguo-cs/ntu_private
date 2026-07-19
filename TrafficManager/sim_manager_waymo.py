@@ -36,7 +36,7 @@ import hydra
 from waymo_open_dataset.protos import scenario_pb2
 import tensorflow as tf
 
-from src.smart.model.smart_gail import SMART_IQ
+from src.smart.model.smart_gail1 import SMART_IQ
 
 from src.my_data_preprocess import (decode_tracks_from_proto, decode_map_features_from_proto,
                                     get_map_features, get_agent_features, preprocess_map)

@@ -8,7 +8,6 @@ from torch_geometric.data import HeteroData
 
 from src.smart.utils import weight_init
 from src.smart.diffusion.diffusion_utils import get_diff_loss, get_closest_sum_idx_fast
-from src.smart.diffusion.dit.dit import DiT
 from .denoiser import InitDenoiser
 
 
@@ -45,6 +44,8 @@ class ScaleFlow(nn.Module):
         self.imf_jvp_detach = bool(getattr(args, "imf_jvp_detach", True))
 
         if self.use_dit:
+            from src.smart.diffusion.dit.dit import DiT
+
             self.x_pred = False
             self.model = DiT(self.hidden_dim)
         else:

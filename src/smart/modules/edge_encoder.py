@@ -1,375 +1,625 @@
-import random
-from typing import Dict, Optional
+import math
+from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
-from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
-from src.smart.utils import (
-    angle_between_2d_vectors,
-    transform_to_global,
-    weight_init,
-    wrap_angle,
-    project_to_local_frame
-)
-from src.smart.utils.edge_utils import radiusGraphNearest2, radiusGraphNearest
-from torch_geometric.utils import dense_to_sparse, subgraph
+from torch import Tensor
+from torch_geometric.nn.pool import knn, knn_graph
 from torch_scatter import scatter_mean
 
+from src.smart.layers.fourier_embedding import FourierEmbedding
+from src.smart.utils import (
+    angle_between_2d_vectors,
+    project_to_local_frame,
+    wrap_angle,
+)
+
+
+def _empty_edges(device) -> Tensor:
+    return torch.empty(2, 0, dtype=torch.long, device=device)
+
+
+def _validate_edge_index(
+    edge_index: Tensor,
+    num_source: int,
+    num_target: Optional[int] = None,
+) -> Tensor:
+    """Validate a source-to-target edge index."""
+    num_target = num_source if num_target is None else num_target
+    if edge_index.ndim != 2 or edge_index.shape[0] != 2:
+        raise ValueError(f"Expected edge_index [2,E], got {edge_index.shape}.")
+    edge_index = edge_index.long()
+    if edge_index.numel():
+        if edge_index[0].min() < 0 or edge_index[0].max() >= num_source:
+            raise IndexError("Invalid source index.")
+        if edge_index[1].min() < 0 or edge_index[1].max() >= num_target:
+            raise IndexError("Invalid target index.")
+    return edge_index
+
+
+def radiusGraphNearest(
+    x: Tensor,
+    batch: Tensor,
+    r: float,
+    loop: bool,
+    max_num_neighbors: int,
+) -> Tensor:
+    """Batch-safe radius-filtered KNN graph.
+
+    Returns source-to-target edges:
+        edge_index[0] = neighbor/source
+        edge_index[1] = center/target
+    """
+    if x.ndim != 2:
+        raise ValueError(f"x must be [N,D], got {x.shape}.")
+    batch = batch.reshape(-1).long()
+    if len(batch) != len(x):
+        raise ValueError("batch must contain one id per node.")
+    if len(x) == 0 or max_num_neighbors <= 0 or r < 0:
+        return _empty_edges(x.device)
+
+    result = []
+    for scene in batch.unique(sorted=True):
+        index = (batch == scene).nonzero(as_tuple=True)[0]
+        k = min(max_num_neighbors, len(index) if loop else len(index) - 1)
+        if k <= 0:
+            continue
+
+        edge = knn_graph(
+            x[index],
+            k=int(k),
+            loop=loop,
+            flow="source_to_target",
+        )
+        source = index[edge[0]]
+        target = index[edge[1]]
+        keep = torch.linalg.vector_norm(x[source] - x[target], dim=-1) <= r
+        result.append(torch.stack([source[keep], target[keep]]))
+
+    return torch.cat(result, dim=1) if result else _empty_edges(x.device)
+
+
+def radiusGraphNearest2(
+    x: Tensor,
+    y: Tensor,
+    r: float,
+    batch_x: Tensor,
+    batch_y: Tensor,
+    max_num_neighbors: int,
+) -> Tensor:
+    """Build source ``y`` -> target ``x`` KNN edges inside each scene."""
+    if x.ndim != 2 or y.ndim != 2 or x.shape[-1] != y.shape[-1]:
+        raise ValueError("x and y must be [N,D] tensors with equal D.")
+
+    batch_x = batch_x.reshape(-1).long()
+    batch_y = batch_y.reshape(-1).long()
+    if len(batch_x) != len(x) or len(batch_y) != len(y):
+        raise ValueError("Batch vectors must match their point tensors.")
+    if (
+        len(x) == 0
+        or len(y) == 0
+        or max_num_neighbors <= 0
+        or r < 0
+    ):
+        return _empty_edges(x.device)
+
+    result = []
+    for scene in batch_x.unique(sorted=True):
+        target_index = (batch_x == scene).nonzero(as_tuple=True)[0]
+        source_index = (batch_y == scene).nonzero(as_tuple=True)[0]
+        if len(target_index) == 0 or len(source_index) == 0:
+            continue
+
+        k = min(max_num_neighbors, len(source_index))
+        # knn(database, query, k) -> [query_index, database_index].
+        query_source = knn(y[source_index], x[target_index], int(k))
+        target = target_index[query_source[0]]
+        source = source_index[query_source[1]]
+
+        keep = torch.linalg.vector_norm(y[source] - x[target], dim=-1) <= r
+        result.append(torch.stack([source[keep], target[keep]]))
+
+    return torch.cat(result, dim=1) if result else _empty_edges(x.device)
+
+
+def _compressed_mask(
+    value: Optional[Tensor],
+    valid: Optional[Tensor],
+    num_nodes: int,
+    name: str,
+) -> Optional[Tensor]:
+    """Accept either a dense mask or a mask over already-valid nodes."""
+    if value is None:
+        return None
+    value = value.reshape(-1).bool()
+    if value.numel() == num_nodes:
+        return value
+    if valid is not None and value.numel() == valid.numel():
+        value = value[valid]
+        if value.numel() == num_nodes:
+            return value
+    raise ValueError(f"{name} has {value.numel()} values; expected {num_nodes}.")
+
+
+def _remap_agent_to_time_major(edge_index: Tensor, mask: Tensor) -> Tensor:
+    """Remap compact agent-major destinations to compact time-major."""
+    num_agent, num_step = mask.shape
+    if num_step == 1 or edge_index.numel() == 0:
+        return edge_index
+
+    agent_valid = mask.reshape(-1)
+    time_valid = mask.T.reshape(-1)
+    kept_agent = agent_valid.nonzero(as_tuple=True)[0]
+
+    global_agent = kept_agent[edge_index[1]]
+    agent = torch.div(global_agent, num_step, rounding_mode="floor")
+    step = global_agent.remainder(num_step)
+    global_time = step * num_agent + agent
+
+    dense_to_compact = torch.full(
+        (num_agent * num_step,),
+        -1,
+        dtype=torch.long,
+        device=mask.device,
+    )
+    kept_time = time_valid.nonzero(as_tuple=True)[0]
+    dense_to_compact[kept_time] = torch.arange(
+        len(kept_time), device=mask.device
+    )
+
+    target = dense_to_compact[global_time]
+    if (target < 0).any():
+        raise RuntimeError("Failed to remap map-to-agent edges.")
+    return torch.stack([edge_index[0], target])
+
+
 class EdgeEncoder(nn.Module):
+    """Build temporal, agent-agent, and map-agent relation embeddings."""
+
     def __init__(
-            self,
-            hidden_dim: int,
-            num_freq_bands:int,
-            hist_drop_prob=0.0,
-            time_span=30,
-            shift=0,
-            discriminator=False,
-            use_bird=False,
-            use_pl2a=False,
-            use_a2a=False,
-            use_t2t=False,
-            differentiable_edge=True
+        self,
+        hidden_dim: int,
+        num_freq_bands: int,
+        hist_drop_prob: float = 0.0,
+        time_span: Optional[int] = 30,
+        shift: int = 0,
+        discriminator: bool = False,
+        use_bird: bool = False,
+        use_pl2a: bool = False,
+        use_a2a: bool = False,
+        use_t2t: bool = False,
+        differentiable_edge: bool = True,
     ) -> None:
-        super(EdgeEncoder, self).__init__()
+        super().__init__()
 
-        self.differentiable_edge=differentiable_edge
-
-        self.rollout_traj=False
+        if not 0 <= hist_drop_prob <= 1:
+            raise ValueError("hist_drop_prob must be in [0,1].")
+        if use_t2t and shift <= 0:
+            raise ValueError("shift must be positive when use_t2t=True.")
 
         self.hist_drop_prob = hist_drop_prob
         self.time_span = time_span
         self.shift = shift
-        self.use_t2t=use_t2t
+        self.discriminator = discriminator
+        self.differentiable_edge = differentiable_edge
+        self.rollout_traj = False
+        self.use_t2t = use_t2t
+        self.use_a2a = use_a2a
+        self.use_pl2a = use_pl2a
+        self.tokenized_pos = False
 
-        if not use_bird:
-            input_dim = 3
-        else:
-            input_dim = 4
-
+        spatial_dim = 4 if use_bird else 3
         if use_pl2a:
             self.r_pt2a_emb = FourierEmbedding(
-                input_dim=input_dim,
+                input_dim=spatial_dim,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
-
         if use_a2a:
-            self.tokenized_pos=False
-
             self.r_a2a_emb = FourierEmbedding(
-                input_dim=input_dim,
+                input_dim=spatial_dim,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
-
         if use_t2t:
             self.r_t_emb = FourierEmbedding(
-                input_dim=input_dim+1,
+                input_dim=spatial_dim + 1,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
 
+    @staticmethod
+    def _select_agents(
+        value: Optional[Tensor],
+        train_mask: Optional[Tensor],
+        full_agents: int,
+        selected_agents: int,
+        name: str,
+    ) -> Optional[Tensor]:
+        if value is None:
+            return None
+        if value.shape[0] == selected_agents:
+            return value
+        if train_mask is not None and value.shape[0] == full_agents:
+            return value[train_mask]
+        raise ValueError(f"{name} has an incompatible agent dimension.")
+
     def build_temporal_edge(
-            self,
-            pos_a,  # [n_agent, n_step, 2]
-            head_a,  # [n_agent, n_step]
-            head_vector_a,  # [n_agent, n_step, 2],
-            mask,  # [n_agent, n_step]
-            inference_mask=None,  # [n_agent, n_step]
-            agent_train_mask=None
+        self,
+        pos_a: Tensor,
+        head_a: Tensor,
+        head_vector_a: Tensor,
+        mask: Tensor,
+        inference_mask: Optional[Tensor] = None,
+        agent_train_mask: Optional[Tensor] = None,
     ):
-        if agent_train_mask is not None:
-            pos_a=pos_a[agent_train_mask]
-            head_a=head_a[agent_train_mask]
-            head_vector_a=head_vector_a[agent_train_mask]
-            mask=mask[agent_train_mask]
+        if not self.use_t2t:
+            raise RuntimeError("Temporal embedding is disabled.")
 
-        pos_t = pos_a.flatten(0, 1)
-        head_t = head_a.flatten(0, 1)
-        head_vector_t = head_vector_a.flatten(0, 1)
+        full_agents = len(pos_a)
+        train_mask = (
+            None if agent_train_mask is None else agent_train_mask.bool()
+        )
+        if train_mask is not None:
+            if train_mask.shape != (full_agents,):
+                raise ValueError("agent_train_mask has the wrong shape.")
+            pos_a = pos_a[train_mask]
+            head_a = head_a[train_mask]
+            head_vector_a = head_vector_a[train_mask]
+            mask = mask[train_mask]
 
-        flat_mask = mask.transpose(0, 1).flatten(0, 1)
-
-        if self.hist_drop_prob > 0 and self.training:
-            _mask_keep = torch.bernoulli(
-                torch.ones_like(mask) * (1 - self.hist_drop_prob)
-            ).bool()
-            mask = mask & _mask_keep
-
-        if inference_mask is not None:
-            mask_t = mask.unsqueeze(2) & inference_mask.unsqueeze(1)
-        else:
-            mask_t = mask.unsqueeze(2) & mask.unsqueeze(1)
-
-        if self.shift <= 0:
-            raise ValueError("shift must be positive when temporal edges are enabled.")
-
-        edge_index_t = dense_to_sparse(mask_t)[0]
-        edge_index_t = edge_index_t[:, edge_index_t[1] > edge_index_t[0]]
-        edge_index_t = edge_index_t[
-            :, edge_index_t[1] - edge_index_t[0] <= self.time_span / self.shift
-        ]
-        rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
-        rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
-
-        feat_a=project_to_local_frame(rel_pos_t,head_vector_t[edge_index_t[1]],self.differentiable_edge)
-
-        r_t = torch.cat(
-            [
-                feat_a,
-                rel_head_t[:,None],
-                (edge_index_t[0] - edge_index_t[1])[:,None],
-            ],
-            dim=-1,
+        inference_mask = self._select_agents(
+            inference_mask,
+            train_mask,
+            full_agents,
+            len(pos_a),
+            "inference_mask",
         )
 
-        n_agent, n_step = mask.shape
+        mask = mask.bool().clone()
+        if pos_a.shape[:2] != mask.shape or head_a.shape != mask.shape:
+            raise ValueError("Temporal tensors must share [agent,time].")
 
-        edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
+        source_valid = mask.clone()
+        if self.training and self.hist_drop_prob:
+            source_valid &= (
+                torch.rand(mask.shape, device=mask.device)
+                >= self.hist_drop_prob
+            )
 
-        r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
+        target_valid = mask.clone()
+        if inference_mask is not None:
+            target_valid &= inference_mask.bool()
 
-        if torch.any(flat_mask==False):
+        num_agent, num_step = mask.shape
+        max_lag = num_step - 1
+        if self.time_span is not None:
+            max_lag = min(
+                max_lag,
+                max(0, math.floor(self.time_span / self.shift)),
+            )
 
-            N_total = n_step * n_agent  # total nodes in transposed ordering
+        agents, source_steps, target_steps = [], [], []
+        for lag in range(1, max_lag + 1):
+            agent, source = (
+                source_valid[:, :-lag] & target_valid[:, lag:]
+            ).nonzero(as_tuple=True)
+            agents.append(agent)
+            source_steps.append(source)
+            target_steps.append(source + lag)
 
-            kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
-            map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
-            map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
+        if agents:
+            agent = torch.cat(agents)
+            source_step = torch.cat(source_steps)
+            target_step = torch.cat(target_steps)
+        else:
+            agent = torch.empty(0, dtype=torch.long, device=mask.device)
+            source_step = target_step = agent
 
-            edge_index_t = map_to_compact[edge_index_t]
+        relative_pos = (
+            pos_a[agent, source_step] - pos_a[agent, target_step]
+        )
+        relative_head = wrap_angle(
+            head_a[agent, source_step] - head_a[agent, target_step]
+        )
+        local_pos = project_to_local_frame(
+            relative_pos,
+            head_vector_a[agent, target_step],
+            self.differentiable_edge,
+        )
+        relation = self.r_t_emb(
+            continuous_inputs=torch.cat(
+                [
+                    local_pos,
+                    relative_head[:, None],
+                    (source_step - target_step).to(pos_a.dtype)[:, None],
+                ],
+                dim=-1,
+            ),
+            categorical_embs=None,
+        )
 
-        return edge_index_t, r_t
+        time_valid = mask.T.reshape(-1)
+        dense_to_compact = torch.full(
+            (num_agent * num_step,),
+            -1,
+            dtype=torch.long,
+            device=mask.device,
+        )
+        kept = time_valid.nonzero(as_tuple=True)[0]
+        dense_to_compact[kept] = torch.arange(
+            len(kept), device=mask.device
+        )
+
+        source = dense_to_compact[source_step * num_agent + agent]
+        target = dense_to_compact[target_step * num_agent + agent]
+        edge_index = torch.stack([source, target])
+        if (edge_index < 0).any():
+            raise RuntimeError("Temporal edge references an invalid node.")
+
+        return edge_index, relation
 
     def build_interaction_edge(
-            self,
-            pos_s,  # [n_agent, n_step, 2]
-            head_s,  # [n_agent, n_step]
-            head_vector_s,  # [n_agent, n_step, 2]
-            batch_s,  # [n_agent*n_step]
-            mask,  # [n_agent, n_step]
-            max_num_neighbors,
-            max_radius,
-            agent_train_mask=None,
-            layer_num=1,
-            counter_feat_a=None,
-            dis_edge_mask=None,
-            a2a_edge_index=None
-        ):
+        self,
+        pos_s: Tensor,
+        head_s: Tensor,
+        head_vector_s: Tensor,
+        batch_s: Tensor,
+        mask: Optional[Tensor],
+        max_num_neighbors: int,
+        max_radius: float,
+        agent_train_mask: Optional[Tensor] = None,
+        layer_num: int = 1,
+        counter_feat_a: Optional[Tensor] = None,
+        dis_edge_mask: Optional[Tensor] = None,
+        a2a_edge_index: Optional[Tensor] = None,
+    ):
+        if not self.use_a2a:
+            raise RuntimeError("Interaction embedding is disabled.")
+
+        valid = None
         if mask is not None:
-            pos_s = pos_s[mask]
-            head_s = head_s[mask]
-            head_vector_s = head_vector_s[mask]
-            batch_s = batch_s[mask]
+            valid = mask.reshape(-1).bool()
+            pos_s = pos_s[valid]
+            head_s = head_s[valid]
+            head_vector_s = head_vector_s[valid]
+            batch_s = batch_s[valid]
 
-        if a2a_edge_index is None:
-            edge_index_a2a = radiusGraphNearest(x=pos_s,
-                                                r=max_radius,
-                                                batch=batch_s,
-                                                loop=False,
-                                                max_num_neighbors=max_num_neighbors)
-        else:
-            edge_index_a2a = a2a_edge_index
+        batch_s = batch_s.reshape(-1)
+        if len(batch_s) != len(pos_s):
+            raise ValueError("batch_s must match pos_s.")
 
-        if agent_train_mask is not None and layer_num==1:
-            edge_index_a2a = edge_index_a2a[:, agent_train_mask[edge_index_a2a[1]]]
-
-        # if mask is not None:
-        #     edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
-
-        # if self.training:
-        #     keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.1
-        #     edge_index_a2a = edge_index_a2a[:, keep_mask]
-        if dis_edge_mask is not None:
-            dis_edge_mask=dis_edge_mask[edge_index_a2a[1]]
-            edge_index_a2a=edge_index_a2a[:,dis_edge_mask]
-
-        rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
-        rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
-
-        dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
-
-        feat_a=project_to_local_frame(rel_pos_a2a,head_vector_s[edge_index_a2a[1]],self.differentiable_edge)
-
-        r_a2a = torch.cat(
-            [
-                feat_a,
-                rel_head_a2a[:,None],
-            ],
-            dim=-1,
+        edge_index = (
+            radiusGraphNearest(
+                pos_s, batch_s, max_radius, False, max_num_neighbors
+            )
+            if a2a_edge_index is None
+            else _validate_edge_index(a2a_edge_index, len(pos_s))
         )
 
-        r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
+        if agent_train_mask is not None and layer_num == 1:
+            train = _compressed_mask(
+                agent_train_mask, valid, len(pos_s), "agent_train_mask"
+            )
+            edge_index = edge_index[:, train[edge_index[1]]]
 
+        if dis_edge_mask is not None:
+            dis_mask = _compressed_mask(
+                dis_edge_mask, valid, len(pos_s), "dis_edge_mask"
+            )
+            edge_index = edge_index[:, dis_mask[edge_index[1]]]
+
+        source, target = edge_index
+        relative_pos = pos_s[source] - pos_s[target]
+        relative_head = wrap_angle(head_s[source] - head_s[target])
+        distance = torch.linalg.vector_norm(relative_pos, dim=-1)
+
+        local_pos = project_to_local_frame(
+            relative_pos,
+            head_vector_s[target],
+            self.differentiable_edge,
+        )
+        relation = self.r_a2a_emb(
+            continuous_inputs=torch.cat(
+                [local_pos, relative_head[:, None]], dim=-1
+            ),
+            categorical_embs=None,
+        )
+
+        neighbor_relation = center_pos = center_heading = None
         if counter_feat_a is not None:
-            start_index = edge_index_a2a[0]
-            end_index = edge_index_a2a[1]
+            source_pos = pos_s[source]
+            source_heading = head_s[source]
+            center_pos = scatter_mean(
+                source_pos, target, dim=0, dim_size=len(pos_s)
+            )
+            center_heading = torch.atan2(
+                scatter_mean(
+                    source_heading.sin(), target, dim=0, dim_size=len(pos_s)
+                ),
+                scatter_mean(
+                    source_heading.cos(), target, dim=0, dim_size=len(pos_s)
+                ),
+            )
 
-            start_pos = pos_s[start_index]
-
-            start_heading = head_s[start_index]
-
-            center_nei_pos = scatter_mean(start_pos, end_index, dim=0, dim_size=len(pos_s))
-
-            center_nei_heading= scatter_mean(start_heading, end_index, dim=0, dim_size=len(head_s))
-
-            rel_pos_a2a = start_pos - center_nei_pos[end_index]
-            rel_head_a2a = wrap_angle(start_heading - center_nei_heading[end_index])
-
-            r_a2a_nei = torch.stack(
+            centered_pos = source_pos - center_pos[target]
+            centered_head = wrap_angle(
+                source_heading - center_heading[target]
+            )
+            neighbor_feature = torch.stack(
                 [
-                    torch.norm(rel_pos_a2a, p=2, dim=-1),
+                    torch.linalg.vector_norm(centered_pos, dim=-1),
                     angle_between_2d_vectors(
-                        ctr_vector=head_vector_s[edge_index_a2a[1]],
-                        nbr_vector=rel_pos_a2a[:, :2],
+                        ctr_vector=head_vector_s[target],
+                        nbr_vector=centered_pos[..., :2],
                     ),
-                    rel_head_a2a
+                    centered_head,
                 ],
                 dim=-1,
             )
+            if centered_pos.shape[-1] > 2:
+                neighbor_feature = torch.cat(
+                    [neighbor_feature, centered_pos[..., 2:]], dim=-1
+                )
+            neighbor_relation = self.r_a2a_emb(
+                continuous_inputs=neighbor_feature,
+                categorical_embs=None,
+            )
 
-            r_a2a_nei = torch.cat([r_a2a_nei, rel_pos_a2a[:, 2:]], dim=-1)
-
-            r_a2a_nei = self.r_a2a_emb(continuous_inputs=r_a2a_nei, categorical_embs=None)
-        else:
-            r_a2a_nei=center_nei_pos=center_nei_heading=None
-
-        return edge_index_a2a, r_a2a,dist,None,r_a2a_nei,center_nei_pos,center_nei_heading
-
-    def build_map2map_edge(self,
-                           pos_pl,  # [n_pl, 2]
-                           orient_pl,  # [n_pl]
-                           pos_s,  # [n_agent, n_step, 2]
-                           head_s,  # [n_agent, n_step]
-                           head_vector_s,  # [n_agent, n_step, 2]
-                           batch_s,  # [n_agent*n_step]
-                           batch_pl,  # [n_pl*n_step]
-                           pl2a_radius,
-                           max_num_neighbors,
-                           l2l_edge_index=None,
-                           l2l_feature=None
-                           ):
-
-        if l2l_edge_index is None:
-            edge_index_pl2pl = radiusGraphNearest2(x=pos_s,
-                                                  y=pos_pl,
-                                                  r=pl2a_radius,
-                                                  batch_x=batch_s,
-                                                  batch_y=batch_pl,
-                                                  max_num_neighbors=max_num_neighbors)
-        else:
-            edge_index_pl2pl=l2l_edge_index
-
-        # #edge_index[0] → indices in y (query points)            edge_index[1] → indices in x (neighbor points)
-        rel_pos_pl2a = pos_pl[edge_index_pl2pl[0]] - pos_s[edge_index_pl2pl[1]]   #src, dst
-        rel_orient_pl2a = wrap_angle(
-            orient_pl[edge_index_pl2pl[0]] - head_s[edge_index_pl2pl[1]]
+        return (
+            edge_index,
+            relation,
+            distance,
+            relative_pos,
+            neighbor_relation,
+            center_pos,
+            center_heading,
         )
 
-        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2pl[1]],self.differentiable_edge)
-
-
-        r_pl2a = torch.cat(
-            [
-                feat_a,
-                rel_orient_pl2a[:,None],
-            ],
-            dim=-1,
+    def _map_relation(
+        self,
+        pos_pl: Tensor,
+        orient_pl: Tensor,
+        pos_s: Tensor,
+        head_s: Tensor,
+        head_vector_s: Tensor,
+        edge_index: Tensor,
+        categorical: Optional[Tensor] = None,
+    ) -> Tensor:
+        source, target = edge_index
+        relative_pos = pos_pl[source] - pos_s[target]
+        relative_head = wrap_angle(orient_pl[source] - head_s[target])
+        local_pos = project_to_local_frame(
+            relative_pos,
+            head_vector_s[target],
+            self.differentiable_edge,
+        )
+        return self.r_pt2a_emb(
+            continuous_inputs=torch.cat(
+                [local_pos, relative_head[:, None]], dim=-1
+            ),
+            categorical_embs=categorical,
         )
 
-        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=l2l_feature)
+    def build_map2map_edge(
+        self,
+        pos_pl: Tensor,
+        orient_pl: Tensor,
+        pos_s: Tensor,
+        head_s: Tensor,
+        head_vector_s: Tensor,
+        batch_s: Tensor,
+        batch_pl: Tensor,
+        pl2a_radius: float,
+        max_num_neighbors: int,
+        l2l_edge_index: Optional[Tensor] = None,
+        l2l_feature: Optional[Tensor] = None,
+    ):
+        if not self.use_pl2a:
+            raise RuntimeError("Map embedding is disabled.")
 
-        return edge_index_pl2pl, r_pl2a
-
+        edge_index = (
+            radiusGraphNearest2(
+                pos_s,
+                pos_pl,
+                pl2a_radius,
+                batch_s,
+                batch_pl,
+                max_num_neighbors,
+            )
+            if l2l_edge_index is None
+            else _validate_edge_index(
+                l2l_edge_index, len(pos_pl), len(pos_s)
+            )
+        )
+        relation = self._map_relation(
+            pos_pl,
+            orient_pl,
+            pos_s,
+            head_s,
+            head_vector_s,
+            edge_index,
+            l2l_feature,
+        )
+        return edge_index, relation
 
     def build_map2agent_edge(
-            self,
-            pos_pl,  # [n_pl, 2]
-            orient_pl,  # [n_pl]
-            pos_a,  # [n_agent, n_step, 2]
-            head_a,  # [n_agent, n_step]
-            head_vector_a,  # [n_agent, n_step, 2]
-            mask,  # [n_agent, n_step]
-            batch_s,  # [n_agent*n_step]
-            batch_pl,  # [n_pl*n_step]
-            pl2a_radius,
-            max_num_neighbors,
-            mask_pl=None,
-            agent_train_mask=None,
-            use_counterfactual=False,
-            route_map_index=None,
-            layer_num=1,
-            l2a_edge_index=None
+        self,
+        pos_pl: Tensor,
+        orient_pl: Tensor,
+        pos_a: Tensor,
+        head_a: Tensor,
+        head_vector_a: Tensor,
+        mask: Optional[Tensor],
+        batch_s: Tensor,
+        batch_pl: Tensor,
+        pl2a_radius: float,
+        max_num_neighbors: int,
+        mask_pl: Optional[Tensor] = None,
+        agent_train_mask: Optional[Tensor] = None,
+        use_counterfactual: bool = False,
+        route_map_index: Optional[Tensor] = None,
+        layer_num: int = 1,
+        l2a_edge_index: Optional[Tensor] = None,
     ):
+        del mask_pl, use_counterfactual, route_map_index
 
-        if agent_train_mask is not None and layer_num==1:
-            mask = mask & agent_train_mask[:,None]
+        if not self.use_pl2a:
+            raise RuntimeError("Map embedding is disabled.")
 
-        if mask is not None:
-            n_agent, n_step = mask.shape
+        if pos_a.ndim == 2:
+            pos_a = pos_a[:, None]
+            head_a = head_a[:, None]
+            head_vector_a = head_vector_a[:, None]
+        if pos_a.ndim != 3:
+            raise ValueError("pos_a must be [A,T,D] or [A,D].")
 
-            pos_s=pos_a[mask]
-            head_s=head_a[mask]
-            head_vector_s=head_vector_a[mask]
-            batch_s=batch_s[mask]
+        if mask is None:
+            mask = torch.ones(
+                pos_a.shape[:2], dtype=torch.bool, device=pos_a.device
+            )
         else:
-            pos_s=pos_a
-            head_s=head_a
-            head_vector_s=head_vector_a
-            batch_s=batch_s
-            n_step=1
+            mask = mask.bool().clone()
 
+        num_agent, num_step = mask.shape
+        if agent_train_mask is not None and layer_num == 1:
+            agent_train_mask = agent_train_mask.bool()
+            if agent_train_mask.shape != (num_agent,):
+                raise ValueError("agent_train_mask has the wrong shape.")
+            mask &= agent_train_mask[:, None]
 
-        if l2a_edge_index is None:
-            edge_index_pl2a = radiusGraphNearest2(x=pos_s,
-                                                  y=pos_pl,
-                                                  r=pl2a_radius,
-                                                  batch_x=batch_s,
-                                                  batch_y=batch_pl,
-                                                  max_num_neighbors=max_num_neighbors)
+        if batch_s.shape != mask.shape:
+            if batch_s.numel() != mask.numel():
+                raise ValueError("batch_s must have A*T values.")
+            batch_s = batch_s.reshape_as(mask)
 
-        else:
-            edge_index_pl2a=l2a_edge_index
+        pos_s = pos_a[mask]
+        head_s = head_a[mask]
+        head_vector_s = head_vector_a[mask]
+        batch_agent_major = batch_s[mask]
 
-        rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
-        rel_orient_pl2a = wrap_angle(
-            orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
+        edge_index = (
+            radiusGraphNearest2(
+                pos_s,
+                pos_pl,
+                pl2a_radius,
+                batch_agent_major,
+                batch_pl,
+                max_num_neighbors,
+            )
+            if l2a_edge_index is None
+            else _validate_edge_index(
+                l2a_edge_index, len(pos_pl), len(pos_s)
+            )
+        )
+        relation = self._map_relation(
+            pos_pl,
+            orient_pl,
+            pos_s,
+            head_s,
+            head_vector_s,
+            edge_index,
         )
 
-        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2a[1]],self.differentiable_edge)
-
-        r_pl2a = torch.cat(
-            [
-                feat_a,
-                rel_orient_pl2a[:,None],
-            ],
-            dim=-1,
-        )
-
-        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
-
-        if n_step>1:
-            N_total = n_agent * n_step
-
-            # 1) Kept global indices in both orderings
-            flat_mask_agent = mask.flatten(0, 1)  # agent-major
-            flat_mask_time = mask.transpose(0, 1).flatten(0, 1)  # time-major
-
-            kept_agent = torch.nonzero(flat_mask_agent, as_tuple=False).squeeze(1)  # [M], global idx
-            kept_time = torch.nonzero(flat_mask_time, as_tuple=False).squeeze(1)  # [M], global idx
-
-            map_global_to_compact_time = torch.full((N_total,), -1, dtype=torch.long, device=mask.device)
-            map_global_to_compact_time[kept_time] = torch.arange(kept_time.numel(), device=mask.device)
-
-            # 3) Convert compact agent-major indices -> global -> compact time-major indices
-            dst_compact_agent = edge_index_pl2a[1]  # indices into pos_a[mask]
-            dst_global = kept_agent[dst_compact_agent]  # global flattened indices
-
-            dst_global=(dst_global % n_step) * n_agent + dst_global // n_step
-
-            new_dst = map_global_to_compact_time[dst_global]
-            edge_index_pl2a = torch.stack([edge_index_pl2a[0], new_dst], dim=0)
-
-        return edge_index_pl2a, r_pl2a
-
+        edge_index = _remap_agent_to_time_major(edge_index, mask)
+        return edge_index, relation

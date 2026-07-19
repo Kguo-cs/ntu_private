@@ -20,8 +20,6 @@ from torch.distributions import Categorical
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interact_decoder import InterativeDecoder
 from src.smart.utils import infer_prev_pose, transform_to_global
-from src.smart.utils.edge_utils import build_batch
-
 
 class SMARTAgentDecoder(nn.Module):
     """Token-based agent decoder with autoregressive rollout."""
@@ -158,11 +156,14 @@ class SMARTAgentDecoder(nn.Module):
         pos_a=pos_a[:, -num_steps:]
 
         batch_by_agent = batch_a[:, None].expand(-1, num_steps)
-        batch_by_time = build_batch(
-            batch_a,
-            tokenized_agent["num_graphs"],
-            num_steps,
-        ).reshape(num_steps, num_agents).transpose(0, 1)
+
+        batch_by_time = torch.cat(
+            [
+                batch_a + tokenized_agent["num_graphs"] * t
+                for t in range(num_steps)
+            ],
+            dim=0,
+        ) .reshape(num_steps, num_agents).transpose(0, 1)
 
         features = [
             pos_a,

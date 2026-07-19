@@ -1,4 +1,4 @@
-_target_: src.smart.model.smart_gail.SMART_IQ
+_target_: src.smart.model.smart_gail.SMART_GAIL
 
 defaults:
   - smart

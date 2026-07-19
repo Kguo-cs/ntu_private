@@ -10,12 +10,8 @@ from src.smart.utils import (
     rotate_to_global,
     rotate_to_local,
 )
-from src.smart.gan.discriminator import InitDiscriminator
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
-    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch
 from .scale_flow import ScaleFlow
-from src.smart.diffusion.dit.autoencoder import AutoEncoder
-from src.smart.diffusion.dit.ldm import LDM
 from torch_scatter import scatter_sum,scatter_mean
 from .diffusion_utils import multi_circle_collision_loss_mem_efficient
 
@@ -41,6 +37,7 @@ class InitDiffusion(nn.Module):
         self.sep_map=False
 
         if self.learn_autoencoder or self.latent_diffusion:
+            from src.smart.diffusion.dit.autoencoder import AutoEncoder
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=256,latent_dim=8,num_heads=4)
 
@@ -52,6 +49,8 @@ class InitDiffusion(nn.Module):
         self.ldm=False
 
         if self.ldm:
+            from src.smart.diffusion.dit.ldm import LDM
+
             self.G1=LDM()
         else:
             self.G1 = ScaleFlow(args,token_processor,gail)
@@ -61,6 +60,8 @@ class InitDiffusion(nn.Module):
         self.use_rl=False
 
         if  self.use_gan:
+            from src.smart.gan.discriminator import InitDiscriminator
+
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
 
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
