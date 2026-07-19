@@ -943,6 +943,8 @@ val:
 
 model32_a60_match_posheadl1_gp001-epoch=4-step=136968-valmeta=0.6558.ckpt
 
+test: 0.6517
+
 val: 0.6522
 
 
