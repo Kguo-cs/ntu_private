@@ -253,5 +253,5 @@ class AgentTokenEncoder(nn.Module):
         if not self.use_state_action:
             agent_token_emb=None
 
-        return feat_a, agent_token_emb,counter_feat_a  # [n_agent, n_step, hidden_dim] #1258
+        return feat_a, agent_token_emb  # [n_agent, n_step, hidden_dim] #1258
 
