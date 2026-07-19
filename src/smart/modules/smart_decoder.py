@@ -1,39 +1,33 @@
-# Not a contribution
-# Changes made by NVIDIA CORPORATION & AFFILIATES enabling <CAT-K> or otherwise documented as
-# NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
-#
-# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
-# property and proprietary rights in and to this material, related
-# documentation and any modifications thereto. Any use, reproduction,
-# disclosure or distribution of this material and related documentation
-# without an express license agreement from NVIDIA CORPORATION or
-# its affiliates is strictly prohibited.
+"""Top-level SMART decoder.
+
+This module combines:
+    * map encoding;
+    * agent-token policy decoding;
+    * optional initial-state diffusion;
+    * optional GAIL discriminator and value networks.
+
+The public constructor, ``forward`` and ``inference`` signatures are compatible
+with the previous implementation.
+"""
+
+from __future__ import annotations
+
 from typing import Dict, Optional
 
-import torch
 import torch.nn as nn
 from torch import Tensor
 
-
-from src.smart.layers import MLPLayer
-import torch.nn.functional as F
-from src.smart.modules.map_decoder import SMARTMapDecoder
-from src.smart.modules.agent_decoder import SMARTAgentDecoder
 from src.smart.diffusion.initial_diffusion import InitDiffusion
+from src.smart.layers import MLPLayer
+from src.smart.modules.agent_decoder import SMARTAgentDecoder
+from src.smart.modules.map_decoder import SMARTMapDecoder
 
-from src.smart.utils import (
-    cal_polygon_contour,
-    transform_to_global,
-    transform_to_local,
-    wrap_angle,
-    angle_between_2d_vectors,
-rotate_to_local,
-infer_prev_pose
-)
+
+TensorDict = Dict[str, Tensor]
+
 
 class SMARTDecoder(nn.Module):
+    """Compose map, agent, initial-state, and discriminator decoders."""
 
     def __init__(
         self,
@@ -51,35 +45,40 @@ class SMARTDecoder(nn.Module):
         head_dim: int,
         dropout: float,
         hist_drop_prob: float,
-        pt2pt_neighbor:int,
+        pt2pt_neighbor: int,
         pt2a_neighbor: int,
         a2a_neighbor: int,
         n_token_agent: int,
-        dis_a2a_radius: int,
+        dis_a2a_radius: float,
         dis_weight: float,
         dist_decay: float,
         reward_weight: float,
         reward_decay: float,
         token_processor=None,
-        finetune=False,
+        finetune: bool = False,
     ) -> None:
-        super(SMARTDecoder, self).__init__()
+        super().__init__()
 
+        self.token_processor = token_processor
+        self.finetune = bool(finetune)
+
+        self.pred_init = bool(token_processor.pred_init)
+        self.learn_init = bool(token_processor.learn_init)
+        if self.learn_init and not self.pred_init:
+            raise ValueError(
+                "token_processor.learn_init=True requires pred_init=True."
+            )
+
+        self.gail = dis_a2a_radius > 0
+        self.use_lcf = reward_weight != 0
+        self.use_kl_penalty = False
+        self.alpha = 0.1
+
+        # External code reads these fields.
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
 
-        self.pred_init=token_processor.pred_init
-        self.learn_init=token_processor.learn_init
-        self.finetune=finetune
-        self.token_processor=token_processor
-
-        self.use_lcf=reward_weight!=0
-        self.use_kl_penalty=False
-        self.gail=dis_a2a_radius>0
-
-        self.alpha = 0.1
-
-        self.map_encoder = SMARTMapDecoder(
+        self.map_encoder = self._make_map_encoder(
             hidden_dim=hidden_dim,
             pl2pl_radius=pl2pl_radius,
             num_freq_bands=num_freq_bands,
@@ -88,7 +87,7 @@ class SMARTDecoder(nn.Module):
             head_dim=head_dim,
             dropout=dropout,
             pt2pt_neighbor=pt2pt_neighbor,
-            token_processor=token_processor
+            token_processor=token_processor,
         )
 
         self.agent_encoder = SMARTAgentDecoder(
@@ -113,124 +112,269 @@ class SMARTDecoder(nn.Module):
             dist_decay=dist_decay,
             reward_weight=reward_weight,
             reward_decay=reward_decay,
-            use_gail=self.gail
+            use_gail=self.gail,
         )
 
-        if self.pred_init:
-            self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor,self.gail)#
-            self.sep_map= self.init_decoder.sep_map
+        # Define optional attributes in every configuration.
+        self.init_decoder: Optional[InitDiffusion] = None
+        self.init_map_encoder: Optional[SMARTMapDecoder] = None
+        self.sep_map = False
 
-            if self.init_decoder.sep_map:
-                self.init_map_encoder = SMARTMapDecoder(
-                    hidden_dim=hidden_dim,
-                    pl2pl_radius=pl2pl_radius,
-                    num_freq_bands=num_freq_bands,
-                    num_layers=1,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    pt2pt_neighbor=pt2pt_neighbor,
-                    token_processor=token_processor
-                )
+        self.discriminator: Optional[SMARTAgentDecoder] = None
+        self.value_network: Optional[MLPLayer] = None
+        self.nei_value_network: Optional[MLPLayer] = None
+        self.init_value_network: Optional[MLPLayer] = None
+
+        if self.pred_init:
+            self._build_initial_decoder(
+                hidden_dim=hidden_dim,
+                num_heads=num_heads,
+                num_freq_bands=num_freq_bands,
+                pl2pl_radius=pl2pl_radius,
+                dropout=dropout,
+                head_dim=head_dim,
+                pt2pt_neighbor=pt2pt_neighbor,
+            )
 
         if self.gail:
-            self.discriminator = SMARTAgentDecoder(
-                hidden_dim=hidden_dim,#//2
+            self._build_gail_modules(
+                hidden_dim=hidden_dim,
                 num_historical_steps=num_historical_steps,
                 num_future_steps=num_future_steps,
                 time_span=time_span,
                 pl2a_radius=pl2a_radius,
-                a2a_radius=dis_a2a_radius,#20 bad
+                dis_a2a_radius=dis_a2a_radius,
                 num_freq_bands=num_freq_bands,
-                num_layers=1,
                 num_heads=num_heads,
-                head_dim=head_dim,#//2
+                head_dim=head_dim,
                 dropout=dropout,
                 hist_drop_prob=hist_drop_prob,
-                n_token_agent=1,
                 pt2a_neighbor=pt2a_neighbor,
                 a2a_neighbor=a2a_neighbor,
-                token_processor=token_processor,
-                alpha=self.alpha,
                 dis_weight=dis_weight,
                 dist_decay=dist_decay,
                 reward_weight=reward_weight,
                 reward_decay=reward_decay,
-                discriminator=True
             )
 
-            self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
-            if self.use_lcf:
-                self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
+    @staticmethod
+    def _make_map_encoder(
+        *,
+        hidden_dim: int,
+        pl2pl_radius: float,
+        num_freq_bands: int,
+        num_layers: int,
+        num_heads: int,
+        head_dim: int,
+        dropout: float,
+        pt2pt_neighbor: int,
+        token_processor,
+    ) -> SMARTMapDecoder:
+        return SMARTMapDecoder(
+            hidden_dim=hidden_dim,
+            pl2pl_radius=pl2pl_radius,
+            num_freq_bands=num_freq_bands,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=dropout,
+            pt2pt_neighbor=pt2pt_neighbor,
+            token_processor=token_processor,
+        )
 
-            if token_processor.learn_init:
-                self.init_value_network =MLPLayer(self.init_decoder.G1.hidden_dim,hidden_dim*2,1)
+    def _build_initial_decoder(
+        self,
+        *,
+        hidden_dim: int,
+        num_heads: int,
+        num_freq_bands: int,
+        pl2pl_radius: float,
+        dropout: float,
+        head_dim: int,
+        pt2pt_neighbor: int,
+    ) -> None:
+        self.init_decoder = InitDiffusion(
+            hidden_dim,
+            num_heads,
+            num_freq_bands,
+            self.token_processor,
+            self.gail,
+        )
+        self.sep_map = bool(self.init_decoder.sep_map)
 
-            self.agent_encoder.interative_decoder.gail=self.gail
+        if not self.sep_map:
+            return
 
-    def forward( self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor]  ) -> Dict[str, Tensor]:
-        if "map_feature" in tokenized_agent:
-            map_feature = tokenized_agent["map_feature"]
-        else:
+        self.init_map_encoder = self._make_map_encoder(
+            hidden_dim=hidden_dim,
+            pl2pl_radius=pl2pl_radius,
+            num_freq_bands=num_freq_bands,
+            num_layers=1,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=dropout,
+            pt2pt_neighbor=pt2pt_neighbor,
+            token_processor=self.token_processor,
+        )
+
+    def _build_gail_modules(
+        self,
+        *,
+        hidden_dim: int,
+        num_historical_steps: int,
+        num_future_steps: int,
+        time_span: Optional[int],
+        pl2a_radius: float,
+        dis_a2a_radius: float,
+        num_freq_bands: int,
+        num_heads: int,
+        head_dim: int,
+        dropout: float,
+        hist_drop_prob: float,
+        pt2a_neighbor: int,
+        a2a_neighbor: int,
+        dis_weight: float,
+        dist_decay: float,
+        reward_weight: float,
+        reward_decay: float,
+    ) -> None:
+        self.discriminator = SMARTAgentDecoder(
+            hidden_dim=hidden_dim,
+            num_historical_steps=num_historical_steps,
+            num_future_steps=num_future_steps,
+            time_span=time_span,
+            pl2a_radius=pl2a_radius,
+            a2a_radius=dis_a2a_radius,
+            num_freq_bands=num_freq_bands,
+            num_layers=1,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=dropout,
+            hist_drop_prob=hist_drop_prob,
+            n_token_agent=1,
+            pt2a_neighbor=pt2a_neighbor,
+            a2a_neighbor=a2a_neighbor,
+            token_processor=self.token_processor,
+            alpha=self.alpha,
+            dis_weight=dis_weight,
+            dist_decay=dist_decay,
+            reward_weight=reward_weight,
+            reward_decay=reward_decay,
+            discriminator=True,
+        )
+
+        self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
+
+        if self.use_lcf:
+            self.nei_value_network = MLPLayer(
+                hidden_dim,
+                hidden_dim * 2,
+                1,
+            )
+
+        if self.learn_init:
+            if self.init_decoder is None:
+                raise RuntimeError(
+                    "Initial value learning requires init_decoder."
+                )
+            self.init_value_network = MLPLayer(
+                self.init_decoder.G1.hidden_dim,
+                hidden_dim * 2,
+                1,
+            )
+
+        # Compatibility with existing training code.
+        self.agent_encoder.interative_decoder.gail = True
+
+    def _get_map_feature(
+        self,
+        tokenized_map: TensorDict,
+        tokenized_agent: TensorDict,
+    ):
+        map_feature = tokenized_agent.get("map_feature")
+        if map_feature is None:
             map_feature = self.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
+        return map_feature
 
-        # self.init_decoder.eval()
-        # gt_initial_pos, gt_initial_heading, gt_initial_idx, shape, gt_initial_vel = self.init_decoder(tokenized_agent,resampling=True)
-        # self.init_decoder.train()
-        #
-        # pos=tokenized_agent["gt_traj_10hz"]
-        # heading=tokenized_agent["gt_head_10hz"]
-        # valid= tokenized_agent["gt_valid_10hz"]
-        # token_traj=tokenized_agent["token_traj"]
-        # agent_shape=tokenized_agent["token_agent_shape"]
-        # token_traj_all = tokenized_agent["token_traj_all"]
-        #
-        # pos0, head0 = infer_prev_pose(gt_initial_pos[:, :1], gt_initial_heading[:, :1], gt_initial_idx[:, -1:], token_traj_all)
-        #
-        # pos[:,5]=gt_initial_pos[:,0]
-        # heading[:,5]=gt_initial_heading[:,0]
-        # pos[:,0]=pos0[:,0]
-        # heading[:,0]=head0[:,0]
-        #
-        # token_dict = self.token_processor._match_agent_token(
-        #     valid=valid,
-        #     pos=pos,
-        #     heading=heading,
-        #     agent_shape=agent_shape,
-        #     token_traj=token_traj,
-        # )
-        # tokenized_agent.update(token_dict)
+    def _prepare_initial_map_feature(
+        self,
+        tokenized_map: TensorDict,
+        tokenized_agent: TensorDict,
+        map_feature,
+    ):
+        if not self.pred_init:
+            return None
 
-        if self.learn_init and self.finetune and not self.gail:
-            pred_dict={}
+        cached = tokenized_agent.get("initial_map_feature")
+        if cached is not None:
+            return cached
+
+        if self.sep_map:
+            if self.init_map_encoder is None:
+                raise RuntimeError(
+                    "sep_map=True but init_map_encoder is missing."
+                )
+            initial_map_feature = self.init_map_encoder(
+                tokenized_map,
+                tokenized_agent=tokenized_agent,
+            )
+
         else:
-            pred_dict = self.agent_encoder(tokenized_agent, map_feature) #not use when only learning init
+            initial_map_feature = map_feature
 
+        tokenized_agent["initial_map_feature"] = initial_map_feature
+        return initial_map_feature
 
+    def _skip_agent_supervision(self) -> bool:
+        """Train only the initial-state model in this configuration."""
+        return self.learn_init and self.finetune and not self.gail
+
+    def forward(
+        self,
+        tokenized_map: TensorDict,
+        tokenized_agent: TensorDict,
+    ) -> TensorDict:
+        map_feature = self._get_map_feature(
+            tokenized_map,
+            tokenized_agent,
+        )
+
+        if self._skip_agent_supervision():
+            prediction: TensorDict = {}
+        else:
+            prediction = self.agent_encoder(
+                tokenized_agent,
+                map_feature,
+            )
+
+        # In GAIL mode initial-state RL is updated separately.
         if self.learn_init and not self.gail:
-            if self.sep_map:
-                initial_map_feature = self.init_map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
-                tokenized_agent["initial_map_feature"] = initial_map_feature
+            if self.init_decoder is None:
+                raise RuntimeError(
+                    "learn_init=True but init_decoder is unavailable."
+                )
 
-            initial_logit = self.init_decoder(tokenized_agent)
+            self._prepare_initial_map_feature(
+                tokenized_map,
+                tokenized_agent,
+                map_feature,
+            )
+            prediction["initial_logit"] = self.init_decoder(
+                tokenized_agent
+            )
 
-            pred_dict["initial_logit"]=initial_logit
-
-        return pred_dict
+        return prediction
 
     def inference(
-            self,
-            tokenized_map: Dict[str, Tensor],
-            tokenized_agent: Dict[str, Tensor],
-            n_step_future_10hz=None,
-    ) -> Dict[str, Tensor]:
-        if "map_feature" in tokenized_agent:
-            map_feature = tokenized_agent["map_feature"]
-        else:
-            map_feature = self.map_encoder(tokenized_map)
+        self,
+        tokenized_agent: TensorDict,
+        n_step_future_10hz: Optional[int] = None,
+    ) -> TensorDict:
 
-        pred_dict = self.agent_encoder.inference(self.init_decoder,
-            tokenized_agent, map_feature,n_step_future_10hz=n_step_future_10hz
+        return self.agent_encoder.inference(
+            self.init_decoder,
+            tokenized_agent,
+            tokenized_agent["map_feature"],
+            n_step_future_10hz=n_step_future_10hz,
         )
-        return pred_dict

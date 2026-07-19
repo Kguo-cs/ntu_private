@@ -49,7 +49,6 @@ class SMARTAgentDecoder(nn.Module):
         reward_decay,
         use_gail: bool = False,
         discriminator=False,
-        traj_diffusion: bool = False,
     ) -> None:
         super().__init__()
         self.use_gail= use_gail  # Kept in the signature for configuration compatibility.
@@ -66,7 +65,6 @@ class SMARTAgentDecoder(nn.Module):
             num_freq_bands,
             token_processor,
             discriminator,
-            traj_diffusion,
         )
         self.interative_decoder = InterativeDecoder(
             hidden_dim,
@@ -136,11 +134,11 @@ class SMARTAgentDecoder(nn.Module):
         batch_a = tokenized_agent["batch"]
 
         head_vector_a = torch.stack((head_a.cos(), head_a.sin()), dim=-1)
-        feat_a_token, agent_token_emb, _ = self.agent_token_embedding(
+        feat_a_token, agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,
             pos_a=pos_a,
             head_vector_a=head_vector_a,
-            mask_a=mask_a,
+            valid_mask=mask_a,
             agent_type=tokenized_agent["type"],
             agent_shape=shape,
             token_mask=token_mask,

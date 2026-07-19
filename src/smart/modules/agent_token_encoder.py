@@ -1,257 +1,393 @@
-from typing import Dict, Optional
+"""Clean agent token encoder with explicit time alignment."""
 
-import numpy as np
+from __future__ import annotations
+
+from typing import Optional
+
 import torch
 import torch.nn as nn
+from torch import Tensor
+
 from src.smart.layers import MLPLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
-from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle,project_to_local_frame
+from src.smart.utils import (
+    angle_between_2d_vectors,
+    project_to_local_frame,
+    weight_init,
+)
+
+
+def _time_major(x: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+    """Flatten [agent, time, ...] in time-major order."""
+    x = x.transpose(0, 1)
+    return x.reshape(-1, *x.shape[2:]) if mask is None else x[mask.T]
+
 
 class AgentTokenEncoder(nn.Module):
+    """Fuse trajectory-token embeddings with motion/context embeddings.
+
+    ``pos_a`` may contain either ``T`` positions or ``T + 1`` positions.
+    In the latter case, consecutive differences provide exactly ``T`` motions.
+    Valid nodes are returned in time-major order.
+    """
+
+    NUM_TYPES = 3
+
     def __init__(
-            self,
-            hidden_dim: int,
-            num_freq_bands:int,
-            token_processor,
-            discriminator,
-            traj_diffusion
+        self,
+        hidden_dim: int,
+        num_freq_bands: int,
+        token_processor,
+        discriminator: bool,
     ) -> None:
-        super(AgentTokenEncoder, self).__init__()
+        super().__init__()
 
         self.hidden_dim = hidden_dim
-        self.token_processor=token_processor
+        self.token_processor = token_processor
+        self.discriminator = bool(discriminator)
 
-        input_dim_token = 8
+        self.use_goal = token_processor.use_goal
 
-        self.use_mean_speed = False
-
-        if self.use_mean_speed:
-            self.speed_embed = nn.Embedding(5, hidden_dim)
-
-        self.use_type=True
-
-        if self.token_processor.use_bird:
-            self.use_type=False
-            input_dim_x_a=3
-        else:
-            self.shape_dim = 2
-
-            self.type_a_emb = nn.Embedding(3, hidden_dim)
-            self.shape_emb = MLPLayer(self.shape_dim, hidden_dim, hidden_dim)
-            input_dim_x_a=2
-
-            if token_processor.use_gradient_penalty:
-                self.differentiable_edge=True
-            else:
-                self.differentiable_edge=not discriminator
-
-        self.use_goal = self.token_processor.use_goal & ((not discriminator) | self.token_processor.use_bird)
-        self.use_bird=token_processor.use_bird
-
-        if self.use_goal:
-            input_dim_x_a*=2
-
-        self.x_a_emb = FourierEmbedding(
-            input_dim=input_dim_x_a,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands
+        self.differentiable_edge = bool(
+            token_processor.use_gradient_penalty or not self.discriminator
         )
 
-        self.discriminator=discriminator
-        self.use_state_action=False
+        # Compatibility flags used by existing configs.
+        self.use_state_action = False
+        self.shape_dim = 2
 
-        self.traj_diffusion=traj_diffusion
+        motion_dim = 2
+        spatial_dim = motion_dim * (2 if self.use_goal else 1)
+        self.x_a_emb = FourierEmbedding(
+            input_dim=spatial_dim,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
 
-        if self.traj_diffusion:
-            input_dim_token=4*3+1
+        self.type_a_emb = nn.Embedding(self.NUM_TYPES, hidden_dim)
+        self.shape_emb = MLPLayer(
+            self.shape_dim,
+            hidden_dim,
+            hidden_dim,
+        )
 
-        if self.discriminator:
-            if self.use_state_action:
-                self.token_emb_veh = MLPEmbedding(
-                    input_dim=15, hidden_dim=hidden_dim
-                )
-        else:
-            if self.use_type:
-                self.token_emb_veh = MLPEmbedding(
-                    input_dim=input_dim_token, hidden_dim=hidden_dim
-                )
-                self.token_emb_ped = MLPEmbedding(
-                    input_dim=input_dim_token, hidden_dim=hidden_dim
-                )
-                self.token_emb_cyc = MLPEmbedding(
-                    input_dim=input_dim_token, hidden_dim=hidden_dim
-                )
-
-                # self.invalid_token_emb=nn.Embedding(1,hidden_dim)
-               # self.invalid_feat_emb=nn.Embedding(1,input_dim_x_a)
-
-            else:
-                self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
+        token_dim = 8
+        if not self.discriminator:
+            self.token_embedders = nn.ModuleList([
+                MLPEmbedding(token_dim, hidden_dim)
+                for _ in range(self.NUM_TYPES)
+            ])
             self.fusion_emb = MLPEmbedding(
-                input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
+                hidden_dim * 2,
+                hidden_dim,
             )
+        else:
+            # Disabled by default. Kept for compatibility with older
+            # state-action discriminator experiments.
+            self.state_action_embedder = None
 
         self.apply(weight_init)
 
+    # ------------------------------------------------------------------
+    # Token embeddings
+    # ------------------------------------------------------------------
+    def _token_table(self, type_id: int, device: torch.device) -> Tensor:
+        names = (
+            "trajectory_token_veh",
+            "trajectory_token_ped",
+            "trajectory_token_cyc",
+        )
+        table = getattr(self.token_processor, names[type_id]).to(device)
+        return table.reshape(table.shape[0], -1)
 
-    def get_embedding(self,agent_token_index,agent_type,token_mask):
-        if  not self.discriminator:
-            n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
-            _device = agent_token_index.device
+    @staticmethod
+    def _check_indices(
+        index: Tensor,
+        selected: Tensor,
+        size: int,
+    ) -> None:
+        value = index[selected]
+        if value.numel() and (value.min() < 0 or value.max() >= size):
+            raise IndexError(
+                f"Token index must be in [0, {size - 1}]."
+            )
 
-            agent_token_emb = torch.zeros(
-                (n_agent, n_step, self.hidden_dim), device=_device
-            )#previous invalid
+    def _typed_token_embedding(
+        self,
+        token: Tensor,
+        agent_type: Tensor,
+        token_mask: Optional[Tensor],
+    ) -> Tensor:
+        n_agent, n_step = token.shape[:2]
+        reference = next(self.token_embedders[0].parameters())
+        output = reference.new_zeros(
+            n_agent,
+            n_step,
+            self.hidden_dim,
+            device=token.device,
+        )
 
-            if self.use_type:
-                veh_mask =agent_type == 0
-                ped_mask = agent_type == 1
-                cyc_mask = agent_type == 2
-                if token_mask is not None:
-                    veh_mask = veh_mask[:, None] & token_mask
-                    ped_mask = ped_mask[:, None] & token_mask
-                    cyc_mask = cyc_mask[:, None] & token_mask
+        for type_id, embedder in enumerate(self.token_embedders):
+            selected = (agent_type[:, None] == type_id).expand(
+                -1, n_step
+            )
+            if token_mask is not None:
+                selected = selected & token_mask
+            if not selected.any():
+                continue
 
-                if self.traj_diffusion:
-                    agent_token_emb[veh_mask] = self.token_emb_veh(agent_token_index[veh_mask])
-                    agent_token_emb[ped_mask] =  self.token_emb_ped(agent_token_index[ped_mask])
-                    agent_token_emb[cyc_mask] = self.token_emb_cyc(agent_token_index[cyc_mask])
-                else:
-
-                    agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
-                    agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
-                    agent_token_emb_cyc = self.token_emb_cyc(self.token_processor.trajectory_token_cyc)
-                    agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
-                    agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
-                    agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
-            else:
-                if token_mask is None:
-                    agent_token_emb = self.embedding(agent_token_index)
-                else:
-                    agent_token_emb[token_mask] = self.embedding(agent_token_index[token_mask])
-
-        else:
-            if self.use_state_action:
-                n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
-                _device = agent_token_index.device
-
-                agent_token_emb = torch.zeros(
-                    (n_agent, n_step - 1, self.hidden_dim),
-                    device=_device,
-                    dtype=next(self.token_emb_veh.parameters()).dtype,
+            if token.ndim != 2:
+                raise ValueError(
+                    "Discrete tokens must have shape [N,T]."
                 )
+            table = self._token_table(type_id, token.device)
+            index = token.long()
+            self._check_indices(index, selected, len(table))
+            table_embedding = embedder(table.to(reference.dtype))
+            output[selected] = table_embedding[index[selected]]
 
-                veh_mask =agent_type == 0
-                veh_mask=veh_mask[:,None] & token_mask[:,1:]
+        return output
 
-                agent_token_all=self.token_processor.agent_token_all
-                agent_token_emb_veh = self.token_emb_veh(agent_token_all.reshape(agent_token_all.shape[0], -1))
-                agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[:,1:][veh_mask]]
+    def _state_action_embedding(
+        self,
+        token: Tensor,
+        agent_type: Tensor,
+        token_mask: Optional[Tensor],
+    ) -> Optional[Tensor]:
+        if not self.use_state_action:
+            return None
+        if self.state_action_embedder is None:
+            raise RuntimeError(
+                "use_state_action must be enabled before constructing "
+                "AgentTokenEncoder."
+            )
+        if token.ndim != 2 or token.shape[1] < 2:
+            raise ValueError(
+                "State-action tokens require shape [N,T] with T >= 2."
+            )
 
-                agent_token_emb=agent_token_emb.transpose(0, 1).flatten(0,1)
+        action_mask = (agent_type[:, None] == 0).expand(
+            -1, token.shape[1] - 1
+        )
+        if token_mask is not None:
+            action_mask &= token_mask[:, 1:]
 
-            else:
-                agent_token_emb = None
+        table = self.token_processor.agent_token_all.to(token.device)
+        table = table.reshape(table.shape[0], -1)
+        table_embedding = self.state_action_embedder(table)
 
-        return agent_token_emb
+        action = token[:, 1:].long()
+        self._check_indices(action, action_mask, len(table))
 
-    def forward(
-            self,
-            agent_token_index,  # [n_agent, n_step]
-            pos_a,  # [n_agent, n_step, 2]
-            head_vector_a,  # [n_agent, n_step, 2]
-            mask_a,
-            agent_type,  # [n_agent]
-            agent_shape,  # [n_agent, 3]
-            token_mask=None,
-            goal_pos=None,
-            goal_mask=None,
-    ):
-        n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
-        _device = pos_a.device
+        output = table_embedding.new_zeros(
+            token.shape[0],
+            token.shape[1] - 1,
+            self.hidden_dim,
+        )
+        output[action_mask] = table_embedding[action[action_mask]]
+        return output
 
-        agent_token_emb=self.get_embedding(agent_token_index,agent_type,token_mask)
+    def get_embedding(
+        self,
+        agent_token_index: Tensor,
+        agent_type: Tensor,
+        token_mask: Optional[Tensor],
+    ) -> Optional[Tensor]:
+        """Return dense [agent,time,hidden] token embeddings."""
+        if self.discriminator:
+            return self._state_action_embedding(
+                agent_token_index,
+                agent_type,
+                token_mask,
+            )
 
-        if pos_a.shape[1]==n_step:
-            motion_vector_a = torch.cat(
+        return self._typed_token_embedding(
+                agent_token_index,
+                agent_type,
+                token_mask,
+            )
+
+    # ------------------------------------------------------------------
+    # Motion/context features
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _motion(
+        pos: Tensor,
+        num_steps: int,
+    ) -> tuple[Tensor, Tensor]:
+        """Return positions aligned to T states and T displacement vectors."""
+        if pos.shape[1] == num_steps:
+            motion = torch.cat(
                 [
-                    pos_a.new_zeros(n_agent, 1, pos_a.shape[-1]),
-                    pos_a[:, 1:] - pos_a[:, :-1],
+                    pos.new_zeros(pos.shape[0], 1, pos.shape[-1]),
+                    pos[:, 1:] - pos[:, :-1],
                 ],
                 dim=1,
-            )[:,-n_step:]
-        else:
-           motion_vector_a=pos_a[:, 1:] - pos_a[:, :-1]
-        
-        feature_a=project_to_local_frame(motion_vector_a, head_vector_a,self.differentiable_edge)
-
-        if token_mask is not None:
-            feature_a[~token_mask]= -10#self.invalid_feat_emb.weight
-
-        if self.use_goal:
-            if goal_pos is not None:
-                goal_vector_a = goal_pos[:, None] - pos_a[:, -n_step:]
-
-                feature_goal=torch.stack(
-                    [
-                        torch.norm(goal_vector_a, p=2, dim=-1),
-                        angle_between_2d_vectors(
-                            ctr_vector=head_vector_a, nbr_vector=goal_vector_a[:, :, :2]
-                        ),
-                    ],
-                    dim=-1,
-                )  # [n_agent, n_step, 2]
-
-                if self.use_bird:
-                    feature_goal = torch.cat([feature_goal, goal_vector_a[:, :, 2:]], dim=-1)
-
-                if goal_mask is None:
-                    goal_mask = torch.ones(
-                        feature_goal.shape[:-1],
-                        dtype=torch.bool,
-                        device=feature_goal.device,
-                    )
-                elif goal_mask.ndim == 1:
-                    goal_mask = goal_mask[:, None].expand(feature_goal.shape[:-1])
-                feature_goal[~goal_mask] = 0
-            else:
-                feature_goal = torch.zeros_like(feature_a)
-
-            feature_a = torch.cat([feature_a, feature_goal], dim=-1)
-
-        if self.use_type and agent_shape is not None:
-            categorical_embs = self.type_a_emb(agent_type) + self.shape_emb(
-                agent_shape[..., :self.shape_dim]
             )
-            categorical_embs = categorical_embs[None].repeat(n_step, 1, 1)
-        else:
-            categorical_embs = None
+            return pos, motion
 
-        if mask_a is not None:
-            mask_s=mask_a.transpose(0, 1)
+        if pos.shape[1] == num_steps + 1:
+            return pos[:, 1:], pos[:, 1:] - pos[:, :-1]
 
-            feature_a=feature_a.transpose(0, 1)[mask_s]
-            if agent_token_emb is not None:
-                agent_token_emb=agent_token_emb.transpose(0, 1)[mask_s]
-            if categorical_embs is not None:
-                categorical_embs = categorical_embs[mask_s]
-        else:
-            feature_a=feature_a.view(-1, feature_a.size(-1))
+    def _goal_feature(
+        self,
+        pos: Tensor,
+        heading_vector: Tensor,
+        goal_pos: Optional[Tensor],
+        goal_mask: Optional[Tensor],
+    ) -> Tensor:
+        n_agent, n_step, pos_dim = pos.shape
+        if goal_pos is None:
+            return pos.new_zeros(n_agent, n_step, pos_dim)
 
-        feat_a = self.x_a_emb(
-            continuous_inputs=feature_a,
-            categorical_embs=categorical_embs,
-        )  # [n_agent*n_step, hidden_dim]
-        #x_a = x_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
+        if goal_pos.shape != (n_agent, pos_dim):
+            raise ValueError(
+                f"goal_pos must have shape [{n_agent}, {pos_dim}]."
+            )
 
-        counter_feat_a=None
+        vector = goal_pos[:, None] - pos
+        feature = torch.stack(
+            [
+                torch.linalg.vector_norm(vector, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=heading_vector,
+                    nbr_vector=vector[..., :2],
+                ),
+            ],
+            dim=-1,
+        )
+
+        if goal_mask is None:
+            return feature
+        if goal_mask.ndim == 1:
+            goal_mask = goal_mask[:, None].expand(-1, n_step)
+        if goal_mask.shape != (n_agent, n_step):
+            raise ValueError(
+                f"goal_mask must have shape [{n_agent}] or "
+                f"[{n_agent}, {n_step}]."
+            )
+        return torch.where(
+            goal_mask.bool()[..., None],
+            feature,
+            torch.zeros_like(feature),
+        )
+
+    def _categorical_feature(
+        self,
+        agent_type: Tensor,
+        agent_shape: Optional[Tensor],
+        num_steps: int,
+    ) -> Optional[Tensor]:
+        feature = self.type_a_emb(agent_type) + self.shape_emb(
+            agent_shape[..., : self.shape_dim]
+        )
+        return feature[:, None].expand(-1, num_steps, -1)
+
+    # ------------------------------------------------------------------
+    # Forward
+    # ------------------------------------------------------------------
+    def forward(
+        self,
+        agent_token_index: Tensor,
+        pos_a: Tensor,
+        head_vector_a: Tensor,
+        valid_mask: Optional[Tensor],
+        agent_type: Tensor,
+        agent_shape: Optional[Tensor],
+        token_mask: Optional[Tensor] = None,
+        goal_pos: Optional[Tensor] = None,
+        goal_mask: Optional[Tensor] = None,
+    ):
+        n_agent, n_step = head_vector_a.shape[:2]
+
+        token_embedding = self.get_embedding(
+            agent_token_index,
+            agent_type,
+            token_mask,
+        )
+
+        aligned_pos, motion = self._motion(pos_a, n_step)
+        motion_feature = project_to_local_frame(
+            motion,
+            head_vector_a,
+            self.differentiable_edge,
+        )
+
+        # The old -10 sentinel generated arbitrary Fourier features and could
+        # dominate valid context. Invalid token motion is now neutral.
+        if token_mask is not None:
+            motion_feature = torch.where(
+                token_mask[..., None],
+                motion_feature,
+                torch.zeros_like(motion_feature),
+            )
+
+        continuous = motion_feature
+        if self.use_goal:
+            continuous = torch.cat(
+                [
+                    continuous,
+                    self._goal_feature(
+                        aligned_pos,
+                        head_vector_a,
+                        goal_pos,
+                        goal_mask,
+                    ),
+                ],
+                dim=-1,
+            )
+
+        categorical = self._categorical_feature(
+            agent_type,
+            agent_shape,
+            n_step,
+        )
+
+        state_embedding = self.x_a_emb(
+            continuous_inputs=_time_major(continuous, valid_mask),
+            categorical_embs=(
+                None
+                if categorical is None
+                else _time_major(categorical, valid_mask)
+            ),
+        )
+
+        compressed_token = None
+        if token_embedding is not None:
+            token_steps = token_embedding.shape[1]
+            if token_steps == n_step:
+                token_valid = valid_mask
+            elif token_steps == n_step - 1:
+                token_valid = (
+                    None if valid_mask is None else valid_mask[:, 1:]
+                )
+            else:
+                raise ValueError(
+                    f"Unexpected token time dimension: {token_steps}."
+                )
+            compressed_token = _time_major(
+                token_embedding,
+                token_valid,
+            )
 
         if not self.discriminator:
-            feat_a = torch.cat((agent_token_emb, feat_a), dim=-1)
-            feat_a = self.fusion_emb(feat_a)
+            if compressed_token is None:
+                raise RuntimeError("Policy encoding requires token embeddings.")
+            if len(compressed_token) != len(state_embedding):
+                raise ValueError(
+                    "Token/state valid-node counts differ: "
+                    f"{len(compressed_token)} != {len(state_embedding)}."
+                )
+            state_embedding = self.fusion_emb(
+                torch.cat(
+                    [compressed_token, state_embedding],
+                    dim=-1,
+                )
+            )
 
-        if not self.use_state_action:
-            agent_token_emb=None
-
-        return feat_a, agent_token_emb,counter_feat_a  # [n_agent, n_step, hidden_dim] #1258
-
+        # Token embeddings are exposed only for the optional discriminator
+        # state-action branch, matching the previous API.
+        returned_token = (
+            compressed_token if self.use_state_action else None
+        )
+        return state_embedding, returned_token

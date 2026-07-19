@@ -120,7 +120,7 @@ class SMART(LightningModule):
             finetune=model_config.finetune,
         )
 
-        self.training_rollout_len = int(_cfg(model_config, "training_rollout_len", 10))
+        self.training_rollout_len = int(_cfg(model_config, "training_rollout_len", 12))
         self.training_rollout_sampling = model_config.training_rollout_sampling
         self.validation_rollout_sampling = model_config.validation_rollout_sampling
         self._configure_finetuning(bool(model_config.finetune))
@@ -207,7 +207,7 @@ class SMART(LightningModule):
         return trainer is None or bool(trainer.is_global_zero)
 
     def validation_step(self, data, batch_idx):
-        # if batch_idx<141:
+        # if batch_idx<148:
         #     return None
         tokenized_map, tokenized_agent = self.token_processor(data)
 
@@ -271,7 +271,7 @@ class SMART(LightningModule):
     @torch.no_grad()
     def _rollouts(self, tokenized_map, agent) -> dict[str, Any]:
         if getattr(self.encoder, "sep_map", False):
-            agent["initial_map_feature"] = self.encoder.map_encoder1(
+            agent["initial_map_feature"] = self.encoder.init_map_encoder(
                 tokenized_map, tokenized_agent=agent
             )
         map_feature = self.encoder.map_encoder(tokenized_map)
@@ -280,9 +280,7 @@ class SMART(LightningModule):
         traj, z, head, size, vel, z_list = [], [], [], [], [], []
         for _ in range(self.n_rollout_closed_val):
             rollout_agent = dict(agent)  # prevent cross-rollout dictionary mutation
-            pred = self.encoder.agent_encoder.inference(
-                self.encoder.init_decoder, rollout_agent, map_feature
-            )
+            pred = self.encoder.inference(rollout_agent)
             trajectory = pred["pred_traj_10hz"]
             traj.append(trajectory)
             head.append(self._heading(pred, trajectory, rollout_agent))
