@@ -25,7 +25,7 @@ import torch
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 from waymo_open_dataset.protos import scenario_pb2
-
+import os
 from src.smart.utils.geometry import wrap_angle
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
 
@@ -480,13 +480,12 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         )
 
         data["scenario_id"] = scenario_id
-        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-            pickle.dump(data, f)
+        torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
 
-        # if output_dir_tfrecords_splitted is not None:
-        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-        #         file_writer.write(tf_data)
+        if output_dir_tfrecords_splitted is not None:
+            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+                file_writer.write(tf_data)
 
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):

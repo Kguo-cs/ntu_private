@@ -128,7 +128,6 @@ class TokenProcessor(torch.nn.Module):
         if shape is None:
             raise KeyError("get_init requires shape or initial_shape")
         agent["shape"] = shape
-        agent["initial_shape"] = shape.clone()
         agent["initial_pos"] = agent["sampled_pos"][:, 0]
         agent["initial_heading"] = agent["sampled_heading"][:, 0]
 

@@ -266,14 +266,13 @@ class InitDenoiser(nn.Module):
 
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
+        shape = tokenized_agent["shape"]
 
         if expert_data:
-            shape = tokenized_agent["initial_shape"]
             agent_pos = tokenized_agent["initial_pos"]
             agent_head = tokenized_agent["initial_heading"]
             local_vel = tokenized_agent["local_vel"]
         else:
-            shape=tokenized_agent["shape"]
             agent_pos=tokenized_agent["sampled_pos"][:,0]
             agent_head=tokenized_agent["sampled_heading"][:,0]
             local_vel=tokenized_agent["initial_local_vel"]
@@ -647,8 +646,6 @@ class InitDenoiser(nn.Module):
 
     def get_output(self, pred_init: torch.Tensor, tokenized_agent):
         """Convert generated local all-agent initial state back to global fields."""
-        shape = tokenized_agent["initial_shape"].clone()
-
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
@@ -658,8 +655,6 @@ class InitDenoiser(nn.Module):
         pred_vel = pred_init[..., 6:8]
 
         pred_heading = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-
-        shape[:, :2] = pred_shape[:, :2]
 
         global_pos, global_heading = transform_to_global(
             pred_trans,
@@ -684,7 +679,7 @@ class InitDenoiser(nn.Module):
         return (
             gt_initial_pos,
             gt_initial_heading,
-            shape,
+            pred_shape,
             global_vel,
             gt_initial_idx[:, None],
         )

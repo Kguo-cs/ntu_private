@@ -8,13 +8,13 @@ rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/model32_match_nois
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
-
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_map2light ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/model32_a60_match_posheadl1_gp001_inter0/2026-07-17_23-02-52/bc/34ot4n13/checkpoints/model32_a60_match_posheadl1_gp001_inter0-epoch=4-step=136968-valmeta=0.6517.ckpt ./
 
 rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/keguo/sim/src/logs/model32_a60_match_posheadl1_gp001_inter0/2026-07-17_23-02-52/bc/34ot4n13/checkpoints/model32_a60_match_posheadl1_gp001_inter0-epoch=4-step=136968-valmeta=0.6517.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/model32_a60_match_posheadl1_gp001_scene0/2026-07-18_02-23-01/bc/avelpjve/checkpoints/last.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
