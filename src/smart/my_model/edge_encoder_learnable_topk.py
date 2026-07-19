@@ -696,7 +696,7 @@ class EdgeEncoder(nn.Module):
         if self.hist_drop_prob > 0 and self.training:
             _mask_keep = torch.bernoulli(
                 torch.ones_like(mask) * (1 - self.hist_drop_prob)
-            ).bool()
+            )
             mask = mask & _mask_keep
 
         if inference_mask is not None:

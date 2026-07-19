@@ -155,7 +155,7 @@ class TokenProcessor(torch.nn.Module):
         if "token_mask" in agent:
             agent["token_mask"] = self._as_time_tensor(
                 agent["token_mask"], 2
-            ).bool()
+            )
             invalid = ~agent["token_mask"][:, 0]
             velocity_idx[invalid] = agent["sampled_idx"][invalid, next_step]
 
@@ -249,7 +249,7 @@ class TokenProcessor(torch.nn.Module):
         agent_type = raw["type"].long()
         agent_shape, all_tokens, final_tokens = self._get_agent_tokens(agent_type)
 
-        valid = raw["valid_mask"].clone().bool()
+        valid = raw["valid_mask"].clone()
         heading = self._clean_heading(valid, raw["heading"].clone())
         pos = raw["position"][..., :2].contiguous().clone()
         vel = raw["velocity"].clone()
@@ -579,7 +579,7 @@ class TokenProcessor(torch.nn.Module):
 
     def _build_init_training_data(self, data: HeteroData) -> Dict[str, Tensor]:
         raw = data["agent"]
-        valid = raw["valid_mask"].bool()
+        valid = raw["valid_mask"]
         heading = raw["heading"]
         pos = raw["position"][..., :2].contiguous()
         vel = raw["velocity"]
@@ -654,7 +654,7 @@ class TokenProcessor(torch.nn.Module):
             cached["sampled_idx"], 2
         ).long()
         result["token_mask"] = (
-            self._as_time_tensor(cached["token_mask"], 2).bool()
+            self._as_time_tensor(cached["token_mask"], 2)
             if "token_mask" in cached
             else torch.ones_like(result["sampled_idx"], dtype=torch.bool)
         )
@@ -687,7 +687,7 @@ class TokenProcessor(torch.nn.Module):
                 result[key] = cached[key]
             result.update(
                 self._match_agent_token(
-                    valid=cached["gt_valid_raw"].bool(),
+                    valid=cached["gt_valid_raw"],
                     pos=cached["gt_pos_raw"],
                     heading=cached["gt_head_raw"],
                     agent_shape=shapes,

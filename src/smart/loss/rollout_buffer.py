@@ -494,7 +494,7 @@ class ReplayBuffer:
         # Normalize the advantages
         self.advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
 
-def rollout(encoder, tokenized_map, tokenized_agent,validation_rollout_sampling):
+def rollout(encoder, tokenized_map, tokenized_agent):
     train_data_len=tokenized_agent["sampled_idx"].shape[1]
     max_step = (train_data_len - (encoder.agent_encoder.num_historical_steps)//encoder.agent_encoder.shift)*encoder.agent_encoder.shift
 
@@ -503,35 +503,11 @@ def rollout(encoder, tokenized_map, tokenized_agent,validation_rollout_sampling)
         pred = encoder.inference(
             tokenized_map,
             tokenized_agent,
-            validation_rollout_sampling,
             n_step_future_10hz=max_step
         )
     encoder.train()
 
     tokenized_agent.update(pred)
-    # tokenized_agent_rollout = tokenized_agent
-    # tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
-    #
-    # if "sampled_idx" in pred.keys():
-    #     for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
-    #         tokenized_agent_rollout[key] = pred[key]
-    #
-    #     #tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
-    #
-    # if "light_idx" in tokenized_agent.keys():
-    #     tokenized_agent_rollout['light_idx'] = pred['light_idx']
-    #     for key in ["lengths_lg", "pos_lg","orient_lg", "batch_lg"]:
-    #         tokenized_agent_rollout[key] = tokenized_agent[key]
-
-    # if self.rollout_freq > 1:
-    #     tokenized_map_rollout = {}
-    #
-    #     for key in tokenized_map.keys():
-    #         if key !="map_feature":
-    #             tokenized_map_rollout[key]=tokenized_map[key]
-    #
-    #     self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
-
     return tokenized_agent
 
 

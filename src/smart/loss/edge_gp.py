@@ -22,7 +22,7 @@ def _get_valid_agent_mask(valid_mask: Tensor) -> Tensor:
     Returns:
         [num_agents] boolean mask.
     """
-    valid_mask = valid_mask.bool()
+    valid_mask = valid_mask
 
     if valid_mask.ndim == 1:
         return valid_mask
@@ -161,7 +161,7 @@ def _select_valid_ego_logits(
     if ego_logits.numel() == 0:
         return ego_logits.reshape(-1)
 
-    valid_mask = valid_mask.bool()
+    valid_mask = valid_mask
     valid_agent_mask = _get_valid_agent_mask(valid_mask)
 
     logits = ego_logits
@@ -220,7 +220,7 @@ def _infer_interaction_node_valid_mask(
     Otherwise, graph construction is assumed to have already removed
     invalid nodes.
     """
-    valid_mask = valid_mask.bool()
+    valid_mask = valid_mask
     valid_agent_mask = _get_valid_agent_mask(valid_mask)
 
     if num_nodes == valid_mask.numel():

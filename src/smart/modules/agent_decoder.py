@@ -61,11 +61,6 @@ class SMARTAgentDecoder(nn.Module):
         self.alpha = alpha
         self.shift = int(token_processor.shift)
 
-        if self.shift <= 0:
-            raise ValueError(f"token shift must be positive, got {self.shift}")
-        if isinstance(alpha, (int, float)) and alpha <= 0:
-            raise ValueError(f"alpha must be positive, got {alpha}")
-
         self.agent_token_embedding = AgentTokenEncoder(
             hidden_dim,
             num_freq_bands,
@@ -178,7 +173,6 @@ class SMARTAgentDecoder(nn.Module):
         logits, feat_a, rewards, weight, a2a_feature = self.interative_decoder(
             features,
             feat_a_token,
-            agent_token_emb,
             map_feature,
             train_mask,
             n_current,
@@ -268,7 +262,7 @@ class SMARTAgentDecoder(nn.Module):
         """Append ``max_step`` autoregressive token states."""
         gt_pos = tokenized_agent["sampled_pos"]
         gt_head = tokenized_agent["sampled_heading"]
-        gt_valid = tokenized_agent["valid_mask"].bool()
+        gt_valid = tokenized_agent["valid_mask"]
         gt_idx = tokenized_agent["sampled_idx"]
 
         current_step = int(current_step)
@@ -296,25 +290,25 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 num_steps = max(gt_valid.shape[1] - current_step, 0)
 
-            mask = torch.ones(
+            valid_mask = torch.ones(
                 pos_a.shape[:2],
                 dtype=torch.bool,
                 device=pos_a.device,
             )
-            token_mask = mask.clone()
+            token_mask = valid_mask.clone()
         else:
             if current_step > gt_pos.shape[1]:
                 raise ValueError("current_step exceeds available token states")
 
-            pos_a = gt_pos[:, :current_step].clone()
-            head_a = gt_head[:, :current_step].clone()
-            sampled_idx = gt_idx[:, :current_step].clone()
+            pos_a = gt_pos[:, :current_step]
+            head_a = gt_head[:, :current_step]
+            sampled_idx = gt_idx[:, :current_step]
             shape = tokenized_agent["shape"]
-            mask = gt_valid[:, :current_step].clone()
-            token_mask = tokenized_agent["token_mask"][:, :current_step].bool().clone()
+            valid_mask = gt_valid[:, :current_step]
+            token_mask = tokenized_agent["token_mask"][:, :current_step]
 
         # Agents valid at the rollout boundary remain active for the rollout.
-        active_mask = mask[:, -1].clone()
+        active_mask = valid_mask[:, -1].clone()
         cached_logits = tokenized_agent.get("next_token_logits")
 
         for rollout_step in range(num_steps):
@@ -331,12 +325,12 @@ class SMARTAgentDecoder(nn.Module):
 
             if logits is None:
                 if rollout_step == 0:
-                    idx_in, token_mask_in, mask_in = sampled_idx, token_mask, mask
+                    idx_in, token_mask_in, mask_in = sampled_idx, token_mask, valid_mask
                     pos_in, head_in = pos_a, head_a
                 else:
                     idx_in = sampled_idx[:, -1:]
                     token_mask_in = token_mask[:, -1:]
-                    mask_in = mask[:, -1:]
+                    mask_in = valid_mask[:, -1:]
                     pos_in = pos_a[:, -2:]       # fixed: was two position steps
                     head_in = head_a[:, -1:]
 
@@ -365,35 +359,33 @@ class SMARTAgentDecoder(nn.Module):
                 tokenized_agent,
                 active_mask=active_mask,
             )
-            mask = torch.cat((mask, active_mask[:, None]), dim=1)
+            valid_mask = torch.cat((valid_mask, active_mask[:, None]), dim=1)
             token_mask = torch.cat((token_mask, active_mask[:, None]), dim=1)
 
-        output = {
-            "shape": shape,
-            "sampled_idx": sampled_idx,
-            "sampled_pos": pos_a,
-            "sampled_heading": head_a,
-            "valid_mask": mask,
-            "token_mask": token_mask,
-        }
+        tokenized_agent["shape"] = shape
+        tokenized_agent["sampled_idx"] = sampled_idx
+        tokenized_agent["sampled_pos"] = pos_a
+        tokenized_agent["sampled_heading"] = head_a
+        tokenized_agent["valid_mask"] = valid_mask
+        tokenized_agent["token_mask"] = token_mask
 
         if "gt_z_raw" in tokenized_agent:
             if self.pred_init:
-                output["initial_local_vel"] = initial_local_vel
+                tokenized_agent["initial_local_vel"] = initial_local_vel
 
             if pred_traj_10hz:
-                output["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
-                output["pred_head_10hz"] = torch.cat(pred_head_10hz, dim=1)
+                tokenized_agent["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
+                tokenized_agent["pred_head_10hz"] = torch.cat(pred_head_10hz, dim=1)
             else:
-                output["pred_traj_10hz"] = pos_a.new_empty((len(pos_a), 0, 2))
-                output["pred_head_10hz"] = head_a.new_empty((len(head_a), 0))
+                tokenized_agent["pred_traj_10hz"] = pos_a.new_empty((len(pos_a), 0, 2))
+                tokenized_agent["pred_head_10hz"] = head_a.new_empty((len(head_a), 0))
 
-            output["pred_z_10hz"] = tokenized_agent["gt_z_raw"][:, None].expand(
+            tokenized_agent["pred_z_10hz"] = tokenized_agent["gt_z_raw"][:, None].expand(
                 -1,
-                output["pred_traj_10hz"].shape[1],
+                tokenized_agent["pred_traj_10hz"].shape[1],
             )
 
-        return output
+        return tokenized_agent
 
     def get_next(
         self,

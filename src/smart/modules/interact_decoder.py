@@ -212,7 +212,7 @@ class InterativeDecoder(nn.Module):
 
     @staticmethod
     def _after_step(mask: Tensor, start: int, n_current: int) -> Tensor:
-        result = mask.bool().clone()
+        result = mask.clone()
         step = torch.arange(mask.shape[1], device=mask.device) + n_current
         result[:, step < start] = False
         return result
@@ -224,7 +224,7 @@ class InterativeDecoder(nn.Module):
     ) -> Optional[Tensor]:
         if agent_mask is None:
             return None
-        return agent_mask.bool()[None].expand(num_steps, -1).reshape(-1)
+        return agent_mask[None].expand(num_steps, -1).reshape(-1)
 
     @staticmethod
     def _select_features(
@@ -255,13 +255,8 @@ class InterativeDecoder(nn.Module):
             self.pos_cache = pos
             self.head_cache = head
             self.head_vector_cache = head_vector
-            self.mask_cache = valid.bool()
-            return valid.bool().clone()
-
-        if not hasattr(self, "pos_cache"):
-            raise RuntimeError(
-                "Incremental decoding requires a previous full cache pass."
-            )
+            self.mask_cache = valid
+            return valid.clone()
 
         self.pos_cache = torch.cat([self.pos_cache, pos], 1)[
             :, -self.agent_hist:
@@ -273,7 +268,7 @@ class InterativeDecoder(nn.Module):
             [self.head_vector_cache, head_vector], 1
         )[:, -self.agent_hist:]
         self.mask_cache = torch.cat(
-            [self.mask_cache, valid.bool()], 1
+            [self.mask_cache, valid], 1
         )[:, -self.agent_hist:]
 
         output_mask = self.mask_cache.clone()
@@ -346,12 +341,10 @@ class InterativeDecoder(nn.Module):
             output_valid, start_step, n_current
         )
         if pred_mask is not None:
-            eligible &= pred_mask.bool()[:, None]
+            eligible &= pred_mask[:, None]
 
         # Compress the dense selection with the same validity mask as features.
-        selection = _time_major(eligible)[_time_major(output_valid.bool())]
-        if len(selection) != len(features):
-            raise ValueError("Output mask and feature rows are misaligned.")
+        selection = _time_major(eligible)[_time_major(output_valid)]
         return features[selection]
 
     def predict_agent(
@@ -464,14 +457,7 @@ class InterativeDecoder(nn.Module):
             interaction_reward = interaction_reward_all[
                 train_repeat_mask[feat_a_later_mask]
             ]
-
-        if interaction_reward.shape != scene_reward.shape:
-            raise ValueError(
-                "Scene and interaction rewards are not aligned: "
-                f"{tuple(scene_reward.shape)} vs "
-                f"{tuple(interaction_reward.shape)}."
-            )
-
+            
         total_reward = scene_reward + interaction_reward
         logits = (scene_logit, interaction_logits[:, 0], None)
         rewards = (
@@ -486,35 +472,11 @@ class InterativeDecoder(nn.Module):
         self,
         all_features: Sequence[Tensor],
         feat_a: Tensor,
-        token_embedding: Optional[Tensor],
         map_feature: dict[str, Tensor],
         agent_train_mask: Optional[Tensor],
         n_current: int,
         tokenized_agent: dict,
-        counter_feat_a: Optional[Tensor] = None,
     ):
-        original_steps = all_features[3].shape[1]
-        original_valid = _time_major(all_features[3].bool())
-
-        # The transition discriminator has one fewer target than states.
-        if self.discriminator and token_embedding is not None:
-            if original_steps < 2:
-                raise ValueError("The discriminator needs at least two states.")
-
-            keep_dense = torch.ones_like(
-                all_features[3], dtype=torch.bool
-            )
-            keep_dense[:, -1] = False
-            keep_valid = _time_major(keep_dense)[original_valid]
-
-            # Accept full-state or already transition-aligned encoder features.
-            if len(feat_a) == len(keep_valid):
-                feat_a = feat_a[keep_valid]
-            elif len(feat_a) != int(keep_valid.sum()):
-                raise ValueError("feat_a is not transition-aligned.")
-
-            all_features = [feature[:, :-1] for feature in all_features]
-
         (
             pos_a,
             head_a,
@@ -524,19 +486,8 @@ class InterativeDecoder(nn.Module):
             _,
         ) = all_features
 
-        mask_a = mask_a.bool()
         num_agents, num_steps = mask_a.shape
-
-        if agent_train_mask is not None:
-            agent_train_mask = agent_train_mask.bool()
-            if agent_train_mask.shape != (num_agents,):
-                raise ValueError("agent_train_mask has the wrong shape.")
-
         pred_mask = tokenized_agent.get("pred_mask")
-        if pred_mask is not None:
-            pred_mask = pred_mask.bool()
-            if pred_mask.shape != (num_agents,):
-                raise ValueError("pred_mask has the wrong shape.")
 
         inference_full = self._update_cache(
             pos_a, head_a, head_vector_a, mask_a, n_current
@@ -588,7 +539,6 @@ class InterativeDecoder(nn.Module):
             _,
             batch_s,
         ) = [_time_major(feature) for feature in all_features]
-        dense_valid = dense_valid.bool()
 
         dense_train = self._repeat_agent_mask(
             agent_train_mask, num_steps
@@ -613,7 +563,7 @@ class InterativeDecoder(nn.Module):
 
         dis_edge_mask = None
         if self.discriminator and "dis_mask" in tokenized_agent:
-            dis_mask = tokenized_agent["dis_mask"].bool()
+            dis_mask = tokenized_agent["dis_mask"]
             step = torch.arange(
                 num_steps, device=mask_a.device
             ) + n_current
@@ -652,7 +602,6 @@ class InterativeDecoder(nn.Module):
             max_num_neighbors=self.a2a_neighbor,
             agent_train_mask=train_for_edges,
             layer_num=self.decode_layers,
-            counter_feat_a=counter_feat_a,
             dis_edge_mask=dis_edge_mask,
         )
 

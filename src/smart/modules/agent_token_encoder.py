@@ -213,7 +213,7 @@ class AgentTokenEncoder(nn.Module):
                     )
                 elif goal_mask.ndim == 1:
                     goal_mask = goal_mask[:, None].expand(feature_goal.shape[:-1])
-                feature_goal[~goal_mask.bool()] = 0
+                feature_goal[~goal_mask] = 0
             else:
                 feature_goal = torch.zeros_like(feature_a)
 

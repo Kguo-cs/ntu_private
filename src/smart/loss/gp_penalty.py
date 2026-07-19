@@ -235,7 +235,7 @@ def compute_gp(
             device=device,
         )
     else:
-        train_agent_mask = train_mask.bool()
+        train_agent_mask = train_mask
 
     train_valid_mask = valid_mask & train_agent_mask[:, None]
 
@@ -457,7 +457,7 @@ def ZeroCenteredGradientPenalty(
     )
 
     grad_pos, grad_heading, grad_shape = gradients
-    valid_mask = valid_mask.bool()
+    valid_mask = valid_mask
     valid_agent_mask = valid_mask.any(dim=-1)
 
     pos_penalty = _masked_square_norm_mean(grad_pos, valid_mask, critic_score)

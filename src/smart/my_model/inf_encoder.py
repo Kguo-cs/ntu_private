@@ -541,7 +541,7 @@ class InfGenAgentDecoder(nn.Module):
                                        dim=0
                                        ),)
 
-        pad_mask = torch.ones(*padded_feats[0].shape[:2], device=feats[0].device).bool()  # (a, t)
+        pad_mask = torch.ones(*padded_feats[0].shape[:2], device=feats[0].device)  # (a, t)
         pad_mask[-num_graph * num_seed_feature:] = False
 
         return padded_feats + (pad_mask,)
@@ -628,7 +628,7 @@ class InfGenAgentDecoder(nn.Module):
         mask_a = mask.clone()
 
         if pad_mask is None:
-            pad_mask = torch.ones_like(state_a).bool()
+            pad_mask = torch.ones_like(state_a)
 
         pos_s = pos_a.transpose(0, 1).reshape(-1, self.input_dim)
         head_s = head_a.transpose(0, 1).reshape(-1)
@@ -667,7 +667,7 @@ class InfGenAgentDecoder(nn.Module):
 
         # add the edges which connect seed agents
         if is_training:
-            mask_av = torch.ones_like(mask_a).bool()
+            mask_av = torch.ones_like(mask_a)
             if not self.seed_attn_to_av:
                 mask_av[av_index] = False
             mask_a &= mask_av
@@ -694,7 +694,7 @@ class InfGenAgentDecoder(nn.Module):
         mask_pl2a = mask.clone()
 
         if pad_mask is None:
-            pad_mask = torch.ones_like(state_a).bool()
+            pad_mask = torch.ones_like(state_a)
 
         pos_s = pos_a.transpose(0, 1).reshape(-1, self.input_dim)
         head_s = head_a.transpose(0, 1).reshape(-1)
@@ -826,7 +826,7 @@ class InfGenAgentDecoder(nn.Module):
 
         _, num_step, _ = pos_a.shape
 
-        mask_pl2sa = torch.ones_like(mask_sa).bool()
+        mask_pl2sa = torch.ones_like(mask_sa)
         if inference_mask is not None:
             mask_pl2sa = mask_pl2sa & inference_mask
         mask_pl2sa = mask_pl2sa.transpose(0, 1).reshape(-1)
@@ -953,7 +953,7 @@ class InfGenAgentDecoder(nn.Module):
         # sort_indices = sort_indices[:self.num_seed_feature]
         seq_mask = torch.ones(num_graph * self.num_seed_feature, num_step,
                               num_agent + num_graph * self.num_seed_feature,
-                              device=device).bool()  # seed attention to all agent
+                              device=device)  # seed attention to all agent
         seq_mask[..., -num_graph * self.num_seed_feature:] = False
         for b in range(num_graph):
             batch_sort_indices = sort_indices[ptr[b]: ptr[b + 1]]
@@ -1077,12 +1077,12 @@ class InfGenAgentDecoder(nn.Module):
         temporal_mask[motion_mask] = mask[motion_mask]
         temporal_mask = torch.cat([temporal_mask,
                                    torch.ones(data.num_graphs * self.num_seed_feature, *temporal_mask.shape[1:],
-                                              device=device)]).bool()#temporal all true
+                                              device=device)])#temporal all true
 
         interact_mask[agent_state_index == self.enter_state] = True
         interact_mask = torch.cat([interact_mask,
                                    torch.ones(data.num_graphs * self.num_seed_feature, *interact_mask.shape[1:],
-                                              device=device)]).bool()  # placeholder
+                                              device=device)])  # placeholder
 
         pos_a_p, head_a_p, state_a_p, head_vector_a_p, grid_index_a_p, pad_mask = \
             self._pad_feat(data.num_graphs, av_index, pos_a, head_a, agent_state_index, head_vector_a,
@@ -1211,8 +1211,8 @@ class InfGenAgentDecoder(nn.Module):
             neighbor_pt_grid_index_gt = data['agent']['pt_grid_token_idx'].reshape(-1)[edge_index_pl2a[0, -npl2sa:]]
             neighbor_agent_grid_idx = self.grid_index_head(r_a2a[-na2sa:])
             neighbor_pt_grid_idx = self.grid_index_head(r_pl2a[-npl2sa:])
-            neighbor_agent_grid_index_eval_mask = torch.zeros_like(neighbor_agent_grid_index_gt).bool()
-            neighbor_pt_grid_index_eval_mask = torch.zeros_like(neighbor_pt_grid_index_gt).bool()
+            neighbor_agent_grid_index_eval_mask = torch.zeros_like(neighbor_agent_grid_index_gt)
+            neighbor_pt_grid_index_eval_mask = torch.zeros_like(neighbor_pt_grid_index_gt)
             neighbor_agent_grid_index_eval_mask[torch.randperm(neighbor_agent_grid_index_gt.shape[0])[:180]] = True
             neighbor_pt_grid_index_eval_mask[torch.randperm(neighbor_pt_grid_index_gt.shape[0])[:600]] = True
 
@@ -1227,7 +1227,7 @@ class InfGenAgentDecoder(nn.Module):
         batch_s = torch.cat([data['agent']['batch'] + data.num_graphs * t for t in range(num_step)], dim=0)
         batch_pl = torch.cat([data['pt_token']['batch'] + data.num_graphs * t for t in range(num_step)], dim=0)
 
-        mask_sa = torch.zeros_like(agent_state_index).bool()
+        mask_sa = torch.zeros_like(agent_state_index)
         for t in range(mask_sa.shape[1]):
             availabel_rows = ((agent_state_index[:, t] != self.invalid_state) &
                               (agent_grid_token_idx[:, t] != -1)).nonzero()[..., 0]
@@ -1272,7 +1272,7 @@ class InfGenAgentDecoder(nn.Module):
         pl2sa_index = set(edge_index_pl2sa[1].tolist())
         assert a2sa_index.issubset(global_index) and pl2sa_index.issubset(global_index), "Invalid index!"
 
-        select_mask = torch.zeros_like(mask_sa.view(-1)).bool()
+        select_mask = torch.zeros_like(mask_sa.view(-1))
         select_mask[torch.unique(edge_index_a2sa[1])] = True
         select_mask[torch.unique(edge_index_pl2sa[1])] = True
         mask_sa[~select_mask.reshape(num_step, -1).transpose(0, 1)] = False
@@ -1371,7 +1371,7 @@ class InfGenAgentDecoder(nn.Module):
             indices_t = torch.arange(next_state_idx_seed.shape[0]).to(device)
             selected_pred_mask = torch.zeros_like(indices_t)
             selected_pred_mask[pred_indices[:, t]] = 1
-            res_pred_indices.append(indices_t[~selected_pred_mask.bool()])
+            res_pred_indices.append(indices_t[~selected_pred_mask])
         res_pred_indices = torch.stack(res_pred_indices, dim=1)
         padded_pred_indices = torch.concat([pred_indices, res_pred_indices[..., None]])
         next_state_idx_seed = torch.gather(next_state_idx_seed, dim=0, index=padded_pred_indices)
@@ -1424,7 +1424,7 @@ class InfGenAgentDecoder(nn.Module):
 
         # build occ gt
         if self.predict_occ:
-            grid_occ_eval_mask_seed = torch.ones_like(grid_agent_occ_seed).bool()
+            grid_occ_eval_mask_seed = torch.ones_like(grid_agent_occ_seed)
             grid_occ_eval_mask_seed[:, 0] = False
             grid_occ_eval_mask_seed[..., self.grid_size // 2] = False
             grid_agent_occ_eval_mask_seed = grid_pt_occ_eval_mask_seed = grid_occ_eval_mask_seed
@@ -1449,12 +1449,12 @@ class InfGenAgentDecoder(nn.Module):
                 # 'next_token_idx': next_token_idx,
                 # 'next_token_prob': next_token_prob,
                 # 'next_token_idx_gt': next_token_index_gt,
-               # 'next_token_eval_mask': next_token_eval_mask.bool(),
+               # 'next_token_eval_mask': next_token_eval_mask,
                 # state token
                 # 'next_state_idx': next_state_idx,
                 # 'next_state_prob': next_state_prob,
                 'next_state_idx_gt': next_state_index_gt,
-                'next_state_eval_mask': next_state_eval_mask.bool(),
+                'next_state_eval_mask': next_state_eval_mask,
                 # seed agent
                 'next_state_idx_seed': next_state_idx_seed,
                 'next_state_prob_seed': next_state_prob_seed,
@@ -1493,16 +1493,16 @@ class InfGenAgentDecoder(nn.Module):
                 'target_indices': target_indices[..., 0],
                 'raw_next_state_prob_seed': raw_next_state_prob_seed,
 
-                'next_state_eval_mask_seed': next_state_eval_mask_seed.bool(),
-                'next_attr_eval_mask_seed': next_attr_eval_mask_seed.bool(),
-                'next_head_eval_mask_seed': mask_sa.bool(),
+                'next_state_eval_mask_seed': next_state_eval_mask_seed,
+                'next_attr_eval_mask_seed': next_attr_eval_mask_seed,
+                'next_head_eval_mask_seed': mask_sa,
                 'grid_agent_occ_eval_mask_seed': grid_agent_occ_eval_mask_seed
                 if self.use_grid_token else None,
                 'grid_pt_occ_eval_mask_seed': grid_pt_occ_eval_mask_seed
                 if self.use_grid_token else None,
-                'neighbor_agent_grid_index_eval_mask': neighbor_agent_grid_index_eval_mask.bool()
+                'neighbor_agent_grid_index_eval_mask': neighbor_agent_grid_index_eval_mask
                 if self.use_grid_token else None,
-                'neighbor_pt_grid_index_eval_mask': neighbor_pt_grid_index_eval_mask.bool()
+                'neighbor_pt_grid_index_eval_mask': neighbor_pt_grid_index_eval_mask
                 if self.use_grid_token else None,
                 }
 
@@ -1700,9 +1700,9 @@ class InfGenAgentDecoder(nn.Module):
                     f"Got wrong with interact mask at scenario {data['scenario_id'][0]} t={t}!"
 
                 temporal_mask = torch.cat([temporal_mask, torch.ones_like(temporal_mask[:1]).repeat(
-                    num_seed_feature, *([1] * (temporal_mask.dim() - 1)))]).bool()
+                    num_seed_feature, *([1] * (temporal_mask.dim() - 1)))])
                 interact_mask = torch.cat([interact_mask, torch.ones_like(interact_mask[:1]).repeat(
-                    num_seed_feature, *([1] * (interact_mask.dim() - 1)))]).bool()  # placeholder
+                    num_seed_feature, *([1] * (interact_mask.dim() - 1)))])  # placeholder
 
                 pos_a_p, head_a_p, state_a_p, head_vector_a_p, grid_index_a_p, pad_mask = \
                     self._pad_feat(data.num_graphs, av_index, pos_a, head_a, state_a, head_vector_a, grid_a,
@@ -1713,7 +1713,7 @@ class InfGenAgentDecoder(nn.Module):
                 batch_s = torch.arange(num_infer_step, device=device).repeat_interleave(num_agent + num_seed_feature)
                 batch_pl = torch.arange(num_infer_step, device=device).repeat_interleave(data['pt_token']['num_nodes'])
 
-                inference_mask_sa = torch.zeros_like(inference_mask).bool()
+                inference_mask_sa = torch.zeros_like(inference_mask)
                 inference_mask_sa[:, (self.num_historical_steps - 1) // self.shift - 1 + t] = True
 
                 # 1.1 build seed agent features
@@ -1823,7 +1823,7 @@ class InfGenAgentDecoder(nn.Module):
                         feat_seed[:, (self.num_historical_steps - 1) // self.shift - 1 + t])
                     next_pos_rel_prob_softmax = torch.softmax(next_pos_rel_prob_seed, dim=-1)
                     # if self.inference_filter_overlap:
-                    # next_pos_rel_prob_softmax[..., grid_agent_occ_gt_t_1.bool()] = 1e-6  # diffuse!
+                    # next_pos_rel_prob_softmax[..., grid_agent_occ_gt_t_1] = 1e-6  # diffuse!
                     topk_pos_rel_prob, next_pos_rel_idx_seed = torch.topk(next_pos_rel_prob_softmax,
                                                                           k=self.insert_beam_size, dim=-1)
                     sample_pos_rel_index = torch.multinomial(topk_pos_rel_prob, 1).to(device)
@@ -1852,13 +1852,13 @@ class InfGenAgentDecoder(nn.Module):
                 agent_id = torch.cat([agent_id, torch.tensor([max_agent_id + 1], device=device, dtype=agent_id.dtype)])
                 max_agent_id += 1
 
-                mask = torch.cat([mask, torch.ones(num_new_agent, num_infer_step, device=mask.device)], dim=0).bool()
+                mask = torch.cat([mask, torch.ones(num_new_agent, num_infer_step, device=mask.device)], dim=0)
                 temporal_mask = torch.cat(
                     [temporal_mask, torch.ones(num_new_agent, num_infer_step, device=temporal_mask.device)],
-                    dim=0).bool()
+                    dim=0)
                 interact_mask = torch.cat(
                     [interact_mask, torch.ones(num_new_agent, num_infer_step, device=interact_mask.device)],
-                    dim=0).bool()
+                    dim=0)
 
                 # initialize new attributes
                 new_pos_a = torch.zeros(num_new_agent, num_infer_step, 2, device=device)
@@ -2213,7 +2213,7 @@ class InfGenAgentDecoder(nn.Module):
             #     pos_a[is_eos, (self.num_historical_steps - 1) // self.shift + t + 1:] = 0.
             #     head_a[is_eos, (self.num_historical_steps - 1) // self.shift + t + 1:] = 0.
             #     mask[is_eos, (self.num_historical_steps - 1) // self.shift + t + 1:] = False # to handle those newly-added agents
-            #     interact_mask[torch.cat([is_eos, torch.zeros(1, device=is_eos.device).bool()]), (self.num_historical_steps - 1) // self.shift + t + 1:] = False
+            #     interact_mask[torch.cat([is_eos, torch.zeros(1, device=is_eos.device)]), (self.num_historical_steps - 1) // self.shift + t + 1:] = False
 
             #     agent_token_emb[is_eos, (self.num_historical_steps - 1) // self.shift + t + 1:] = self.no_token_emb(torch.zeros(1, device=device).long())
 

@@ -11,7 +11,6 @@ from collections import deque
 from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 import torch
-from lightning import LightningModule
 from torch import Tensor
 
 from src.smart.loss.edge_gp import ZeroCenteredGradientPenalty_edge
@@ -26,7 +25,6 @@ from src.smart.loss.rollout_buffer import (
     RunningMeanStdTorch,
     compute_advantages,
     get_train_mask,
-    rollout,
 )
 import math
 from src.smart.model.smart import SMART
@@ -162,13 +160,13 @@ class SMART_GAIL(SMART):
             return _zero(reference), reference.new_empty((0,))
 
         start_step = 0 if key == "expert" else self.gail_start_step
-        valid_mask = agent["valid_mask"][:, start_step:].bool()
+        valid_mask = agent["valid_mask"][:, start_step:]
         actions = agent["sampled_idx"][:, start_step + 1 :].long()
-        state_action_mask = get_train_mask(agent, start_step).bool()
+        state_action_mask = get_train_mask(agent, start_step)
 
         explicit_agent_mask = agent.get("train_mask")
         if explicit_agent_mask is not None:
-            explicit_agent_mask = explicit_agent_mask.bool()
+            explicit_agent_mask = explicit_agent_mask
             valid_mask = valid_mask[explicit_agent_mask]
             actions = actions[explicit_agent_mask]
 
@@ -385,7 +383,7 @@ class SMART_GAIL(SMART):
 
         gp_loss = _zero(ego_logits)
         if use_gp:
-            gp_valid_mask = agent["valid_mask"].bool().clone()
+            gp_valid_mask = agent["valid_mask"].clone()
             gp_valid_mask[:, : self.dis_start_step] = False
 
             (
@@ -442,11 +440,11 @@ class SMART_GAIL(SMART):
         )
 
     def _discriminator_mask(self, agent: Mapping[str, Any]) -> Tensor:
-        mask_t = agent["valid_mask"].bool().transpose(0, 1)[self.dis_start_step :]
+        mask_t = agent["valid_mask"].transpose(0, 1)[self.dis_start_step :]
         if not self.pred_init:
             train_mask = agent.get("train_mask")
             if train_mask is not None:
-                mask_t = mask_t[:, train_mask.bool()]
+                mask_t = mask_t[:, train_mask]
         return mask_t
 
     # ------------------------------------------------------------------
@@ -464,7 +462,7 @@ class SMART_GAIL(SMART):
             expert_agent["pred_mask"] = None
         else:
             expert_agent["train_mask"] = (
-                expert_agent["pred_mask"].bool()
+                expert_agent["pred_mask"]
                 & expert_agent["token_mask"][:, self.gail_start_step :].all(dim=1)
             )
 
@@ -472,13 +470,10 @@ class SMART_GAIL(SMART):
             expert_agent,
             "expert",
         )
+        self.encoder.eval()
+        rollout_agent = self.encoder.inference(tokenized_map, expert_agent )
+        self.encoder.train()
 
-        rollout_agent = rollout(
-            self.encoder,
-            tokenized_map,
-            expert_agent,
-            self.validation_rollout_sampling,
-        )
         agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
             rollout_agent,
             "agent",

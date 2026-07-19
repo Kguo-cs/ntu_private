@@ -114,8 +114,8 @@ def plot_map(tokenized_agent,tokenized_map,train_mask,near_dist):
 # # for i in range(len(global_edge)):
 # #     plt.plot(global_edge[i, :, 0], global_edge[i, :, 1], 'r')
 #
-# mask = col_flag.bool()[train_mask]
-# mask1 = (~col_flag.bool())[train_mask]
+# mask = col_flag[train_mask]
+# mask1 = (~col_flag)[train_mask]
 #
 # print(mask.float().mean())
 #

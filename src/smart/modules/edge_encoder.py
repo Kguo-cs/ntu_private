@@ -131,7 +131,7 @@ def _compressed_mask(
     """Accept either a dense mask or a mask over already-valid nodes."""
     if value is None:
         return None
-    value = value.reshape(-1).bool()
+    value = value.reshape(-1)
     if value.numel() == num_nodes:
         return value
     if valid is not None and value.numel() == valid.numel():
@@ -258,7 +258,7 @@ class EdgeEncoder(nn.Module):
 
         full_agents = len(pos_a)
         train_mask = (
-            None if agent_train_mask is None else agent_train_mask.bool()
+            None if agent_train_mask is None else agent_train_mask
         )
         if train_mask is not None:
             if train_mask.shape != (full_agents,):
@@ -276,9 +276,7 @@ class EdgeEncoder(nn.Module):
             "inference_mask",
         )
 
-        mask = mask.bool().clone()
-        if pos_a.shape[:2] != mask.shape or head_a.shape != mask.shape:
-            raise ValueError("Temporal tensors must share [agent,time].")
+        mask = mask.clone()
 
         source_valid = mask.clone()
         if self.training and self.hist_drop_prob:
@@ -289,7 +287,7 @@ class EdgeEncoder(nn.Module):
 
         target_valid = mask.clone()
         if inference_mask is not None:
-            target_valid &= inference_mask.bool()
+            target_valid &= inference_mask
 
         num_agent, num_step = mask.shape
         max_lag = num_step - 1
@@ -354,8 +352,6 @@ class EdgeEncoder(nn.Module):
         source = dense_to_compact[source_step * num_agent + agent]
         target = dense_to_compact[target_step * num_agent + agent]
         edge_index = torch.stack([source, target])
-        if (edge_index < 0).any():
-            raise RuntimeError("Temporal edge references an invalid node.")
 
         return edge_index, relation
 
@@ -370,7 +366,6 @@ class EdgeEncoder(nn.Module):
         max_radius: float,
         agent_train_mask: Optional[Tensor] = None,
         layer_num: int = 1,
-        counter_feat_a: Optional[Tensor] = None,
         dis_edge_mask: Optional[Tensor] = None,
         a2a_edge_index: Optional[Tensor] = None,
     ):
@@ -379,7 +374,7 @@ class EdgeEncoder(nn.Module):
 
         valid = None
         if mask is not None:
-            valid = mask.reshape(-1).bool()
+            valid = mask.reshape(-1)
             pos_s = pos_s[valid]
             head_s = head_s[valid]
             head_vector_s = head_vector_s[valid]
@@ -427,44 +422,6 @@ class EdgeEncoder(nn.Module):
         )
 
         neighbor_relation = center_pos = center_heading = None
-        if counter_feat_a is not None:
-            source_pos = pos_s[source]
-            source_heading = head_s[source]
-            center_pos = scatter_mean(
-                source_pos, target, dim=0, dim_size=len(pos_s)
-            )
-            center_heading = torch.atan2(
-                scatter_mean(
-                    source_heading.sin(), target, dim=0, dim_size=len(pos_s)
-                ),
-                scatter_mean(
-                    source_heading.cos(), target, dim=0, dim_size=len(pos_s)
-                ),
-            )
-
-            centered_pos = source_pos - center_pos[target]
-            centered_head = wrap_angle(
-                source_heading - center_heading[target]
-            )
-            neighbor_feature = torch.stack(
-                [
-                    torch.linalg.vector_norm(centered_pos, dim=-1),
-                    angle_between_2d_vectors(
-                        ctr_vector=head_vector_s[target],
-                        nbr_vector=centered_pos[..., :2],
-                    ),
-                    centered_head,
-                ],
-                dim=-1,
-            )
-            if centered_pos.shape[-1] > 2:
-                neighbor_feature = torch.cat(
-                    [neighbor_feature, centered_pos[..., 2:]], dim=-1
-                )
-            neighbor_relation = self.r_a2a_emb(
-                continuous_inputs=neighbor_feature,
-                categorical_embs=None,
-            )
 
         return (
             edge_index,
@@ -555,14 +512,10 @@ class EdgeEncoder(nn.Module):
         batch_pl: Tensor,
         pl2a_radius: float,
         max_num_neighbors: int,
-        mask_pl: Optional[Tensor] = None,
         agent_train_mask: Optional[Tensor] = None,
-        use_counterfactual: bool = False,
-        route_map_index: Optional[Tensor] = None,
         layer_num: int = 1,
         l2a_edge_index: Optional[Tensor] = None,
     ):
-        del mask_pl, use_counterfactual, route_map_index
 
         if not self.use_pl2a:
             raise RuntimeError("Map embedding is disabled.")
@@ -579,11 +532,10 @@ class EdgeEncoder(nn.Module):
                 pos_a.shape[:2], dtype=torch.bool, device=pos_a.device
             )
         else:
-            mask = mask.bool().clone()
+            mask = mask.clone()
 
         num_agent, num_step = mask.shape
         if agent_train_mask is not None and layer_num == 1:
-            agent_train_mask = agent_train_mask.bool()
             if agent_train_mask.shape != (num_agent,):
                 raise ValueError("agent_train_mask has the wrong shape.")
             mask &= agent_train_mask[:, None]

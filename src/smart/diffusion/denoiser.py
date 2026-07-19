@@ -479,8 +479,6 @@ class InitDenoiser(nn.Module):
             max_num_neighbors=30,
             agent_train_mask=None,
             layer_num=self.num_layers,
-            counter_feat_a=None,
-            dis_edge_mask=None,
         )
 
         if use_map_condition:

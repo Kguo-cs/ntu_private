@@ -213,7 +213,7 @@ class RoFormerSelfAttention(nn.Module):
 
         # relative_pos= query_layer1.mul(self.scale) @ key_layer1.transpose(-1, -2) #BHQK
 
-        # relative_pos=relative_pos.masked_fill(attention_mask.bool(), 0)#BHQK
+        # relative_pos=relative_pos.masked_fill(attention_mask, 0)#BHQK
 
         # #relative_pos=relative_pos.sum(-1) [:,:,:,None] #BHQK
 
