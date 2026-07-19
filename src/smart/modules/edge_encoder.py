@@ -13,7 +13,7 @@ from src.smart.utils import (
     project_to_local_frame,
     wrap_angle,
 )
-
+from src.smart.utils.edge_utils import radiusGraphNearest,radiusGraphNearest2
 
 def _empty_edges(device) -> Tensor:
     return torch.empty(2, 0, dtype=torch.long, device=device)
@@ -35,92 +35,6 @@ def _validate_edge_index(
         if edge_index[1].min() < 0 or edge_index[1].max() >= num_target:
             raise IndexError("Invalid target index.")
     return edge_index
-
-
-def radiusGraphNearest(
-    x: Tensor,
-    batch: Tensor,
-    r: float,
-    loop: bool,
-    max_num_neighbors: int,
-) -> Tensor:
-    """Batch-safe radius-filtered KNN graph.
-
-    Returns source-to-target edges:
-        edge_index[0] = neighbor/source
-        edge_index[1] = center/target
-    """
-    if x.ndim != 2:
-        raise ValueError(f"x must be [N,D], got {x.shape}.")
-    batch = batch.reshape(-1).long()
-    if len(batch) != len(x):
-        raise ValueError("batch must contain one id per node.")
-    if len(x) == 0 or max_num_neighbors <= 0 or r < 0:
-        return _empty_edges(x.device)
-
-    result = []
-    for scene in batch.unique(sorted=True):
-        index = (batch == scene).nonzero(as_tuple=True)[0]
-        k = min(max_num_neighbors, len(index) if loop else len(index) - 1)
-        if k <= 0:
-            continue
-
-        edge = knn_graph(
-            x[index],
-            k=int(k),
-            loop=loop,
-            flow="source_to_target",
-        )
-        source = index[edge[0]]
-        target = index[edge[1]]
-        keep = torch.linalg.vector_norm(x[source] - x[target], dim=-1) <= r
-        result.append(torch.stack([source[keep], target[keep]]))
-
-    return torch.cat(result, dim=1) if result else _empty_edges(x.device)
-
-
-def radiusGraphNearest2(
-    x: Tensor,
-    y: Tensor,
-    r: float,
-    batch_x: Tensor,
-    batch_y: Tensor,
-    max_num_neighbors: int,
-) -> Tensor:
-    """Build source ``y`` -> target ``x`` KNN edges inside each scene."""
-    if x.ndim != 2 or y.ndim != 2 or x.shape[-1] != y.shape[-1]:
-        raise ValueError("x and y must be [N,D] tensors with equal D.")
-
-    batch_x = batch_x.reshape(-1).long()
-    batch_y = batch_y.reshape(-1).long()
-    if len(batch_x) != len(x) or len(batch_y) != len(y):
-        raise ValueError("Batch vectors must match their point tensors.")
-    if (
-        len(x) == 0
-        or len(y) == 0
-        or max_num_neighbors <= 0
-        or r < 0
-    ):
-        return _empty_edges(x.device)
-
-    result = []
-    for scene in batch_x.unique(sorted=True):
-        target_index = (batch_x == scene).nonzero(as_tuple=True)[0]
-        source_index = (batch_y == scene).nonzero(as_tuple=True)[0]
-        if len(target_index) == 0 or len(source_index) == 0:
-            continue
-
-        k = min(max_num_neighbors, len(source_index))
-        # knn(database, query, k) -> [query_index, database_index].
-        query_source = knn(y[source_index], x[target_index], int(k))
-        target = target_index[query_source[0]]
-        source = source_index[query_source[1]]
-
-        keep = torch.linalg.vector_norm(y[source] - x[target], dim=-1) <= r
-        result.append(torch.stack([source[keep], target[keep]]))
-
-    return torch.cat(result, dim=1) if result else _empty_edges(x.device)
-
 
 def _compressed_mask(
     value: Optional[Tensor],
