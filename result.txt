@@ -933,11 +933,11 @@ xflow512_match_vhead1_posheadshapevl1-epoch=47-step=45696-valmeta=0.6502.ckpt
 
 model32_match_noisevhead1_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6527.ckpt
 
-test: 0.6404
+test: 0.6504
 
 model32_a60_match_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6546.ckpt
 
-test: 0.6410
+test: 0.6510
 
 val:
 
