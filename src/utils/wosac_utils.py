@@ -76,7 +76,7 @@ def get_scenario_rollouts(
                             object_id=agent_id[i_scenario][i_agent],
                             length=pred_sizes[i_scenario][i_agent, i_rollout, :, 0],
                             width=pred_sizes[i_scenario][i_agent, i_rollout, :, 1],
-                            height=pred_sizes[i_scenario][i_agent, i_rollout, :, 2],
+                            height=pred_sizes[i_scenario][i_agent, i_rollout, :, 1],
                         )
                     )
 
