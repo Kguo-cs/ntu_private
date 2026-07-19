@@ -68,13 +68,14 @@ class TokenProcessor(torch.nn.Module):
     def forward(
         self, data: HeteroData
     ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        if self.training:
-            tokenized_map, tokenized_agent = self.process_data(data)
-        else:
-            tokenized_map = self.tokenize_map(data)
-            tokenized_agent = self.tokenize_agent(data)
-            if self.pred_init:
-                self.get_init(tokenized_agent)
+        # if self.training:
+        #     tokenized_map, tokenized_agent = self.process_data(data)
+        # else:
+        #     tokenized_map = self.tokenize_map(data)
+        #     tokenized_agent = self.tokenize_agent(data)
+        #     if self.pred_init:
+        #         self.get_init(tokenized_agent)
+        tokenized_map, tokenized_agent = self.process_data(data)
 
         if "type" in tokenized_agent:
             tokenized_agent["type"] = tokenized_agent["type"].long()
@@ -540,10 +541,15 @@ class TokenProcessor(torch.nn.Module):
                 if self.learn_init
                 else self.tokenize_agent(data)
             )
+            if self.pred_init:
+                self.get_init(agent)
+
         elif "initial_pos" in cached_agent:
             agent = self._load_cached_initial_agent(cached_agent)
         else:
             agent = self._load_cached_token_agent(cached_agent)
+            if self.pred_init:
+                self.get_init(agent)
 
         agent.setdefault("num_graphs", data.num_graphs)
         self._attach_token_libraries(agent)
@@ -703,15 +709,9 @@ class TokenProcessor(torch.nn.Module):
             result[key] = cached[key]
         result["sampled_idx"] = cached["sampled_idx"].long()
 
-        if self.pred_init:
-            self.get_init(result)
         for key in ("gt_pos_raw", "gt_head_raw", "route_map_index", "id"):
             if key in cached:
                 result[key] = cached[key]
-        if "gt_pos_raw" in cached:
-            result["gt_valid_raw"] = cached["valid_mask"]
-            if "train_mask" in cached:
-                result["train_mask_ce"] = cached["train_mask"]
         return result
 
     def _attach_token_libraries(self, agent: Dict[str, Tensor]) -> None:
