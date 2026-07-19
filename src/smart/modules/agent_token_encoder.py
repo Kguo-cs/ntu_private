@@ -71,12 +71,20 @@ class AgentTokenEncoder(nn.Module):
             hidden_dim,
         )
 
-        token_dim = 8
+        input_dim_token = 8
         if not self.discriminator:
-            self.token_embedders = nn.ModuleList([
-                MLPEmbedding(token_dim, hidden_dim)
-                for _ in range(self.NUM_TYPES)
-            ])
+            self.token_emb_veh = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+            self.token_emb_ped = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+            self.token_emb_cyc = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+
+            self.token_embedders=[self.token_emb_veh, self.token_emb_ped, self.token_emb_cyc]
+
             self.fusion_emb = MLPEmbedding(
                 hidden_dim * 2,
                 hidden_dim,
