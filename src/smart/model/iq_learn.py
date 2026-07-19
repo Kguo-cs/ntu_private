@@ -20,6 +20,7 @@ from src.smart.loss.gp_penalty import (
     _reshape_valid_rewards,
     _select_ego_logits,
     _weighted_bce_with_logits,
+    ZeroCenteredGradientPenalty
 )
 from src.smart.loss.rollout_buffer import (
     RunningMeanStdTorch,
@@ -372,35 +373,54 @@ class IQ_SoftQ(LightningModule):
 
         gp_loss = _zero(ego_logits)
         if use_gp:
-            if not _has_elements(interaction_logits):
-                raise ValueError("Edge gradient penalty requires interaction logits.")
-            edge_index = disc_out[1][0]
-            destination_index = edge_index[1]
             gp_valid_mask = agent["valid_mask"].bool().clone()
             gp_valid_mask[:, : self.dis_start_step] = False
 
-            gp_loss, scene_gp, interaction_gp, _ = ZeroCenteredGradientPenalty_edge(
+            (
+                regularization_loss,
+                penalty_pos,
+                penalty_head,
+                penalty_shape,
+            ) = ZeroCenteredGradientPenalty(
                 sampled_pos=sampled_pos,
                 sampled_heading=sampled_heading,
                 shape=shape,
-                critic_score=(
-                    ego_logits,
-                    interaction_logits,
-                    interaction_weight,
-                    destination_index,
-                ),
+                critic_score=combined.sum(),#[combined_logits.abs()>1]
                 valid_mask=gp_valid_mask,
                 gamma=0.01,
-                interaction_gamma=0.01,
-                position_scale=1.0,
-                heading_scale=1.0,
-                shape_scale=1.0,
-                interaction_min_mass=1,
-                detach_edge_weight=True,
             )
-            self._log_train(f"train/{key}_gp", gp_loss)
-            self._log_train("train/scene_gp", scene_gp)
-            self._log_train("train/interaction_gp", interaction_gp)
+            #
+            self._log_train(f"train/{key}_gp", regularization_loss)
+            self._log_train(f"train/{key}_pos_gp", penalty_pos)
+            self._log_train(f"train/{key}_head_gp", penalty_head)
+            self._log_train(f"train/{key}_shape_gp", penalty_shape)
+            # edge_index = disc_out[1][0]
+            # destination_index = edge_index[1]
+            # gp_valid_mask = agent["valid_mask"].bool().clone()
+            # gp_valid_mask[:, : self.dis_start_step] = False
+            #
+            # gp_loss, scene_gp, interaction_gp, _ = ZeroCenteredGradientPenalty_edge(
+            #     sampled_pos=sampled_pos,
+            #     sampled_heading=sampled_heading,
+            #     shape=shape,
+            #     critic_score=(
+            #         ego_logits,
+            #         interaction_logits,
+            #         interaction_weight,
+            #         destination_index,
+            #     ),
+            #     valid_mask=gp_valid_mask,
+            #     gamma=0.01,
+            #     interaction_gamma=0.01,
+            #     position_scale=1.0,
+            #     heading_scale=1.0,
+            #     shape_scale=1.0,
+            #     interaction_min_mass=1,
+            #     detach_edge_weight=True,
+            # )
+            # self._log_train(f"train/{key}_gp", gp_loss)
+            # self._log_train("train/scene_gp", scene_gp)
+            # self._log_train("train/interaction_gp", interaction_gp)
 
         # Rewards are targets, never differentiable critic outputs for the actor.
         return (
