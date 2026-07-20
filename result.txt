@@ -947,8 +947,11 @@ test: 0.6517
 
 val: 0.6522
 
+model32_a60_match_posheadl1_gp001_inter0-epoch=4-step=136968-valmeta=0.6517.ckpt
 
+0.6510
 
+model32_a60_match_posheadl1_gp001_scene0.ckpt
 
 
 take all position for generation

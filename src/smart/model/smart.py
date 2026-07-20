@@ -454,7 +454,6 @@ class SMART(LightningModule):
                 metrics.update(self.result)
                 print(f"metric compute time: {time.time() - start:.2f}s")
             self.samples.clear()
-            self.gt_samples.clear()
         else:
             metrics["val_closed/ADE"] = self.minADE.compute()
 
