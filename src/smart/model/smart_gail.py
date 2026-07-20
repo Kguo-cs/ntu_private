@@ -470,9 +470,11 @@ class SMART_GAIL(SMART):
             expert_agent,
             "expert",
         )
-        self.encoder.eval()
-        rollout_agent = self.encoder.inference( expert_agent )
-        self.encoder.train()
+
+        with torch.no_grad():
+            self.encoder.eval()
+            rollout_agent = self.encoder.inference( expert_agent )
+            self.encoder.train()
 
         agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
             rollout_agent,
