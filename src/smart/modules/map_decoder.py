@@ -52,39 +52,28 @@ class SMARTMapDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        if  not self.token_processor.use_bird:
-        #     self.pt_embed=nn.Embedding(1, hidden_dim)
-        # else:
-            self.type_pt_emb = nn.Embedding(10, hidden_dim)
-            self.polygon_type_emb = nn.Embedding(4, hidden_dim)
-            # if not self.token_processor.pred_light:
-            self.light_pl_emb = nn.Embedding(5, hidden_dim)
+        self.type_pt_emb = nn.Embedding(10, hidden_dim)
+        self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+        self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
-            # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
-            self.my_map=False
+        self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
-            if self.my_map:
-                self.token_emb = MLPEmbedding(input_dim=4, hidden_dim=hidden_dim)
-            else:
-                self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
-            #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
+        if num_layers>0:
+            self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,use_pl2a=True)
 
-            if num_layers>0:
-                self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,use_pl2a=True)
-
-                self.pt2pt_layers = nn.ModuleList(
-                    [
-                        AttentionLayer(
-                            hidden_dim=hidden_dim,
-                            num_heads=num_heads,
-                            head_dim=head_dim,
-                            dropout=dropout,
-                            bipartite=False,
-                            has_pos_emb=True,
-                        )
-                        for _ in range(num_layers)
-                    ]
-                )
+            self.pt2pt_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
 
             self.pred_offroad=False
 
@@ -149,12 +138,8 @@ class SMARTMapDecoder(nn.Module):
             mask = (dist[dist_mask]<self.token_processor.init_map_range) & ((map_type == 4) | (map_type == 5))
             #mask=torch.ones_like(map_type).to(torch.bool)
 
-        if self.my_map:
-            traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
-            x_pt = self.token_emb(traj_pos_local)
-        else:
-            pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
-            x_pt = pt_token_emb_src[token_idx]
+        pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
+        x_pt = pt_token_emb_src[token_idx]
 
         pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3,3,3]).to(device=pos_pt.device, dtype=torch.long)
         pl_type=pl_type_mapping[map_type]
