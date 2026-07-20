@@ -130,9 +130,7 @@ class SMART(LightningModule):
         self.challenge_type = (
             ChallengeType.SCENARIO_GEN if scenario_gen else ChallengeType.SIM_AGENTS
         )
-        self.n_rollout_closed_val = int(
-            _cfg(model_config, "n_rollout_closed_val", 2 if scenario_gen else 8)
-        )
+        self.n_rollout_closed_val = int( 2 if scenario_gen else 8)
         self.metric_chunk_size = int(
             _cfg(model_config, "metric_chunk_size", 1 if 'code' in  os.getcwd() else 64)
         )
