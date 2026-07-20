@@ -664,7 +664,11 @@ class SMART_GAIL(SMART):
     # Lightning entry point
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
+        #self.token_processor.train()
+
         tokenized_map, tokenized_agent = self.token_processor(data)
+
+        #self.token_processor.eval()
 
         loss = self.update(tokenized_map, tokenized_agent)
         self._log_train("train/loss", loss)

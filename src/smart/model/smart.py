@@ -302,7 +302,7 @@ class SMART(LightningModule):
             "traj": torch.stack(traj, 1),
             "z": torch.stack(z, 1),
             "head": wrap_angle(torch.stack(head, 1)),
-            "size": torch.stack(size, 1).clamp_min(0.1),
+            "size": torch.stack(size, 1),
             "vel": torch.stack(vel, 1),
             "z_list": torch.stack(z_list, 1) if z_list else None,
         }
