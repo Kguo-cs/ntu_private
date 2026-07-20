@@ -36,7 +36,7 @@ from src.smart.tokens.token_processor import TokenProcessor
 from src.smart.utils import transform_to_global, wrap_angle
 from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-
+import os
 
 def _cfg(config: Any, name: str, default: Any) -> Any:
     if isinstance(config, Mapping):
@@ -138,14 +138,18 @@ class SMART(LightningModule):
             _cfg(model_config, "n_rollout_closed_val", 2 if scenario_gen else 8)
         )
         self.metric_chunk_size = int(
-            _cfg(model_config, "metric_chunk_size", 64 if scenario_gen else 32)
+            _cfg(model_config, "metric_chunk_size", 64)
         )
         self.max_metric_scenarios = int(
             _cfg(model_config, "max_metric_scenarios", 64 if scenario_gen else 0)
         )
+
+        working_dir = os.getcwd()
+
+        if 'code' in working_dir:
+            self.metric_chunk_size = 1
+
         self.compute_mmd = bool(_cfg(model_config, "compute_mmd", True))
-        if self.metric_chunk_size <= 0 or self.n_rollout_closed_val <= 0:
-            raise ValueError("Rollout count and metric chunk size must be positive.")
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)  # compatibility
