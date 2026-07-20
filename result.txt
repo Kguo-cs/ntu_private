@@ -909,7 +909,6 @@ xflow512_n30_pta_epoch=63-step=60928-valmeta=0.6434.ckpt
 
 0.6468
 
-
 bc_init64_n30_epoch=15-step=121760-valmeta=0.6495.ckpt
 
 0.64699
@@ -918,18 +917,9 @@ model32_edgegp001w1_dise5-epoch=3-step=114138-valmeta=0.6547.ckpt
 
 test: 0.6491
 
-
-xflow512_match_noiseposvhead1_posheadl1-epoch=59-step=57120-valmeta=0.6496.ckpt
-
-
-
 model32_edgegp001_dise5-epoch=3-step=121746-valmeta=0.6526.ckpt
 
 test: 0.6499
-
-
-xflow512_match_vhead1_posheadshapevl1-epoch=47-step=45696-valmeta=0.6502.ckpt
-
 
 model32_match_noisevhead1_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6527.ckpt
 
@@ -939,15 +929,15 @@ model32_a60_match_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6546.ckpt
 
 test: 0.6510
 
-val:
-
 model32_a60_match_posheadl1_gp001-epoch=4-step=136968-valmeta=0.6558.ckpt
+
+0.6522
 
 test: 0.6517
 
-val: 0.6522
-
 model32_a60_match_posheadl1_gp001_inter0-epoch=4-step=136968-valmeta=0.6517.ckpt
+
+0.6510
 
 
 model32_a60_match_posheadl1_gp001_scene0.ckpt
