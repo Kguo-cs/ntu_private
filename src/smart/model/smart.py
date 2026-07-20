@@ -140,7 +140,7 @@ class SMART(LightningModule):
             _cfg(model_config, "max_metric_scenarios", 64 if scenario_gen else 0)
         )
 
-        self.compute_mmd = bool(_cfg(model_config, "compute_mmd", True))
+        self.compute_mmd = bool(_cfg(model_config, "compute_mmd", False))
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)  # compatibility
@@ -261,8 +261,8 @@ class SMART(LightningModule):
         out = {
             "traj": torch.stack(traj, 1),
             "z": torch.stack(z, 1),
-            "head": torch.stack(head, 1),
-            "size": torch.stack(size, 1),
+            "head": wrap_angle(torch.stack(head, 1)),
+            "size": torch.stack(size, 1).clamp_min(0.1),
             "vel": torch.stack(vel, 1),
             "z_list": torch.stack(z_list, 1) if z_list else None,
         }
