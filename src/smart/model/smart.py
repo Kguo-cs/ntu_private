@@ -120,7 +120,7 @@ class SMART(LightningModule):
             finetune=model_config.finetune,
         )
 
-        self.training_rollout_len = int(_cfg(model_config, "training_rollout_len", 10))
+        self.training_rollout_len = int(_cfg(model_config, "training_rollout_len", 12))
         self.training_rollout_sampling = model_config.training_rollout_sampling
         self.validation_rollout_sampling = model_config.validation_rollout_sampling
         self._configure_finetuning(bool(model_config.finetune))
@@ -452,7 +452,6 @@ class SMART(LightningModule):
                 metrics.update(self.result)
                 print(f"metric compute time: {time.time() - start:.2f}s")
             self.samples.clear()
-            self.gt_samples.clear()
         else:
             metrics["val_closed/ADE"] = self.minADE.compute()
 
