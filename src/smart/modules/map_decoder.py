@@ -11,30 +11,27 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 
-"""SMART map-token encoder with explicit scene and index handling."""
+from typing import Dict
 
-from __future__ import annotations
-
-from collections.abc import Mapping
-from typing import Any, Optional
-
+import numpy as np
 import torch
 import torch.nn as nn
-from torch import Tensor
 
 from src.smart.layers.attention_layer import AttentionLayer
-from src.smart.layers.fourier_embedding import MLPEmbedding
-from src.smart.utils import transform_to_local, weight_init
-
+from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from .edge_encoder import EdgeEncoder
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    angle_between_2d_vectors,
+    weight_init
+)
 
+from src.smart.layers import MLPLayer
 
 class SMARTMapDecoder(nn.Module):
-    """Encode map points and return road-edge tokens in time-independent form."""
-
-    NUM_MAP_TYPES = 10
-    NUM_LIGHT_TYPES = 5
-    ROAD_EDGE_TYPES = (4, 5)
 
     def __init__(
         self,
@@ -45,445 +42,278 @@ class SMARTMapDecoder(nn.Module):
         num_heads: int,
         head_dim: int,
         dropout: float,
-        pt2pt_neighbor: int,
-        token_processor,
+        pt2pt_neighbor:int,
+        token_processor
     ) -> None:
-        super().__init__()
+        super(SMARTMapDecoder, self).__init__()
+        self.pl2pl_radius = pl2pl_radius
+        self.num_layers = num_layers
+        self.pt2pt_neighbor=pt2pt_neighbor
 
-        self.hidden_dim = int(hidden_dim)
-        self.pl2pl_radius = float(pl2pl_radius)
-        self.num_layers = int(num_layers)
-        self.pt2pt_neighbor = int(pt2pt_neighbor)
-        self.token_processor = token_processor
+        self.token_processor=token_processor
 
-        # Names are preserved for checkpoint compatibility.
-        self.type_pt_emb = nn.Embedding(10, hidden_dim)
-        self.polygon_type_emb = nn.Embedding(4, hidden_dim)
-        self.light_pl_emb = nn.Embedding(5, hidden_dim)
-        self.token_emb = MLPEmbedding(22, hidden_dim)
+        if  not self.token_processor.use_bird:
+        #     self.pt_embed=nn.Embedding(1, hidden_dim)
+        # else:
+            self.type_pt_emb = nn.Embedding(10, hidden_dim)
+            self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+            # if not self.token_processor.pred_light:
+            self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
-        self.register_buffer(
-            "_polygon_type",
-            torch.tensor([0, 0, 0, 0, 1, 1, 2, 2, 2, 3]),
-            persistent=False,
-        )
+            # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
+            self.my_map=False
 
-        self.edge_encoder = (
-            EdgeEncoder(
-                hidden_dim,
-                num_freq_bands,
-                use_pl2a=True,
-            )
-            if self.num_layers > 0
-            else None
-        )
-        self.pt2pt_layers = nn.ModuleList(
-            AttentionLayer(
-                hidden_dim=hidden_dim,
-                num_heads=num_heads,
-                head_dim=head_dim,
-                dropout=dropout,
-                bipartite=False,
-                has_pos_emb=True,
-            )
-            for _ in range(self.num_layers)
-        )
+            if self.my_map:
+                self.token_emb = MLPEmbedding(input_dim=4, hidden_dim=hidden_dim)
+            else:
+                self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
+            #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
-        # The old code skipped initialization when num_layers == 0.
-        self.apply(weight_init)
+            if num_layers>0:
+                self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,use_pl2a=True)
 
-    # ------------------------------------------------------------------
-    # Validation
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _required(mapping: Mapping[str, Any], key: str):
-        if key not in mapping:
-            raise KeyError(f"Missing required key {key!r}.")
-        return mapping[key]
-
-    @staticmethod
-    def _vector(
-        value: Tensor,
-        name: str,
-        length: int,
-        *,
-        device: torch.device,
-        dtype: torch.dtype,
-    ) -> Tensor:
-        value = value.to(device=device, dtype=dtype).reshape(-1)
-        if value.numel() != length:
-            raise ValueError(
-                f"{name} must contain {length} values, got {value.numel()}."
-            )
-        return value
-
-    def _read_map(self, data: Mapping[str, Tensor]):
-        position = self._required(data, "position")
-        if position.ndim != 2 or position.shape[-1] < 2:
-            raise ValueError("position must have shape [M,D] with D >= 2.")
-
-        size = len(position)
-        device = position.device
-        map_type = self._vector(
-            self._required(data, "type"),
-            "type",
-            size,
-            device=device,
-            dtype=torch.long,
-        )
-        batch = self._vector(
-            self._required(data, "batch"),
-            "batch",
-            size,
-            device=device,
-            dtype=torch.long,
-        )
-        orientation = self._vector(
-            self._required(data, "orientation"),
-            "orientation",
-            size,
-            device=device,
-            dtype=position.dtype,
-        )
-        token_index = self._vector(
-            self._required(data, "token_idx"),
-            "token_idx",
-            size,
-            device=device,
-            dtype=torch.long,
-        )
-        light_type = self._vector(
-            self._required(data, "light_type"),
-            "light_type",
-            size,
-            device=device,
-            dtype=torch.long,
-        )
-        return map_type, batch, position, orientation, token_index, light_type
-
-    @classmethod
-    def _road_edge_mask(cls, map_type: Tensor) -> Tensor:
-        return (map_type == cls.ROAD_EDGE_TYPES[0]) | (
-            map_type == cls.ROAD_EDGE_TYPES[1]
-        )
-
-    # ------------------------------------------------------------------
-    # Scene ego pose and map cropping
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _scene_ego_pose(
-        agent: Mapping[str, Any],
-        device: torch.device,
-    ) -> tuple[Tensor, Tensor]:
-        for key in ("batch", "ego_mask", "initial_pos", "initial_heading"):
-            if key not in agent:
-                raise KeyError(f"tokenized_agent is missing {key!r}.")
-
-        batch = agent["batch"].to(device=device, dtype=torch.long).reshape(-1)
-        ego_mask = agent["ego_mask"].to(
-            device=device,
-            dtype=torch.bool,
-        ).reshape(-1)
-        position = agent["initial_pos"].to(device=device)
-        heading = agent["initial_heading"].to(device=device).reshape(-1)
-
-        num_agents = len(batch)
-        if len(ego_mask) != num_agents:
-            raise ValueError("ego_mask and batch have different lengths.")
-        if position.ndim != 2 or position.shape[0] != num_agents:
-            raise ValueError("initial_pos must have shape [N,D].")
-        if position.shape[-1] < 2 or len(heading) != num_agents:
-            raise ValueError("Invalid initial ego pose tensors.")
-
-        num_graphs = (
-            int(agent["num_graphs"])
-            if "num_graphs" in agent
-            else int(batch.max()) + 1
-        )
-        if num_graphs <= 0:
-            raise ValueError("num_graphs must be positive.")
-        if batch.numel() and (batch.min() < 0 or batch.max() >= num_graphs):
-            raise ValueError("Agent batch contains an invalid scene index.")
-
-        ego_batch = batch[ego_mask]
-        counts = torch.bincount(ego_batch, minlength=num_graphs)
-        if not torch.all(counts == 1):
-            raise ValueError(
-                "Exactly one ego is required per scene; "
-                f"counts={counts.tolist()}."
-            )
-
-        scene_position = position.new_empty(num_graphs, 2)
-        scene_heading = heading.new_empty(num_graphs)
-        scene_position[ego_batch] = position[ego_mask, :2]
-        scene_heading[ego_batch] = heading[ego_mask]
-        return scene_position, scene_heading
-
-    def _crop(
-        self,
-        map_type: Tensor,
-        batch: Tensor,
-        position: Tensor,
-        orientation: Tensor,
-        token_index: Tensor,
-        light_type: Tensor,
-        agent: Optional[Mapping[str, Any]],
-    ):
-        if agent is None:
-            return (
-                map_type,
-                batch,
-                position,
-                orientation,
-                token_index,
-                light_type,
-                self._road_edge_mask(map_type),
-                None,
-                None,
-            )
-
-        scene_position, scene_heading = self._scene_ego_pose(
-            agent,
-            position.device,
-        )
-        if batch.numel() and (batch.min() < 0 or batch.max() >= len(scene_position)):
-            raise ValueError("Map batch contains an invalid scene index.")
-
-        distance = torch.linalg.vector_norm(
-            position[..., :2] - scene_position[batch],
-            dim=-1,
-        )
-        init_range = float(self.token_processor.init_map_range)
-        context = distance < init_range + self.pl2pl_radius
-
-        map_type = map_type[context]
-        batch = batch[context]
-        position = position[context]
-        orientation = orientation[context]
-        token_index = token_index[context]
-        light_type = light_type[context]
-        distance = distance[context]
-
-        output = (
-            (distance < init_range)
-            & self._road_edge_mask(map_type)
-        )
-        return (
-            map_type,
-            batch,
-            position,
-            orientation,
-            token_index,
-            light_type,
-            output,
-            scene_position,
-            scene_heading,
-        )
-
-    # ------------------------------------------------------------------
-    # Embedding and graph attention
-    # ------------------------------------------------------------------
-    def _embed(
-        self,
-        map_type: Tensor,
-        token_index: Tensor,
-        light_type: Tensor,
-    ) -> Tensor:
-        token_source = self.token_processor.map_token_traj_src
-        if not torch.is_tensor(token_source):
-            raise TypeError("map_token_traj_src must be a tensor.")
-
-        token_source = token_source.to(token_index.device)
-        token_source = token_source.reshape(len(token_source), -1)
-        if token_source.shape[-1] != 22:
-            raise ValueError(
-                f"Map trajectory tokens must flatten to 22 values, "
-                f"got {token_source.shape[-1]}."
-            )
-
-        self._check_index(token_index, len(token_source), "map token index")
-        parameter = next(self.token_emb.parameters())
-        table = self.token_emb(token_source.to(parameter.dtype))
-
-        polygon_type = self._polygon_type[map_type]
-        return (
-            table[token_index]
-            + self.type_pt_emb(map_type)
-            + self.polygon_type_emb(polygon_type)
-            + self.light_pl_emb(light_type)
-        )
-
-    @staticmethod
-    def _attention_tensor(result):
-        """Support AttentionLayer returning either Tensor or (Tensor, aux)."""
-        if isinstance(result, tuple):
-            if not result:
-                raise RuntimeError("AttentionLayer returned an empty tuple.")
-            return result[0]
-        return result
-
-    def _edges(
-        self,
-        source_position: Tensor,
-        source_orientation: Tensor,
-        source_batch: Tensor,
-        target_position: Tensor,
-        target_orientation: Tensor,
-        target_batch: Tensor,
-    ):
-        if self.edge_encoder is None:
-            raise RuntimeError("edge_encoder is unavailable.")
-
-        heading_vector = torch.stack(
-            [target_orientation.cos(), target_orientation.sin()],
-            dim=-1,
-        )
-        return self.edge_encoder.build_map2map_edge(
-            source_position,
-            source_orientation,
-            target_position,
-            target_orientation,
-            heading_vector,
-            target_batch,
-            source_batch,
-            self.pl2pl_radius,
-            self.pt2pt_neighbor,
-        )
-
-    def _encode_context(
-        self,
-        feature: Tensor,
-        position: Tensor,
-        orientation: Tensor,
-        batch: Tensor,
-        output_mask: Tensor,
-    ):
-        if not output_mask.any():
-            return (
-                feature.new_empty((0, self.hidden_dim)),
-                position[output_mask],
-                orientation[output_mask],
-                batch[output_mask],
-            )
-
-        # No graph layer: still return only the requested road-edge nodes.
-        if self.num_layers == 0:
-            return (
-                feature[output_mask],
-                position[output_mask],
-                orientation[output_mask],
-                batch[output_mask],
-            )
-
-        # One layer updates selected targets from all nearby context nodes.
-        if self.num_layers == 1:
-            target_feature = feature[output_mask]
-            target_position = position[output_mask]
-            target_orientation = orientation[output_mask]
-            target_batch = batch[output_mask]
-
-            edge_index, relation = self._edges(
-                position,
-                orientation,
-                batch,
-                target_position,
-                target_orientation,
-                target_batch,
-            )
-            target_feature = self._attention_tensor(
-                self.pt2pt_layers[0](
-                    (feature, target_feature),
-                    relation,
-                    edge_index,
+                self.pt2pt_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=False,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
                 )
-            )
-            return (
-                target_feature,
-                target_position,
-                target_orientation,
-                target_batch,
-            )
 
-        # Multiple layers update all context nodes before selecting outputs.
-        edge_index, relation = self._edges(
-            position,
-            orientation,
-            batch,
-            position,
-            orientation,
-            batch,
-        )
-        for layer in self.pt2pt_layers:
-            feature = self._attention_tensor(
-                layer(
-                    (feature, feature),
-                    relation,
-                    edge_index,
-                )
-            )
+            self.pred_offroad=False
 
-        return (
-            feature[output_mask],
-            position[output_mask],
-            orientation[output_mask],
-            batch[output_mask],
-        )
+            self.apply(weight_init)
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-    def forward(
-        self,
-        tokenized_map: Mapping[str, Tensor],
-        tokenized_agent: Optional[Mapping[str, Any]] = None,
-    ) -> dict[str, Tensor]:
-        values = self._read_map(tokenized_map)
-        (
-            map_type,
-            batch,
-            position,
-            orientation,
-            token_index,
-            light_type,
-            output_mask,
-            scene_position,
-            scene_heading,
-        ) = self._crop(*values, tokenized_agent)
+    def forward(self, tokenized_map: Dict,tokenized_agent=None):
 
-        if len(position) == 0 or not output_mask.any():
+        map_type=tokenized_map["type"].long()
+        # map_type[map_type>9] = 9
+        
+        # mask = torch.zeros_like(map_type, dtype=bool)
+        # #mask = torch.ones_like(map_type, dtype=bool)
+        #
+        # type4_indices=torch.where((map_type==4) |(map_type==5))[0]
+        #
+        # sampled_indices = type4_indices[::2]
+        #
+        # mask[sampled_indices] = True
+        #
+        # mask[(map_type!=4)&(map_type!=5)] = True
+        #
+        # map_type[map_type==5]=4
+        # map_type[map_type==8]=7
+        # map_type[map_type==0]=1
+        # map_type[map_type==2]=1
+        # map_type[map_type==3]=1
+        # # #
+        # mask=(map_type==4) | (map_type==6) | (map_type==7)  | (map_type==9) #| (map_type==1)
+
+        batch = tokenized_map["batch"]#[mask]
+        pos_pt = tokenized_map["position"]#[mask]
+        orient_pt = tokenized_map["orientation"]#[mask]
+        token_idx=tokenized_map["token_idx"].long()#[mask]
+        light_type=tokenized_map["light_type"].long()
+        #map_type=map_type[mask]
+
+        if tokenized_agent is None:
+            mask = (map_type == 4) | (map_type == 5)
+        elif batch.numel() == 0:
             return {
-                "pt_token": position.new_empty((0, self.hidden_dim)),
-                "position": position[output_mask],
-                "orientation": orientation[output_mask],
-                "batch": batch[output_mask],
+                "pt_token": pos_pt.new_empty((0, self.type_pt_emb.embedding_dim)),
+                "position": pos_pt,
+                "orientation": orient_pt,
+                "batch": batch,
             }
+        else:
+            gt_initial_pos = tokenized_agent["initial_pos"]
+            ego_mask = tokenized_agent["ego_mask"]
 
-        feature = self._embed(
-            map_type,
-            token_index,
-            light_type,
-        )
-        feature, position, orientation, batch = self._encode_context(
-            feature,
-            position,
-            orientation,
-            batch,
-            output_mask,
-        )
+            ego_position = gt_initial_pos[ego_mask].reshape(-1,batch.max().item()+1,2)
+
+            dist=torch.norm(ego_position[:,batch]-pos_pt[None],dim=-1).amin(0)
+
+            dist_mask=dist<(self.token_processor.init_map_range+self.pl2pl_radius)
+
+            batch=batch[dist_mask]
+            pos_pt=pos_pt[dist_mask]
+            orient_pt=orient_pt[dist_mask]
+            token_idx=token_idx[dist_mask]
+            light_type=light_type[dist_mask]
+            map_type=map_type[dist_mask]
+            mask = (dist[dist_mask]<self.token_processor.init_map_range) & ((map_type == 4) | (map_type == 5))
+            #mask=torch.ones_like(map_type).to(torch.bool)
+
+        if self.my_map:
+            traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
+            x_pt = self.token_emb(traj_pos_local)
+        else:
+            pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
+            x_pt = pt_token_emb_src[token_idx]
+
+        pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3,3,3]).to(device=pos_pt.device, dtype=torch.long)
+        pl_type=pl_type_mapping[map_type]
+
+        x_pt_categorical_embs = [
+            self.type_pt_emb(map_type),
+            self.polygon_type_emb(pl_type),
+            self.light_pl_emb(light_type),
+        ]
+
+        x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
+
+        if self.num_layers>1:
+            head_vector = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
+
+            edge_index_pt2pt, r_pt2pt = self.edge_encoder.build_map2map_edge(
+                pos_pt,  # [n_pl, 2]
+                orient_pt,  # [n_pl]
+                pos_pt,  # [n_agent, n_step, 2]
+                orient_pt,  # [n_agent, n_step]
+                head_vector,  # [n_agent, n_step, 2]
+                batch,  # [n_agent*n_step]
+                batch,  # [n_pl*n_step]
+                self.pl2pl_radius,
+                self.pt2pt_neighbor,
+            )
+
+            for i in range(self.num_layers):
+                x_pt ,_= self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
+
+
+            x_pt=x_pt[mask]
+            pos_pt=pos_pt[mask]
+            orient_pt=orient_pt[mask]
+            batch=batch[mask]
+
+        elif self.num_layers>0:
+            edge_pt=x_pt[mask]#[::2]
+            pos_edge=pos_pt[mask]#[::2]
+            orient_edge=orient_pt[mask]#[::2]
+            batch_edge=batch[mask]#[::2].contiguous()
+
+            head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
+
+            edge_index_pt2pt, r_pt2pt = self.edge_encoder.build_map2map_edge(
+                                                            pos_pt,  # [n_pl, 2]
+                                                            orient_pt,  # [n_pl]
+                                                            pos_edge,  # [n_agent, n_step, 2]
+                                                            orient_edge,  # [n_agent, n_step]
+                                                            head_vector_edge,  # [n_agent, n_step, 2]
+                                                            batch_edge,  # [n_agent*n_step]
+                                                            batch,  # [n_pl*n_step]
+                                                            self.pl2pl_radius,
+                                                            self.pt2pt_neighbor,
+                                                        )
+
+            edge_pt = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
+
+            x_pt=edge_pt
+            pos_pt=pos_edge
+            orient_pt=orient_edge
+            batch=batch_edge
 
         if tokenized_agent is not None:
-            if scene_position is None or scene_heading is None:
-                raise RuntimeError("Scene ego pose was not prepared.")
-            position, orientation = transform_to_local(
-                position,
-                orientation,
-                scene_position[batch],
-                scene_heading[batch],
-            )
+            ego_mask = tokenized_agent["ego_mask"]
+            ego_position = tokenized_agent["initial_pos"][ego_mask]
+            ego_heading = tokenized_agent["initial_heading"][ego_mask]
 
-        return {
-            "pt_token": feature,
-            "position": position,
-            "orientation": orientation,
+            pos_pt, orient_pt = transform_to_local(pos_pt,  # [:,None],
+                                                   orient_pt,  # [:,None],
+                                                   ego_position[batch],
+                                                   ego_heading[batch],
+                                                   )
+
+        output={
+            "pt_token": x_pt,
+            "position": pos_pt,
+            "orientation": orient_pt,
             "batch": batch,
         }
+
+
+        return output
+
+        #tensor([0.010, 0.488, 0.020, 0.034, 0.145, 0.025, 0.063, 0.071, 0.017, 0.127],
+        # polyline_type = {
+        #     # for lane
+        #     "TYPE_FREEWAY": 0,
+        #     "TYPE_SURFACE_STREET": 1,
+        #     "TYPE_STOP_SIGN": 2,
+        #     "TYPE_BIKE_LANE": 3,
+        #     # for roadedge
+        #     "TYPE_ROAD_EDGE_BOUNDARY": 4,
+        #     "TYPE_ROAD_EDGE_MEDIAN": 5,
+        #     # for roadline
+        #     "BROKEN": 6,
+        #     "SOLID_SINGLE": 7,
+        #     "DOUBLE": 8,
+        #     # for crosswalk, speed bump and drive way
+        #     "TYPE_CROSSWALK": 9,
+        # }
+
+
+        # lengths = torch.bincount(batch).tolist()
+        #
+        # padded_pt_feature = padding(x_pt, lengths)
+        #
+        # feature_mask=(padded_pt_feature == 0).all(-1)
+        #
+        # map_mask = feature_mask[:, None]
+        #
+        # sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
+        #
+        # map_sinusoidal = padding(sinusoidal_pos, lengths)
+        #
+        # padd_pos=padding(pos_pt, lengths)
+        # padd_heading=padding(orient_pt, lengths)
+        #
+        # # if not self.gnn:
+        # #
+        # #     pt2pt_mask = feature_mask[:, :, None] | feature_mask[:, None]
+        # #
+        # #     pt2pt_mask=nearest_mask(padd_pos,10,self.pl2pl_radius,pt2pt_mask)
+        # #
+        # #     padded_pt_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+        # #
+        # #     x_pt = padded_pt_feature[~feature_mask]
+        #
+        # return {
+        #     "pt_token": x_pt,
+        #     "padded_pt": padded_pt_feature,
+        #     "position": pos_pt,
+        #     "orientation": orient_pt,
+        #     "padd_pos": padd_pos,
+        #     "padd_heading": padd_heading,
+        #
+        #     # "centering_pos":centering_pos,
+        #   #  "centering_heading":centering_heading,
+        #     "rotary_embedding":self.rotary_embedding,
+        #     "batch": batch,
+        #     "map_mask": map_mask,
+        #     "map_sinusoidal": map_sinusoidal
+        # }
+
+        #pos_pt1=pos_pt+torch.tensor(np.array([[10,100]])).to(device=x_pt.device)
+
+        #orient_pt1=orient_pt+torch.pi*2
+
+
+        # sinusoidal_pos = general_rope(pos_pt1, self.head_dim, orient_pt1)
+
+        # map_sinusoidal1 = self.padding(sinusoidal_pos, lengths)
+
+        # padd_pos=self.padding(pos_pt1, lengths)
+
+        # pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+
+        # pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
+
+        # x_pt1 = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal1)
+
+
