@@ -136,16 +136,11 @@ class SMART(LightningModule):
             _cfg(model_config, "n_rollout_closed_val", 2 if scenario_gen else 8)
         )
         self.metric_chunk_size = int(
-            _cfg(model_config, "metric_chunk_size", 64)
+            _cfg(model_config, "metric_chunk_size", 1 if 'code' in  os.getcwd() else 64)
         )
         self.max_metric_scenarios = int(
             _cfg(model_config, "max_metric_scenarios", 64 if scenario_gen else 0)
         )
-
-        working_dir = os.getcwd()
-
-        if 'code' in working_dir:
-            self.metric_chunk_size = 1
 
         self.compute_mmd = bool(_cfg(model_config, "compute_mmd", True))
 
@@ -165,7 +160,6 @@ class SMART(LightningModule):
         self.samples: list[Any] = []
         self.gt_samples: list[Any] = []
         self.gt_dist = None
-        self.result: dict[str, Any] = {}
 
         # Kept for older bird-metric code and IQ/GAIL subclasses.
         self.minADE0, self.minADE0_num, self.log_epoch = 0.0, 0, -1
@@ -303,7 +297,7 @@ class SMART(LightningModule):
         out = {
             "traj": torch.stack(traj, 1),
             "z": torch.stack(z, 1),
-            "head": wrap_angle(torch.stack(head, 1)),
+            "head": torch.stack(head, 1),
             "size": torch.stack(size, 1),
             "vel": torch.stack(vel, 1),
             "z_list": torch.stack(z_list, 1) if z_list else None,
@@ -447,11 +441,11 @@ class SMART(LightningModule):
         if self.challenge_type == ChallengeType.SCENARIO_GEN:
             if self.samples:
                 start = time.time()
-                self.result, self.gt_dist = compute_agent_metrics(
+                result, self.gt_dist = compute_agent_metrics(
                     self.samples, self.gt_samples, self.gt_dist,
                     self.n_vis_batch > 0,
                 )
-                metrics.update(self.result)
+                metrics.update(result)
                 print(f"metric compute time: {time.time() - start:.2f}s")
             self.samples.clear()
         else:

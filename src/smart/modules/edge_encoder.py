@@ -283,9 +283,6 @@ class EdgeEncoder(nn.Module):
         dis_edge_mask: Optional[Tensor] = None,
         a2a_edge_index: Optional[Tensor] = None,
     ):
-        if not self.use_a2a:
-            raise RuntimeError("Interaction embedding is disabled.")
-
         valid = None
         if mask is not None:
             valid = mask.reshape(-1)
