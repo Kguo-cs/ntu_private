@@ -28,7 +28,6 @@ from torch.optim.lr_scheduler import LambdaLR
 from waymo_open_dataset.utils.sim_agents.submission_specs import ChallengeType
 
 from src.smart.metrics import CrossEntropy, TokenCls, WOSACSubmission, minADE
-from src.smart.metrics.bird_metrics import MetricDict
 from src.smart.metrics.gen_metrics import compute_agent_metrics, compute_gen_samples
 from src.smart.metrics.wosac_metrics import WOSACMetrics
 from src.smart.modules.smart_decoder import SMARTDecoder
@@ -104,7 +103,6 @@ class SMART(LightningModule):
         self.lr_warmup_steps = int(model_config.lr_warmup_steps)
         self.lr_total_steps = int(model_config.lr_total_steps)
         self.lr_min_ratio = float(model_config.lr_min_ratio)
-        self._check_lr_config()
 
         self.num_historical_steps = int(
             model_config.decoder.num_historical_steps
@@ -155,22 +153,9 @@ class SMART(LightningModule):
             self.n_rollout_closed_val = int(_cfg(model_config, "submission_rollouts", 32))
 
         self.video_dir = self._video_dir()
-        self.all_data: list[Any] = []
-        self.metric_logger = MetricDict()
         self.samples: list[Any] = []
         self.gt_samples: list[Any] = []
         self.gt_dist = None
-
-        # Kept for older bird-metric code and IQ/GAIL subclasses.
-        self.minADE0, self.minADE0_num, self.log_epoch = 0.0, 0, -1
-
-    def _check_lr_config(self) -> None:
-        if self.lr <= 0:
-            raise ValueError("lr must be positive.")
-        if not 0 <= self.lr_min_ratio <= 1:
-            raise ValueError("lr_min_ratio must be in [0, 1].")
-        if self.lr_warmup_steps < 0 or self.lr_total_steps <= self.lr_warmup_steps:
-            raise ValueError("Require 0 <= warmup_steps < total_steps.")
 
     def _configure_finetuning(self, enabled: bool) -> None:
         if not enabled:
@@ -207,9 +192,6 @@ class SMART(LightningModule):
         #     return None
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        if self.val_open_loop and self._global_zero:
-            self._save_open_loop_batch(tokenized_map, tokenized_agent)
-
         # All ranks must enter submission synchronization. Normal validation
         # keeps the original rank-zero-only behavior.
         run_closed = self.val_closed_loop and (
@@ -217,22 +199,6 @@ class SMART(LightningModule):
         )
         if run_closed:
             self._validate_closed_loop(data, tokenized_map, tokenized_agent, batch_idx)
-
-    def _save_open_loop_batch(self, tokenized_map, agent) -> None:
-        pred = self.encoder(tokenized_map, agent)
-        decoder = self.encoder.agent_encoder.interative_decoder
-        layers = getattr(decoder, "a2a_attn_layers", [])
-        layer = layers[0] if len(layers) else None
-        self.all_data.append(_cpu({
-            "attention_weight": getattr(layer, "attention_weight", None),
-            "edge_weight": getattr(
-                layer, "edge_weight", getattr(layer, "egde_weight", None)
-            ),
-            "edge_index_a2a": pred.get("edge_index_a2a"),
-            "sampled_pos": agent.get("sampled_pos"),
-            "valid_mask": agent.get("valid_mask"),
-            "agent_q": pred.get("agent_q"),
-        }))
 
     def _validate_closed_loop(self, data, tokenized_map, agent, batch_idx: int) -> None:
         out = self._rollouts(tokenized_map, agent)
@@ -275,16 +241,14 @@ class SMART(LightningModule):
 
         traj, z, head, size, vel, z_list = [], [], [], [], [], []
         for _ in range(self.n_rollout_closed_val):
-            rollout_agent = dict(agent)  # prevent cross-rollout dictionary mutation
+            rollout_agent = agent#dict(agent)  # prevent cross-rollout dictionary mutation
             pred = self.encoder.inference(rollout_agent)
             trajectory = pred["pred_traj_10hz"]
             traj.append(trajectory)
-            head.append(self._heading(pred, trajectory, rollout_agent))
-            z.append(self._height(pred, trajectory, rollout_agent))
+            head.append(pred["pred_head_10hz"])
+            z.append(pred["pred_z_10hz"])
             size.append(_shape_over_time(pred["shape"], trajectory.shape[1]))
-            vel.append(pred.get(
-                "initial_local_vel", self._initial_velocity(trajectory)
-            ))
+            vel.append(pred["initial_local_vel"])
 
             generated = rollout_agent.get("pred_z_list")
             if self.n_vis_batch > 0 and generated is not None:
@@ -308,36 +272,6 @@ class SMART(LightningModule):
             for key in ("traj", "z", "head", "size"):
                 out[key] = out[key][:, :, -steps:]
         return out
-
-    @staticmethod
-    def _heading(pred, trajectory: Tensor, agent) -> Tensor:
-        if "pred_head_10hz" in pred:
-            return pred["pred_head_10hz"]
-        if trajectory.shape[1] == 0:
-            return trajectory.new_empty(trajectory.shape[:2])
-
-        delta = trajectory[:, 1:] - trajectory[:, :-1]
-        inferred = torch.atan2(delta[..., 1], delta[..., 0])
-        initial = agent.get("initial_heading", agent.get("sampled_heading"))
-        if initial is None:
-            raise KeyError("Cannot infer heading without an initial heading.")
-        if initial.ndim > 1:
-            initial = initial[:, 0]
-        return torch.cat([initial[:, None], inferred], 1)
-
-    @staticmethod
-    def _height(pred, trajectory: Tensor, agent) -> Tensor:
-        if "pred_z_10hz" in pred:
-            return pred["pred_z_10hz"]
-        if "gt_z_raw" not in agent:
-            raise KeyError("Missing both pred_z_10hz and gt_z_raw.")
-        return agent["gt_z_raw"][:, None].expand(-1, trajectory.shape[1])
-
-    @staticmethod
-    def _initial_velocity(trajectory: Tensor) -> Tensor:
-        if trajectory.shape[1] < 2:
-            return trajectory.new_zeros((len(trajectory), 2))
-        return (trajectory[:, 1] - trajectory[:, 0]) / 0.1
 
     def _submission_update(self, data, out, batch_idx: int):
         self.wosac_submission.update(
@@ -384,6 +318,7 @@ class SMART(LightningModule):
                 count = min(count, self.max_metric_scenarios)
             paths, metric_scenarios = paths[:count], scenarios[:count]
             for start in range(0, count, self.metric_chunk_size):
+                print(start)
                 end = min(start + self.metric_chunk_size, count)
                 self.wosac_metrics.update(
                     paths[start:end], metric_scenarios[start:end]
@@ -420,11 +355,6 @@ class SMART(LightningModule):
             )
 
     def on_validation_epoch_end(self) -> None:
-        if self.val_open_loop:
-            if self._global_zero and self.all_data:
-                torch.save(self.all_data, self.video_dir.parent / "all_data.pt")
-            self.all_data.clear()
-
         if not self.val_closed_loop:
             return
         if self.wosac_submission.is_active:
@@ -451,9 +381,6 @@ class SMART(LightningModule):
         else:
             metrics["val_closed/ADE"] = self.minADE.compute()
 
-        if self.token_processor.use_bird:
-            self._append_bird_metrics(metrics)
-
         for key, value in metrics.items():
             self.log(
                 str(key), _scalar(value, str(key)),
@@ -463,32 +390,6 @@ class SMART(LightningModule):
         self.wosac_metrics.reset()
         self.minADE.reset()
 
-    def _append_bird_metrics(self, metrics: dict[str, Any]) -> None:
-        if self.minADE0_num > 0:
-            metrics["val_closed/minADE"] = self.minADE0 / self.minADE0_num
-        metrics.update({
-            f"val_closed/{key}": value
-            for key, value in self.metric_logger.compute().items()
-        })
-        self._average(metrics, "val_closed/scene_likelihood", [
-            "val_closed/linear_speed_likelihood1",
-            "val_closed/angular_speed_likelihood1",
-            "val_closed/linear_acceleration_likelihood1",
-            "val_closed/angular_acceleration_likelihood1",
-            "val_closed/distance_likelihood1",
-            "val_closed/polar_likelihood1",
-            "val_closed/heading_likelihood1",
-        ])
-        self._average(metrics, "val_closed/scene_emd", [
-            "val_closed/angular_acceleration_emd",
-            "val_closed/linear_speed_emd",
-            "val_closed/angular_speed_emd",
-            "val_closed/linear_acceleration_emd",
-            "val_closed/distance_emd",
-            "val_closed/polar_emd",
-            "val_closed/heading_emd",
-        ])
-        self.metric_logger.reset()
 
     @staticmethod
     def _average(metrics: dict, output: str, keys: Sequence[str]) -> None:
@@ -549,12 +450,8 @@ class SMART(LightningModule):
         if batch is None:
             raise KeyError("No batch tensor matches pred_z_list agents.")
 
-        ego_pos = self._ego_value(
-            agent, batch, num_agents, "batch_ego_pos", "ego_pos"
-        )[..., :2].to(z)
-        ego_head = self._ego_value(
-            agent, batch, num_agents, "batch_ego_heading", "ego_heading"
-        ).to(z).reshape(num_agents)
+        ego_pos =agent["batch_ego_pos"].to(z)
+        ego_head = agent["batch_ego_heading"].to(z).reshape(num_agents)
 
         shape = z.shape
         flat = z.reshape(num_agents, -1, shape[-1])
@@ -571,23 +468,6 @@ class SMART(LightningModule):
         if flat.shape[-1] >= 8:
             flat[..., 6:8] = _rotate(flat[..., 6:8], ego_head)
         return flat.reshape(shape)
-
-    @staticmethod
-    def _ego_value(agent, batch, num_agents, scene_key, fallback_key):
-        value = agent.get(scene_key)
-        if value is not None:
-            if batch.numel() and int(batch.max()) >= len(value):
-                raise ValueError(f"{scene_key} has too few scene entries.")
-            return value[batch.to(value.device)]
-
-        value = agent.get(fallback_key)
-        if value is None:
-            raise KeyError(f"Missing {scene_key!r} and {fallback_key!r}.")
-        if len(value) == num_agents:
-            return value
-        if not batch.numel() or int(batch.max()) < len(value):
-            return value[batch.to(value.device)]
-        raise ValueError(f"Cannot align {fallback_key!r} with generated agents.")
 
     def on_test_epoch_end(self) -> None:
         if self._global_zero:
