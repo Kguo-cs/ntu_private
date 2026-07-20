@@ -121,8 +121,6 @@ class SMART(LightningModule):
         )
 
         self.training_rollout_len = int(_cfg(model_config, "training_rollout_len", 12))
-        self.training_rollout_sampling = model_config.training_rollout_sampling
-        self.validation_rollout_sampling = model_config.validation_rollout_sampling
         self._configure_finetuning(bool(model_config.finetune))
 
         self.n_vis_batch = int(model_config.n_vis_batch)
