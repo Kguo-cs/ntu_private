@@ -943,6 +943,9 @@ model32_a60_match_posheadl1_gp001_inter0-epoch=4-step=136968-valmeta=0.6517.ckpt
 model32_a60_match_posheadl1_gp001_scene0.ckpt
 
 
+model32_a60_gp001_t60.ckpt
+
+
 
 take all position for generation
 simformer: For each
