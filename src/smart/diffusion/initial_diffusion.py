@@ -44,12 +44,7 @@ class InitDiffusion(nn.Module):
         self.sep_map = False
         self.use_gan = False
 
-        args = self._make_args(
-            model_args,
-            hidden_dim,
-            num_heads,
-            num_freq_bands,
-        )
+        args = self._make_args( )
         self.G1 = ScaleFlow(args, token_processor, gail)
 
         self.use_rl = bool(args.use_rl)
@@ -58,10 +53,6 @@ class InitDiffusion(nn.Module):
 
     @staticmethod
     def _make_args(
-        model_args: Optional[Any],
-        hidden_dim: int,
-        num_heads: int,
-        num_freq_bands: int,
     ) -> SimpleNamespace:
         """Create deterministic ScaleFlow settings without parsing process CLI."""
         values = {
@@ -85,8 +76,8 @@ class InitDiffusion(nn.Module):
             "init_logprob_clip": 50.0,
             "init_ppo_clip": 0.2,
             "num_branch_steps": 1,
-            "branch_steps": [15,16,17,18,19],#0,1,2,3,4,
-            "sampling_steps": 20,
+            "branch_steps": [0,1,2,3,4,5,6,7,8,9],#
+            "sampling_steps": 10,
             "use_rl": False,
         }
         return SimpleNamespace(**values)
@@ -104,8 +95,8 @@ class InitDiffusion(nn.Module):
         self,
         agent,
     ) -> tuple[Tensor, Tensor, Tensor, int]:
-        batch = self._require(agent, "batch").long()
-        ego_mask = self._require(agent, "ego_mask").bool()
+        batch = self._require(agent, "batch")
+        ego_mask = self._require(agent, "ego_mask")
         pos = self._require(agent, "initial_pos")
         heading = self._require(agent, "initial_heading")
         num_graphs = int(self._require(agent, "num_graphs"))
@@ -169,15 +160,6 @@ class InitDiffusion(nn.Module):
         position = map_feature["position"]
         orientation = map_feature["orientation"]
         feature = map_feature["pt_token"]
-
-        if not (
-            len(batch) == len(position) == len(orientation) == len(feature)
-        ):
-            raise ValueError("Map tensors must have the same first dimension.")
-        if batch.numel() and (
-            batch.min() < 0 or batch.max() >= num_graphs
-        ):
-            raise ValueError("Map batch contains an invalid scene index.")
 
         if batch.numel():
             distance = torch.linalg.vector_norm(
