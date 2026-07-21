@@ -221,7 +221,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
         tokenized_agent=None,
     ) -> tuple[Tensor]:
 
-       # return base_t
+        return base_t
         if base_t.ndim == 1:
             base_t = base_t.unsqueeze(-1)
 
