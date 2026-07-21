@@ -534,11 +534,7 @@ class TokenProcessor(torch.nn.Module):
         cached_agent = data["tokenized_agent"]
 
         if len(cached_agent) == 0:
-            agent = (
-                self._build_init_training_data(data)
-                if self.learn_init
-                else self.tokenize_agent(data)
-            )
+            agent = self.tokenize_agent(data)
             if self.pred_init:
                 self.get_init(agent)
 
@@ -572,53 +568,6 @@ class TokenProcessor(torch.nn.Module):
         for key in ("position", "orientation", "batch", "type", "light_type"):
             if key in cached:
                 result[key] = cached[key]
-        return result
-
-    def _build_init_training_data(self, data: HeteroData) -> Dict[str, Tensor]:
-        raw = data["agent"]
-        valid = raw["valid_mask"]
-        heading = raw["heading"]
-        pos = raw["position"][..., :2].contiguous()
-        vel = raw["velocity"]
-        shape = raw["shape"]
-        agent_type = raw["type"].long()
-        batch = raw["batch"]
-        ego_mask = self._make_ego_mask(batch)
-
-        result = {"num_graphs": data.num_graphs, "batch_a": batch[~ego_mask]}
-
-        horizon = 10
-        num_windows = pos.shape[1] - horizon
-        if num_windows <= 0:
-            raise ValueError("Initial-state learning requires more than 10 frames")
-
-        window_valid = valid[:, :num_windows].T
-        time = torch.arange(num_windows, device=batch.device)[:, None]
-        time_batch = batch[None] + data.num_graphs * time
-        time_type = agent_type[None].expand(num_windows, -1)
-        time_shape = shape[None].expand(num_windows, -1, -1)
-        time_ego = ego_mask[None].expand(num_windows, -1)
-        flat_type = time_type[window_valid]
-
-        result.update(
-            {
-                "initial_heading": heading[:, :num_windows].T[window_valid],
-                "initial_pos": pos[:, :num_windows].transpose(0, 1)[window_valid],
-                "initial_shape": time_shape[window_valid],
-                "initial_type": flat_type,
-                "type": flat_type,  # Missing in the original branch.
-                "batch": time_batch[window_valid],
-                "initial_vel": vel[:, :num_windows].transpose(0, 1)[window_valid],
-                "ego_mask": time_ego[window_valid],
-                "num_graphs": data.num_graphs * num_windows,
-                "non_ego_valid": window_valid[:, ~ego_mask],
-                # unfold gives [E, W, 2, H]; reorder to [W, E, H, 2].
-                "ego_traj": pos[ego_mask, 1:]
-                .unfold(1, horizon, 1)
-                .permute(1, 0, 3, 2)
-                .contiguous(),
-            }
-        )
         return result
 
     def _load_cached_initial_agent(

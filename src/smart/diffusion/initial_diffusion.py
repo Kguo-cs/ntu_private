@@ -79,14 +79,14 @@ class InitDiffusion(nn.Module):
             "diff_type": "vd",
             "m_dim": 10,
             "use_dit": False,
-            "noise_level": 0.7,
+            "noise_level": 0.1,
             "use_init_ppo_ratio": False,
             "init_adv_clip": 3.0,
             "init_logprob_clip": 50.0,
             "init_ppo_clip": 0.2,
             "num_branch_steps": 1,
-            "branch_steps": None,
-            "sampling_steps": 20,
+            "branch_steps": [0,1,2,3,4],
+            "sampling_steps": 5,
             "use_rl": False,
         }
         return SimpleNamespace(**values)
@@ -212,27 +212,6 @@ class InitDiffusion(nn.Module):
         agent["initial_map_feature"] = result
         return result
 
-    # ------------------------------------------------------------------
-    # Flow training and inference
-    # ------------------------------------------------------------------
-    def _sample(
-        self,
-        agent,
-        map_feature,
-    ) -> Tensor:
-        result = self.G1.sample(
-            agent,
-            map_feature,
-            steps=self.sampling_steps,
-            branch_steps=self.branch_steps,
-        )
-
-        # Accept legacy samplers returning (sample, history).
-        if isinstance(result, (tuple, list)):
-            result = result[0]
-        if not torch.is_tensor(result):
-            raise TypeError("ScaleFlow.sample must return a tensor.")
-        return result
 
     def _collision_advantage(
         self,
@@ -241,7 +220,12 @@ class InitDiffusion(nn.Module):
         batch: Tensor,
     ) -> None:
         with torch.no_grad():
-            sample = self._sample(agent, map_feature)
+            sample = self.G1.sample(
+                agent,
+                map_feature,
+                self.sampling_steps,
+                self.branch_steps
+            )
             collision, dst, src = (
                 multi_circle_collision_loss_mem_efficient(
                     sample,
@@ -313,7 +297,12 @@ class InitDiffusion(nn.Module):
         agent,
         map_feature,
     ):
-        sample = self._sample(agent, map_feature)
+        sample = self.G1.sample(
+            agent,
+            map_feature,
+            self.sampling_steps,
+            self.branch_steps
+        )
         pos, heading, shape, velocity, token_index = (
             self.G1.model.get_output(sample, agent)
         )

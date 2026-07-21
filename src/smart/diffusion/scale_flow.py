@@ -128,7 +128,7 @@ class ScaleFlow(nn.Module):
         normalized_x = self.model.normalize(x)
         noise = torch.randn_like(normalized_x)
 
-        ego_mask = tokenized_agent["ego_mask"].bool()
+        ego_mask = tokenized_agent["ego_mask"]
         noise[ego_mask] = normalized_x[ego_mask]
 
         fake_idx = get_closest_sum_idx_fast(
@@ -163,7 +163,7 @@ class ScaleFlow(nn.Module):
         tokenized_agent: HeteroData,
     ) -> None:
         """Keep ego/conditioned agents on a constant clean trajectory."""
-        ego_mask = tokenized_agent["ego_mask"].bool()
+        ego_mask = tokenized_agent["ego_mask"]
         latent[ego_mask] = clean[ego_mask]
         time[ego_mask] = 1.0
 
@@ -216,22 +216,8 @@ class ScaleFlow(nn.Module):
         num_agents: int,
     ) -> Tensor:
         """Return finite, detached, clipped per-agent advantages."""
-        advantages = advantages.detach().float()
-        advantages = torch.nan_to_num(
-            advantages,
-            nan=0.0,
-            posinf=0.0,
-            neginf=0.0,
-        )
-
         if advantages.ndim > 1:
             advantages = advantages.reshape(num_agents, -1).mean(dim=-1)
-
-        if advantages.shape != (num_agents,):
-            raise ValueError(
-                "advantages must contain one value per agent: "
-                f"{tuple(advantages.shape)} != ({num_agents},)."
-            )
 
         return advantages.clamp(
             -self.init_adv_clip,
@@ -283,7 +269,7 @@ class ScaleFlow(nn.Module):
             map_feature,
         )
 
-        ego_mask = tokenized_agent["ego_mask"].bool()[:, None]
+        ego_mask = tokenized_agent["ego_mask"][:, None]
         x0 = torch.where(ego_mask, x.detach(), x0)
 
         loss = get_diff_loss(
@@ -352,9 +338,7 @@ class ScaleFlow(nn.Module):
         )
 
         num_agents, num_branches, _ = current.shape
-        ego_mask = tokenized_agent["ego_mask"].bool()
-        if ego_mask.shape != (num_agents,):
-            raise ValueError("ego_mask is misaligned with stored SDE states.")
+        ego_mask = tokenized_agent["ego_mask"]
         non_ego = ~ego_mask
 
         if not torch.any(non_ego):
@@ -442,7 +426,7 @@ class ScaleFlow(nn.Module):
         )
 
         num_agents = sampled_x0.shape[0]
-        ego_mask = tokenized_agent["ego_mask"].bool()
+        ego_mask = tokenized_agent["ego_mask"]
         non_ego = ~ego_mask
         if not torch.any(non_ego):
             return sampled_x0.new_zeros(())
@@ -599,7 +583,7 @@ class ScaleFlow(nn.Module):
             time,
             tokenized_agent,
         )
-        next_time[tokenized_agent["ego_mask"].bool()] = 1.0
+        next_time[tokenized_agent["ego_mask"]] = 1.0
 
         velocity, x0 = self._model_velocity(
             latent,
@@ -614,7 +598,7 @@ class ScaleFlow(nn.Module):
         if self.use_sde and noise_level is not None:
             noise_level = noise_level.reshape(num_agents, -1)
             stochastic = noise_level.amax(dim=-1) > 0
-            stochastic &= ~tokenized_agent["ego_mask"].bool()
+            stochastic &= ~tokenized_agent["ego_mask"]
 
             if torch.any(stochastic):
                 stochastic_next, stochastic_log_prob, _, _ = (
@@ -658,6 +642,7 @@ class ScaleFlow(nn.Module):
         agent_batch = tokenized_agent["batch"].long()
         num_graphs = int(tokenized_agent["num_graphs"])
         num_agents = agent_batch.numel()
+        ego_mask = tokenized_agent["ego_mask"]
 
         latent = torch.randn(
             num_agents,
@@ -705,9 +690,7 @@ class ScaleFlow(nn.Module):
                 agent_branch_mask[..., None].to(latent.dtype)
                 * self.noise_level
             )
-            step_noise_level[
-                tokenized_agent["ego_mask"].bool()
-            ] = 0.0
+            step_noise_level[ ego_mask ] = 0.0
 
             latent_history = [latent.clone()]
             time_history = []
@@ -735,20 +718,12 @@ class ScaleFlow(nn.Module):
                 next_time_history.append(next_time)
                 log_prob_history.append(log_prob)
 
-                if "noise_feat_cur" not in tokenized_agent:
-                    raise KeyError(
-                        "The denoiser must set tokenized_agent['noise_feat_cur'] "
-                        "during sampling."
-                    )
                 feature_history.append(
                     tokenized_agent["noise_feat_cur"].clone()
                 )
             elif step == 0:
-                tokenized_agent["noise_feat"] = tokenized_agent[
-                    "noise_feat_cur"
-                ]
+                tokenized_agent["noise_feat"] = tokenized_agent[ "noise_feat_cur" ]
 
-        ego_mask = tokenized_agent["ego_mask"].bool()
         latent[ego_mask] = tokenized_agent["expert_input"][ego_mask]
 
         if not self.use_sde:
