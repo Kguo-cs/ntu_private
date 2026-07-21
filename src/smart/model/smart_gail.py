@@ -523,7 +523,6 @@ class SMART_GAIL(SMART):
 
     def _prepare_expert_agent(self, tokenized_agent: TensorDict) -> TensorDict:
         if self.gail:
-            length = int(self.training_rollout_len)
             for key in (
                 "sampled_pos",
                 "sampled_heading",
@@ -531,7 +530,7 @@ class SMART_GAIL(SMART):
                 "valid_mask",
                 "token_mask",
             ):
-                tokenized_agent[key] = tokenized_agent[key][:, :length]
+                tokenized_agent[key] = tokenized_agent[key][:, :self.training_rollout_len]
         return tokenized_agent
 
     def _expert_loss(self, tokenized_map: TensorDict, agent: TensorDict) -> Tensor:
@@ -676,8 +675,6 @@ class SMART_GAIL(SMART):
         for key in ("sampled_match_loss", "clip_ratio", "noncol_rate"):
             if key in tokenized_agent:
                 self._log_train(f"train/{key}", tokenized_agent[key].mean())
-        if "pg_loss" in tokenized_agent:
-            self._log_train("train/pg_loss", tokenized_agent["pg_loss"])
         return loss
 
 

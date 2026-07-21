@@ -79,7 +79,7 @@ class InitDiffusion(nn.Module):
             "diff_type": "vd",
             "m_dim": 10,
             "use_dit": False,
-            "noise_level": 0.1,
+            "noise_level": 0.7,
             "use_init_ppo_ratio": False,
             "init_adv_clip": 3.0,
             "init_logprob_clip": 50.0,
@@ -308,11 +308,7 @@ class InitDiffusion(nn.Module):
         )
         return pos, heading, token_index, shape, velocity
 
-    def forward(
-        self,
-        tokenized_agent,
-        resampling: bool = False,
-    ):
+    def forward(self, tokenized_agent):
         scene_pos, scene_heading, batch, num_graphs = (
             self._prepare_ego_context(tokenized_agent)
         )
