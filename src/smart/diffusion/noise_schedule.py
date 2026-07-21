@@ -24,7 +24,7 @@ class LearnableGroupedPowerSchedule(nn.Module):
     def __init__(
         self,
         group_dims: Sequence[int] = (2, 2, 2, 2),
-        init_gamma: Sequence[float] = (1.0, 1.0, 1.0, 1.0),
+        init_gamma: Sequence[float] = (0.75, 0.5, 1.0, 4.0),
         gamma_min: float = 0.25,
         gamma_max: float = 5.0,
         eps: float = 1e-4,
@@ -218,34 +218,12 @@ class LearnableGroupedPowerSchedule(nn.Module):
     def forward(
         self,
         base_t: Tensor,
-        x_ref: Tensor,
         tokenized_agent=None,
-    ) -> tuple[Tensor, Tensor]:
-        """
-        Args:
-            base_t:
-                [N_agent] or [N_agent, 1]
+    ) -> tuple[Tensor]:
 
-            x_ref:
-                [N_agent, 8] or [N_agent, 1, 8]
-
-        Returns:
-            grouped_t:
-                Broadcastable to x_ref.
-
-            dgrouped_t_dt:
-                dr(t) / dt.
-        """
+        return base_t
         if base_t.ndim == 1:
             base_t = base_t.unsqueeze(-1)
-
-        while base_t.ndim < x_ref.ndim:
-            base_t = base_t.unsqueeze(-1)
-
-        base_t = base_t.to(
-            device=x_ref.device,
-            dtype=x_ref.dtype,
-        )
 
         safe_t = torch.clamp(
             base_t,
@@ -329,17 +307,17 @@ class LearnableGroupedPowerSchedule(nn.Module):
                 gamma_dims = self.gamma_groups[self.group_index]
 
                 gamma = gamma_dims.to(
-                    device=x_ref.device,
-                    dtype=x_ref.dtype,
-                )
+                    device=base_t.device,
+                    dtype=base_t.dtype,
+                )[None]
 
                # num_agents=torch.bincount(tokenized_agent["batch"])[tokenized_agent["batch"]]
 
 
-                gamma = gamma.view(
-                    *([1] * (x_ref.ndim - 1)),
-                    -1,
-                )
+                # gamma = gamma.view(
+                #     *([1] * (base_t.ndim - 1)),
+                #     -1,
+                # )
 
                 #gamma = self.resolution_aware_gamma(num_agents[:,None,None],gamma  )
 
@@ -353,20 +331,20 @@ class LearnableGroupedPowerSchedule(nn.Module):
             )
             #
            # if self.learn_schedule:
-            dgrouped_t_dt = (
-                    gamma
-                    * torch.pow(
-                safe_t.clamp(min=0.05, max=0.95),
-                gamma - 1.0,
-            )
-            )#gamma is 1 , the dt=1, if gamma>1, then d_t get very samll t close to 0
+           #  dgrouped_t_dt = (
+           #          gamma
+           #          * torch.pow(
+           #      safe_t.clamp(min=0.05, max=0.95),
+           #      gamma - 1.0,
+           #  )
+           #  )#gamma is 1 , the dt=1, if gamma>1, then d_t get very samll t close to 0
 
             # shift=self.scene_size_shift(num_agents[:,None,None])
             #
             # grouped_t=self.flow_time_shift(grouped_t, shift)
         # else:
         #     dgrouped_t_dt=torch.ones_like(base_t)
-        return grouped_t, dgrouped_t_dt
+        return grouped_t
 
     def regularization(
         self,

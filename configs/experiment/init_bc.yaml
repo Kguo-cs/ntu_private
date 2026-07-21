@@ -20,12 +20,12 @@ task_name: xflow512_match_posheadl1  #_valid32 #_huber1_sqrt #posheadl1 #_meanfl
 
 trainer:
   check_val_every_n_epoch: 4
- # val_check_interval: 0.0000002
-  max_epochs: 32
+  #val_check_interval: 0.0000002
+  max_epochs: 64
 
 data:
   train_batch_size: 512
-  val_batch_size: 256
+  val_batch_size: 64
   train_raw_dir: ${paths.cache_root}/training_map2_init5 #init0_light #init0_light  #init10_inter
  # num_workers: 1
 

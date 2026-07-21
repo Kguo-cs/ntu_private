@@ -153,6 +153,8 @@ class ScaleFlow(nn.Module):
             device=x.device,
             dtype=x.dtype,
         )
+        scene_time=self.model.schedule(scene_time)
+
         return scene_time[batch]
 
     @staticmethod
@@ -491,9 +493,6 @@ class ScaleFlow(nn.Module):
             sequence/tensor:
                 use these exact timestep indices for every scene.
         """
-        if total_steps <= 0:
-            raise ValueError("steps must be positive.")
-
         if branch_steps is None and self.fixed_branch_steps is not None:
             branch_steps = self.fixed_branch_steps
 
@@ -575,7 +574,12 @@ class ScaleFlow(nn.Module):
             device=latent.device,
             dtype=latent.dtype,
         ) * time_scalar
+
+        time=self.model.schedule(time)
+
         next_time = torch.ones_like(time) * next_time_scalar
+
+        next_time=self.model.schedule(next_time)
 
         self._fix_conditioned_agents(
             tokenized_agent["expert_input"],
@@ -636,9 +640,6 @@ class ScaleFlow(nn.Module):
                 Uses args.branch_steps when configured, otherwise
                 args.num_branch_steps random steps per scene.
         """
-        if steps <= 0:
-            raise ValueError("steps must be positive.")
-
         agent_batch = tokenized_agent["batch"].long()
         num_graphs = int(tokenized_agent["num_graphs"])
         num_agents = agent_batch.numel()

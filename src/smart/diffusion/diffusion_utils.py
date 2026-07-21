@@ -455,9 +455,7 @@ def get_diff_loss(
         edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
             fake_state, batch
         )
-        if edge_loss.numel() > 0:
-            edge_weight = (weight[start_idx] + weight[end_idx]) / 2
-            collision_loss = (edge_loss * edge_weight).mean()
+        collision_loss = (edge_loss * weight[start_idx]).mean()
 
     losses = matching_loss(
         real_state,

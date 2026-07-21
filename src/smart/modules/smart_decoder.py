@@ -319,12 +319,10 @@ class SMARTDecoder(nn.Module):
                 tokenized_map,
                 tokenized_agent=tokenized_agent,
             )
+            tokenized_agent["initial_map_feature"] = initial_map_feature
 
         else:
-            initial_map_feature = map_feature
-
-        tokenized_agent["initial_map_feature"] = initial_map_feature
-        return initial_map_feature
+            tokenized_agent["map_feature"] = map_feature
 
     def _skip_agent_supervision(self) -> bool:
         """Train only the initial-state model in this configuration."""
@@ -350,11 +348,6 @@ class SMARTDecoder(nn.Module):
 
         # In GAIL mode initial-state RL is updated separately.
         if self.learn_init and not self.gail:
-            if self.init_decoder is None:
-                raise RuntimeError(
-                    "learn_init=True but init_decoder is unavailable."
-                )
-
             self._prepare_initial_map_feature(
                 tokenized_map,
                 tokenized_agent,
