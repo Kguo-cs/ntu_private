@@ -77,7 +77,7 @@ class ScaleFlow(nn.Module):
         self.use_init_ppo_ratio = bool(
             getattr(args, "use_init_ppo_ratio", False)
         )
-        self.init_adv_clip = float(getattr(args, "init_adv_clip", 3.0))
+        self.init_adv_clip = float(getattr(args, "init_adv_clip", 10.0))
         self.init_logprob_clip = float(
             getattr(args, "init_logprob_clip", 50.0)
         )
