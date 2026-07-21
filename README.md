@@ -4,7 +4,7 @@ kefu321
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/model32_match_noisevhead1_posheadl1_nogp-epoch=4-step=136968-valmeta=0.6527.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 

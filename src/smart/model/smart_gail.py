@@ -726,7 +726,7 @@ class SMART_GAIL(SMART):
         if self.gail:
             discriminator_optimizer = torch.optim.AdamW(
                 _trainable_parameters(self.encoder.discriminator),
-                lr=self.lr/2 ,
+                lr=self.lr ,
             )
 
             if self.token_processor.learn_init:
