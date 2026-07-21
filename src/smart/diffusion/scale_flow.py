@@ -595,7 +595,7 @@ class ScaleFlow(nn.Module):
         next_latent = latent + (next_time - time) * velocity
         log_prob = latent.new_zeros(num_agents)
 
-        if self.use_sde and noise_level is not None:
+        if self.use_sde and noise_level is not None and "gt_z_raw" not in tokenized_agent:
             noise_level = noise_level.reshape(num_agents, -1)
             stochastic = noise_level.amax(dim=-1) > 0
             stochastic &= ~tokenized_agent["ego_mask"]
