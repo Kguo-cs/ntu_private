@@ -186,7 +186,7 @@ class SMART(LightningModule):
         return trainer is None or bool(trainer.is_global_zero)
 
     def validation_step(self, data, batch_idx):
-        # if batch_idx<148:
+        # if batch_idx<150:
         #     return None
         tokenized_map, tokenized_agent = self.token_processor(data)
 
