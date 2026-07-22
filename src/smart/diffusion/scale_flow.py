@@ -46,12 +46,12 @@ class ScaleFlow(nn.Module):
     DEFAULT_NOISE_DIM_WEIGHTS = (
         1.00,
         1.00,  # position
-        0.35,
-        0.35,  # heading vector
-        0.15,
-        0.15,  # shape
-        0.60,
-        0.60,  # velocity
+        1,
+        1,  # heading vector
+        0,
+        0,  # shape
+        1,
+        1,  # velocity
     )
 
     def __init__(
@@ -615,7 +615,7 @@ class ScaleFlow(nn.Module):
         # Small near t=0 and t=1, largest near t=0.5.
         time_gate =1- time_mid#1-4.0 * time_mid * (1.0 - time_mid)
 
-        target_std = self.target_step_std * time_gate  #  * self.noise_dim_weights
+        target_std = self.target_step_std * time_gate    * self.noise_dim_weights
 
 
         sigma = (1.0 - time).clamp_min(eps)
