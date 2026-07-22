@@ -198,7 +198,7 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    return total_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1
+    return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
 def compute_vehicle_circles_torch(

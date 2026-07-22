@@ -198,7 +198,7 @@ class InitDenoiser(nn.Module):
             ]
         )
 
-        self.gaussian_output=True
+        self.gaussian_output=False
 
         if self.gaussian_output:
             self.to_out_m_delta1 = MLPLayer(hidden_dim, hidden_dim, self.output_dim*2)
