@@ -282,6 +282,7 @@ class ScaleFlow(nn.Module):
             self.t_eps,
             use_col=True,
             x_pred=self.x_pred,
+            scale=self.model.normal_scale
         )
         return loss, x0, latent, time
 

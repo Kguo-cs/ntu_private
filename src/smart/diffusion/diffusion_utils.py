@@ -141,10 +141,9 @@ def matching_loss(
     w_vel=0.2,
     use_huber: bool = False,
     huber_beta: float = 0.1,
-    t=None,
+    scale=None,
 ):
     """Return total and component losses, each with shape [N]."""
-    del t  # Legacy argument.
 
     if real_state.shape[0] != fake_state.shape[0]:
         raise ValueError("real_state and fake_state must have the same length")
@@ -167,12 +166,12 @@ def matching_loss(
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
         pos_std, heading_std, shape_std, vel_std = _split_state(logstds)
 
-        pos_loss = gaussian_nll_2d(fake_pos, pos_std, real_pos, 1e-1)
+        pos_loss = gaussian_nll_2d(fake_pos/scale[:,:2], pos_std, real_pos/scale[:,:2], 1e-1)
         heading_loss = gaussian_nll_2d(
-            fake_heading, heading_std, real_heading, 1e-1
+            fake_heading/scale[:,2:4], heading_std, real_heading/scale[:,2:4], 1e-1
         )
-        shape_loss = gaussian_nll_2d(fake_shape, shape_std, real_shape, 1e-1)
-        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel, 1e-1)
+        shape_loss = gaussian_nll_2d(fake_shape/scale[:,4:6], shape_std, real_shape/scale[:,4:6], 1e-1)
+        vel_loss = gaussian_nll_2d(fake_vel/scale[:,6:8], vel_std, real_vel/scale[:,6:8], 1e-1)
 
         pos_loss1 = _component_loss(fake_pos, real_pos, True, huber_beta)
         heading_loss1 = _component_loss(
@@ -480,5 +479,6 @@ def get_diff_loss(
         w_vel=w_vel * weight,
         use_huber=use_huber,
         huber_beta=huber_beta,
+        scale=scale
     )
     return losses[0], collision_loss, *losses[1:]
