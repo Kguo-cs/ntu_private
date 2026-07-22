@@ -162,7 +162,7 @@ class ScaleFlow(nn.Module):
 
         # Reduce stochasticity if the deterministic transition is already large.
         self.use_flow_stability_gate = bool(
-            getattr(args, "use_flow_stability_gate", True)
+            getattr(args, "use_flow_stability_gate", False)
         )
         self.flow_stability_gain = float(
             getattr(args, "flow_stability_gain", 0.5)
