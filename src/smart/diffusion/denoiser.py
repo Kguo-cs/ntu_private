@@ -198,9 +198,9 @@ class InitDenoiser(nn.Module):
             ]
         )
 
-        self.gmm=True
+        self.gaussian_output=True
 
-        if self.gmm:
+        if self.gaussian_output:
             self.to_out_m_delta1 = MLPLayer(hidden_dim, hidden_dim, self.output_dim*2)
         else:
             self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
@@ -571,7 +571,7 @@ class InitDenoiser(nn.Module):
                     edge_index_pl2a,
                 )
 
-        if self.gmm:
+        if self.gaussian_output:
             return self.to_out_m_delta1(feat_a)
         else:
             return self.to_out_m_delta(feat_a)

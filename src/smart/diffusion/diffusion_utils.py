@@ -23,21 +23,27 @@ def _split_state(state: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         raise ValueError(f"Expected [N, 8], got {tuple(state.shape)}")
     return state[:, POS], state[:, HEADING], state[:, SHAPE], state[:, VEL]
 
+def bounded_log_std(
+    raw_scale: Tensor,
+    min_log_std: float = -4.0,
+    max_log_std: float = 2.0,
+) -> Tensor:
+    return min_log_std + (
+        max_log_std - min_log_std
+    ) * torch.sigmoid(raw_scale)
 
 def gaussian_nll_2d(
     mu: Tensor,
     log_sigma: Tensor,
     target: Tensor,
-    min: float = 1e-3,
 ) -> Tensor:
     """Per-sample diagonal Gaussian negative log likelihood."""
-    if not (mu.shape == log_sigma.shape == target.shape):
-        raise ValueError("mu, log_sigma, and target must have the same shape")
+    log_std = bounded_log_std(log_sigma)
 
-    sigma = log_sigma.exp().clamp_min(min)
+    sigma = log_std.exp()
     error = (target - mu) / sigma
     return 0.5 * (
-        error.square() + 2.0 * sigma.log() + math.log(2.0 * math.pi)
+        error.square() + 2.0 * log_std + math.log(2.0 * math.pi)
     ).sum(-1)
 
 
@@ -160,12 +166,12 @@ def matching_loss(
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
         pos_std, heading_std, shape_std, vel_std = _split_state(logstds)
 
-        pos_loss = gaussian_nll_2d(fake_pos, pos_std, real_pos, 1e-3)
+        pos_loss = gaussian_nll_2d(fake_pos, pos_std, real_pos, 1e-1)
         heading_loss = gaussian_nll_2d(
-            fake_heading, heading_std, real_heading, 1e-2
+            fake_heading, heading_std, real_heading, 1e-1
         )
-        shape_loss = gaussian_nll_2d(fake_shape, shape_std, real_shape, 1e-2)
-        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel, 1e-2)
+        shape_loss = gaussian_nll_2d(fake_shape, shape_std, real_shape, 1e-1)
+        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel, 1e-1)
 
     else:
         fake_pos = prediction[..., POS]
