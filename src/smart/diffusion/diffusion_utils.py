@@ -25,7 +25,7 @@ def _split_state(state: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
 
 def bounded_log_std(
     raw_scale: Tensor,
-    min_log_std: float = -4.0,
+    min_log_std: float = -6.0,
     max_log_std: float = 2.0,
 ) -> Tensor:
     return min_log_std + (
