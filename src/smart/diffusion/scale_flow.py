@@ -588,6 +588,59 @@ class ScaleFlow(nn.Module):
             dtype=dtype,
         )
 
+    def get_adaptive_noise_level(
+            self,
+            time: torch.Tensor,
+            next_time: torch.Tensor,
+    ) -> torch.Tensor:
+        """Compute adaptive SDE noise level.
+
+        Args:
+            time:
+                Current flow time, [N, 1] or [N, D].
+            next_time:
+                Next flow time, same shape as time.
+
+        Returns:
+            noise_level:
+                Same shape as time.
+        """
+        eps = 1e-5
+
+        delta_t = (next_time - time).clamp_min(0.0)
+
+        time_mid = 0.5 * (time + next_time)
+        time_mid = time_mid.clamp(0.0, 1.0)
+
+        # Small near t=0 and t=1, largest near t=0.5.
+        time_gate = 4.0 * time_mid * (1.0 - time_mid)
+
+        target_std = self.target_step_std * time_gate
+
+        sigma = (1.0 - time).clamp_min(eps)
+
+        # Keep this consistent with sde_step_with_logprob().
+        sigma_for_ratio = torch.where(
+            sigma >= 1.0,
+            torch.full_like(sigma, 0.95),
+            sigma,
+        )
+
+        base_std = (
+                torch.sqrt(
+                    sigma
+                    / (1.0 - sigma_for_ratio).clamp_min(eps)
+                )
+                * torch.sqrt(delta_t.clamp_min(eps))
+        )
+
+        noise_level = target_std / base_std.clamp_min(eps)
+
+        return noise_level.clamp(
+            min=0.0,
+            max=self.max_noise_level,
+        )
+
     def _adaptive_noise_level(
         self,
         time: Tensor,
@@ -1453,13 +1506,21 @@ class ScaleFlow(nn.Module):
             and "gt_z_raw" not in tokenized_agent
         ):
             if self.adaptive_noise:
+                # noise_level = (
+                #     self._adaptive_noise_level(
+                #         time,
+                #         next_time,
+                #         velocity,
+                #         branch_strength,
+                #     )
+                # )
+                noise_level = self.get_adaptive_noise_level(
+                    time,
+                    next_time,
+                )
                 noise_level = (
-                    self._adaptive_noise_level(
-                        time,
-                        next_time,
-                        velocity,
-                        branch_strength,
-                    )
+                        noise_level
+                        * branch_strength[:,None]
                 )
             else:
                 noise_level = (
