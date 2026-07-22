@@ -36,6 +36,7 @@ def gaussian_nll_2d(
     mu: Tensor,
     log_sigma: Tensor,
     target: Tensor,
+    min: float = 1e-3,
 ) -> Tensor:
     """Per-sample diagonal Gaussian negative log likelihood."""
     log_std = bounded_log_std(log_sigma)
