@@ -615,7 +615,8 @@ class ScaleFlow(nn.Module):
         # Small near t=0 and t=1, largest near t=0.5.
         time_gate = 4.0 * time_mid * (1.0 - time_mid)
 
-        target_std = self.target_step_std * time_gate
+        target_std = self.target_step_std * time_gate    * self.noise_dim_weight
+
 
         sigma = (1.0 - time).clamp_min(eps)
 
