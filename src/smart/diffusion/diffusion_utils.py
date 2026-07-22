@@ -26,7 +26,7 @@ def _split_state(state: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
 def bounded_log_std(
     raw_scale: Tensor,
     min_log_std: float = -6.0,
-    max_log_std: float = 2.0,
+    max_log_std: float = 3.0,
 ) -> Tensor:
     return min_log_std + (
         max_log_std - min_log_std
@@ -174,6 +174,13 @@ def matching_loss(
         shape_loss = gaussian_nll_2d(fake_shape, shape_std, real_shape, 1e-1)
         vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel, 1e-1)
 
+        pos_loss1 = _component_loss(fake_pos, real_pos, True, huber_beta)
+        heading_loss1 = _component_loss(
+            fake_heading, real_heading, True, huber_beta
+        )
+        shape_loss1 = _component_loss(fake_shape, real_shape, use_huber, huber_beta)
+        vel_loss1 = _component_loss(fake_vel, real_vel, use_huber, huber_beta)
+
     else:
         fake_pos = prediction[..., POS]
         fake_heading = prediction[..., HEADING]
@@ -192,7 +199,7 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
+    return total_loss, pos_loss1, heading_loss1, shape_loss1, vel_loss1
 
 
 def compute_vehicle_circles_torch(
