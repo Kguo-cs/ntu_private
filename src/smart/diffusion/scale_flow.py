@@ -142,10 +142,10 @@ class ScaleFlow(nn.Module):
         )
 
         self.target_step_std = float(
-            getattr(args, "target_step_std", 0.08)
+            getattr(args, "target_step_std", 0.1)
         )
         self.max_step_std = float(
-            getattr(args, "max_step_std", 0.18)
+            getattr(args, "max_step_std", 1)
         )
 
         self.min_noise_level = float(
