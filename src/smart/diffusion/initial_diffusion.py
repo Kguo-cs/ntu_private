@@ -70,13 +70,13 @@ class InitDiffusion(nn.Module):
             "diff_type": "vd",
             "m_dim": 10,
             "use_dit": False,
-            "noise_level": 0.1,
+            "noise_level": 0.7,
             "use_init_ppo_ratio": False,
             "init_adv_clip": 3.0,
             "init_logprob_clip": 50.0,
             "init_ppo_clip": 0.2,
             "num_branch_steps": 1,
-            "branch_steps": [0,1,2,3,4],#0,1,2,3,4,5,6,71,3,5,7,5,6,7,8,9
+            "branch_steps": [5,6,7,8,9],#0,1,2,3,4,5,6,71,3,5,7,
             "sampling_steps": 10,
             "use_rl": False,
         }
