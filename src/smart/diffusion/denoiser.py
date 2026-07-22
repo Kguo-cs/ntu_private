@@ -198,7 +198,14 @@ class InitDenoiser(nn.Module):
             ]
         )
 
-        self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
+        self.gmm=True
+
+        if self.gmm:
+            self.to_out_m_delta1 = MLPLayer(hidden_dim, hidden_dim, self.output_dim*2)
+
+        else:
+
+            self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
 
         self.apply(weight_init)
 
@@ -566,7 +573,10 @@ class InitDenoiser(nn.Module):
                     edge_index_pl2a,
                 )
 
-        return self.to_out_m_delta(feat_a)
+        if self.gmm:
+            return self.to_out_m_delta1(feat_a)
+        else:
+            return self.to_out_m_delta(feat_a)
 
     def forward(
         self,

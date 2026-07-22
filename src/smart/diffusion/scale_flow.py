@@ -204,7 +204,7 @@ class ScaleFlow(nn.Module):
         if self.x_pred:
             x0 = prediction
             velocity = (
-                x0 - latent
+                x0[:,:latent.shape[1]] - latent
             ) / (1.0 - time).clamp_min(self.t_eps)
         else:
             velocity = prediction
@@ -272,7 +272,7 @@ class ScaleFlow(nn.Module):
         )
 
         ego_mask = tokenized_agent["ego_mask"][:, None]
-        x0 = torch.where(ego_mask, x.detach(), x0)
+        x0[:,:x.shape[1]] = torch.where(ego_mask, x.detach(), x0[:,:x.shape[1]])
 
         loss = get_diff_loss(
             tokenized_agent,
