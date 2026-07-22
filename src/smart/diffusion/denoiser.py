@@ -202,9 +202,7 @@ class InitDenoiser(nn.Module):
 
         if self.gmm:
             self.to_out_m_delta1 = MLPLayer(hidden_dim, hidden_dim, self.output_dim*2)
-
         else:
-
             self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
 
         self.apply(weight_init)

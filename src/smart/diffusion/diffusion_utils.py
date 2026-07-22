@@ -160,12 +160,12 @@ def matching_loss(
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
         pos_std, heading_std, shape_std, vel_std = _split_state(logstds)
 
-        pos_loss = gaussian_nll_2d(fake_pos, pos_std, real_pos, 1e-3)
+        pos_loss = gaussian_nll_2d(fake_pos, pos_std, real_pos, 1e-5)
         heading_loss = gaussian_nll_2d(
-            fake_heading, heading_std, real_heading, 1e-2
+            fake_heading, heading_std, real_heading, 1e-5
         )
-        shape_loss = gaussian_nll_2d(fake_shape, shape_std, real_shape, 1e-2)
-        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel, 1e-2)
+        shape_loss = gaussian_nll_2d(fake_shape, shape_std, real_shape, 1e-5)
+        vel_loss = gaussian_nll_2d(fake_vel, vel_std, real_vel, 1e-5)
 
     else:
         fake_pos = prediction[..., POS]
