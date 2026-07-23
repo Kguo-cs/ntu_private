@@ -48,8 +48,8 @@ class ScaleFlow(nn.Module):
         1.00,  # position
         1,
         1,  # heading vector
-        0,
-        0,  # shape
+        1,
+        1,  # shape
         1,
         1,  # velocity
     )
