@@ -178,17 +178,17 @@ class ScaleFlow(nn.Module):
 
         self._validate_noise_config()
 
-        dimension_weights = self._parse_noise_dim_weights(
-            getattr(args, "noise_dim_weights", None),
-            state_dim=self.model.m_delta_dim,
-        )
-        self.register_buffer(
-            "noise_dim_weights",
-            torch.tensor(
-                dimension_weights,
-                dtype=torch.float32,
-            )[None],
-        )
+        # dimension_weights = self._parse_noise_dim_weights(
+        #     getattr(args, "noise_dim_weights", None),
+        #     state_dim=self.model.m_delta_dim,
+        # )
+        # self.register_buffer(
+        #     "noise_dim_weights",
+        #     torch.tensor(
+        #         dimension_weights,
+        #         dtype=torch.float32,
+        #     )[None],
+        # )
 
         self.use_ref = False
         self.apply(weight_init)
@@ -613,9 +613,9 @@ class ScaleFlow(nn.Module):
         time_mid = time_mid.clamp(0.0, 1.0)
 
         # Small near t=0 and t=1, largest near t=0.5.
-        time_gate = time_mid#1-4.0 * time_mid * (1.0 - time_mid)
+        time_gate = 1-time_mid#1-4.0 * time_mid * (1.0 - time_mid)
 
-        target_std = self.target_step_std * time_gate    * self.noise_dim_weights
+        target_std = self.target_step_std * time_gate    #* self.noise_dim_weights
 
 
         sigma = (1.0 - time).clamp_min(eps)
