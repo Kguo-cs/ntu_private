@@ -142,7 +142,7 @@ class ScaleFlow(nn.Module):
         )
 
         self.target_step_std = float(
-            getattr(args, "target_step_std", 0.1)
+            getattr(args, "target_step_std", 0.08)
         )
         self.max_step_std = float(
             getattr(args, "max_step_std", 1)
@@ -613,7 +613,7 @@ class ScaleFlow(nn.Module):
         time_mid = time_mid.clamp(0.0, 1.0)
 
         # Small near t=0 and t=1, largest near t=0.5.
-        time_gate =1- time_mid#1-4.0 * time_mid * (1.0 - time_mid)
+        time_gate = time_mid#1-4.0 * time_mid * (1.0 - time_mid)
 
         target_std = self.target_step_std * time_gate    * self.noise_dim_weights
 
