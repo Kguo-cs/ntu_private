@@ -1,4 +1,4 @@
-"""Standard flow matching with adaptive multi-branch SDE noise.
+"""Standard flow matching with simple timestep-adaptive SDE noise.
 
 State convention:
     [x, y, heading_cos, heading_sin, length, width, vx, vy]
@@ -7,15 +7,14 @@ Flow convention:
     z_t = (1 - t) * noise + t * data
     velocity = data - noise
 
-Adaptive noise does not require a Gaussian output head.
+Only one adaptive-noise rule is retained:
 
-For every selected stochastic transition, the code:
+    target_transition_std = target_step_std * time_mid
 
-1. Defines a desired transition std in normalized state space.
-2. Adjusts it using timestep, branch strength, state dimension, and flow size.
-3. Converts the desired transition std into the noise_level required by the SDE.
-4. Saves the exact noise_level used during rollout.
-5. Reuses that value when PPO recomputes transition log-probabilities.
+This gives small stochastic transitions early and larger transitions later.
+The corresponding SDE ``noise_level`` is obtained by dividing by the exact
+SDE time factor. The actual level used during rollout is saved and reused when
+PPO recomputes transition log-probabilities.
 """
 
 from __future__ import annotations
@@ -39,20 +38,7 @@ from .denoiser import InitDenoiser
 
 
 class ScaleFlow(nn.Module):
-    """Initial-state flow model with adaptive multi-branch SDE sampling."""
-
-    # State:
-    # [x, y, heading_cos, heading_sin, length, width, vx, vy]
-    DEFAULT_NOISE_DIM_WEIGHTS = (
-        1.00,
-        1.00,  # position
-        1,
-        1,  # heading vector
-        1,
-        1,  # shape
-        1,
-        1,  # velocity
-    )
+    """Initial-state flow with simple timestep-adaptive branch noise."""
 
     def __init__(
         self,
@@ -123,74 +109,22 @@ class ScaleFlow(nn.Module):
             getattr(args, "branch_steps", None)
         )
 
-        self.branch_strength_min = float(
-            getattr(args, "branch_strength_min", 0.75)
-        )
-        self.branch_strength_max = float(
-            getattr(args, "branch_strength_max", 1.25)
-        )
-
-        self.adaptive_noise = bool(
-            getattr(args, "adaptive_noise", True)
-        )
-
+        # Simple timestep-adaptive noise. target_step_std is the desired
+        # transition standard deviation in normalized state space at t=1.
         self.target_step_std = float(
-            getattr(args, "target_step_std", 0.2)
+            getattr(args, "target_step_std", 0.08)
         )
+        self.max_noise_level = float(
+            getattr(args, "max_noise_level", 2.0)
+        )
+
+        if self.target_step_std < 0:
+            raise ValueError("target_step_std cannot be negative.")
+        if self.max_noise_level <= 0:
+            raise ValueError("max_noise_level must be positive.")
 
         self.use_ref = False
         self.apply(weight_init)
-
-    @classmethod
-    def _parse_noise_dim_weights(
-        cls,
-        value,
-        state_dim: int,
-    ) -> tuple[float, ...]:
-        if value is None:
-            if state_dim == len(
-                cls.DEFAULT_NOISE_DIM_WEIGHTS
-            ):
-                return cls.DEFAULT_NOISE_DIM_WEIGHTS
-
-            return tuple(
-                1.0
-                for _ in range(state_dim)
-            )
-
-        if torch.is_tensor(value):
-            value = (
-                value.detach()
-                .cpu()
-                .reshape(-1)
-                .tolist()
-            )
-
-        if (
-            not isinstance(value, Sequence)
-            or isinstance(value, (str, bytes))
-        ):
-            raise TypeError(
-                "noise_dim_weights must be a numeric sequence."
-            )
-
-        weights = tuple(
-            float(item)
-            for item in value
-        )
-
-        if len(weights) != state_dim:
-            raise ValueError(
-                f"noise_dim_weights must contain "
-                f"{state_dim} values, got {len(weights)}."
-            )
-
-        if any(weight < 0 for weight in weights):
-            raise ValueError(
-                "noise_dim_weights cannot contain negatives."
-            )
-
-        return weights
 
     @staticmethod
     def _parse_fixed_branch_steps(
@@ -444,83 +378,48 @@ class ScaleFlow(nn.Module):
         )
 
     def get_adaptive_noise_level(
-            self,
-            time: torch.Tensor,
-            next_time: torch.Tensor,
-    ) -> torch.Tensor:
-        """Compute adaptive SDE noise level.
+        self,
+        time: Tensor,
+        next_time: Tensor,
+    ) -> Tensor:
+        """Convert a simple late-increasing target std to SDE noise level.
 
-        Args:
-            time:
-                Current flow time, [N, 1] or [N, D].
-            next_time:
-                Next flow time, same shape as time.
+        The target transition standard deviation is
 
-        Returns:
-            noise_level:
-                Same shape as time.
+            target_std(t) = target_step_std * time_mid
+
+        where ``time_mid`` is the midpoint of the current transition. Thus,
+        stochastic exploration is small near t=0 and increases toward t=1.
         """
         eps = 1e-5
 
+        if time.shape != next_time.shape:
+            raise ValueError("time and next_time must have the same shape.")
+
         delta_t = (next_time - time).clamp_min(0.0)
+        time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
 
-        time_mid = 0.5 * (time + next_time)
-        time_mid = time_mid.clamp(0.0, 1.0)
+        target_std = self.target_step_std * time_mid
 
-        # Small near t=0 and t=1, largest near t=0.5.
-        time_gate = 1-time_mid#1-4.0 * time_mid * (1.0 - time_mid)
-
-        target_std = self.target_step_std * time_gate   # * self.noise_dim_weights
-
-
+        # Match the transition_std formula in sde_step_with_logprob().
         sigma = (1.0 - time).clamp_min(eps)
-
-        # Keep this consistent with sde_step_with_logprob().
         sigma_for_ratio = torch.where(
             sigma >= 1.0,
             torch.full_like(sigma, 0.95),
             sigma,
         )
-
-        base_std = (
-                torch.sqrt(
-                    sigma
-                    / (1.0 - sigma_for_ratio).clamp_min(eps)
-                )
-                * torch.sqrt(delta_t.clamp_min(eps))
-        )
+        base_std = torch.sqrt(
+            sigma / (1.0 - sigma_for_ratio).clamp_min(eps)
+        ) * torch.sqrt(delta_t.clamp_min(eps))
 
         noise_level = target_std / base_std.clamp_min(eps)
+        return torch.nan_to_num(
+            noise_level,
+            nan=0.0,
+            posinf=self.max_noise_level,
+            neginf=0.0,
+        ).clamp(0.0, self.max_noise_level)
 
-        return noise_level
-
-    def _fixed_branch_noise_level(
-        self,
-        velocity: Tensor,
-        branch_strength: Tensor,
-    ) -> Tensor:
-        dimension_weight = (
-            self.noise_dim_weights.to(
-                device=velocity.device,
-                dtype=velocity.dtype,
-            )
-        )
-
-        level = (
-            self.fixed_noise_level
-            * branch_strength[:, None]
-            * dimension_weight
-        ).expand_as(velocity)
-
-        return torch.where(
-            branch_strength[:, None] > 0,
-            level,
-            torch.zeros_like(level),
-        )
-
-    # ==================================================================
-    # Supervised and RL losses
-    # ==================================================================
     def get_loss(
         self,
         x: Tensor,
@@ -714,11 +613,10 @@ class ScaleFlow(nn.Module):
         if not torch.any(non_ego):
             return current.new_zeros(())
 
-        # Compatibility with trajectories generated before adaptive noise.
         if saved_noise_level is None:
-            saved_noise_level = current.new_full(
-                current.shape,
-                self.fixed_noise_level,
+            raise KeyError(
+                "Missing tokenized_agent['sde_noise_level']. "
+                "Adaptive-noise PPO must reuse the level saved during rollout."
             )
 
         log_prob = current.new_zeros(
@@ -1116,37 +1014,24 @@ class ScaleFlow(nn.Module):
         next_time_scalar: Tensor,
         tokenized_agent: HeteroData,
         map_feature: Mapping[str, Tensor],
-        branch_strength: Optional[Tensor] = None,
+        branch_mask: Optional[Tensor] = None,
     ):
         num_agents = latent.shape[0]
 
-        base_time = (
-            torch.ones(
-                (num_agents, 1),
-                device=latent.device,
-                dtype=latent.dtype,
-            )
-            * time_scalar
+        base_time = torch.full(
+            (num_agents, 1),
+            time_scalar,
+            device=latent.device,
+            dtype=latent.dtype,
         )
+        base_next_time = torch.full_like(base_time, next_time_scalar)
 
-        base_next_time = (
-            torch.ones_like(base_time)
-            * next_time_scalar
-        )
+        time = self._schedule_time(base_time)
+        next_time = self._schedule_time(base_next_time)
 
-        time = self._schedule_time(
-            base_time
-        )
-        next_time = self._schedule_time(
-            base_next_time
-        )
-
-        if torch.any(
-            next_time < time - 1e-7
-        ):
+        if torch.any(next_time < time - 1e-7):
             raise ValueError(
-                "The scheduled next time is smaller "
-                "than the current time."
+                "The scheduled next time is smaller than the current time."
             )
 
         self._fix_conditioned_agents(
@@ -1156,10 +1041,7 @@ class ScaleFlow(nn.Module):
             tokenized_agent,
         )
 
-        ego_mask = tokenized_agent[
-            "ego_mask"
-        ].bool()
-
+        ego_mask = tokenized_agent["ego_mask"].bool()
         next_time[ego_mask] = 1.0
 
         velocity, x0 = self._model_velocity(
@@ -1169,52 +1051,23 @@ class ScaleFlow(nn.Module):
             map_feature,
         )
 
-        next_latent = (
-            latent
-            + (next_time - time) * velocity
-        )
-
-        log_prob = latent.new_zeros(
-            num_agents
-        )
-
-        used_noise_level = latent.new_zeros(
-            latent.shape
-        )
+        next_latent = latent + (next_time - time) * velocity
+        log_prob = latent.new_zeros(num_agents)
+        used_noise_level = latent.new_zeros(latent.shape)
 
         if (
             self.use_sde
-            and branch_strength is not None
+            and branch_mask is not None
             and "gt_z_raw" not in tokenized_agent
         ):
-            if self.adaptive_noise:
-                # noise_level = (
-                #     self._adaptive_noise_level(
-                #         time,
-                #         next_time,
-                #         velocity,
-                #         branch_strength,
-                #     )
-                # )
-                noise_level = self.get_adaptive_noise_level(
-                    time,
-                    next_time,
-                )
-                noise_level = (
-                        noise_level
-                        * branch_strength[:,None]
-                )
-            else:
-                noise_level = (
-                    self._fixed_branch_noise_level(
-                        velocity,
-                        branch_strength,
-                    )
-                )
+            if branch_mask.shape != (num_agents,):
+                raise ValueError("branch_mask must have shape [num_agents].")
 
-            stochastic = (
-                noise_level.amax(dim=-1) > 0
-            ) & (~ego_mask)
+            noise_level = self.get_adaptive_noise_level(time, next_time)
+            noise_level = noise_level * branch_mask[:, None].to(latent.dtype)
+
+            stochastic = branch_mask.bool() & (~ego_mask)
+            stochastic &= noise_level.amax(dim=-1) > 0
 
             if torch.any(stochastic):
                 (
@@ -1224,25 +1077,17 @@ class ScaleFlow(nn.Module):
                     _,
                 ) = self.sde_step_with_logprob(
                     sigma=1.0 - time[stochastic],
-                    sigma_prev=(
-                        1.0 - next_time[stochastic]
-                    ),
+                    sigma_prev=1.0 - next_time[stochastic],
                     model_output=-velocity[stochastic],
                     sample=latent[stochastic],
                     noise_level=noise_level[stochastic],
                 )
 
-                next_latent[
-                    stochastic
-                ] = stochastic_next
+                next_latent[stochastic] = stochastic_next
+                log_prob[stochastic] = stochastic_log_prob
 
-                log_prob[
-                    stochastic
-                ] = stochastic_log_prob
-
-                used_noise_level[
-                    stochastic
-                ] = noise_level[stochastic]
+                # Expand [N,1] scheduled noise to [N,D] for replay storage.
+                used_noise_level[stochastic] = noise_level[stochastic]
 
         return (
             next_latent,
@@ -1321,47 +1166,18 @@ class ScaleFlow(nn.Module):
                 ]
             )
 
-            num_branches = (
-                graph_branch_steps.shape[1]
+            step_branch_mask = torch.zeros(
+                num_agents,
+                steps,
+                device=latent.device,
+                dtype=torch.bool,
             )
-
-            branch_strength = (
-                self._branch_strengths(
-                    num_branches,
-                    latent.device,
-                    latent.dtype,
-                )
-            )
-
-            graph_branch_strength = (
-                branch_strength[None].expand(
-                    num_graphs,
-                    -1,
-                )
-            )
-
-            agent_branch_strength = (
-                graph_branch_strength[
-                    agent_batch
-                ]
-            )
-
-            step_branch_strength = (
-                latent.new_zeros(
-                    num_agents,
-                    steps,
-                )
-            )
-
-            step_branch_strength.scatter_(
+            step_branch_mask.scatter_(
                 dim=1,
                 index=agent_branch_steps,
-                src=agent_branch_strength,
+                value=True,
             )
-
-            step_branch_strength[
-                ego_mask
-            ] = 0.0
+            step_branch_mask[ego_mask] = False
 
             latent_history = [
                 latent.clone()
@@ -1392,8 +1208,8 @@ class ScaleFlow(nn.Module):
                     timesteps[step + 1],
                     tokenized_agent,
                     initial_map_feature,
-                    branch_strength=(
-                        step_branch_strength[:, step]
+                    branch_mask=(
+                        step_branch_mask[:, step]
                         if self.use_sde
                         else None
                     ),
@@ -1543,10 +1359,6 @@ class ScaleFlow(nn.Module):
         tokenized_agent[
             "sde_branch_steps_graph"
         ] = graph_branch_steps
-
-        tokenized_agent[
-            "sde_branch_strength"
-        ] = agent_branch_strength
 
         tokenized_agent[
             "sde_noise_feat"
