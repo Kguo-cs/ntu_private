@@ -39,7 +39,7 @@ model:
       learn_init: False
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/model32_a60_len12_gp001_t60.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/model32_a60_len12_gp001.ckpt"
 
 trainer:
   limit_train_batches: 1.0

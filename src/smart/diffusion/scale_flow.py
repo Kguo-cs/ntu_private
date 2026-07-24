@@ -903,7 +903,7 @@ class ScaleFlow(nn.Module):
             x,
             time,
             self.t_eps,
-            use_col=False,
+            use_col=True,
             x_pred=True,
         )
 
