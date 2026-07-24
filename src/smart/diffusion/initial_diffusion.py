@@ -76,7 +76,7 @@ class InitDiffusion(nn.Module):
             "init_logprob_clip": 50.0,
             "init_ppo_clip": 0.2,
             "num_branch_steps": 1,
-            "branch_steps": [5,6,7,8,9],#5,6,71,3,5,7,0,1,2,3,4,
+            "branch_steps": [3,4,5,6,7,8,9],#5,6,71,3,5,7,0,1,2,
             "sampling_steps": 10,
             "use_rl": False,
         }
