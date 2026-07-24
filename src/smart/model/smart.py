@@ -186,8 +186,8 @@ class SMART(LightningModule):
         return trainer is None or bool(trainer.is_global_zero)
 
     def validation_step(self, data, batch_idx):
-        if batch_idx<82:
-            return None
+        # if batch_idx<82:
+        #     return None
         tokenized_map, tokenized_agent = self.token_processor(data)
 
         # All ranks must enter submission synchronization. Normal validation
