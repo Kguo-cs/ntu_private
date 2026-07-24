@@ -112,7 +112,7 @@ class ScaleFlow(nn.Module):
         # Simple timestep-adaptive noise. target_step_std is the desired
         # transition standard deviation in normalized state space at t=1.
         self.target_step_std = float(
-            getattr(args, "target_step_std", 0.1)
+            getattr(args, "target_step_std", 0.2)
         )
         self.use_ref = False
         self.apply(weight_init)
@@ -502,24 +502,24 @@ class ScaleFlow(nn.Module):
             dtype=torch.bool,
         )
 
-        tokenized_agent=self.repeat_input_copy(tokenized_agent,num_branches)
+        # tokenized_agent=self.repeat_input_copy(tokenized_agent,num_branches)
 
-        velocities, _ = self._model_velocity(
-            current.transpose(0, 1).flatten(0, 1),
-            time.transpose(0, 1).flatten(0, 1),
-            tokenized_agent,
-            map_feature,
-        )
+        # velocities, _ = self._model_velocity(
+        #     current.transpose(0, 1).flatten(0, 1),
+        #     time.transpose(0, 1).flatten(0, 1),
+        #     tokenized_agent,
+        #     map_feature,
+        # )
 
         for branch in range(num_branches):
-            # velocity, _ = self._model_velocity(
-            #     current[:, branch],
-            #     time[:, branch],
-            #     tokenized_agent,
-            #     map_feature,
-            # )
+            velocity, _ = self._model_velocity(
+                current[:, branch],
+                time[:, branch],
+                tokenized_agent,
+                map_feature,
+            )
 
-            velocity=velocities.reshape(num_branches,len(current),-1)[branch]
+           # velocity=velocities.reshape(num_branches,len(current),-1)[branch]
 
             branch_noise = (
                 saved_noise_level[:, branch]
