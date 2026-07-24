@@ -71,21 +71,14 @@ class SMART_GAIL(SMART):
         self.gail = bool(self.encoder.gail)
         self.alpha = float(self.encoder.alpha)
 
-        self.use_kl_penalty = bool(self.encoder.use_kl_penalty)
         self.use_lcf = bool(self.encoder.use_lcf)
         self.use_gradient_penalty = bool(self.token_processor.use_gradient_penalty)
         self.pred_init = bool(self.token_processor.pred_init)
+        self.use_kl_penalty=False
 
         decoder = self.encoder.agent_encoder.interative_decoder
         self.gail_start_step = int(decoder.gail_start_step)
         self.dis_start_step = int(decoder.dis_start_step)
-
-        if self.use_kl_penalty:
-            self.bc_net = self._frozen_copy(self.encoder.agent_encoder)
-            if self.encoder.map_encoder.type_pt_emb.weight.requires_grad:
-                self.bc_map_net = self._frozen_copy(self.encoder.map_encoder)
-            else:
-                self.bc_map_net = None
 
         if self.gail:
             self.return_meanstd = RunningMeanStdTorch(shape=(1,))
@@ -454,7 +447,7 @@ class SMART_GAIL(SMART):
         self._initialize_reference_model_once()
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
-        expert_nll = self._expert_loss(tokenized_map, expert_agent)
+        expert_nll, _ = self.get_pred(tokenized_map, tokenized_agent, key="expert")
         if not self.gail:
             return expert_nll
 
@@ -532,18 +525,6 @@ class SMART_GAIL(SMART):
             ):
                 tokenized_agent[key] = tokenized_agent[key][:, :self.training_rollout_len]
         return tokenized_agent
-
-    def _expert_loss(self, tokenized_map: TensorDict, agent: TensorDict) -> Tensor:
-        if self.use_kl_penalty:
-            map_feature = self.encoder.map_encoder(tokenized_map)
-            agent["map_feature"] = map_feature
-            agent["detach_map_feature"] = {
-                key: value.detach() for key, value in map_feature.items()
-            }
-            reference = next(iter(map_feature.values()))
-            return _zero(reference)
-        expert_nll, _ = self.get_pred(tokenized_map, agent, key="expert")
-        return expert_nll
 
     def _optimizers(self):
         optimizers = tuple(self.optimizers())
