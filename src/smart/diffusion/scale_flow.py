@@ -112,17 +112,8 @@ class ScaleFlow(nn.Module):
         # Simple timestep-adaptive noise. target_step_std is the desired
         # transition standard deviation in normalized state space at t=1.
         self.target_step_std = float(
-            getattr(args, "target_step_std", 0.08)
+            getattr(args, "target_step_std", 0.1)
         )
-        self.max_noise_level = float(
-            getattr(args, "max_noise_level", 2.0)
-        )
-
-        if self.target_step_std < 0:
-            raise ValueError("target_step_std cannot be negative.")
-        if self.max_noise_level <= 0:
-            raise ValueError("max_noise_level must be positive.")
-
         self.use_ref = False
         self.apply(weight_init)
 
@@ -397,9 +388,9 @@ class ScaleFlow(nn.Module):
             raise ValueError("time and next_time must have the same shape.")
 
         delta_t = (next_time - time).clamp_min(0.0)
-        time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
+        # time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
 
-        target_std = self.target_step_std * time_mid
+        target_std = self.target_step_std #* (1-time_mid)
 
         # Match the transition_std formula in sde_step_with_logprob().
         sigma = (1.0 - time).clamp_min(eps)
@@ -413,12 +404,10 @@ class ScaleFlow(nn.Module):
         ) * torch.sqrt(delta_t.clamp_min(eps))
 
         noise_level = target_std / base_std.clamp_min(eps)
-        return torch.nan_to_num(
-            noise_level,
-            nan=0.0,
-            posinf=self.max_noise_level,
-            neginf=0.0,
-        ).clamp(0.0, self.max_noise_level)
+
+        print(noise_level[:-1].min(), noise_level[:-1].max())
+
+        return noise_level
 
     def get_loss(
         self,
@@ -1058,11 +1047,9 @@ class ScaleFlow(nn.Module):
         if (
             self.use_sde
             and branch_mask is not None
-            and "gt_z_raw" not in tokenized_agent
+            and branch_mask.any()
+           # and "gt_z_raw" not in tokenized_agent
         ):
-            if branch_mask.shape != (num_agents,):
-                raise ValueError("branch_mask must have shape [num_agents].")
-
             noise_level = self.get_adaptive_noise_level(time, next_time)
             noise_level = noise_level * branch_mask[:, None].to(latent.dtype)
 
