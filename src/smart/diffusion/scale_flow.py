@@ -91,7 +91,7 @@ class ScaleFlow(nn.Module):
             getattr(args, "init_logprob_clip", 50.0)
         )
         self.init_ppo_clip = float(
-            getattr(args, "init_ppo_clip", 0.2)
+            getattr(args, "init_ppo_clip", 0.1)
         )
 
         # --------------------------------------------------------------
