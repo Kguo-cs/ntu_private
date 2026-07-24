@@ -112,7 +112,7 @@ class ScaleFlow(nn.Module):
         # Simple timestep-adaptive noise. target_step_std is the desired
         # transition standard deviation in normalized state space at t=1.
         self.target_step_std = float(
-            getattr(args, "target_step_std", 0.1)
+            getattr(args, "target_step_std", 0.2)
         )
         self.use_ref = False
         self.apply(weight_init)
@@ -337,37 +337,6 @@ class ScaleFlow(nn.Module):
 
         return velocity, x0
 
-    def _prepare_advantages(
-        self,
-        advantages: Tensor,
-        num_agents: int,
-    ) -> Tensor:
-        advantages = advantages.detach().float()
-
-        advantages = torch.nan_to_num(
-            advantages,
-            nan=0.0,
-            posinf=0.0,
-            neginf=0.0,
-        )
-
-        if advantages.ndim > 1:
-            advantages = advantages.reshape(
-                num_agents,
-                -1,
-            ).mean(dim=-1)
-
-        if advantages.shape != (num_agents,):
-            raise ValueError(
-                "advantages must contain one value "
-                f"per agent, got {tuple(advantages.shape)}."
-            )
-
-        return advantages.clamp(
-            -self.init_adv_clip,
-            self.init_adv_clip,
-        )
-
     def get_adaptive_noise_level(
         self,
         time: Tensor,
@@ -415,6 +384,12 @@ class ScaleFlow(nn.Module):
         tokenized_agent: HeteroData,
         initial_map_feature: Mapping[str, Tensor],
     ):
+        loss=self._supervised_loss(
+            x,
+            tokenized_agent,
+            initial_map_feature,
+        )
+
         if "advantages" in tokenized_agent:
             if self.use_sde:
                 rl_loss = self._sde_advantage_loss(
@@ -429,11 +404,7 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["rl_loss"] = rl_loss
 
-        return self._supervised_loss(
-            x,
-            tokenized_agent,
-            initial_map_feature,
-        )
+        return loss
 
     def _supervised_loss(
         self,
@@ -478,85 +449,6 @@ class ScaleFlow(nn.Module):
 
         return loss, x0, latent, time
 
-    @staticmethod
-    def _ensure_branch_dimension(
-        current: Tensor,
-        next_sample: Tensor,
-        old_log_prob: Optional[Tensor],
-        time: Tensor,
-        next_time: Tensor,
-        noise_level: Optional[Tensor],
-    ):
-        """Accept old [N,D] and new [N,B,D] storage."""
-        if current.ndim == 2:
-            current = current[:, None]
-            next_sample = next_sample[:, None]
-            time = time[:, None]
-            next_time = next_time[:, None]
-
-            if old_log_prob is not None:
-                old_log_prob = old_log_prob[:, None]
-
-            if noise_level is not None:
-                noise_level = noise_level[:, None]
-
-        if current.ndim != 3:
-            raise ValueError(
-                "SDE states must have shape "
-                "[N, D] or [N, B, D]."
-            )
-
-        if next_sample.shape != current.shape:
-            raise ValueError(
-                "Current and next SDE states must match."
-            )
-
-        if (
-            time.ndim != 3
-            or time.shape[:2] != current.shape[:2]
-        ):
-            raise ValueError(
-                "SDE time must have shape [N, B, 1 or D]."
-            )
-
-        if time.shape[-1] not in (
-            1,
-            current.shape[-1],
-        ):
-            raise ValueError(
-                "SDE time must have one or D channels."
-            )
-
-        if next_time.shape != time.shape:
-            raise ValueError(
-                "Current and next SDE times must match."
-            )
-
-        if (
-            old_log_prob is not None
-            and old_log_prob.shape != current.shape[:2]
-        ):
-            raise ValueError(
-                "old_log_prob must have shape [N, B]."
-            )
-
-        if (
-            noise_level is not None
-            and noise_level.shape != current.shape
-        ):
-            raise ValueError(
-                "sde_noise_level must have shape [N, B, D]."
-            )
-
-        return (
-            current,
-            next_sample,
-            old_log_prob,
-            time,
-            next_time,
-            noise_level,
-        )
-
     def _sde_advantage_loss(
         self,
         tokenized_agent: HeteroData,
@@ -577,21 +469,17 @@ class ScaleFlow(nn.Module):
             "sde_noise_level"
         )
 
-        (
-            current,
-            next_sample,
-            old_log_prob,
-            time,
-            next_time,
-            saved_noise_level,
-        ) = self._ensure_branch_dimension(
-            current,
-            next_sample,
-            old_log_prob,
-            time,
-            next_time,
-            saved_noise_level,
-        )
+        if current.ndim == 2:
+            current = current[:, None]
+            next_sample = next_sample[:, None]
+            time = time[:, None]
+            next_time = next_time[:, None]
+
+            if old_log_prob is not None:
+                old_log_prob = old_log_prob[:, None]
+
+            if saved_noise_level is not None:
+                saved_noise_level = saved_noise_level[:, None]
 
         num_agents, num_branches, _ = current.shape
 
@@ -601,12 +489,6 @@ class ScaleFlow(nn.Module):
 
         if not torch.any(non_ego):
             return current.new_zeros(())
-
-        if saved_noise_level is None:
-            raise KeyError(
-                "Missing tokenized_agent['sde_noise_level']. "
-                "Adaptive-noise PPO must reuse the level saved during rollout."
-            )
 
         log_prob = current.new_zeros(
             num_agents,
@@ -620,13 +502,24 @@ class ScaleFlow(nn.Module):
             dtype=torch.bool,
         )
 
+        tokenized_agent=self.repeat_input_copy(tokenized_agent,num_branches)
+
+        velocities, _ = self._model_velocity(
+            current.transpose(0, 1).flatten(0, 1),
+            time.transpose(0, 1).flatten(0, 1),
+            tokenized_agent,
+            map_feature,
+        )
+
         for branch in range(num_branches):
-            velocity, _ = self._model_velocity(
-                current[:, branch],
-                time[:, branch],
-                tokenized_agent,
-                map_feature,
-            )
+            # velocity, _ = self._model_velocity(
+            #     current[:, branch],
+            #     time[:, branch],
+            #     tokenized_agent,
+            #     map_feature,
+            # )
+
+            velocity=velocities.reshape(num_branches,len(current),-1)[branch]
 
             branch_noise = (
                 saved_noise_level[:, branch]
@@ -677,10 +570,7 @@ class ScaleFlow(nn.Module):
         if not torch.any(valid_transition):
             return current.new_zeros(())
 
-        advantages = self._prepare_advantages(
-            tokenized_agent["advantages"],
-            num_agents,
-        )[:, None].expand(
+        advantages = tokenized_agent["advantages"][:, None].expand(
             num_agents,
             num_branches,
         )
@@ -1556,3 +1446,28 @@ class ScaleFlow(nn.Module):
             previous_mean,
             transition_std,
         )
+
+    def repeat_input_copy(self, tokenized_agent, n_step):
+        out =tokenized_agent# dict(tokenized_agent)#tokenized_agent#
+
+        num_graphs = tokenized_agent["num_graphs"]
+        batch = tokenized_agent["batch"]
+
+        out["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)
+
+        repeated_batch = torch.stack(
+            [batch + num_graphs * k for k in range(n_step)],
+            dim=1,
+        ).transpose(0, 1).flatten(0, 1)
+
+        out["batch"] = repeated_batch
+        out["agent_type_embed"] = tokenized_agent["agent_type_embed"][None].repeat(
+            n_step, 1,1
+        ).flatten(0, 1)
+        out["num_graphs"] = num_graphs * n_step
+
+        out["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(
+            n_step, 1, 1
+        ).flatten(0, 1)
+
+        return out

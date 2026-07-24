@@ -418,7 +418,7 @@ class InitDenoiser(nn.Module):
             elif mode == 0:
                 agent_type = torch.full_like(agent_type, self.num_classes)
 
-        if "agent_type_embed" not in tokenized_agent or self.training:
+        if "agent_type_embed" not in tokenized_agent :
             agent_type_embed=self.type_a_emb(agent_type)
             tokenized_agent["agent_type_embed"]=agent_type_embed
         else:
@@ -438,10 +438,6 @@ class InitDenoiser(nn.Module):
                 beta=beta,
                 agent_type_embed=agent_type_embed,
             )
-
-        if self.mean_flow:
-            meanflow_h = tokenized_agent["meanflow_h"]
-            feat_a = feat_a + self.meanflow_h_embedding(meanflow_h)
 
         feat_a = feat_a + ego_embedding
 

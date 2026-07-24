@@ -966,6 +966,7 @@ model32_a60_len12_gp001.ckpt
 all32_sde10last5_simple_011mint.ckpt
 
 
+Epoch 0:   1%|          | 160/15219 [02:25<3:47:40,  1.10it/s, v_num=0]
 
 
 take all position for generation
