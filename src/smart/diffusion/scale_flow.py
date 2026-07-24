@@ -130,13 +130,6 @@ class ScaleFlow(nn.Module):
             getattr(args, "branch_strength_max", 1.25)
         )
 
-        # --------------------------------------------------------------
-        # Adaptive noise configuration
-        #
-        # target_step_std and max_step_std are measured in normalized
-        # state space. They represent the actual transition std, not the
-        # raw noise_level multiplier in the SDE formula.
-        # --------------------------------------------------------------
         self.adaptive_noise = bool(
             getattr(args, "adaptive_noise", True)
         )
@@ -144,118 +137,9 @@ class ScaleFlow(nn.Module):
         self.target_step_std = float(
             getattr(args, "target_step_std", 0.2)
         )
-        self.max_step_std = float(
-            getattr(args, "max_step_std", 1)
-        )
 
-        self.min_noise_level = float(
-            getattr(args, "min_noise_level", 0.0)
-        )
-        self.max_noise_level = float(
-            getattr(args, "max_noise_level", 2000.0)
-        )
-
-        # Higher value concentrates exploration more strongly around t=0.5.
-        self.noise_time_power = float(
-            getattr(args, "noise_time_power", 1.0)
-        )
-
-        # Reduce stochasticity if the deterministic transition is already large.
-        self.use_flow_stability_gate = bool(
-            getattr(args, "use_flow_stability_gate", False)
-        )
-        self.flow_stability_gain = float(
-            getattr(args, "flow_stability_gain", 0.5)
-        )
-        self.min_flow_stability_gate = float(
-            getattr(args, "min_flow_stability_gate", 0.5)
-        )
-
-        # Used only when adaptive_noise=False.
-        self.fixed_noise_level = float(
-            getattr(args, "noise_level", 0.7)
-        )
-
-        self._validate_noise_config()
-
-        # dimension_weights = self._parse_noise_dim_weights(
-        #     getattr(args, "noise_dim_weights", None),
-        #     state_dim=self.model.m_delta_dim,
-        # )
-        # self.register_buffer(
-        #     "noise_dim_weights",
-        #     torch.tensor(
-        #         dimension_weights,
-        #         dtype=torch.float32,
-        #     )[None],
-        # )
-        #
         self.use_ref = False
         self.apply(weight_init)
-
-    # ==================================================================
-    # Configuration
-    # ==================================================================
-    def _validate_noise_config(self) -> None:
-        if self.target_step_std < 0:
-            raise ValueError(
-                "target_step_std cannot be negative."
-            )
-
-        if self.max_step_std < 0:
-            raise ValueError(
-                "max_step_std cannot be negative."
-            )
-
-        if self.target_step_std > self.max_step_std:
-            raise ValueError(
-                "target_step_std cannot exceed max_step_std."
-            )
-
-        if self.min_noise_level < 0:
-            raise ValueError(
-                "min_noise_level cannot be negative."
-            )
-
-        if self.max_noise_level < self.min_noise_level:
-            raise ValueError(
-                "max_noise_level cannot be smaller than "
-                "min_noise_level."
-            )
-
-        if self.fixed_noise_level < 0:
-            raise ValueError(
-                "noise_level cannot be negative."
-            )
-
-        if self.noise_time_power <= 0:
-            raise ValueError(
-                "noise_time_power must be positive."
-            )
-
-        if self.flow_stability_gain < 0:
-            raise ValueError(
-                "flow_stability_gain cannot be negative."
-            )
-
-        if not 0 < self.min_flow_stability_gate <= 1:
-            raise ValueError(
-                "min_flow_stability_gate must be in (0, 1]."
-            )
-
-        if self.branch_strength_min <= 0:
-            raise ValueError(
-                "branch_strength_min must be positive."
-            )
-
-        if (
-            self.branch_strength_min
-            > self.branch_strength_max
-        ):
-            raise ValueError(
-                "branch_strength_min cannot exceed "
-                "branch_strength_max."
-            )
 
     @classmethod
     def _parse_noise_dim_weights(
@@ -559,35 +443,6 @@ class ScaleFlow(nn.Module):
             self.init_adv_clip,
         )
 
-    # ==================================================================
-    # Adaptive noise
-    # ==================================================================
-    def _branch_strengths(
-        self,
-        num_branches: int,
-        device: torch.device,
-        dtype: torch.dtype,
-    ) -> Tensor:
-        if num_branches <= 0:
-            raise ValueError(
-                "num_branches must be positive."
-            )
-
-        if num_branches == 1:
-            return torch.ones(
-                1,
-                device=device,
-                dtype=dtype,
-            )
-
-        return torch.linspace(
-            self.branch_strength_min,
-            self.branch_strength_max,
-            num_branches,
-            device=device,
-            dtype=dtype,
-        )
-
     def get_adaptive_noise_level(
             self,
             time: torch.Tensor,
@@ -637,176 +492,7 @@ class ScaleFlow(nn.Module):
 
         noise_level = target_std / base_std.clamp_min(eps)
 
-        return noise_level.clamp(
-            min=0.0,
-            max=self.max_noise_level,
-        )
-
-    def _adaptive_noise_level(
-        self,
-        time: Tensor,
-        next_time: Tensor,
-        velocity: Tensor,
-        branch_strength: Tensor,
-    ) -> Tensor:
-        """Return [N, D] adaptive SDE noise levels.
-
-        The target transition std is:
-
-            target_step_std
-            * time_gate
-            * branch_strength
-            * dimension_weight
-            * stability_gate
-
-        It is then divided by the exact SDE time factor.
-        """
-        eps = 1e-5
-        num_agents, state_dim = velocity.shape
-
-        if branch_strength.shape != (num_agents,):
-            raise ValueError(
-                "branch_strength must have shape [N]."
-            )
-
-        if (
-            time.shape[0] != num_agents
-            or next_time.shape[0] != num_agents
-        ):
-            raise ValueError(
-                "Time and velocity tensors are misaligned."
-            )
-
-        if time.shape[-1] not in (1, state_dim):
-            raise ValueError(
-                "time must have one or state_dim channels."
-            )
-
-        if next_time.shape != time.shape:
-            raise ValueError(
-                "time and next_time must have equal shapes."
-            )
-
-        delta_t = (
-            next_time - time
-        ).clamp_min(0.0)
-
-        time_mid = (
-            0.5 * (time + next_time)
-        ).clamp(
-            0.0,
-            1.0,
-        )
-
-        # 0 at endpoints, 1 at t=0.5.
-        time_gate = (
-            4.0
-            * time_mid
-            * (1.0 - time_mid)
-        ).clamp_min(0.0)
-
-        time_gate = time_gate.pow(
-            self.noise_time_power
-        )
-
-        dimension_weight = (
-            self.noise_dim_weights.to(
-                device=velocity.device,
-                dtype=velocity.dtype,
-            )
-        )
-
-        target_std = (
-            self.target_step_std
-            * time_gate
-            * branch_strength[:, None]
-            * dimension_weight
-        )
-
-        if self.use_flow_stability_gate:
-            normal_scale = (
-                self.model.normal_scale.to(
-                    device=velocity.device,
-                    dtype=velocity.dtype,
-                ).clamp_min(eps)
-            )
-
-            normalized_step_size = (
-                delta_t
-                * velocity
-                / normal_scale
-            ).abs().mean(
-                dim=-1,
-                keepdim=True,
-            )
-
-            stability_gate = 1.0 / (
-                1.0
-                + self.flow_stability_gain
-                * normalized_step_size
-            )
-
-            stability_gate = stability_gate.clamp(
-                min=self.min_flow_stability_gate,
-                max=1.0,
-            )
-
-            target_std = (
-                target_std
-                * stability_gate
-            )
-
-        target_std = target_std.clamp(
-            min=0.0,
-            max=self.max_step_std,
-        )
-
-        # Must exactly match sde_step_with_logprob().
-        sigma = (
-            1.0 - time
-        ).clamp_min(0.0)
-
-        sigma_for_ratio = torch.where(
-            sigma >= 1.0,
-            torch.full_like(sigma, 0.95),
-            sigma,
-        )
-
-        base_transition_std = torch.sqrt(
-            sigma
-            / (
-                1.0 - sigma_for_ratio
-            ).clamp_min(eps)
-        ) * torch.sqrt(
-            delta_t.clamp_min(eps)
-        )
-
-        noise_level = (
-            target_std
-            / base_transition_std.clamp_min(eps)
-        )
-
-        noise_level = torch.nan_to_num(
-            noise_level,
-            nan=0.0,
-            posinf=self.max_noise_level,
-            neginf=0.0,
-        )
-
-        active = branch_strength > 0
-
-        clamped = noise_level.clamp(
-            min=self.min_noise_level,
-            max=self.max_noise_level,
-        )
-
-        # Inactive transitions must remain exactly zero even when
-        # min_noise_level > 0.
-        return torch.where(
-            active[:, None],
-            clamped,
-            torch.zeros_like(clamped),
-        )
+        return noise_level
 
     def _fixed_branch_noise_level(
         self,
@@ -826,15 +512,10 @@ class ScaleFlow(nn.Module):
             * dimension_weight
         ).expand_as(velocity)
 
-        clamped = level.clamp(
-            min=self.min_noise_level,
-            max=self.max_noise_level,
-        )
-
         return torch.where(
             branch_strength[:, None] > 0,
-            clamped,
-            torch.zeros_like(clamped),
+            level,
+            torch.zeros_like(level),
         )
 
     # ==================================================================
@@ -1582,10 +1263,6 @@ class ScaleFlow(nn.Module):
             int | Sequence[int] | Tensor
         ] = None,
     ) -> Tensor:
-        if steps <= 0:
-            raise ValueError(
-                "steps must be positive."
-            )
 
         agent_batch = tokenized_agent[
             "batch"

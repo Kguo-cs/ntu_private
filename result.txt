@@ -961,6 +961,7 @@ model32_a60_len12_gp001_t60.ckpt
 
 all32_sde10last5_adaptive-epoch=4-step=228276-valmeta=0.6482.ckpt
 
+model32_a60_len12_gp001.ckpt
 
 
 
