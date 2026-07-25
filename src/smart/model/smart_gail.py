@@ -293,7 +293,7 @@ class SMART_GAIL(SMART):
             agent["sampled_idx"],
             agent["token_mask"],
             agent["valid_mask"],
-            sampled_pos[:,1:],#
+            sampled_pos,#[:,1:]
             sampled_heading,
             agent,
             agent["map_feature"],
