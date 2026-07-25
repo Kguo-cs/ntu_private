@@ -91,31 +91,6 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_init = bool(token_processor.pred_init and not discriminator)
         self.learn_init = bool(token_processor.learn_init)
 
-    @staticmethod
-    def _validate_time_inputs(sampled_idx, token_mask, valid_mask, pos, heading):
-        if heading.ndim != 2:
-            raise ValueError(f"heading must be [N, T], got {tuple(heading.shape)}")
-
-        num_agents, num_steps = heading.shape
-        expected = (num_agents, num_steps)
-
-        for name, value in (
-            ("sampled_idx", sampled_idx),
-            ("token_mask", token_mask),
-            ("valid_mask", valid_mask),
-        ):
-            if value.shape != expected:
-                raise ValueError(f"{name} must be {expected}, got {tuple(value.shape)}")
-
-        if pos.ndim != 3 or pos.shape[0] != num_agents or pos.shape[-1] != 2:
-            raise ValueError(f"pos must be [N, T, 2], got {tuple(pos.shape)}")
-        if pos.shape[1] < num_steps:
-            raise ValueError("pos contains fewer timesteps than heading")
-
-        # Legacy incremental rollout passed two positions with one heading.
-        # Align all decoder inputs before token encoding.
-        return pos[:, -num_steps:]
-
     def predict_agent(
         self,
         sampled_idx,
@@ -223,16 +198,18 @@ class SMARTAgentDecoder(nn.Module):
     ):
         pos, heading, sampled_idx, shape, local_vel = init_decoder(tokenized_agent)
 
+        first_idx = sampled_idx[:, :1]
+        prev_pos, prev_heading = infer_prev_pose(
+            pos[:, :1],
+            heading[:, :1],
+            first_idx,
+            tokenized_agent["token_traj_all"],
+        )
+        pos = torch.cat([prev_pos, pos], dim=1)
+
         if "gt_z_raw" in tokenized_agent:
             # The original code inferred the previous pose using the last token,
             # but reconstructed it using the first token. Both must use the first.
-            first_idx = sampled_idx[:, :1]
-            prev_pos, prev_heading = infer_prev_pose(
-                pos[:, :1],
-                heading[:, :1],
-                first_idx,
-                tokenized_agent["token_traj_all"],
-            )
             pred_traj_10hz.append(prev_pos)
             pred_head_10hz.append(prev_heading)
 
@@ -247,7 +224,6 @@ class SMARTAgentDecoder(nn.Module):
                 tokenized_agent,
             )
 
-            pos=torch.cat([prev_pos, pos], dim=1)
 
         return pos, heading, sampled_idx, shape, local_vel
 
