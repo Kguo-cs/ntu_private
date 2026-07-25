@@ -36,10 +36,10 @@ model:
 #      a2a_radius: 300
     token_processor:
       pred_init: True
-      learn_init: False
+      learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/model32_a60_len12_gp001.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_sde10last5_simple_011mint.ckpt"
 
 trainer:
   limit_train_batches: 1.0
