@@ -27,7 +27,9 @@ from src.smart.utils import (
     transform_to_global,
     transform_to_local,
     wrap_angle,
+    rotate_to_local
 )
+
 
 class TokenProcessor(torch.nn.Module):
     AGENT_NAMES = ("veh", "ped", "cyc")
@@ -62,6 +64,40 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
         self.n_token_map = self.map_token_traj_src.shape[0]
+
+    @staticmethod
+    def token_velocity_in_current_frame(
+            token_end_contour: torch.Tensor,
+            token_dt: float,
+    ) -> torch.Tensor:
+        """Convert token endpoint contour to current-agent-local velocity.
+
+        Args:
+            token_end_contour:
+                [..., 4, 2], expressed in the previous agent frame.
+            token_dt:
+                Token duration in seconds.
+
+        Returns:
+            [..., 2], velocity expressed in the token endpoint/current frame.
+        """
+        displacement_prev = token_end_contour.mean(dim=-2)
+
+        heading_vector = (
+                token_end_contour[..., 0, :]
+                - token_end_contour[..., 3, :]
+        )
+        delta_heading = torch.atan2(
+            heading_vector[..., 1],
+            heading_vector[..., 0],
+        )
+
+        velocity_prev = displacement_prev / token_dt
+
+        return rotate_to_local(
+            velocity_prev,
+            delta_heading,
+        )
 
     @torch.no_grad()
     def forward(
@@ -167,8 +203,15 @@ class TokenProcessor(torch.nn.Module):
             velocity_idx[invalid] = agent["sampled_idx"][invalid, next_step]
 
         row = torch.arange(len(velocity_idx), device=velocity_idx.device)
-        selected = agent["token_traj_all"][row, velocity_idx]
-        agent["local_vel"] = selected[:, -1].mean(-2) / 0.5
+        selected_token = agent["token_traj_all"][row, velocity_idx]
+        # agent["local_vel"] = selected[:, -1].mean(-2) / 0.5
+        token_end_contour = selected_token[:, -1]
+
+        token_dt = self.shift * 0.1
+
+        agent["local_vel"] = self.token_velocity_in_current_frame(
+            token_end_contour,
+            token_dt)
 
     def init_map_token(self, path: str, sample_len: int = 3) -> None:
         with open(path, "rb") as file:
