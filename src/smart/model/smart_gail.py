@@ -277,7 +277,7 @@ class SMART_GAIL(SMART):
 
         if dis_mask is None:
             dis_mask = mask_t.reshape(-1)
-        agent["dis_mask"] = dis_mask
+            agent["dis_mask"] = dis_mask
 
         sampled_pos = agent["sampled_pos"]
         sampled_heading = agent["sampled_heading"]
@@ -293,7 +293,7 @@ class SMART_GAIL(SMART):
             agent["sampled_idx"],
             agent["token_mask"],
             agent["valid_mask"],
-            sampled_pos,
+            sampled_pos[:,1:],#
             sampled_heading,
             agent,
             agent["map_feature"],
@@ -311,8 +311,8 @@ class SMART_GAIL(SMART):
             # ego_logits1[mask_t]=ego_logits
             # print(torch.all(ego_logits1[0]==ego_logits[:mask_t[0].sum()]))
             self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
+            self._log_train(f"train/{key}_ego_score1", torch.sigmoid(ego_logits[mask_t[0].sum():]).mean())
 
-            self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
 
         target = 1.0 if key == "expert" else 0.0
         ego_logits = _select_ego_logits(ego_logits, dis_mask, mask_t) #t,a

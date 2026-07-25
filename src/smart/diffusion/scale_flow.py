@@ -382,6 +382,8 @@ class ScaleFlow(nn.Module):
 
         noise_level = 0.1#target_std / base_std.clamp_min(eps)
 
+        std= noise_level*base_std
+
        # print(noise_level[:-1].min(), noise_level[:-1].max())
 
         return noise_level
@@ -1324,7 +1326,7 @@ class ScaleFlow(nn.Module):
                 sigma >= 1.0,
                 torch.full_like(
                     sigma,
-                    0.95,
+                    0.9,
                 ),
                 sigma,
             )
