@@ -312,6 +312,8 @@ class SMART_GAIL(SMART):
             # print(torch.all(ego_logits1[0]==ego_logits[:mask_t[0].sum()]))
             self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
 
+            self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
+
         target = 1.0 if key == "expert" else 0.0
         ego_logits = _select_ego_logits(ego_logits, dis_mask, mask_t) #t,a
         ego_loss = _weighted_bce_with_logits(

@@ -205,7 +205,7 @@ class SMARTAgentDecoder(nn.Module):
             first_idx,
             tokenized_agent["token_traj_all"],
         )
-        #pos = torch.cat([prev_pos, pos], dim=1)
+        pos = torch.cat([prev_pos, pos], dim=1)
 
         if "gt_z_raw" in tokenized_agent:
             # The original code inferred the previous pose using the last token,
@@ -349,13 +349,8 @@ class SMARTAgentDecoder(nn.Module):
             if self.pred_init:
                 tokenized_agent["initial_local_vel"] = initial_local_vel
 
-            if pred_traj_10hz:
-                tokenized_agent["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
-                tokenized_agent["pred_head_10hz"] = torch.cat(pred_head_10hz, dim=1)
-            else:
-                tokenized_agent["pred_traj_10hz"] = pos_a.new_empty((len(pos_a), 0, 2))
-                tokenized_agent["pred_head_10hz"] = head_a.new_empty((len(head_a), 0))
-
+            tokenized_agent["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
+            tokenized_agent["pred_head_10hz"] = torch.cat(pred_head_10hz, dim=1)
             tokenized_agent["pred_z_10hz"] = tokenized_agent["gt_z_raw"][:, None].expand(
                 -1,
                 tokenized_agent["pred_traj_10hz"].shape[1],
