@@ -306,8 +306,14 @@ class SMART_GAIL(SMART):
         if not discriminator.training:
             return _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards").detach()
 
+        if self.dis_start_step==0:
+            # ego_logits1=torch.zeros_like(mask_t).to(torch.float)
+            # ego_logits1[mask_t]=ego_logits
+            # print(torch.all(ego_logits1[0]==ego_logits[:mask_t[0].sum()]))
+            self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
+
         target = 1.0 if key == "expert" else 0.0
-        ego_logits = _select_ego_logits(ego_logits, dis_mask, mask_t)
+        ego_logits = _select_ego_logits(ego_logits, dis_mask, mask_t) #t,a
         ego_loss = _weighted_bce_with_logits(
             logits=ego_logits,
             target=target,

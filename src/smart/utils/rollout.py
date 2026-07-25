@@ -347,10 +347,6 @@ def sample_next_gmm_traj(
 
     return next_token_idx, next_token_traj_all,ego_sample,prev_log_prob
 
-
-import torch
-
-
 def build_rotation_matrix(theta: torch.Tensor):
     """
     theta: [n] or [n,1]

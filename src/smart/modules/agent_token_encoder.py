@@ -164,15 +164,15 @@ class AgentTokenEncoder(nn.Module):
     ) -> tuple[Tensor, Tensor]:
         """Return positions aligned to T states and T displacement vectors."""
         if pos.shape[1] == num_steps:
-            raise ValueError( f"pos shape error."   )
-            # motion = torch.cat(
-            #     [
-            #         pos.new_zeros(pos.shape[0], 1, pos.shape[-1]),
-            #         pos[:, 1:] - pos[:, :-1],
-            #     ],
-            #     dim=1,
-            # )
-            # return pos, motion
+            #raise ValueError( f"pos shape error."   )
+            motion = torch.cat(
+                [
+                    pos.new_zeros(pos.shape[0], 1, pos.shape[-1]),
+                    pos[:, 1:] - pos[:, :-1],
+                ],
+                dim=1,
+            )
+            return pos, motion
 
         if pos.shape[1] == num_steps + 1:
             return pos[:, 1:], pos[:, 1:] - pos[:, :-1]
