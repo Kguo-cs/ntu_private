@@ -112,7 +112,7 @@ class ScaleFlow(nn.Module):
         # Simple timestep-adaptive noise. target_step_std is the desired
         # transition standard deviation in normalized state space at t=1.
         self.target_step_std = float(
-            getattr(args, "target_step_std", 0.01)
+            getattr(args, "target_step_std", 0.05)
         )
 
         # self.register_buffer(
@@ -380,9 +380,9 @@ class ScaleFlow(nn.Module):
             sigma / (1.0 - sigma_for_ratio).clamp_min(eps)
         ) * torch.sqrt(delta_t.clamp_min(eps))
 
-        noise_level = 0.1#target_std / base_std.clamp_min(eps)
+        noise_level = target_std / base_std.clamp_min(eps)
 
-        std= noise_level*base_std
+       # std= noise_level*base_std
 
        # print(noise_level[:-1].min(), noise_level[:-1].max())
 
