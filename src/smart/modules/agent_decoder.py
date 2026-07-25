@@ -134,7 +134,7 @@ class SMARTAgentDecoder(nn.Module):
         batch_a = tokenized_agent["batch"]
 
         head_vector_a = torch.stack((head_a.cos(), head_a.sin()), dim=-1)
-        feat_a_token, agent_token_emb = self.agent_token_embedding(
+        feat_a_token = self.agent_token_embedding(
             sampled_idx,
             pos_a,
             head_vector_a,

@@ -380,7 +380,7 @@ class ScaleFlow(nn.Module):
             sigma / (1.0 - sigma_for_ratio).clamp_min(eps)
         ) * torch.sqrt(delta_t.clamp_min(eps))
 
-        noise_level = 1#target_std / base_std.clamp_min(eps)
+        noise_level = 0.1#target_std / base_std.clamp_min(eps)
 
        # print(noise_level[:-1].min(), noise_level[:-1].max())
 

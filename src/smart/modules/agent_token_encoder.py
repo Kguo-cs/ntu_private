@@ -53,7 +53,6 @@ class AgentTokenEncoder(nn.Module):
         )
 
         # Compatibility flags used by existing configs.
-        self.use_state_action = False
         self.shape_dim = 2
 
         motion_dim = 2
@@ -108,17 +107,6 @@ class AgentTokenEncoder(nn.Module):
         table = getattr(self.token_processor, names[type_id]).to(device)
         return table.reshape(table.shape[0], -1)
 
-    @staticmethod
-    def _check_indices(
-        index: Tensor,
-        selected: Tensor,
-        size: int,
-    ) -> None:
-        value = index[selected]
-        if value.numel() and (value.min() < 0 or value.max() >= size):
-            raise IndexError(
-                f"Token index must be in [0, {size - 1}]."
-            )
 
     def _typed_token_embedding(
         self,
@@ -144,55 +132,10 @@ class AgentTokenEncoder(nn.Module):
             if not selected.any():
                 continue
 
-            if token.ndim != 2:
-                raise ValueError(
-                    "Discrete tokens must have shape [N,T]."
-                )
             table = self._token_table(type_id, token.device)
-            index = token.long()
-            self._check_indices(index, selected, len(table))
             table_embedding = embedder(table.to(reference.dtype))
-            output[selected] = table_embedding[index[selected]]
+            output[selected] = table_embedding[token[selected]]
 
-        return output
-
-    def _state_action_embedding(
-        self,
-        token: Tensor,
-        agent_type: Tensor,
-        token_mask: Optional[Tensor],
-    ) -> Optional[Tensor]:
-        if not self.use_state_action:
-            return None
-        if self.state_action_embedder is None:
-            raise RuntimeError(
-                "use_state_action must be enabled before constructing "
-                "AgentTokenEncoder."
-            )
-        if token.ndim != 2 or token.shape[1] < 2:
-            raise ValueError(
-                "State-action tokens require shape [N,T] with T >= 2."
-            )
-
-        action_mask = (agent_type[:, None] == 0).expand(
-            -1, token.shape[1] - 1
-        )
-        if token_mask is not None:
-            action_mask &= token_mask[:, 1:]
-
-        table = self.token_processor.agent_token_all.to(token.device)
-        table = table.reshape(table.shape[0], -1)
-        table_embedding = self.state_action_embedder(table)
-
-        action = token[:, 1:].long()
-        self._check_indices(action, action_mask, len(table))
-
-        output = table_embedding.new_zeros(
-            token.shape[0],
-            token.shape[1] - 1,
-            self.hidden_dim,
-        )
-        output[action_mask] = table_embedding[action[action_mask]]
         return output
 
     def get_embedding(
@@ -203,11 +146,7 @@ class AgentTokenEncoder(nn.Module):
     ) -> Optional[Tensor]:
         """Return dense [agent,time,hidden] token embeddings."""
         if self.discriminator:
-            return self._state_action_embedding(
-                agent_token_index,
-                agent_type,
-                token_mask,
-            )
+            return None
 
         return self._typed_token_embedding(
                 agent_token_index,
@@ -393,9 +332,4 @@ class AgentTokenEncoder(nn.Module):
                 )
             )
 
-        # Token embeddings are exposed only for the optional discriminator
-        # state-action branch, matching the previous API.
-        returned_token = (
-            compressed_token if self.use_state_action else None
-        )
-        return state_embedding, returned_token
+        return state_embedding
