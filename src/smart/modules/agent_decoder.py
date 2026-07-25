@@ -247,6 +247,8 @@ class SMARTAgentDecoder(nn.Module):
                 tokenized_agent,
             )
 
+            pos=torch.cat([prev_pos, pos], dim=1)
+
         return pos, heading, sampled_idx, shape, local_vel
 
     def autoregressive_agent(
@@ -278,7 +280,7 @@ class SMARTAgentDecoder(nn.Module):
                     pred_head_10hz,
                 )
             )
-            current_step = pos_a.shape[1]
+            current_step = head_a.shape[1]
 
             if "gt_z_raw" in tokenized_agent:
                 total_steps = (
@@ -289,16 +291,16 @@ class SMARTAgentDecoder(nn.Module):
                 num_steps = max(gt_valid.shape[1] - current_step, 0)
 
             valid_mask = torch.ones(
-                pos_a.shape[:2],
+                head_a.shape[:2],
                 dtype=torch.bool,
-                device=pos_a.device,
+                device=head_a.device,
             )
             token_mask = valid_mask.clone()
         else:
             if current_step > gt_pos.shape[1]:
                 raise ValueError("current_step exceeds available token states")
 
-            pos_a = gt_pos[:, :current_step]
+            pos_a = gt_pos[:, :current_step+1]
             head_a = gt_head[:, :current_step]
             sampled_idx = gt_idx[:, :current_step]
             shape = tokenized_agent["shape"]
