@@ -18,6 +18,7 @@ from src.smart.utils import (
     weight_init,
 )
 from .noise_schedule import LearnableGroupedPowerSchedule
+import torch.nn.functional as F
 
 class InitDenoiser(nn.Module):
     """Cleaned initial-state denoiser.
@@ -632,9 +633,10 @@ class InitDenoiser(nn.Module):
                 theta,
             )
 
-            input_v=m_delta[:,6:8]  #velocity under previous heading
-
-            local_v=input_v+res[:,6:]
+            local_v = rotate_to_local(
+                res[:,6:],
+                res_theta,
+            )
 
             res = torch.cat(
                 [

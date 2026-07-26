@@ -17,6 +17,15 @@ import torch
 from omegaconf import DictConfig
 from torch import Tensor
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
+import math
+
+def wrap_angle(
+    angle: torch.Tensor, min_val: float = -math.pi, max_val: float = math.pi
+) -> torch.Tensor:
+    return min_val + (angle + max_val) % (max_val - min_val)
+
+
+
 
 def rotate_to_local(vel, heading):
     """
@@ -119,7 +128,7 @@ def transform_to_global(
     if head_local is None:
         head_global = None
     else:
-        head_global = head_local + head_now
+        head_global = wrap_angle(head_local + head_now)
     return pos_global, head_global
 
 
@@ -151,7 +160,7 @@ def transform_to_local(
     if head_global is None:
         head_local = None
     else:
-        head_local = head_global - head_now
+        head_local = wrap_angle(head_global - head_now)
     return pos_local, head_local
 
 def sample_next_token_traj(
