@@ -5,6 +5,8 @@ defaults:
 
 model:
   model_config:
+    lr: 1e-4
+    lr_min_ratio: 0.05
     token_processor:
       pred_init: True
       learn_init: True
@@ -20,7 +22,7 @@ task_name: bc_init64_n30 #_r300
 
 trainer:
 #  check_val_every_n_epoch: 2
-  max_epochs: 16
+  max_epochs: 8
 
 data:
   train_batch_size: 64

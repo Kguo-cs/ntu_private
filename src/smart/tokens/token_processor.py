@@ -120,7 +120,7 @@ class TokenProcessor(torch.nn.Module):
         #     )
         #
         #     tokenized_agent["sampled_pos"]=torch.cat([prev_pos, tokenized_agent["sampled_pos"]], 1)
-
+        #
         if "type" in tokenized_agent:
             tokenized_agent["type"] = tokenized_agent["type"].long()
 

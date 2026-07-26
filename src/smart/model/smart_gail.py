@@ -572,15 +572,15 @@ class SMART_GAIL(SMART):
             rollout_agent = self.encoder.inference( expert_agent )
             self.encoder.train()
 
-        # perturbed_dis_mask = self._perturb_expert_dis_mask(
-        #     expert_dis_mask,
-        #     rollout_agent,
-        #     perturb_prob=1,
-        # )
+        perturbed_dis_mask = self._perturb_expert_dis_mask(
+            expert_dis_mask,
+            rollout_agent,
+            perturb_prob=1,
+        )
         agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
             rollout_agent,
             "agent",
-            #perturbed_dis_mask,
+            perturbed_dis_mask,
         )
 
         critic_loss = expert_dis_loss + agent_dis_loss + expert_gp + agent_gp
