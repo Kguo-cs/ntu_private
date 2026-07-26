@@ -115,7 +115,7 @@ class EdgeEncoder(nn.Module):
         self.time_span = time_span
         self.shift = shift
         self.discriminator = discriminator
-        self.differentiable_edge = True
+        self.differentiable_edge = differentiable_edge
         self.rollout_traj = False
         self.use_t2t = use_t2t
         self.use_a2a = use_a2a
