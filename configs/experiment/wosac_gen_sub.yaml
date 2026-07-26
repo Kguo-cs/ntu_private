@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_sde10last5_simple_011mint.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_sde10last58_target005_dis1e4_eval.ckpt"
 
 trainer:
   limit_train_batches: 1.0

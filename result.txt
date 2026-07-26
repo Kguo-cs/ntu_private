@@ -967,6 +967,10 @@ all32_sde10last5_simple_011mint.ckpt
 
 no sde:
 
+all32_sde10last58_target005_dis1e4_eval
+
+
+
 
 
 take all position for generation

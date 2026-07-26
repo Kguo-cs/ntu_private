@@ -448,6 +448,101 @@ class SMART_GAIL(SMART):
                 mask_t = mask_t[:, train_mask]
         return mask_t
 
+    def _perturb_expert_dis_mask(
+            self,
+            expert_dis_mask: Tensor,
+            agent: Mapping[str, Any],
+            perturb_prob: float = 1.0,
+    ) -> Tensor:
+        """Permute mask trajectories among same-batch, same-type non-ego agents.
+
+        The time dimension is preserved. Ego agents are never changed.
+
+        Args:
+            expert_dis_mask:
+                Flattened time-major discriminator mask, shape [T * A_selected].
+            agent:
+                Agent dictionary used by the target discriminator call.
+            perturb_prob:
+                Probability of perturbing each batch/type group.
+
+        Returns:
+            Perturbed flattened boolean mask.
+        """
+        current_valid = self._discriminator_mask(agent)  # [T, A_selected]
+
+        if expert_dis_mask.numel() != current_valid.numel():
+            raise ValueError(
+                "expert_dis_mask and current discriminator mask have "
+                f"different sizes: {expert_dis_mask.numel()} vs "
+                f"{current_valid.numel()}."
+            )
+
+        source_mask = expert_dis_mask.bool().view_as(current_valid)
+        perturbed_mask = source_mask.clone()
+
+        batch = agent["batch"]
+        agent_type = agent["type"].long()
+        ego_mask = agent["ego_mask"].bool()
+
+        # _discriminator_mask() applies train_mask on the agent dimension,
+        # so metadata must use exactly the same filtering.
+        if not self.pred_init:
+            train_mask = agent.get("train_mask")
+            if train_mask is not None:
+                batch = batch[train_mask]
+                agent_type = agent_type[train_mask]
+                ego_mask = ego_mask[train_mask]
+
+        if batch.numel() != current_valid.shape[1]:
+            raise ValueError(
+                "Agent metadata is not aligned with discriminator columns: "
+                f"{batch.numel()} vs {current_valid.shape[1]}."
+            )
+
+        group_keys = torch.stack(
+            [batch.long(), agent_type],
+            dim=-1,
+        )
+
+        for group_key in torch.unique(group_keys, dim=0):
+            same_group = (
+                    (batch == group_key[0])
+                    & (agent_type == group_key[1])
+                    & ~ego_mask
+            )
+            group_idx = same_group.nonzero(as_tuple=True)[0]
+
+            # Cannot replace an agent when no alternative exists.
+            if group_idx.numel() < 2:
+                continue
+
+            if torch.rand((), device=batch.device) >= perturb_prob:
+                continue
+
+            # A non-zero cyclic shift guarantees that every agent receives
+            # another non-ego agent's temporal mask.
+            shift = torch.randint(
+                low=1,
+                high=group_idx.numel(),
+                size=(),
+                device=batch.device,
+            ).item()
+
+            donor_idx = group_idx.roll(shifts=shift)
+
+            perturbed_mask[:, group_idx] = source_mask[:, donor_idx]
+
+        # dis_mask must be a subset of the logits available under current_valid.
+        perturbed_mask &= current_valid
+
+        # Explicitly preserve ego entries.
+        perturbed_mask[:, ego_mask] = (
+                source_mask[:, ego_mask] & current_valid[:, ego_mask]
+        )
+
+        return perturbed_mask.reshape(-1)
+
     # ------------------------------------------------------------------
     # Complete update
     # ------------------------------------------------------------------
@@ -477,10 +572,15 @@ class SMART_GAIL(SMART):
             rollout_agent = self.encoder.inference( expert_agent )
             self.encoder.train()
 
+        # perturbed_dis_mask = self._perturb_expert_dis_mask(
+        #     expert_dis_mask,
+        #     rollout_agent,
+        #     perturb_prob=1,
+        # )
         agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
             rollout_agent,
             "agent",
-            expert_dis_mask,
+            #perturbed_dis_mask,
         )
 
         critic_loss = expert_dis_loss + agent_dis_loss + expert_gp + agent_gp
