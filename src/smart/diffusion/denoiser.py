@@ -632,12 +632,17 @@ class InitDenoiser(nn.Module):
                 theta,
             )
 
+            input_v=m_delta[:,6:8]  #velocity under previous heading
+
+            local_v=input_v+res[:,6:]
+
             res = torch.cat(
                 [
                     local_pos,
                     torch.cos(local_theta)[:, None],
                     torch.sin(local_theta)[:, None],
-                    res[:, 4:],
+                    res[:, 4:6],
+                    local_v
                 ],
                 dim=-1,
             )
