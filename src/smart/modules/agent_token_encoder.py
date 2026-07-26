@@ -72,27 +72,23 @@ class AgentTokenEncoder(nn.Module):
         )
 
         input_dim_token = 8
-      #  if not self.discriminator:
-        self.token_emb_veh = MLPEmbedding(
-            input_dim=input_dim_token, hidden_dim=hidden_dim
-        )
-        self.token_emb_ped = MLPEmbedding(
-            input_dim=input_dim_token, hidden_dim=hidden_dim
-        )
-        self.token_emb_cyc = MLPEmbedding(
-            input_dim=input_dim_token, hidden_dim=hidden_dim
-        )
+        if not self.discriminator:
+            self.token_emb_veh = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+            self.token_emb_ped = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+            self.token_emb_cyc = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
 
-        self.token_embedders=[self.token_emb_veh, self.token_emb_ped, self.token_emb_cyc]
+            self.token_embedders=[self.token_emb_veh, self.token_emb_ped, self.token_emb_cyc]
 
-        self.fusion_emb = MLPEmbedding(
-            hidden_dim * 2,
-            hidden_dim,
-        )
-        # else:
-        #     # Disabled by default. Kept for compatibility with older
-        #     # state-action discriminator experiments.
-        #     self.state_action_embedder = None
+            self.fusion_emb = MLPEmbedding(
+                hidden_dim * 2,
+                hidden_dim,
+            )
 
         self.apply(weight_init)
 
@@ -146,8 +142,8 @@ class AgentTokenEncoder(nn.Module):
         token_mask: Optional[Tensor],
     ) -> Optional[Tensor]:
         """Return dense [agent,time,hidden] token embeddings."""
-        # if self.discriminator:
-        #     return None
+        if self.discriminator:
+            return None
 
         return self._typed_token_embedding(
                 agent_token_index,
