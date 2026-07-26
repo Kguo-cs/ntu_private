@@ -628,18 +628,18 @@ class InitDenoiser(nn.Module):
                 theta,
             )
 
-            local_v = rotate_to_local(
-                res[:,6:],
-                res_theta,
-            )
+            # local_v = rotate_to_local(
+            #     res[:,6:],
+            #     res_theta,
+            # )
 
             res = torch.cat(
                 [
                     local_pos,
                     torch.cos(local_theta)[:, None],
                     torch.sin(local_theta)[:, None],
-                    res[:, 4:6],
-                    local_v
+                    res[:, 4:],
+                   # local_v
                 ],
                 dim=-1,
             )
