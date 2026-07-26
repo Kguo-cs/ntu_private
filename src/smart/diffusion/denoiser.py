@@ -274,14 +274,9 @@ class InitDenoiser(nn.Module):
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
         shape = tokenized_agent["shape"]
 
-        if expert_data:
-            agent_pos = tokenized_agent["initial_pos"]
-            agent_head = tokenized_agent["initial_heading"]
-            local_vel = tokenized_agent["local_vel"]
-        else:
-            agent_pos=tokenized_agent["sampled_pos"][:,0]
-            agent_head=tokenized_agent["sampled_heading"][:,0]
-            local_vel=tokenized_agent["initial_local_vel"]
+        agent_pos = tokenized_agent["initial_pos"]
+        agent_head = tokenized_agent["initial_heading"]
+        local_vel = tokenized_agent["local_vel"]
 
         local_pos, local_heading = transform_to_local(
             agent_pos,
