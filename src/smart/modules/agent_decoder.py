@@ -198,16 +198,18 @@ class SMARTAgentDecoder(nn.Module):
     ):
         pos, heading, sampled_idx, shape, local_vel = init_decoder(tokenized_agent)
 
-        first_idx = sampled_idx[:, :1]
-        prev_pos, prev_heading = infer_prev_pose(
-            pos[:, :1],
-            heading[:, :1],
-            first_idx,
-            tokenized_agent["token_traj_all"],
-        )
-        pos = torch.cat([prev_pos+1e-2*torch.randn_like(prev_pos), pos], dim=1)#+1e-3*torch.randn_like(prev_pos)
+
+        # pos = torch.cat([prev_pos+1e-2*torch.randn_like(prev_pos), pos], dim=1)#+1e-3*torch.randn_like(prev_pos)
 
         if "gt_z_raw" in tokenized_agent:
+            first_idx = sampled_idx[:, :1]
+            prev_pos, prev_heading = infer_prev_pose(
+                pos[:, :1],
+                heading[:, :1],
+                first_idx,
+                tokenized_agent["token_traj_all"],
+            )
+
             # The original code inferred the previous pose using the last token,
             # but reconstructed it using the first token. Both must use the first.
             pred_traj_10hz.append(prev_pos)
