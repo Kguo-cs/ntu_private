@@ -939,36 +939,14 @@ model32_a60_match_posheadl1_gp001_inter0-epoch=4-step=136968-valmeta=0.6517.ckpt
 
 0.6510
 
-
-model32_a60_match_posheadl1_gp001_scene0.ckpt
-
-
 model32_a60_gp001_t60.ckpt
 
 0.6515
 
-model32_a60_match_posheadl1_gp001_scene0.ckpt
-
-sample10
-
-model32_a60_len12_gp001.ckpt
-
-sample10:
-
-
-model32_a60_len12_gp001_t60.ckpt
-
-
-all32_sde10last5_adaptive-epoch=4-step=228276-valmeta=0.6482.ckpt
-
-model32_a60_len12_gp001.ckpt
-
-all32_sde10last5_simple_011mint.ckpt
-
-no sde:
 
 all32_sde10last58_target005_dis1e4_eval
 
+test: 0.6504
 
 
 
