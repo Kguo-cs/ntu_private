@@ -367,7 +367,7 @@ class ScaleFlow(nn.Module):
         delta_t = (next_time - time).clamp_min(0.0)
         time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
 
-        target_std = self.target_step_std #* (1-time_mid)
+        target_std = 0.05 #* (1-time_mid)
 
         # Match the transition_std formula in sde_step_with_logprob().
         sigma = (1.0 - time).clamp_min(eps)
@@ -380,7 +380,7 @@ class ScaleFlow(nn.Module):
             sigma / (1.0 - sigma_for_ratio).clamp_min(eps)
         ) * torch.sqrt(delta_t.clamp_min(eps))
 
-        noise_level =0.05 #target_std / base_std.clamp_min(eps)
+        noise_level = target_std / base_std.clamp_min(eps)
 
        # std= noise_level*base_std
 
