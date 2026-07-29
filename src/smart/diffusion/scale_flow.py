@@ -350,6 +350,23 @@ class ScaleFlow(nn.Module):
         time: Tensor,
         next_time: Tensor,
     ) -> Tensor:
+
+        eps = 1e-5
+
+        delta_t = (
+                next_time - time
+        ).clamp_min(0.0)
+
+        diffusion_scale=0.1
+
+        return (
+                diffusion_scale
+                * torch.sqrt(
+            delta_t
+            * (1.0 - next_time).clamp_min(0.0)
+            / (1.0 - time).clamp_min(eps)
+        )
+        )
         """Convert a simple late-increasing target std to SDE noise level.
 
         The target transition standard deviation is
