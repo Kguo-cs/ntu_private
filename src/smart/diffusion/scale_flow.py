@@ -367,13 +367,13 @@ class ScaleFlow(nn.Module):
         delta_t = (next_time - time).clamp_min(0.0)
         time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
 
-        target_std = 0.05 #* (1-time_mid)
+        target_std = time_mid * (1-time_mid)
 
         # Match the transition_std formula in sde_step_with_logprob().
         sigma = (1.0 - time).clamp_min(eps)
         sigma_for_ratio = torch.where(
             sigma >= 1.0,
-            torch.full_like(sigma, 0.99),
+            torch.full_like(sigma, 0.9),
             sigma,
         )
         base_std = torch.sqrt(
@@ -1326,7 +1326,7 @@ class ScaleFlow(nn.Module):
                 sigma >= 1.0,
                 torch.full_like(
                     sigma,
-                    0.99,
+                    0.9,
                 ),
                 sigma,
             )
