@@ -373,7 +373,7 @@ class ScaleFlow(nn.Module):
         sigma = (1.0 - time).clamp_min(eps)
         sigma_for_ratio = torch.where(
             sigma >= 1.0,
-            torch.full_like(sigma, 0.95),
+            torch.full_like(sigma, 0.9),
             sigma,
         )
         base_std = torch.sqrt(
