@@ -351,31 +351,22 @@ class ScaleFlow(nn.Module):
         next_time: Tensor,
     ) -> Tensor:
 
-        eps = 1e-5
-
-        delta_t = (
-                next_time - time
-        ).clamp_min(0.0)
-
-        diffusion_scale=0.1
-
-        return (
-                diffusion_scale
-                * torch.sqrt(
-            delta_t
-            * (1.0 - next_time).clamp_min(0.0)
-            / (1.0 - time).clamp_min(eps)
-        )
-        )
-        """Convert a simple late-increasing target std to SDE noise level.
-
-        The target transition standard deviation is
-
-            target_std(t) = target_step_std * time_mid
-
-        where ``time_mid`` is the midpoint of the current transition. Thus,
-        stochastic exploration is small near t=0 and increases toward t=1.
-        """
+        # eps = 1e-5
+        #
+        # delta_t = (
+        #         next_time - time
+        # ).clamp_min(0.0)
+        #
+        # diffusion_scale=0.1
+        #
+        # return (
+        #         diffusion_scale
+        #         * torch.sqrt(
+        #     delta_t
+        #     * (1.0 - next_time).clamp_min(0.0)
+        #     / (1.0 - time).clamp_min(eps)
+        # )
+        # )
         eps = 1e-5
 
         if time.shape != next_time.shape:
@@ -384,7 +375,7 @@ class ScaleFlow(nn.Module):
         delta_t = (next_time - time).clamp_min(0.0)
         time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
 
-        target_std = time_mid * (1-time_mid)*2
+        target_std = time_mid * (1-time_mid)*0.5
 
         # Match the transition_std formula in sde_step_with_logprob().
         sigma = (1.0 - time).clamp_min(eps)
@@ -397,7 +388,7 @@ class ScaleFlow(nn.Module):
             sigma / (1.0 - sigma_for_ratio).clamp_min(eps)
         ) * torch.sqrt(delta_t.clamp_min(eps))
 
-        noise_level = (1-time_mid)*0.5#target_std / base_std.clamp_min(eps)
+        noise_level = target_std / base_std.clamp_min(eps)
 
        # std= noise_level*base_std
 
