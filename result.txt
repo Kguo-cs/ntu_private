@@ -948,6 +948,9 @@ all32_sde10last58_target005_dis1e4_eval
 
 test: 0.6504
 
+all32_last18_noise05_1t
+
+test: 0.6491
 
 
 
