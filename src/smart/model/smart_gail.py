@@ -670,8 +670,13 @@ class SMART_GAIL(SMART):
             edge_encoder.rollout_traj = old_rollout_flag
 
         value = self._value_predictions(rollout_agent)
+
+        init_step=len(value)-len(rewards)
+
+        rewards_pad= torch.cat([torch.zeros([init_step,value.shape[1]],device=rewards.device), rewards])
+
         advantages_2d, value_loss_elements = compute_advantages(
-            rewards[-len(value) :],
+            rewards_pad,#[-len(value) :]
             value,
         )
 
@@ -686,8 +691,8 @@ class SMART_GAIL(SMART):
             ppo_loss = _zero(value)
 
         if self.token_processor.learn_init:
-            value_loss = value_loss_elements[1:].mean()
-            init_value_loss = value_loss_elements[:1].mean()
+            value_loss = value_loss_elements[init_step+1:].mean()
+            init_value_loss = value_loss_elements[:init_step+1].mean()
             self._log_train("train/init_value_loss", init_value_loss)
         else:
             value_loss = value_loss_elements.mean()
@@ -706,18 +711,16 @@ class SMART_GAIL(SMART):
         if self.token_processor.learn_init:
             initial_value = self.encoder.init_value_network(
                 rollout_agent["noise_feat"]
-            )[:, 0]
+            )[...,0].transpose(0,1)
 
         if "feat_a" in rollout_agent:
             batch_size = len(rollout_agent["batch"])
             values = self.encoder.value_network(rollout_agent["feat_a"])[..., 0]
             values = values.reshape(-1, batch_size)
             if initial_value is not None:
-                values = torch.cat((initial_value[None], values), dim=0)
+                values = torch.cat((initial_value, values), dim=0)
             return values
 
-        if initial_value is None:
-            raise KeyError("Rollout must contain 'feat_a' when learn_init is disabled.")
         return initial_value
 
     def _initial_state_update(
@@ -728,11 +731,9 @@ class SMART_GAIL(SMART):
         optimizer,
     ) -> None:
         normalized = advantages_flat.view_as(advantages_2d)
-        tokenized_agent["advantages"] = normalized[0].detach()
+        tokenized_agent["advantages"] = normalized[:tokenized_agent["noise_feat"].shape[1]]
 
-        match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss = (
-            self.encoder.init_decoder(tokenized_agent)
-        )
+        match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss = self.encoder.init_decoder(tokenized_agent)
         rl_loss = tokenized_agent["rl_loss"]
         reference = match_loss
         metrics = {

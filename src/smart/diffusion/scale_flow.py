@@ -375,7 +375,7 @@ class ScaleFlow(nn.Module):
         delta_t = (next_time - time).clamp_min(0.0)
         time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
 
-        target_std = 0.1*time_mid#time_mid * (1-time_mid)*0.5
+        target_std = 0.05 #1*time_mid#time_mid * (1-time_mid)*0.5
 
         # Match the transition_std formula in sde_step_with_logprob().
         sigma = (1.0 - time).clamp_min(eps)
@@ -588,10 +588,7 @@ class ScaleFlow(nn.Module):
         if not torch.any(valid_transition):
             return current.new_zeros(())
 
-        advantages = tokenized_agent["advantages"][:, None].expand(
-            num_agents,
-            num_branches,
-        )
+        advantages = tokenized_agent["advantages"].transpose(0, 1)
 
         selected_log_prob = log_prob[
             valid_transition
@@ -1125,16 +1122,6 @@ class ScaleFlow(nn.Module):
                         used_noise_level
                     )
 
-                    if (
-                        "noise_feat_cur"
-                        not in tokenized_agent
-                    ):
-                        raise KeyError(
-                            "The denoiser must set "
-                            "tokenized_agent['noise_feat_cur'] "
-                            "during eval-mode sampling."
-                        )
-
                     feature_history.append(
                         tokenized_agent[
                             "noise_feat_cur"
@@ -1243,39 +1230,9 @@ class ScaleFlow(nn.Module):
             selected_next_time,
         )
 
-        tokenized_agent[
-            "sde_noise_level"
-        ] = selected_noise_level.detach()
+        tokenized_agent[ "sde_noise_level"] = selected_noise_level.detach()
 
-        tokenized_agent[
-            "sde_branch_steps"
-        ] = agent_branch_steps
-
-        tokenized_agent[
-            "sde_branch_steps_graph"
-        ] = graph_branch_steps
-
-        tokenized_agent[
-            "sde_noise_feat"
-        ] = selected_features
-
-        # Preserve value-network input shape [N, H].
-        tokenized_agent[
-            "noise_feat"
-        ] = selected_features[:, 0]
-
-        active_noise = selected_noise_level[
-            selected_noise_level > 0
-        ]
-
-        if active_noise.numel():
-            tokenized_agent[
-                "adaptive_noise_mean"
-            ] = active_noise.mean().detach()
-
-            tokenized_agent[
-                "adaptive_noise_max"
-            ] = active_noise.max().detach()
+        tokenized_agent["noise_feat"] = selected_features
 
         return latent
 
