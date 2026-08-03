@@ -419,7 +419,7 @@ def _time_weight(
     valid = (t > 0) & (t < 1)
 
     if x_pred:
-        weight = (1 - t).clamp_min(t_eps).reciprocal()#.square()
+        weight = (1 - t).clamp_min(t_eps).square().reciprocal()
         if max_loss_weight is not None:
             weight = weight.clamp_max(max_loss_weight)
     else:
@@ -441,7 +441,7 @@ def get_diff_loss(
     use_match: bool = False,
     x_pred: bool = False,
     w_pos: float = 0.1 / 5,
-    w_heading: float = 0.5 / 5,
+    w_heading: float = 5 / 5,
     w_shape: float = 0.2 / 5,
     w_vel: float = 0.2 / 5,
     max_loss_weight: float | None = None,
