@@ -30,7 +30,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 31 #6
+  train_batch_size: 32 #6
   val_batch_size: 64
   #num_workers: 1
 
