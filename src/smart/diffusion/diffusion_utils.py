@@ -442,7 +442,7 @@ def get_diff_loss(
     x_pred: bool = False,
     w_pos: float = 0.1/ 5,
     w_heading: float = 0.5/ 5,
-    w_shape: float = 0.5/ 5,
+    w_shape: float = 0.2/ 5,
     w_vel: float = 1 / 5,
     max_loss_weight: float | None = None,
     use_huber: bool = False,
