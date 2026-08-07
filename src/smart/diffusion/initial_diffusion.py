@@ -76,8 +76,8 @@ class InitDiffusion(nn.Module):
             "init_logprob_clip": 50.0,
             "init_ppo_clip": 0.2,
             "num_branch_steps": 1,
-            "branch_steps": [14,15,16,17,18],#5,6,71,3,5,7,4,4,1,2,3,4,5,10,11,12,13,
-            "sampling_steps": 20,
+            "branch_steps": [1,2,3],#5,6,71,3,5,7,4,4,1,2,3,4,5,10,11,12,13,
+            "sampling_steps": 5,
             "use_rl": False,
         }
         return SimpleNamespace(**values)
