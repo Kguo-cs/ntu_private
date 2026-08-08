@@ -923,11 +923,6 @@ class ScaleFlow(nn.Module):
         time = self._schedule_time(base_time)
         next_time = self._schedule_time(base_next_time)
 
-        if torch.any(next_time < time - 1e-7):
-            raise ValueError(
-                "The scheduled next time is smaller than the current time."
-            )
-
         self._fix_conditioned_agents(
             tokenized_agent["expert_input"],
             latent,

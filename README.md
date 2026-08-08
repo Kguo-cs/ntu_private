@@ -47,13 +47,16 @@ wsl -d Ubuntu
 ssh guoke@sprl-server9.dynip.ntu.edu.sg -p 32884
 140286
 
-export PATH=/usr/local/cuda-12.8/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH
-ulimit -n 65535
-source "/home/guoke/miniconda3/bin/activate"
-cd /home/guoke/sim/src
-conda activate sim
-git pull
+export PATH=/usr/local/cuda-12.8/bin:$PATH 
+export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH 
+ulimit -n 65535 
+source "/home/guoke/miniconda3/bin/activate" 
+cd /home/guoke/sim/src 
+conda activate sim 
+git pull 
+setsid nohup torchrun --nproc_per_node=4 -m run trainer=ddp > 1.log 2>&1 &
+
+
 setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 
 CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_per_node=2 --master_port=29503  -m run trainer=ddp >  23.log 2>&1 & 
