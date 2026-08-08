@@ -588,7 +588,9 @@ class ScaleFlow(nn.Module):
         if not torch.any(valid_transition):
             return current.new_zeros(())
 
-        advantages = tokenized_agent["advantages"].transpose(0, 1)
+        advantages = tokenized_agent["advantages"].transpose(0, 1) #a,t
+
+        advantages=(advantages-advantages.mean(dim=0,keep_dim=True))/advantages.std(dim=0,keep_dim=True)
 
         selected_log_prob = log_prob[
             valid_transition
@@ -597,7 +599,6 @@ class ScaleFlow(nn.Module):
             valid_transition
         ]
 
-        selected_advantage=(selected_advantage-selected_advantage.mean())/selected_advantage.std()
 
         if (
             self.use_init_ppo_ratio
