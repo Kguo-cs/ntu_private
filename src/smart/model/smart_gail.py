@@ -705,7 +705,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/running_var", self.return_meanstd.var)
         self._log_train("train/value_loss", value_loss)
 
-        policy_loss = expert_nll + ppo_loss*0.1 + 1e-3 * value_loss + 1e-3 * init_value_loss
+        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss
         return policy_loss, advantages_flat, advantages_2d
 
     def _value_predictions(self, rollout_agent: TensorDict) -> Tensor:
@@ -816,7 +816,7 @@ class SMART_GAIL(SMART):
         if self.gail:
             discriminator_optimizer = torch.optim.AdamW(
                 _trainable_parameters(self.encoder.discriminator),
-                lr=self.lr ,
+                lr=self.lr /10,
             )
 
             if self.token_processor.learn_init:
