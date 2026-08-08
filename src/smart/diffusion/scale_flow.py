@@ -597,6 +597,8 @@ class ScaleFlow(nn.Module):
             valid_transition
         ]
 
+        selected_advantage=(selected_advantage-selected_advantage.mean())/selected_advantage.std()
+
         if (
             self.use_init_ppo_ratio
             and old_log_prob is not None
