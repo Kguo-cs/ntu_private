@@ -748,7 +748,7 @@ class SMART_GAIL(SMART):
         for name, value in metrics.items():
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
-        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss)
+        self._optimizer_step(optimizer, match_loss *0.1+ rl_loss + col_loss)
 
     # ------------------------------------------------------------------
     # Lightning entry point
