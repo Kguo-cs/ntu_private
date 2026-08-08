@@ -680,9 +680,11 @@ class SMART_GAIL(SMART):
             value,
         )
 
+        advantages_2d = (advantages_2d - advantages_2d.mean(dim=1, keepdim=True)) / advantages_2d.std(dim=1, keepdim=True)
+
         advantages_flat = advantages_2d.reshape(-1)
-        self.return_meanstd.update(advantages_flat.detach())
-        advantages_flat = self.return_meanstd.normalize(advantages_flat)
+        #self.return_meanstd.update(advantages_flat.detach())
+        #advantages_flat = self.return_meanstd.normalize(advantages_flat)
 
         if self.training_rollout_len > 1 and agent_log_prob.numel():
             ppo_advantages = advantages_flat[-agent_log_prob.numel() :].detach()
