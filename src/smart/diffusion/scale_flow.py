@@ -590,7 +590,7 @@ class ScaleFlow(nn.Module):
 
         advantages = tokenized_agent["advantages"].transpose(0, 1) #a,t
 
-        advantages = (advantages - advantages.mean(dim=0, keepdim=True)) / advantages.std(dim=0, keepdim=True)
+        #advantages = (advantages - advantages.mean(dim=0, keepdim=True)) / advantages.std(dim=0, keepdim=True)
 
         selected_log_prob = log_prob[
             valid_transition
