@@ -632,7 +632,7 @@ class SMART_GAIL(SMART):
                 "valid_mask",
                 "token_mask",
             ):
-                tokenized_agent[key] = tokenized_agent[key][:, :-self.training_rollout_len]
+                tokenized_agent[key] = tokenized_agent[key][:, :self.training_rollout_len]
         return tokenized_agent
 
     def _optimizers(self):
