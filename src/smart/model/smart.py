@@ -155,6 +155,8 @@ class SMART(LightningModule):
         self.gt_samples: list[Any] = []
         self.gt_dist = None
 
+       # self.wosac_submission.save_sub_file()
+
     def _configure_finetuning(self, enabled: bool) -> None:
         if not enabled:
             return
