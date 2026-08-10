@@ -16,9 +16,9 @@ model:
 #      pl2a_radius: 300
 #      a2a_radius: 300
 
-ckpt_path: "./waymo_data/xflow512_n30.ckpt"
+ckpt_path: "./waymo_data/xflow512_match_noiseposvhead1_posheadl1-epoch=59-step=57120-valmeta=0.6496.ckpt"
 
-task_name: bc_init64_n30 #_r300
+task_name: bc_init64_l1_v1 #_r300
 
 trainer:
 #  check_val_every_n_epoch: 2
