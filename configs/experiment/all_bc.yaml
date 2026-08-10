@@ -26,6 +26,6 @@ trainer:
 
 data:
   train_batch_size: 64
-  val_batch_size: 256
+  val_batch_size: 64
 
 action: finetune
