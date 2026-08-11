@@ -952,6 +952,10 @@ all32_last18_noise05_1t
 
 test: 0.6491
 
+all32_d58_std005_l1_vel1-epoch=4-step=228282-valmeta=0.6497.ckpt
+
+
+0.6506
 
 
 take all position for generation

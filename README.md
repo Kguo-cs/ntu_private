@@ -2,15 +2,15 @@
 
 kefu321
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_max25-epoch=27-step=26656-valmeta=0.6511.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_map2light ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/all32_d58_std005_l1_vel1/2026-08-03_22-53-47/bc/fzqz7axw/checkpoints/all32_d58_std005_l1_vel1-epoch=4-step=228282-valmeta=0.6497.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_match_l1_v1/2026-08-10_22-59-30/bc/mw9dc0b4/checkpoints/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ./
 
 rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
 
