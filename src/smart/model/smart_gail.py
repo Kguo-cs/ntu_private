@@ -84,8 +84,9 @@ class SMART_GAIL(SMART):
             self.return_meanstd = RunningMeanStdTorch(shape=(1,))
 
         init_uses_gan = self.pred_init and self.encoder.init_decoder.use_gan
-        if self.gail or init_uses_gan:
-            self.automatic_optimization = False
+        self.automatic_optimization=True
+        # if self.gail or init_uses_gan:
+        #     self.automatic_optimization = False
 
     @staticmethod
     def _frozen_copy(module: torch.nn.Module) -> torch.nn.Module:
@@ -587,7 +588,10 @@ class SMART_GAIL(SMART):
         critic_loss = expert_dis_loss + agent_dis_loss + expert_gp + agent_gp
         self._log_train("train/critic_loss", critic_loss)
 
-        actor_optimizer, discriminator_optimizer, init_optimizer = self._optimizers()
+        if not self.automatic_optimization:
+            actor_optimizer, discriminator_optimizer, init_optimizer = self._optimizers()
+        else:
+            actor_optimizer=discriminator_optimizer=init_optimizer=None
         self._optimizer_step(discriminator_optimizer, critic_loss)
 
         policy_loss, advantages_flat, advantages_2d = self._actor_value_loss(
@@ -598,16 +602,16 @@ class SMART_GAIL(SMART):
         )
         self._optimizer_step(actor_optimizer, policy_loss)
 
-        if init_optimizer is not None:
-            self._initial_state_update(
-                tokenized_agent,
-                advantages_flat,
-                advantages_2d,
-                init_optimizer,
-            )
+        # if init_optimizer is not None:
+        init_loss=self._initial_state_update(
+            tokenized_agent,
+            advantages_flat,
+            advantages_2d,
+            init_optimizer,
+        )
 
         # Returned only for progress reporting. Both optimizers already stepped.
-        return critic_loss.detach() + policy_loss.detach()
+        return critic_loss+ policy_loss+init_loss
 
     def _initialize_reference_model_once(self) -> None:
         generator = self.encoder.init_decoder.G1
@@ -650,9 +654,10 @@ class SMART_GAIL(SMART):
         return actor, discriminator, initial
 
     def _optimizer_step(self, optimizer, loss: Tensor) -> None:
-        optimizer.zero_grad(set_to_none=True)
-        self.manual_backward(loss)
-        optimizer.step()
+        if optimizer is not None:
+            optimizer.zero_grad(set_to_none=True)
+            self.manual_backward(loss)
+            optimizer.step()
 
     def _actor_value_loss(
         self,
@@ -751,6 +756,8 @@ class SMART_GAIL(SMART):
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
         self._optimizer_step(optimizer, match_loss + rl_loss + col_loss)
+
+        return match_loss + rl_loss + col_loss
 
     # ------------------------------------------------------------------
     # Lightning entry point

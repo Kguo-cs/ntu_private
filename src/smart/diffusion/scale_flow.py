@@ -33,7 +33,7 @@ from src.smart.diffusion.diffusion_utils import (
     get_diff_loss,
 )
 from src.smart.utils import weight_init
-
+import copy
 from .denoiser import InitDenoiser
 
 
@@ -72,7 +72,7 @@ class ScaleFlow(nn.Module):
         )
 
         self.use_all_type = self.model.use_all_type
-        self.t_eps = 0.01
+        self.t_eps = 0.05
 
         # --------------------------------------------------------------
         # Initial-state policy optimization
@@ -529,61 +529,101 @@ class ScaleFlow(nn.Module):
             map_feature,
         )
 
-        for branch in range(num_branches):
-            # velocity, _ = self._model_velocity(
-            #     current[:, branch],
-            #     time[:, branch],
-            #     tokenized_agent,
-            #     map_feature,
-            # )
+        velocities = velocities.reshape(
+            num_branches,
+            num_agents,
+            -1,
+        ).transpose(0, 1)  # [A, B, D]
 
-            velocity=velocities.reshape(num_branches,len(current),-1)[branch]
+        branch_noise = saved_noise_level.detach()
 
-            branch_noise = (
-                saved_noise_level[:, branch]
-                .detach()
-            )
+        delta_t = next_time - time
 
-            active = (
-                non_ego
-                & (
-                    branch_noise.amax(dim=-1)
-                    > 0
-                )
-            )
+        active = (
+                non_ego[:, None]
+                & (branch_noise.amax(dim=-1) > 0)
+                & (delta_t.amax(dim=-1) > 1e-7)
+        )
 
-            if not torch.any(active):
-                continue
+        if not torch.any(active):
+            return current.new_zeros(())
 
-            (
-                _,
-                branch_log_prob,
-                _,
-                _,
-            ) = self.sde_step_with_logprob(
-                sigma=1.0 - time[active, branch],
-                sigma_prev=(
-                    1.0
-                    - next_time[active, branch]
-                ),
-                model_output=-velocity[active],
-                sample=current[active, branch],
-                noise_level=branch_noise[active],
-                prev_sample=next_sample[
-                    active,
-                    branch,
-                ],
-            )
+        log_prob = current.new_zeros(
+            num_agents,
+            num_branches,
+        )
 
-            log_prob[
-                active,
-                branch,
-            ] = branch_log_prob
+        (
+            _,
+            active_log_prob,
+            _,
+            _,
+        ) = self.sde_step_with_logprob(
+            sigma=1.0 - time[active],
+            sigma_prev=1.0 - next_time[active],
+            model_output=-velocities[active],
+            sample=current[active],
+            noise_level=branch_noise[active],
+            prev_sample=next_sample[active],
+        )
 
-            valid_transition[
-                active,
-                branch,
-            ] = True
+        log_prob[active] = active_log_prob
+
+        # for branch in range(num_branches):
+        #     # velocity, _ = self._model_velocity(
+        #     #     current[:, branch],
+        #     #     time[:, branch],
+        #     #     tokenized_agent,
+        #     #     map_feature,
+        #     # )
+        #
+        #     velocity=velocities.reshape(num_branches,len(current),-1)[branch]
+        #
+        #     branch_noise = (
+        #         saved_noise_level[:, branch]
+        #         .detach()
+        #     )
+        #
+        #     active = (
+        #         non_ego
+        #         & (
+        #             branch_noise.amax(dim=-1)
+        #             > 0
+        #         )
+        #     )
+        #
+        #     if not torch.any(active):
+        #         continue
+        #
+        #     (
+        #         _,
+        #         branch_log_prob,
+        #         _,
+        #         _,
+        #     ) = self.sde_step_with_logprob(
+        #         sigma=1.0 - time[active, branch],
+        #         sigma_prev=(
+        #             1.0
+        #             - next_time[active, branch]
+        #         ),
+        #         model_output=-velocity[active],
+        #         sample=current[active, branch],
+        #         noise_level=branch_noise[active],
+        #         prev_sample=next_sample[
+        #             active,
+        #             branch,
+        #         ],
+        #     )
+        #
+        #     log_prob[
+        #         active,
+        #         branch,
+        #     ] = branch_log_prob
+        #
+        #     valid_transition[
+        #         active,
+        #         branch,
+        #     ] = True
 
         if not torch.any(valid_transition):
             return current.new_zeros(())
@@ -1421,7 +1461,7 @@ class ScaleFlow(nn.Module):
         )
 
     def repeat_input_copy(self, tokenized_agent, n_step):
-        out =tokenized_agent# dict(tokenized_agent)#tokenized_agent#
+        out = copy.copy(tokenized_agent)
 
         num_graphs = tokenized_agent["num_graphs"]
         batch = tokenized_agent["batch"]
