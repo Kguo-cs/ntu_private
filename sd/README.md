@@ -241,7 +241,7 @@ By default `ae.train.run_name` is set to `scenario_dreamer_autoencoder_[waymo|nu
 
 - Trains on 1 GPU (≈ 36-40 h with A100 GPU).
 - Training metrics and visualizations are logged to Weights & Biases (W&B).
-- After each epoch a single checkpoint (overwritten to `last.ckpt`) is saved to `$SCRATCH_ROOT/checkpoints/[your_autoencoder_run_name]`.
+- After each epoch a single checkpoint (overwritten to `bc_init64_l1_v1.ckpt`) is saved to `$SCRATCH_ROOT/checkpoints/[your_autoencoder_run_name]`.
 
 </details>
 
@@ -326,8 +326,8 @@ python train.py \
 - Scenario Dreamer B trains on 4 GPUs (≈ 24h with 4 A100-L GPUs) and Scenario Dreamer L trains on 8 GPUs (≈ 32-36h with 8 A100-L GPUs).
 - By default, both models train for 165k steps.
 - Training metrics and visualizations are logged to Weights & Biases (W&B).
-- After each epoch a single checkpoint (overwritten to `last.ckpt`) is saved to `$SCRATCH_ROOT/checkpoints/[your_ldm_run_name]`.
-- To resume training from an existing checkpoint, run the same training command and the code will automatically resume training from the `last.ckpt` stored in the run's `$SCRATCH_ROOT/checkpoints/[your_ldm_run_name]` directory.
+- After each epoch a single checkpoint (overwritten to `bc_init64_l1_v1.ckpt`) is saved to `$SCRATCH_ROOT/checkpoints/[your_ldm_run_name]`.
+- To resume training from an existing checkpoint, run the same training command and the code will automatically resume training from the `bc_init64_l1_v1.ckpt` stored in the run's `$SCRATCH_ROOT/checkpoints/[your_ldm_run_name]` directory.
 
 </details>
 
@@ -358,7 +358,7 @@ By default `ctrl_sim.train.run_name` is set to `ctrl_sim_waymo`.
 - By default, trains for 1M steps. However, we used 500k-step checkpoint in paper due to resource limitations.
 - Trains on 4 GPUs (≈ 100 h with 4 A100 GPUs to 1M steps). 
 - Training metrics and visualizations are logged to Weights & Biases (W&B).
-- After each epoch, a single checkpoint (overwritten to `last.ckpt`) is saved to `$SCRATCH_ROOT/checkpoints/[your_ctrl_sim_run_name]`. The 15 checkpoints
+- After each epoch, a single checkpoint (overwritten to `bc_init64_l1_v1.ckpt`) is saved to `$SCRATCH_ROOT/checkpoints/[your_ctrl_sim_run_name]`. The 15 checkpoints
 with lowest val loss are additionally saved to `$SCRATCH_ROOT/checkpoints/[your_ctrl_sim_run_name]`.
 
 </details>

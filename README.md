@@ -4,7 +4,7 @@ kefu321
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/bc_init64_l1_v1.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
@@ -14,7 +14,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_match_l1_v1/2026-08-10
 
 rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all32_sde10last58_target005_dis1e4_eval/2026-07-24_14-59-33/bc/kttcaz84/checkpoints/last.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/bc_init64_l1_v1/2026-08-10_14-49-03/bc/kzfa8wxt/checkpoints/last.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
