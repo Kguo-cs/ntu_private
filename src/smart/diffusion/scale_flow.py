@@ -72,7 +72,7 @@ class ScaleFlow(nn.Module):
         )
 
         self.use_all_type = self.model.use_all_type
-        self.t_eps = 0.1
+        self.t_eps = 0.01
 
         # --------------------------------------------------------------
         # Initial-state policy optimization
