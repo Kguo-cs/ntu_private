@@ -602,13 +602,15 @@ class SMART_GAIL(SMART):
         )
         self._optimizer_step(actor_optimizer, policy_loss)
 
-        # if init_optimizer is not None:
-        init_loss=self._initial_state_update(
-            tokenized_agent,
-            advantages_flat,
-            advantages_2d,
-            init_optimizer,
-        )
+        if init_optimizer is not None or self.automatic_optimization:
+            init_loss=self._initial_state_update(
+                tokenized_agent,
+                advantages_flat,
+                advantages_2d,
+                init_optimizer,
+            )
+        else:
+            init_loss=0
 
         # Returned only for progress reporting. Both optimizers already stepped.
         return critic_loss+ policy_loss+init_loss
