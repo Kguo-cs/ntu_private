@@ -508,11 +508,6 @@ class ScaleFlow(nn.Module):
         if not torch.any(non_ego):
             return current.new_zeros(())
 
-        log_prob = current.new_zeros(
-            num_agents,
-            num_branches,
-        )
-
         valid_transition = torch.zeros(
             num_agents,
             num_branches,
@@ -577,7 +572,7 @@ class ScaleFlow(nn.Module):
         #     #     map_feature,
         #     # )
         #
-        #     velocity=velocities.reshape(num_branches,len(current),-1)[branch]
+        #     #velocity=velocities.reshape(num_branches,len(current),-1)[branch]
         #
         #     branch_noise = (
         #         saved_noise_level[:, branch]
@@ -592,38 +587,43 @@ class ScaleFlow(nn.Module):
         #         )
         #     )
         #
-        #     if not torch.any(active):
-        #         continue
-        #
-        #     (
-        #         _,
-        #         branch_log_prob,
-        #         _,
-        #         _,
-        #     ) = self.sde_step_with_logprob(
-        #         sigma=1.0 - time[active, branch],
-        #         sigma_prev=(
-        #             1.0
-        #             - next_time[active, branch]
-        #         ),
-        #         model_output=-velocity[active],
-        #         sample=current[active, branch],
-        #         noise_level=branch_noise[active],
-        #         prev_sample=next_sample[
-        #             active,
-        #             branch,
-        #         ],
-        #     )
-        #
-        #     log_prob[
-        #         active,
-        #         branch,
-        #     ] = branch_log_prob
+        #     # if not torch.any(active):
+        #     #     continue
+        #     #
+        #     # (
+        #     #     _,
+        #     #     branch_log_prob,
+        #     #     _,
+        #     #     _,
+        #     # ) = self.sde_step_with_logprob(
+        #     #     sigma=1.0 - time[active, branch],
+        #     #     sigma_prev=(
+        #     #         1.0
+        #     #         - next_time[active, branch]
+        #     #     ),
+        #     #     model_output=-velocity[active],
+        #     #     sample=current[active, branch],
+        #     #     noise_level=branch_noise[active],
+        #     #     prev_sample=next_sample[
+        #     #         active,
+        #     #         branch,
+        #     #     ],
+        #     # )
+        #     #
+        #     # log_prob[
+        #     #     active,
+        #     #     branch,
+        #     # ] = branch_log_prob
         #
         #     valid_transition[
         #         active,
         #         branch,
         #     ] = True
+
+        valid_transition = ( non_ego[:, None]
+                & (saved_noise_level.amax(dim=-1) > 0)
+        )  # [num_agents, num_branches]
+
 
         if not torch.any(valid_transition):
             return current.new_zeros(())
