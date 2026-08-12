@@ -84,9 +84,9 @@ class SMART_GAIL(SMART):
             self.return_meanstd = RunningMeanStdTorch(shape=(1,))
 
         init_uses_gan = self.pred_init and self.encoder.init_decoder.use_gan
-        self.automatic_optimization=True
-        # if self.gail or init_uses_gan:
-        #     self.automatic_optimization = False
+        #self.automatic_optimization=True
+        if self.gail or init_uses_gan:
+            self.automatic_optimization = False
 
     @staticmethod
     def _frozen_copy(module: torch.nn.Module) -> torch.nn.Module:
