@@ -508,12 +508,12 @@ class ScaleFlow(nn.Module):
         if not torch.any(non_ego):
             return current.new_zeros(())
 
-        valid_transition = torch.zeros(
-            num_agents,
-            num_branches,
-            device=current.device,
-            dtype=torch.bool,
-        )
+        # valid_transition = torch.zeros(
+        #     num_agents,
+        #     num_branches,
+        #     device=current.device,
+        #     dtype=torch.bool,
+        # )
 
         tokenized_agent=self.repeat_input_copy(tokenized_agent,num_branches)
 
