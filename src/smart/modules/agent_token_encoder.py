@@ -264,7 +264,7 @@ class AgentTokenEncoder(nn.Module):
             motion_feature = torch.where(
                 token_mask[..., None],
                 motion_feature,
-                torch.zeros_like(motion_feature),
+                torch.zeros_like(motion_feature)-10,
             )
 
         continuous = motion_feature
