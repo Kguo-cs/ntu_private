@@ -610,10 +610,10 @@ class SMART_GAIL(SMART):
                 init_optimizer,
             )
         else:
-            init_loss=0
+            init_loss=torch.zeros(1,device=critic_loss.device)
 
         # Returned only for progress reporting. Both optimizers already stepped.
-        return critic_loss+ policy_loss+init_loss
+        return critic_loss.detach()+ policy_loss.detach()+init_loss.detach()
 
     def _initialize_reference_model_once(self) -> None:
         generator = self.encoder.init_decoder.G1
