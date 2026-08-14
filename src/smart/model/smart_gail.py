@@ -116,7 +116,7 @@ class SMART_GAIL(SMART):
         tokenized_map: TensorDict,
         tokenized_agent: TensorDict,
         key: str = "expert",
-    ) -> tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor,Tensor]:
         """Compute policy NLL and optional initial-state loss.
 
         Returns:
@@ -126,9 +126,9 @@ class SMART_GAIL(SMART):
         prediction = self.encoder(tokenized_map, tokenized_agent)
         reference = self._prediction_reference(prediction, tokenized_agent)
 
-        policy_loss, log_prob = self._policy_nll(prediction, tokenized_agent, key, reference)
+        policy_loss, log_prob,policy_entropy = self._policy_nll(prediction, tokenized_agent, key, reference)
         init_loss = self._initial_prediction_loss(prediction, tokenized_agent, reference)
-        return policy_loss + init_loss, log_prob
+        return policy_loss + init_loss, log_prob,policy_entropy
 
     @staticmethod
     def _prediction_reference(prediction: Mapping[str, Any], agent: Mapping[str, Any]) -> Tensor:
@@ -150,10 +150,10 @@ class SMART_GAIL(SMART):
         agent: TensorDict,
         key: str,
         reference: Tensor,
-    ) -> tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor,Tensor]:
         logits = prediction.get("next_token_logits")
         if logits is None:
-            return _zero(reference), reference.new_empty((0,))
+            return _zero(reference), reference.new_empty((0,)),reference.new_empty((0,))
 
         start_step = 0 if key == "expert" else self.gail_start_step
         valid_mask = agent["valid_mask"][:, start_step:]
@@ -187,7 +187,7 @@ class SMART_GAIL(SMART):
 
         self._log_train(f"train/{key}_nll", nll)
         self._log_train(f"train/{key}_entropy", entropy.mean())
-        return nll, log_prob
+        return nll, log_prob,entropy
 
     def _initial_prediction_loss(
         self,
@@ -553,7 +553,7 @@ class SMART_GAIL(SMART):
      #   self._initialize_reference_model_once()
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
-        expert_nll, _ = self.get_pred(tokenized_map, tokenized_agent, key="expert")
+        expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
 
         if not self.gail:
             return expert_nll
@@ -674,7 +674,7 @@ class SMART_GAIL(SMART):
         old_rollout_flag = edge_encoder.rollout_traj
         edge_encoder.rollout_traj = True
         try:
-            _, agent_log_prob = self.get_pred(tokenized_map, rollout_agent, key="agent")
+            _, agent_log_prob,agent_entropy = self.get_pred(tokenized_map, rollout_agent, key="agent")
         finally:
             edge_encoder.rollout_traj = old_rollout_flag
 
@@ -714,7 +714,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/running_var", self.return_meanstd.var)
         self._log_train("train/value_loss", value_loss)
 
-        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss
+        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss+1e-3*agent_entropy
         return policy_loss, advantages_flat, advantages_2d
 
     def _value_predictions(self, rollout_agent: TensorDict) -> Tensor:
