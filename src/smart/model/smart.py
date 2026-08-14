@@ -248,7 +248,8 @@ class SMART(LightningModule):
             head.append(pred["pred_head_10hz"])
             z.append(pred["pred_z_10hz"])
             size.append(_shape_over_time(pred["shape"], trajectory.shape[1]))
-            vel.append(pred["initial_local_vel"])
+            if "initial_local_vel" in pred:
+                vel.append(pred["initial_local_vel"])
 
             generated = rollout_agent.get("pred_z_list")
             if self.n_vis_batch > 0 and generated is not None:
@@ -263,7 +264,7 @@ class SMART(LightningModule):
             "z": torch.stack(z, 1),
             "head": wrap_angle(torch.stack(head, 1)),
             "size": torch.stack(size, 1),#.clamp_min(0.1),
-            "vel": torch.stack(vel, 1),
+            "vel": torch.stack(vel, 1) if vel else None,
             "z_list": torch.stack(z_list, 1) if z_list else None,
         }
 

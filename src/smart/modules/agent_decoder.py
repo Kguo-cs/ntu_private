@@ -275,10 +275,8 @@ class SMARTAgentDecoder(nn.Module):
             )
             token_mask = valid_mask.clone()
         else:
-            if current_step > gt_pos.shape[1]:
-                raise ValueError("current_step exceeds available token states")
 
-            pos_a = gt_pos[:, :current_step+1]
+            pos_a = gt_pos[:, :current_step]
             head_a = gt_head[:, :current_step]
             sampled_idx = gt_idx[:, :current_step]
             shape = tokenized_agent["shape"]
@@ -321,7 +319,7 @@ class SMARTAgentDecoder(nn.Module):
                     tokenized_agent,
                     map_feature,
                     shape,
-                    n_current=current_step + rollout_step - 1,
+                    n_current=rollout_step,
                 )
 
             next_idx = Categorical(logits=logits[-len(active_mask):] / self.alpha).sample()

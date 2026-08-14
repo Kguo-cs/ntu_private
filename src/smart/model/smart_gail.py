@@ -82,6 +82,8 @@ class SMART_GAIL(SMART):
 
         if self.gail:
             self.return_meanstd = RunningMeanStdTorch(shape=(1,))
+            self.ego_return_meanstd = RunningMeanStdTorch(shape=(1,))
+            self.global_return_meanstd = RunningMeanStdTorch(shape=(1,))
 
         init_uses_gan = self.pred_init and self.encoder.init_decoder.use_gan
         #self.automatic_optimization=True
