@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
             getattr(
                 args,
                 "sde_eta",
-                getattr(args, "target_step_std", 1),
+                getattr(args, "target_step_std", 2),
             )
         )
         if self.sde_eta < 0.0:
