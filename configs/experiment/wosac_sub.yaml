@@ -60,4 +60,4 @@ data:
   shuffle: false
   pin_memory: false
 
-action: validate
+action: test

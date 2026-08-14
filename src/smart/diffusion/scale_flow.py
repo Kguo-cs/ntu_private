@@ -1,4 +1,4 @@
-"""Flow matching with an SDE-consistent finite-step stochastic sampler.
+"""Advantage-weighted initial-state flow matching.
 
 State convention:
     [x, y, heading_cos, heading_sin, length, width, vx, vy]
@@ -12,18 +12,22 @@ For the equivalent noisy-time convention
     sigma = 1 - t,
     z_sigma = (1 - sigma) * data + sigma * noise,
 
-the stochastic transition freezes the predicted clean state during one step
-and integrates the resulting reverse SDE in closed form.  ``sde_eta`` controls
-the log-SNR exploration schedule.  The exact eta used during rollout is saved
-and reused when PPO recomputes transition log-probabilities.
+the stochastic sampler freezes the predicted clean state during one step and
+integrates the resulting reverse SDE in closed form.  ``sde_eta`` controls the
+log-SNR exploration schedule.
 
 The endpoints are deterministic: stochastic branches are restricted to
 interior flow steps, so the transition into the clean state has zero variance.
+
+Sampling and training are deliberately decoupled.  SDE branches provide
+exploration, while the generated clean endpoint is optimized with the same
+clean-target flow-matching objective used during pretraining, weighted by its
+initial-state advantage.  No reverse-transition log-probability or Initial
+SDE-PPO ratio is used.
 """
 
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping, Sequence
 from typing import Optional
 
@@ -37,12 +41,11 @@ from src.smart.diffusion.diffusion_utils import (
     get_diff_loss,
 )
 from src.smart.utils import weight_init
-import copy
 from .denoiser import InitDenoiser
 
 
 class ScaleFlow(nn.Module):
-    """Initial-state flow with SDE-consistent stochastic branches."""
+    """Initial-state AWM with an SDE-consistent exploration sampler."""
 
     def __init__(
         self,
@@ -79,21 +82,23 @@ class ScaleFlow(nn.Module):
         self.t_eps = 0.05
 
         # --------------------------------------------------------------
-        # Initial-state policy optimization
+        # Initial-state Advantage-Weighted Flow Matching
         # --------------------------------------------------------------
         self.use_sde = bool(
             gail and getattr(token_processor, "learn_init", False)
         )
 
-        self.use_init_ppo_ratio = bool(
-            getattr(args, "use_init_ppo_ratio", False)
-        )
         self.init_adv_clip = float(
-            getattr(args, "init_adv_clip", 10.0)
+            getattr(args, "init_adv_clip", 5.0)
         )
-        self.init_ppo_clip = float(
-            getattr(args, "init_ppo_clip", 0.1)
+        if self.init_adv_clip < 0.0:
+            raise ValueError("init_adv_clip must be non-negative.")
+
+        self.awm_coef = float(
+            getattr(args, "awm_coef", 0.1)
         )
+        if self.awm_coef < 0.0:
+            raise ValueError("awm_coef must be non-negative.")
 
         # --------------------------------------------------------------
         # Multi-branch sampling
@@ -118,7 +123,7 @@ class ScaleFlow(nn.Module):
             getattr(
                 args,
                 "sde_eta",
-                getattr(args, "target_step_std", 1),
+                getattr(args, "target_step_std", 0.1),
             )
         )
         if self.sde_eta < 0.0:
@@ -139,7 +144,6 @@ class ScaleFlow(nn.Module):
         #         dtype=torch.float32,
         #     )[None],
         # )
-        self.use_ref = False
         self.apply(weight_init)
 
     @staticmethod
@@ -372,7 +376,7 @@ class ScaleFlow(nn.Module):
         ``time`` follows the code convention (0=noise, 1=data).  Stochastic
         exploration is disabled at both endpoints and for zero-length steps.
         The actual finite-step variance is computed analytically inside
-        :meth:`sde_step_with_logprob`; eta is not an Euler noise multiplier.
+        :meth:`_sde_consistent_step`; eta is not an Euler noise multiplier.
         """
         if time.shape != next_time.shape:
             raise ValueError(
@@ -409,25 +413,19 @@ class ScaleFlow(nn.Module):
         tokenized_agent: HeteroData,
         initial_map_feature: Mapping[str, Tensor],
     ):
-        loss=self._supervised_loss(
+        loss = self._supervised_loss(
             x,
             tokenized_agent,
             initial_map_feature,
         )
 
         if "advantages" in tokenized_agent:
-            if self.use_sde:
-                rl_loss = self._sde_advantage_loss(
+            tokenized_agent["rl_loss"] = (
+                self._advantage_weighted_flow_loss(
                     tokenized_agent,
                     initial_map_feature,
                 )
-            else:
-                rl_loss = self._direct_advantage_loss(
-                    tokenized_agent,
-                    initial_map_feature,
-                )
-
-            tokenized_agent["rl_loss"] = rl_loss
+            )
 
         return loss
 
@@ -474,351 +472,127 @@ class ScaleFlow(nn.Module):
 
         return loss, x0, latent, time
 
-    def _sde_advantage_loss(
+    def _aggregate_initial_advantages(
+        self,
+        advantages: Tensor,
+        num_agents: int,
+    ) -> Tensor:
+        """Reduce rollout/branch advantages to one value per agent."""
+        advantages = advantages.detach()
+
+        if advantages.ndim == 0:
+            advantages = advantages.expand(num_agents)
+        elif advantages.ndim == 1:
+            if advantages.numel() != num_agents:
+                raise ValueError(
+                    "One-dimensional advantages must have one value "
+                    f"per agent; got {advantages.numel()} for "
+                    f"{num_agents} agents."
+                )
+        elif advantages.shape[-1] == num_agents:
+            # Rollout advantages convention: [branch/time, agent].
+            advantages = advantages.reshape(-1, num_agents).mean(dim=0)
+        elif advantages.shape[0] == num_agents:
+            advantages = advantages.reshape(num_agents, -1).mean(dim=1)
+        else:
+            raise ValueError(
+                "advantages must contain an agent axis of length "
+                f"{num_agents}, got {tuple(advantages.shape)}."
+            )
+
+        return torch.nan_to_num(
+            advantages,
+            nan=0.0,
+            posinf=self.init_adv_clip,
+            neginf=-self.init_adv_clip,
+        ).clamp(
+            -self.init_adv_clip,
+            self.init_adv_clip,
+        )
+
+    def _advantage_weighted_flow_loss(
         self,
         tokenized_agent: HeteroData,
         map_feature: Mapping[str, Tensor],
     ) -> Tensor:
-        (
-            current,
-            next_sample,
-            old_log_prob,
-        ) = tokenized_agent["sde_z"]
+        """Match sampled clean endpoints with signed advantage weights.
 
-        (
-            time,
-            next_time,
-        ) = tokenized_agent["sde_t"]
+        A fresh forward-flow time and noise are sampled for every update.
+        Positive advantages pull the denoiser toward the generated endpoint;
+        negative advantages push it away. The endpoint and advantage are
+        treated as fixed targets.
+        """
+        if "gen_z" not in tokenized_agent:
+            raise KeyError(
+                "Advantage-weighted flow matching requires sample() to "
+                "store tokenized_agent['gen_z'] before get_loss()."
+            )
 
-        saved_noise_level = tokenized_agent.get(
-            "sde_noise_level"
-        )
-
-        if current.ndim == 2:
-            current = current[:, None]
-            next_sample = next_sample[:, None]
-            time = time[:, None]
-            next_time = next_time[:, None]
-
-            if old_log_prob is not None:
-                old_log_prob = old_log_prob[:, None]
-
-            if saved_noise_level is not None:
-                saved_noise_level = saved_noise_level[:, None]
-
-        num_agents, num_branches, _ = current.shape
-
-        non_ego = ~tokenized_agent[
-            "ego_mask"
-        ].bool()
-
-        if not torch.any(non_ego):
-            return current.new_zeros(())
-
-        # valid_transition = torch.zeros(
-        #     num_agents,
-        #     num_branches,
-        #     device=current.device,
-        #     dtype=torch.bool,
-        # )
-
-        repeated_agent = self.repeat_input_copy(
+        sampled_x0 = tokenized_agent["gen_z"].detach()
+        _, time, latent = self._prepare_supervised_batch(
+            sampled_x0,
             tokenized_agent,
-            num_branches,
         )
 
-        # Rollout uses eval mode, so likelihood replay must use the same
-        # dropout/normalization behavior.  eval() does not disable gradients.
-        model_was_training = self.model.training
-        self.model.eval()
-        try:
-            velocities, _ = self._model_velocity(
-                current.transpose(0, 1).flatten(0, 1),
-                time.transpose(0, 1).flatten(0, 1),
-                repeated_agent,
-                map_feature,
-            )
-        finally:
-            self.model.train(model_was_training)
-
-        velocities = velocities.reshape(
-            num_branches,
-            num_agents,
-            -1,
-        ).transpose(0, 1)  # [A, B, D]
-
-        branch_noise = saved_noise_level.detach()
-
-        delta_t = next_time - time
-
-        active = (
-                non_ego[:, None]
-                & (branch_noise.amax(dim=-1) > 0)
-                & (delta_t.amax(dim=-1) > 1e-7)
-        )
-
-        if not torch.any(active):
-            return current.new_zeros(())
-
-        log_prob = current.new_zeros(
-            num_agents,
-            num_branches,
-        )
-
-        (
-            _,
-            active_log_prob,
-            _,
-            _,
-        ) = self.sde_step_with_logprob(
-            sigma=1.0 - time[active],
-            sigma_prev=1.0 - next_time[active],
-            model_output=-velocities[active],
-            sample=current[active],
-            noise_level=branch_noise[active],
-            prev_sample=next_sample[active],
-        )
-
-        log_prob[active] = active_log_prob
-
-        # for branch in range(num_branches):
-        #     # velocity, _ = self._model_velocity(
-        #     #     current[:, branch],
-        #     #     time[:, branch],
-        #     #     tokenized_agent,
-        #     #     map_feature,
-        #     # )
-        #
-        #     #velocity=velocities.reshape(num_branches,len(current),-1)[branch]
-        #
-        #     branch_noise = (
-        #         saved_noise_level[:, branch]
-        #         .detach()
-        #     )
-        #
-        #     active = (
-        #         non_ego
-        #         & (
-        #             branch_noise.amax(dim=-1)
-        #             > 0
-        #         )
-        #     )
-        #
-        #     # if not torch.any(active):
-        #     #     continue
-        #     #
-        #     # (
-        #     #     _,
-        #     #     branch_log_prob,
-        #     #     _,
-        #     #     _,
-        #     # ) = self.sde_step_with_logprob(
-        #     #     sigma=1.0 - time[active, branch],
-        #     #     sigma_prev=(
-        #     #         1.0
-        #     #         - next_time[active, branch]
-        #     #     ),
-        #     #     model_output=-velocity[active],
-        #     #     sample=current[active, branch],
-        #     #     noise_level=branch_noise[active],
-        #     #     prev_sample=next_sample[
-        #     #         active,
-        #     #         branch,
-        #     #     ],
-        #     # )
-        #     #
-        #     # log_prob[
-        #     #     active,
-        #     #     branch,
-        #     # ] = branch_log_prob
-        #
-        #     valid_transition[
-        #         active,
-        #         branch,
-        #     ] = True
-
-        # Use exactly the same support as the likelihood computation.  In
-        # particular, the clean endpoint has eta=0 and no Gaussian density.
-        valid_transition = active
-
-
-        if not torch.any(valid_transition):
-            return current.new_zeros(())
-
-        advantages = tokenized_agent["advantages"].transpose(0, 1) #a,t
-
-        #advantages = (advantages - advantages.mean(dim=0, keepdim=True)) / advantages.std(dim=0, keepdim=True)
-
-        selected_log_prob = log_prob[
-            valid_transition
-        ]
-        selected_advantage = advantages[
-            valid_transition
-        ]
-
-
-        if (
-            self.use_init_ppo_ratio
-            and old_log_prob is not None
-        ):
-            selected_old_log_prob = (
-                old_log_prob.detach()[
-                    valid_transition
-                ]
-            )
-
-            selected_old_log_prob = torch.nan_to_num(
-                selected_old_log_prob,
-                nan=0.0,
-                posinf=0.0,
-                neginf=0.0,
-            )
-
-            # Do not clip old and new log-probabilities independently: doing
-            # so makes the ratio differ from one even when the transition
-            # distributions are identical.  Bound only their difference.
-            log_ratio = (
-                selected_log_prob
-                - selected_old_log_prob
-            ).clamp(
-                -5.0,
-                5.0,
-            )
-
-            ratio = log_ratio.exp()
-
-            clipped_ratio = ratio.clamp(
-                1.0 - self.init_ppo_clip,
-                1.0 + self.init_ppo_clip,
-            )
-
-            policy_loss = -torch.minimum(
-                ratio * selected_advantage,
-                clipped_ratio * selected_advantage,
-            ).mean()
-
-            tokenized_agent[
-                "init_ratio_mean"
-            ] = ratio.detach().mean()
-
-            tokenized_agent[
-                "init_clip_fraction"
-            ] = (
-                (
-                    ratio
-                    < 1.0 - self.init_ppo_clip
-                )
-                | (
-                    ratio
-                    > 1.0 + self.init_ppo_clip
-                )
-            ).float().mean().detach()
-
-            return policy_loss
-
-        return -(
-            selected_log_prob
-            * selected_advantage
-        ).mean()
-
-    def _direct_advantage_loss(
-        self,
-        tokenized_agent: HeteroData,
-        map_feature: Mapping[str, Tensor],
-    ) -> Tensor:
-        sampled_x0 = tokenized_agent["gen_z"]
-
-        _, time, latent = (
-            self._prepare_supervised_batch(
-                sampled_x0,
-                tokenized_agent,
-            )
-        )
-
-        _, current_x0 = self._model_velocity(
+        _, predicted_x0 = self._model_velocity(
             latent,
             time,
             tokenized_agent,
             map_feature,
         )
 
-        scale = self.model.normal_scale.clamp_min(
-            1e-6
+        scale = self.model.normal_scale.to(
+            device=sampled_x0.device,
+            dtype=sampled_x0.dtype,
+        ).clamp_min(1e-6)
+
+        matching_loss = (
+            (predicted_x0 - sampled_x0)
+            / scale
+        ).square().mean(dim=-1)
+
+        advantages = self._aggregate_initial_advantages(
+            tokenized_agent["advantages"],
+            sampled_x0.shape[0],
+        ).to(
+            device=sampled_x0.device,
+            dtype=sampled_x0.dtype,
         )
 
-        log_prob = self.adaptive_x0_logprob(
-            current_x0 / scale,
-            sampled_x0.detach() / scale,
+        valid = (
+            ~tokenized_agent["ego_mask"].bool()
+            & torch.isfinite(matching_loss)
+            & torch.isfinite(advantages)
         )
 
-        num_agents = sampled_x0.shape[0]
-
-        non_ego = ~tokenized_agent[
-            "ego_mask"
-        ].bool()
-
-        if not torch.any(non_ego):
+        if not torch.any(valid):
             return sampled_x0.new_zeros(())
 
-        advantages = self._prepare_advantages(
-            tokenized_agent["advantages"],
-            num_agents,
-        )[non_ego]
+        valid_advantage = advantages[valid]
+        valid_matching_loss = matching_loss[valid]
 
-        old_log_prob = log_prob.detach()
+        # Same on-policy gradient as the AWM pseudo-likelihood ratio
+        # exp(-L + stopgrad(L)), without materializing an always-one ratio.
+        weighted_loss = (
+            valid_advantage.detach()
+            * valid_matching_loss
+        ).mean()
 
-        ratio = (
-            log_prob - old_log_prob
-        ).clamp(
-            -10.0,
-            10.0,
-        ).exp()[non_ego]
-
-        clipped_ratio = ratio.clamp(
-            1.0 - self.init_ppo_clip,
-            1.0 + self.init_ppo_clip,
+        tokenized_agent["sampled_match_loss"] = matching_loss.detach()
+        tokenized_agent["awm_matching_loss"] = (
+            valid_matching_loss.detach().mean()
+        )
+        tokenized_agent["awm_weighted_matching_loss"] = (
+            weighted_loss.detach()
+        )
+        tokenized_agent["awm_advantage_mean"] = (
+            valid_advantage.detach().mean()
+        )
+        tokenized_agent["awm_positive_fraction"] = (
+            (valid_advantage > 0.0).float().mean().detach()
         )
 
-        tokenized_agent[
-            "sampled_match_loss"
-        ] = -log_prob.detach()
-
-        tokenized_agent[
-            "clip_ratio"
-        ] = (
-            (
-                ratio
-                < 1.0 - self.init_ppo_clip
-            )
-            | (
-                ratio
-                > 1.0 + self.init_ppo_clip
-            )
-        ).float().detach()
-
-        return -torch.minimum(
-            ratio * advantages,
-            clipped_ratio * advantages,
-        ).mean() * 100.0
-
-    @staticmethod
-    def adaptive_x0_logprob(
-        pred_x0: Tensor,
-        target_x0: Tensor,
-    ) -> Tensor:
-        error = pred_x0 - target_x0
-
-        l1_scale = error.abs().mean(
-            dim=-1,
-            keepdim=True,
-        ).clamp_min(
-            1e-5
-        ).detach()
-
-        return -0.1 * (
-            error.square()
-            / l1_scale
-        ).mean(dim=-1)
+        return self.awm_coef * weighted_loss
 
     # ==================================================================
     # Multi-branch sampling
@@ -839,7 +613,7 @@ class ScaleFlow(nn.Module):
 
         # The log-SNR SDE is singular at pure noise and has zero transition
         # variance at the clean endpoint.  Only interior transitions define
-        # valid stochastic actions for PPO.
+        # valid stochastic exploration steps.
         if total_steps < 3:
             raise ValueError(
                 "SDE-consistent branching requires at least 3 flow steps."
@@ -1010,9 +784,6 @@ class ScaleFlow(nn.Module):
         )
 
         next_latent = latent + (next_time - time) * velocity
-        log_prob = latent.new_zeros(num_agents)
-        used_noise_level = latent.new_zeros(latent.shape)
-
         if (
             self.use_sde
             and branch_mask is not None
@@ -1028,10 +799,9 @@ class ScaleFlow(nn.Module):
             if torch.any(stochastic):
                 (
                     stochastic_next,
-                    stochastic_log_prob,
                     _,
                     _,
-                ) = self.sde_step_with_logprob(
+                ) = self._sde_consistent_step(
                     sigma=1.0 - time[stochastic],
                     sigma_prev=1.0 - next_time[stochastic],
                     model_output=-velocity[stochastic],
@@ -1040,18 +810,12 @@ class ScaleFlow(nn.Module):
                 )
 
                 next_latent[stochastic] = stochastic_next
-                log_prob[stochastic] = stochastic_log_prob
-
-                # Expand [N,1] scheduled noise to [N,D] for replay storage.
-                used_noise_level[stochastic] = noise_level[stochastic]
 
         return (
             next_latent,
             x0,
             time,
             next_time,
-            log_prob,
-            used_noise_level,
         )
 
     @torch.no_grad()
@@ -1135,13 +899,6 @@ class ScaleFlow(nn.Module):
             )
             step_branch_mask[ego_mask] = False
 
-            latent_history = [
-                latent.clone()
-            ]
-            time_history = []
-            next_time_history = []
-            log_prob_history = []
-            noise_level_history = []
             feature_history = []
 
         # Rollout sampling should not use dropout. This also ensures that
@@ -1154,10 +911,8 @@ class ScaleFlow(nn.Module):
                 (
                     latent,
                     _,
-                    time,
-                    next_time,
-                    log_prob,
-                    used_noise_level,
+                    _,
+                    _,
                 ) = self._sample_step(
                     latent,
                     timesteps[step],
@@ -1172,20 +927,6 @@ class ScaleFlow(nn.Module):
                 )
 
                 if self.use_sde:
-                    latent_history.append(
-                        latent.clone()
-                    )
-                    time_history.append(time)
-                    next_time_history.append(
-                        next_time
-                    )
-                    log_prob_history.append(
-                        log_prob
-                    )
-                    noise_level_history.append(
-                        used_noise_level
-                    )
-
                     feature_history.append(
                         tokenized_agent[
                             "noise_feat_cur"
@@ -1214,117 +955,47 @@ class ScaleFlow(nn.Module):
             "expert_input"
         ][ego_mask]
 
+        # AWM trains from the final clean endpoint irrespective of sampler.
+        tokenized_agent["gen_z"] = latent.detach()
+
         if not self.use_sde:
-            tokenized_agent["gen_z"] = latent
             return latent
-
-        latent_stack = torch.stack(
-            latent_history,
-            dim=1,
-        )
-
-        time_stack = torch.stack(
-            time_history,
-            dim=1,
-        )
-
-        next_time_stack = torch.stack(
-            next_time_history,
-            dim=1,
-        )
-
-        log_prob_stack = torch.stack(
-            log_prob_history,
-            dim=1,
-        )
-
-        noise_level_stack = torch.stack(
-            noise_level_history,
-            dim=1,
-        )
 
         feature_stack = torch.stack(
             feature_history,
             dim=1,
         )
 
-        selected_current = self._gather_steps(
-            latent_stack[:, :-1],
-            agent_branch_steps,
-        )
-
-        selected_next = self._gather_steps(
-            latent_stack[:, 1:],
-            agent_branch_steps,
-        )
-
-        selected_time = self._gather_steps(
-            time_stack,
-            agent_branch_steps,
-        )
-
-        selected_next_time = self._gather_steps(
-            next_time_stack,
-            agent_branch_steps,
-        )
-
-        selected_log_prob = self._gather_steps(
-            log_prob_stack,
-            agent_branch_steps,
-        )
-
-        selected_noise_level = self._gather_steps(
-            noise_level_stack,
-            agent_branch_steps,
-        )
-
         selected_features = self._gather_steps(
             feature_stack,
             agent_branch_steps,
         )
-
-        tokenized_agent["sde_z"] = (
-            selected_current,
-            selected_next,
-            selected_log_prob.detach(),
-        )
-
-        tokenized_agent["sde_t"] = (
-            selected_time,
-            selected_next_time,
-        )
-
-        tokenized_agent[ "sde_noise_level"] = selected_noise_level.detach()
-
         tokenized_agent["noise_feat"] = selected_features
 
         return latent
 
     # ==================================================================
-    # SDE transition and log-probability
+    # SDE-consistent finite transition
     # ==================================================================
-    def sde_step_with_logprob(
+    def _sde_consistent_step(
         self,
         sigma: Tensor,
         sigma_prev: Tensor,
         model_output: Tensor,
         sample: Tensor,
         noise_level=0.1,
-        prev_sample: Optional[Tensor] = None,
-        sde_type: str = "sde_consistent",
     ):
         """Apply a frozen-clean-state, SDE-consistent finite transition.
 
         Args:
-            sigma: Current noisy time, ``1 - flow_time``.
-            sigma_prev: Next noisy time; must not exceed ``sigma``.
+            sigma: Current noisy time, 1 - flow_time.
+            sigma_prev: Next noisy time; must not exceed sigma.
             model_output: Flow velocity in noisy-time convention
                 (noise - data), in physical state units.
             sample: Current state in physical units.
-            noise_level: The log-SNR exploration coefficient ``eta`` in
-                ``eps(s) = eta * sqrt(s / (1 - s))``.  This may be
-                dimension-dependent.  Zero gives a deterministic transition.
-            prev_sample: Optional replayed next state for log-probability.
+            noise_level: The log-SNR exploration coefficient eta in
+                eps(s) = eta * sqrt(s / (1 - s)). This may be
+                dimension-dependent. Zero gives a deterministic transition.
 
         Under a locally frozen clean-state posterior mean, the exact step is
 
@@ -1341,35 +1012,13 @@ class ScaleFlow(nn.Module):
         """
         eps = self.sde_endpoint_eps
 
-        if sde_type not in {
-            "sde",
-            "sde_consistent",
-            "precise",
-        }:
-            raise ValueError(
-                f"Unsupported sde_type: {sde_type!r}."
-            )
-
         scale = self.model.normal_scale.to(
             device=sample.device,
             dtype=sample.dtype,
         ).clamp_min(eps)
 
-        model_output = (
-            model_output / scale
-        )
-
-        sample_normalized = (
-            self.model.normalize(sample)
-        )
-
-        previous_normalized = (
-            None
-            if prev_sample is None
-            else self.model.normalize(
-                prev_sample
-            )
-        )
+        model_output = model_output / scale
+        sample_normalized = self.model.normalize(sample)
 
         eta = torch.as_tensor(
             noise_level,
@@ -1395,20 +1044,18 @@ class ScaleFlow(nn.Module):
                 "but sigma_prev > sigma."
             )
 
-        # Convert noisy-time velocity into the two posterior means associated
-        # with z_sigma = (1-sigma) * x0 + sigma * epsilon.
+        # For z_sigma=(1-sigma)*x0+sigma*epsilon, recover the
+        # locally frozen clean and noise predictions.
         predicted_x0 = (
             sample_normalized
             - sigma * model_output
         )
-
         estimated_noise = (
             sample_normalized
             + (1.0 - sigma) * model_output
         )
 
-        # A(s', s) = eta^2 * log[s(1-s') / (s'(1-s))].  Computing rho in
-        # log-space is stable for small steps and dimension-wise schedules.
+        # Compute rho in log-space for stable small finite steps.
         log_base_ratio = (
             torch.log(sigma_prev.clamp_min(eps))
             + torch.log((1.0 - sigma).clamp_min(eps))
@@ -1416,9 +1063,7 @@ class ScaleFlow(nn.Module):
             - torch.log((1.0 - sigma_prev).clamp_min(eps))
         ).clamp_max(0.0)
 
-        log_rho = (
-            0.5 * eta.square() * log_base_ratio
-        )
+        log_rho = 0.5 * eta.square() * log_base_ratio
         rho = torch.exp(log_rho).clamp(0.0, 1.0)
 
         active_step = (sigma - sigma_prev) > eps
@@ -1429,7 +1074,7 @@ class ScaleFlow(nn.Module):
             & (sigma_prev > eps)
         )
 
-        # eta=0 and both endpoints are deterministic probability-flow steps.
+        # eta=0 and both endpoints use the deterministic probability flow.
         rho = torch.where(
             stochastic_dim,
             rho,
@@ -1440,101 +1085,23 @@ class ScaleFlow(nn.Module):
             (1.0 - sigma_prev) * predicted_x0
             + sigma_prev * rho * estimated_noise
         )
-
         transition_std = (
             sigma_prev
             * torch.sqrt(
                 (1.0 - rho.square()).clamp_min(0.0)
             )
         )
-
-        if previous_normalized is None:
-            previous_normalized = (
-                previous_mean
-                + transition_std
-                * torch.randn_like(
-                    model_output
-                )
-            )
-
-        # Deterministic coordinates do not have a Gaussian density and must
-        # not be included in the PPO likelihood ratio.
-        stochastic_dim = transition_std > eps
-        safe_transition_std = torch.where(
-            stochastic_dim,
-            transition_std,
-            torch.ones_like(transition_std),
+        previous_normalized = (
+            previous_mean
+            + transition_std
+            * torch.randn_like(model_output)
         )
-
-        log_prob_element = (
-            -(
-                previous_normalized.detach()
-                - previous_mean
-            ).square()
-            / (
-                2.0
-                * safe_transition_std.square()
-            )
-            - torch.log(
-                safe_transition_std
-            )
-            - 0.5
-            * math.log(
-                2.0 * math.pi
-            )
-        )
-
-        log_prob_element = torch.where(
-            stochastic_dim,
-            log_prob_element,
-            torch.zeros_like(log_prob_element),
-        )
-
-        # Joint diagonal-Gaussian log-probability.  A mean over dimensions is
-        # not the likelihood required by PPO.
-        log_prob = log_prob_element.sum(
-            dim=tuple(
-                range(
-                    1,
-                    log_prob_element.ndim,
-                )
-            )
-        )
-
-        previous_sample = (
-            self.model.denormalize(
-                previous_normalized
-            )
+        previous_sample = self.model.denormalize(
+            previous_normalized
         )
 
         return (
             previous_sample,
-            log_prob,
             previous_mean,
             transition_std,
         )
-
-    def repeat_input_copy(self, tokenized_agent, n_step):
-        out = copy.copy(tokenized_agent)
-
-        num_graphs = tokenized_agent["num_graphs"]
-        batch = tokenized_agent["batch"]
-
-        out["repeat_batch"] = batch.unsqueeze(1).repeat(1, n_step)
-
-        repeated_batch = torch.stack(
-            [batch + num_graphs * k for k in range(n_step)],
-            dim=1,
-        ).transpose(0, 1).flatten(0, 1)
-
-        out["batch"] = repeated_batch
-        out["agent_type_embed"] = tokenized_agent["agent_type_embed"][None].repeat(
-            n_step, 1,1
-        ).flatten(0, 1)
-        out["num_graphs"] = num_graphs * n_step
-
-        out["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(
-            n_step, 1, 1
-        ).flatten(0, 1)
-
-        return out

@@ -550,7 +550,7 @@ class SMART_GAIL(SMART):
     # Complete update
     # ------------------------------------------------------------------
     def update(self, tokenized_map: TensorDict, tokenized_agent: TensorDict) -> Tensor:
-        self._initialize_reference_model_once()
+     #   self._initialize_reference_model_once()
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
         expert_nll, _ = self.get_pred(tokenized_map, tokenized_agent, key="expert")
