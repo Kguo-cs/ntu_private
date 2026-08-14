@@ -182,11 +182,11 @@ class SMART_GAIL(SMART):
         log_policy = selected_logits.log_softmax(dim=-1)
         policy = log_policy.exp()
         log_prob = log_policy.gather(1, selected_actions[:, None]).squeeze(1)
-        entropy = -(policy * log_policy).sum(dim=-1)
+        entropy = -(policy * log_policy).sum(dim=-1).mean()
         nll = -log_prob.mean()
 
         self._log_train(f"train/{key}_nll", nll)
-        self._log_train(f"train/{key}_entropy", entropy.mean())
+        self._log_train(f"train/{key}_entropy", entropy)
         return nll, log_prob,entropy
 
     def _initial_prediction_loss(
