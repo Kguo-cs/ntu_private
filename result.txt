@@ -658,6 +658,8 @@ bc40_start0eval0_inter2
 
 0.7881
 
+test:0.7869
+
 
 /home/ke/code/sim/src/waymo_data/bc40_t60_noego_l4_diff_epoch=31-step=389600.ckpt
 
