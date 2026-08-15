@@ -97,7 +97,7 @@ def _component_loss(
         #     beta=huber_beta,
         #     reduction="none",
         # )
-        loss=F.l1_loss(prediction, target, reduction="none").sqrt()
+        loss=F.l1_loss(prediction, target, reduction="none").square()
     else:
         loss = F.mse_loss(prediction, target, reduction="none")
     return loss.mean(-1)
