@@ -9,5 +9,5 @@ persistent_workers: true
 train_raw_dir: ${paths.cache_root}/training_map2_03_light #init10_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
 val_raw_dir: ${paths.cache_root}/validation_map2light #44097
 val_tfrecords_splitted: ${paths.cache_root}/validation_tfrecords_splitted
-test_raw_dir: ${paths.cache_root}/testing_map2
+test_raw_dir: ${paths.cache_root}/testing_map2light
 train_max_num: 32

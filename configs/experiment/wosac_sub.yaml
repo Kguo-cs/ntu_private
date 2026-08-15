@@ -18,10 +18,10 @@ model:
       temp: 1.0
     wosac_submission:
       is_active: true
-      method_name: "SMART-micro-DecompGAIL"
-      authors: Ke Guo
-      affiliation: ntu
-      description: Learning Realistic Traffic Behaviors with Decomposed Multi-Agent Generative Adversarial Imitation Learning
+      method_name: "SMART-fast-DecompGAIL"
+      authors: anonymous
+      affiliation: anonymous
+      description: anonymous
       method_link: anonymous
       account_name: anonymous
 
@@ -43,7 +43,7 @@ model:
     decoder:
       #hist_drop_prob: 0.1 #0.1 #0.1
 
-      dis_a2a_radius: 0
+      dis_a2a_radius: 10
       dis_a2a_neighbor: 20
 
 #      hidden_dim: 64
@@ -53,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_t30_noego_l4_epoch=31-step=389600.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -63,10 +63,10 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 128
-  test_batch_size: 128
-  num_workers: 32
+  val_batch_size: 256
+  test_batch_size: 256
+  num_workers: 1
   shuffle: false
   pin_memory: false
 
-action: validate
+action: test

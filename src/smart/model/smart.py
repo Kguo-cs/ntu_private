@@ -577,6 +577,7 @@ class SMART(LightningModule):
             pred_traj=pred_traj,
             pred_z=pred_z,
             pred_head=pred_head,
+            pred_sizes=[],
             global_rank=self.global_rank,
         )
         _gpu_dict_sync = self.wosac_submission.compute()
