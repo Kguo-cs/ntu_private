@@ -119,6 +119,7 @@ class SMARTAgentDecoder(nn.Module):
             token_mask=token_mask,
             goal_pos=tokenized_agent.get("goal_pos"),
             goal_mask=tokenized_agent.get("goal_mask"),
+            ego_mask=tokenized_agent.get("ego_mask")
         )
 
         pos_a=pos_a[:, -num_steps:]

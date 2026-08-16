@@ -12,9 +12,9 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_map2light
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_match_l1_v1/2026-08-10_22-59-30/bc/mw9dc0b4/checkpoints/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ./
 
-rsync -avz ke@10.87.225.106:/home/ke/code/sim/src/logs/my/2026-07-11_15-57-40/wosac_submission.tar.gz ./
+rsync -avz ke@10.87.225.106:~/code/sim/src/logs/all32_d58_std005_token10_pre_sq/2026-08-15_21-39-04/bc/iwgs04wt/checkpoints/all32_d58_std005_token10_pre_sq-epoch=3-step=159798-valmeta=0.6539.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/bc_init64_l1_v1/2026-08-10_14-49-03/bc/kzfa8wxt/checkpoints/last.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL32_interdis_mean_203_t3_nodiff/2026-02-24_02-00-15/sim/0xfsyccz/checkpoints/epoch=9-step=152190.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo

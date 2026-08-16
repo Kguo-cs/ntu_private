@@ -48,9 +48,7 @@ class AgentTokenEncoder(nn.Module):
 
         self.use_goal = token_processor.use_goal
 
-        self.differentiable_edge = bool(
-            token_processor.use_gradient_penalty or not self.discriminator
-        )
+        self.differentiable_edge = False
         # self.differentiable_edge=True
 
         # Compatibility flags used by existing configs.
@@ -70,6 +68,7 @@ class AgentTokenEncoder(nn.Module):
             hidden_dim,
             hidden_dim,
         )
+        self.ego_embed = nn.Embedding(2, hidden_dim)
 
         input_dim_token = 8
         if not self.discriminator:
@@ -221,11 +220,12 @@ class AgentTokenEncoder(nn.Module):
         self,
         agent_type: Tensor,
         agent_shape: Optional[Tensor],
+        ego_mask: Optional[Tensor],
         num_steps: int,
     ) -> Optional[Tensor]:
         feature = self.type_a_emb(agent_type) + self.shape_emb(
             agent_shape[..., : self.shape_dim]
-        )
+        )+self.ego_embed(ego_mask.long())
         return feature[:, None].expand(-1, num_steps, -1)
 
     # ------------------------------------------------------------------
@@ -242,6 +242,7 @@ class AgentTokenEncoder(nn.Module):
         token_mask: Optional[Tensor] = None,
         goal_pos: Optional[Tensor] = None,
         goal_mask: Optional[Tensor] = None,
+        ego_mask: Optional[Tensor] = None,
     ):
         n_agent, n_step = head_vector_a.shape[:2]
 
@@ -282,9 +283,11 @@ class AgentTokenEncoder(nn.Module):
                 dim=-1,
             )
 
+
         categorical = self._categorical_feature(
             agent_type,
             agent_shape,
+            ego_mask,
             n_step,
         )
 

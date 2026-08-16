@@ -28,18 +28,18 @@ model:
     finetune: true
     smart : false
 
-    #decoder:
-      #hist_drop_prob: 0.1 #0.1 #0.1
-      #dis_a2a_radius: 10
+    decoder:
+    #hist_drop_prob: 0.1 #0.1 #0.1
+      dis_a2a_radius: 10
 #      pl2pl_radius: 300
 #      pl2a_radius: 300
 #      a2a_radius: 300
     token_processor:
       pred_init: True
-      learn_init: False
+      learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_d58_std005_token10_pre_sq-epoch=3-step=159798-valmeta=0.6539.ckpt"
 
 trainer:
   limit_train_batches: 1.0
@@ -55,5 +55,5 @@ data:
   shuffle: false
   pin_memory: false
 
-action: validate
-#action: test
+#action: validate
+action: test
