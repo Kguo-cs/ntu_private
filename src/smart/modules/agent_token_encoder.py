@@ -70,7 +70,7 @@ class AgentTokenEncoder(nn.Module):
             hidden_dim,
             hidden_dim,
         )
-       # self.ego_embed = nn.Embedding(2, hidden_dim)
+        self.ego_embed = nn.Embedding(2, hidden_dim)
 
         input_dim_token = 8
         if not self.discriminator:
@@ -227,7 +227,7 @@ class AgentTokenEncoder(nn.Module):
     ) -> Optional[Tensor]:
         feature = self.type_a_emb(agent_type) + self.shape_emb(
             agent_shape[..., : self.shape_dim]
-        )#+self.ego_embed(ego_mask.long())
+        )+self.ego_embed(ego_mask.long())
         return feature[:, None].expand(-1, num_steps, -1)
 
     # ------------------------------------------------------------------
