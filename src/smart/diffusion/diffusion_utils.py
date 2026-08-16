@@ -155,12 +155,12 @@ def matching_loss(
 
     if mode == "deterministic":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
-        pos_loss = _component_loss(fake_pos, real_pos, False, huber_beta)
+        pos_loss = _component_loss(fake_pos, real_pos, True, huber_beta)
         heading_loss = _component_loss(
-            fake_heading, real_heading, False, huber_beta
+            fake_heading, real_heading, True, huber_beta
         )
-        shape_loss = _component_loss(fake_shape, real_shape, False, huber_beta)
-        vel_loss = _component_loss(fake_vel, real_vel, False, huber_beta)
+        shape_loss = _component_loss(fake_shape, real_shape, True, huber_beta)
+        vel_loss = _component_loss(fake_vel, real_vel, True, huber_beta)
 
     elif mode == "gaussian":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
