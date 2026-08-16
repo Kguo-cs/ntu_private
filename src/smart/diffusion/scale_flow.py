@@ -216,24 +216,29 @@ class ScaleFlow(nn.Module):
         x: Tensor,
         tokenized_agent: HeteroData,
     ) -> Tensor:
-        normalized_x = self.model.normalize(x)
-        noise = torch.randn_like(normalized_x)
+        #normalized_x = self.model.normalize(x)
+        noise = torch.randn_like(x)
+        noise=self.model.denormalize(
+            noise
+        )
 
         ego_mask = tokenized_agent[
             "ego_mask"
         ].bool()
-        noise[ego_mask] = normalized_x[ego_mask]
+        noise[ego_mask] = x[ego_mask]
 
         matched_index = get_closest_sum_idx_fast(
             noise,
-            normalized_x,
+            x,
             tokenized_agent,
             all_state=True,
         )
 
-        return self.model.denormalize(
-            noise[matched_index]
-        )
+        return noise[matched_index]
+
+        # return self.model.denormalize(
+        #     noise[matched_index]
+        # )
 
     def _sample_time(
         self,
