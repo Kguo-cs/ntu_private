@@ -48,7 +48,9 @@ class AgentTokenEncoder(nn.Module):
 
         self.use_goal = token_processor.use_goal
 
-        self.differentiable_edge = False
+        self.differentiable_edge = bool(
+            token_processor.use_gradient_penalty or not self.discriminator
+        )
         # self.differentiable_edge=True
 
         # Compatibility flags used by existing configs.
