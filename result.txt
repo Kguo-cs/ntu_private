@@ -555,6 +555,8 @@ bc40_start0eval0_inter2
 
 0.78807
 
+test：0.7869
+
 /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_noego_alldiff_epoch=31-step=389600.ckpt
 
 | Metric                                | Value      |
