@@ -99,7 +99,7 @@ def _component_loss(
         # )
         loss=F.l1_loss(prediction, target, reduction="none")
     else:
-        loss = F.mse_loss(prediction, target, reduction="none")
+        loss = F.l1_loss(prediction, target, reduction="none").square()
     return loss.mean(-1)
 
 
