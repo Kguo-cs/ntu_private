@@ -470,7 +470,7 @@ def get_diff_loss(
         )
         collision_loss = (edge_loss * weight[start_idx]).mean()
 
-    w_pos=w_heading=w_shape=w_vel=0.1
+    w_pos=w_heading=w_shape=w_vel=0.01
 
     real_state=real_state/scale
     fake_state=fake_state/scale
