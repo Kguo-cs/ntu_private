@@ -393,7 +393,7 @@ class ScaleFlow(nn.Module):
             sigma / (1.0 - sigma_for_ratio).clamp_min(eps)
         ) * torch.sqrt(delta_t.clamp_min(eps))
 
-        noise_level =target_std / base_std.clamp_min(eps)
+        noise_level =0.2#target_std / base_std.clamp_min(eps)
 
        # std= noise_level*base_std#0.1 #0.1*(1-time_mid) #.square() #*(1-time_mid) #0.5*(1-time_mid)#
 
@@ -523,12 +523,17 @@ class ScaleFlow(nn.Module):
 
         tokenized_agent=self.repeat_input_copy(tokenized_agent,num_branches)
 
-        velocities, _ = self._model_velocity(
+        velocities, pred_x0 = self._model_velocity(
             current.transpose(0, 1).flatten(0, 1),
             time.transpose(0, 1).flatten(0, 1),
             tokenized_agent,
             map_feature,
         )
+        pred_x0 = pred_x0.reshape(
+            num_branches,
+            num_agents,
+            -1,
+        ).transpose(0, 1)
 
         velocities = velocities.reshape(
             num_branches,
@@ -553,18 +558,32 @@ class ScaleFlow(nn.Module):
             num_agents,
             num_branches,
         )
+        #
+        # (
+        #     _,
+        #     active_log_prob,
+        #     _,
+        #     _,
+        # ) = self.sde_step_with_logprob(
+        #     sigma=1.0 - time[active],
+        #     sigma_prev=1.0 - next_time[active],
+        #     model_output=-velocities[active],
+        #     sample=current[active],
+        #     noise_level=branch_noise[active],
+        #     prev_sample=next_sample[active],
+        # )
 
         (
             _,
             active_log_prob,
             _,
             _,
-        ) = self.sde_step_with_logprob(
+        ) = self.precise_step_with_logprob(
             sigma=1.0 - time[active],
             sigma_prev=1.0 - next_time[active],
-            model_output=-velocities[active],
+            pred_x0=pred_x0[active],
             sample=current[active],
-            noise_level=branch_noise[active],
+            eta=branch_noise[active],
             prev_sample=next_sample[active],
         )
 
@@ -1006,17 +1025,29 @@ class ScaleFlow(nn.Module):
             stochastic &= noise_level.amax(dim=-1) > 0
 
             if torch.any(stochastic):
+                # (
+                #     stochastic_next,
+                #     stochastic_log_prob,
+                #     _,
+                #     _,
+                # ) = self.sde_step_with_logprob(
+                #     sigma=1.0 - time[stochastic],
+                #     sigma_prev=1.0 - next_time[stochastic],
+                #     model_output=-velocity[stochastic],
+                #     sample=latent[stochastic],
+                #     noise_level=noise_level[stochastic],
+                # )
                 (
                     stochastic_next,
                     stochastic_log_prob,
                     _,
                     _,
-                ) = self.sde_step_with_logprob(
+                ) = self.precise_step_with_logprob(
                     sigma=1.0 - time[stochastic],
                     sigma_prev=1.0 - next_time[stochastic],
-                    model_output=-velocity[stochastic],
+                    pred_x0=x0[stochastic],
                     sample=latent[stochastic],
-                    noise_level=noise_level[stochastic],
+                    eta=noise_level[stochastic],
                 )
 
                 next_latent[stochastic] = stochastic_next
@@ -1490,3 +1521,188 @@ class ScaleFlow(nn.Module):
         ).flatten(0, 1)
 
         return out
+
+    def precise_step_with_logprob(
+            self,
+            sigma: Tensor,
+            sigma_prev: Tensor,
+            pred_x0: Tensor,
+            sample: Tensor,
+            eta=0.2,
+            prev_sample: Optional[Tensor] = None,
+    ):
+        """
+        Precise finite-step SDE transition.
+
+        Flow convention:
+            z_sigma = (1 - sigma) * x0 + sigma * noise
+
+        Sampling direction:
+            sigma_prev < sigma
+
+        Equivalent user-time convention:
+            z_t = (1 - t) * noise + t * x0
+            t increases from 0 -> 1.
+        """
+        eps = 1e-6
+
+        # ---------------------------------------------------------
+        # Normalize everything into flow latent space.
+        # ---------------------------------------------------------
+        sample_normalized = self.model.normalize(sample)
+        x0_normalized = self.model.normalize(pred_x0)
+
+        previous_normalized = (
+            None
+            if prev_sample is None
+            else self.model.normalize(prev_sample)
+        )
+
+        sigma = torch.as_tensor(
+            sigma,
+            device=sample.device,
+            dtype=sample.dtype,
+        )
+
+        sigma_prev = torch.as_tensor(
+            sigma_prev,
+            device=sample.device,
+            dtype=sample.dtype,
+        )
+
+        eta = torch.as_tensor(
+            eta,
+            device=sample.device,
+            dtype=sample.dtype,
+        )
+
+        # reverse denoising direction:
+        # sigma_prev <= sigma
+        if torch.any(sigma_prev > sigma + 1e-7):
+            raise ValueError(
+                "Expected sigma_prev <= sigma."
+            )
+
+        safe_sigma = sigma.clamp_min(eps)
+
+        # ---------------------------------------------------------
+        # epsilon_hat implied by current z and predicted x0:
+        #
+        # z = (1-sigma) * x0 + sigma * eps
+        # ---------------------------------------------------------
+        eps_hat = (
+                          sample_normalized
+                          - (1.0 - sigma) * x0_normalized
+                  ) / safe_sigma
+
+        # ---------------------------------------------------------
+        # Precise rho:
+        #
+        # rho =
+        # [ sigma_prev (1-sigma)
+        #   / sigma (1-sigma_prev) ]^(eta^2 / 2)
+        # ---------------------------------------------------------
+        numerator = (
+                sigma_prev.clamp_min(0.0)
+                * (1.0 - sigma).clamp_min(0.0)
+        )
+
+        denominator = (
+                sigma.clamp_min(eps)
+                * (1.0 - sigma_prev).clamp_min(eps)
+        )
+
+        base_ratio = (
+                numerator / denominator
+        ).clamp(
+            min=0.0,
+            max=1.0,
+        )
+
+        # log-space is numerically more stable than pow()
+        log_base = torch.log(
+            base_ratio.clamp_min(1e-12)
+        )
+
+        rho = torch.exp(
+            0.5 * eta.square() * log_base
+        )
+
+        # exact boundary behavior for eta > 0
+        rho = torch.where(
+            numerator <= eps,
+            torch.zeros_like(rho),
+            rho,
+        )
+
+        # eta=0 should recover deterministic flow
+        rho = torch.where(
+            eta.abs() <= eps,
+            torch.ones_like(rho),
+            rho,
+        )
+
+        rho = rho.clamp(0.0, 1.0)
+
+        # ---------------------------------------------------------
+        # Closed-form finite-step Gaussian transition.
+        # ---------------------------------------------------------
+        previous_mean = (
+                (1.0 - sigma_prev) * x0_normalized
+                + sigma_prev * rho * eps_hat
+        )
+
+        transition_std = (
+                sigma_prev
+                * torch.sqrt(
+            (1.0 - rho.square()).clamp_min(0.0)
+        )
+        )
+
+        # ---------------------------------------------------------
+        # Sampling
+        # ---------------------------------------------------------
+        if previous_normalized is None:
+            previous_normalized = (
+                    previous_mean
+                    + transition_std
+                    * torch.randn_like(previous_mean)
+            )
+
+        # ---------------------------------------------------------
+        # log p(z_{next} | z_current)
+        # ---------------------------------------------------------
+        safe_std = transition_std.clamp_min(eps)
+
+        log_prob_element = (
+                -0.5
+                * (
+                        (
+                                previous_normalized.detach()
+                                - previous_mean
+                        )
+                        / safe_std
+                ).square()
+                - torch.log(safe_std)
+                - 0.5 * math.log(2.0 * math.pi)
+        )
+
+        log_prob = log_prob_element.mean(
+            dim=tuple(
+                range(
+                    1,
+                    log_prob_element.ndim,
+                )
+            )
+        )
+
+        previous_sample = self.model.denormalize(
+            previous_normalized
+        )
+
+        return (
+            previous_sample,
+            log_prob,
+            previous_mean,
+            transition_std,
+        )
