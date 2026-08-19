@@ -968,6 +968,11 @@ all32_d58_std005_l1_v1_l12-epoch=4-step=228282-valmeta=0.6517.ck
 0.6500
 
 
+all32_d58_std005_token10_pre_sq-epoch=3-step=159798-valmeta=0.6539.ckpt
+
+0.6493
+
+
 take all position for generation
 simformer: For each
 agent, it sequentially predicts (a) an agent type token,
