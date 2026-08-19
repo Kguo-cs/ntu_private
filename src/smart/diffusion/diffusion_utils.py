@@ -99,7 +99,7 @@ def _component_loss(
         # )
         loss=F.l1_loss(prediction, target, reduction="none")
     else:
-        loss = F.mse_loss(prediction, target, reduction="none")#.square()
+        loss = F.l1_loss(prediction, target, reduction="none")#.square()
     return loss.mean(-1)
 
 
@@ -472,11 +472,17 @@ def get_diff_loss(
         )
         collision_loss = (edge_loss * weight[start_idx]).mean()
 
-    # w_pos=w_heading=w_shape=w_vel=0.1
-    w_pos=5
+    w_pos=0.1
     w_heading=0.05
-    w_shape=0.01
-    w_vel=1
+    w_shape=0.05
+    w_vel=0.1
+
+
+    # w_pos=w_heading=w_shape=w_vel=0.1
+    # w_pos=5
+    # w_heading=0.05
+    # w_shape=0.01
+    # w_vel=1
 
 
 
