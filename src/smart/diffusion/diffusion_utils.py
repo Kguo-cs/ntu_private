@@ -192,14 +192,14 @@ def matching_loss(
         shape_loss = gm_kl_loss(fake_shape, logits, shape_std, real_shape)
         vel_loss = gm_kl_loss(fake_vel, logits, vel_std, real_vel)
 
-    # total_loss = (
-    #     w_pos * pos_loss
-    #     + w_heading * heading_loss
-    #     + w_shape * shape_loss
-    #     + w_vel * vel_loss
-    # )
+    total_loss = (
+        w_pos * pos_loss
+        + w_heading * heading_loss
+        + w_shape * shape_loss
+        + w_vel * vel_loss
+    )
 
-    total_loss=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)
+    # total_loss=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
@@ -472,7 +472,13 @@ def get_diff_loss(
         )
         collision_loss = (edge_loss * weight[start_idx]).mean()
 
-    w_pos=w_heading=w_shape=w_vel=0.05
+    # w_pos=w_heading=w_shape=w_vel=0.1
+    w_pos=5
+    w_heading=0.05
+    w_shape=0.01
+    w_vel=1
+
+
 
     real_state=real_state/scale
     fake_state=fake_state/scale
