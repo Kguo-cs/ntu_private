@@ -529,11 +529,11 @@ class ScaleFlow(nn.Module):
             tokenized_agent,
             map_feature,
         )
-        pred_x0 = pred_x0.reshape(
-            num_branches,
-            num_agents,
-            -1,
-        ).transpose(0, 1)
+        # pred_x0 = pred_x0.reshape(
+        #     num_branches,
+        #     num_agents,
+        #     -1,
+        # ).transpose(0, 1)
 
         velocities = velocities.reshape(
             num_branches,
@@ -558,34 +558,34 @@ class ScaleFlow(nn.Module):
             num_agents,
             num_branches,
         )
-        #
-        # (
-        #     _,
-        #     active_log_prob,
-        #     _,
-        #     _,
-        # ) = self.sde_step_with_logprob(
-        #     sigma=1.0 - time[active],
-        #     sigma_prev=1.0 - next_time[active],
-        #     model_output=-velocities[active],
-        #     sample=current[active],
-        #     noise_level=branch_noise[active],
-        #     prev_sample=next_sample[active],
-        # )
 
         (
             _,
             active_log_prob,
             _,
             _,
-        ) = self.precise_step_with_logprob(
+        ) = self.sde_step_with_logprob(
             sigma=1.0 - time[active],
             sigma_prev=1.0 - next_time[active],
-            pred_x0=pred_x0[active],
+            model_output=-velocities[active],
             sample=current[active],
-            eta=branch_noise[active],
+            noise_level=branch_noise[active],
             prev_sample=next_sample[active],
         )
+
+        # (
+        #     _,
+        #     active_log_prob,
+        #     _,
+        #     _,
+        # ) = self.precise_step_with_logprob(
+        #     sigma=1.0 - time[active],
+        #     sigma_prev=1.0 - next_time[active],
+        #     pred_x0=pred_x0[active],
+        #     sample=current[active],
+        #     eta=branch_noise[active],
+        #     prev_sample=next_sample[active],
+        # )
 
         log_prob[active] = active_log_prob
 
@@ -1025,31 +1025,31 @@ class ScaleFlow(nn.Module):
             stochastic &= noise_level.amax(dim=-1) > 0
 
             if torch.any(stochastic):
-                # (
-                #     stochastic_next,
-                #     stochastic_log_prob,
-                #     _,
-                #     _,
-                # ) = self.sde_step_with_logprob(
-                #     sigma=1.0 - time[stochastic],
-                #     sigma_prev=1.0 - next_time[stochastic],
-                #     model_output=-velocity[stochastic],
-                #     sample=latent[stochastic],
-                #     noise_level=noise_level[stochastic],
-                # )
                 (
                     stochastic_next,
                     stochastic_log_prob,
                     _,
                     _,
-                ) = self.precise_step_with_logprob(
+                ) = self.sde_step_with_logprob(
                     sigma=1.0 - time[stochastic],
                     sigma_prev=1.0 - next_time[stochastic],
-                    pred_x0=x0[stochastic],
+                    model_output=-velocity[stochastic],
                     sample=latent[stochastic],
-                    eta=noise_level[stochastic],
+                    noise_level=noise_level[stochastic],
                 )
-
+                # (
+                #     stochastic_next,
+                #     stochastic_log_prob,
+                #     _,
+                #     _,
+                # ) = self.precise_step_with_logprob(
+                #     sigma=1.0 - time[stochastic],
+                #     sigma_prev=1.0 - next_time[stochastic],
+                #     pred_x0=x0[stochastic],
+                #     sample=latent[stochastic],
+                #     eta=noise_level[stochastic],
+                # )
+                #
                 next_latent[stochastic] = stochastic_next
                 log_prob[stochastic] = stochastic_log_prob
 
