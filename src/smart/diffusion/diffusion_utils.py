@@ -421,7 +421,7 @@ def _time_weight(
     valid = (t > 0) & (t < 1)
 
     if x_pred:
-        weight = (1 - t).clamp_min(t_eps).reciprocal().square()
+        weight = (1 - t).clamp_min(t_eps).reciprocal()#.square()
         if max_loss_weight is not None:
             weight = weight.clamp_max(max_loss_weight)
     else:
@@ -472,9 +472,9 @@ def get_diff_loss(
         )
         collision_loss = (edge_loss * weight[start_idx]).mean()
 
-    w_pos=0.1
-    w_heading=0.1#0.05
-    w_shape=0.1#0.05
+    w_pos=1
+    w_heading=1#0.05
+    w_shape=1#0.05
     w_vel=1
 
 

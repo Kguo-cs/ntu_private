@@ -10,7 +10,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=6
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_map2light ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_match_l1_v1/2026-08-10_22-59-30/bc/mw9dc0b4/checkpoints/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/all32_d58_std005_token10_l1_scale05/2026-08-19_10-01-55/bc/5mrpg53y/checkpoints/last.ckpt ./
 
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/all32_d58_std005_token10_pre_sq/2026-08-15_21-39-04/bc/iwgs04wt/checkpoints/all32_d58_std005_token10_pre_sq-epoch=3-step=159798-valmeta=0.6539.ckpt ./
 
