@@ -380,7 +380,7 @@ class ScaleFlow(nn.Module):
         delta_t = (next_time - time).clamp_min(0.0)
         time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
 
-        target_std = 0.1 #(1-time_mid) #*time_mid #(1-time_mid)#time_mid * (1-time_mid)*0.5
+        target_std = 0.05 #(1-time_mid) #*time_mid #(1-time_mid)#time_mid * (1-time_mid)*0.5
 
         # Match the transition_std formula in sde_step_with_logprob().
         sigma = (1.0 - time).clamp_min(eps)
