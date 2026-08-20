@@ -472,10 +472,10 @@ def get_diff_loss(
         )
         collision_loss = (edge_loss * weight[start_idx]).mean()
 
-    w_pos=1
-    w_heading=1#0.05
-    w_shape=1#0.05
-    w_vel=1
+    w_pos=10
+    w_heading=10#0.05
+    w_shape=10#0.05
+    w_vel=10
 
 
     # w_pos=w_heading=w_shape=w_vel=0.1
