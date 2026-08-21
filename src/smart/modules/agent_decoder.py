@@ -259,7 +259,6 @@ class SMARTAgentDecoder(nn.Module):
             )
             current_step = head_a.shape[1]
 
-
             valid_mask = torch.ones(
                 head_a.shape[:2],
                 dtype=torch.bool,

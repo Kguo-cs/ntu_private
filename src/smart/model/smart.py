@@ -127,6 +127,7 @@ class SMART(LightningModule):
         self.n_batch_wosac_metric = int(model_config.n_batch_wosac_metric)
 
         scenario_gen = bool(self.token_processor.pred_init)
+        self.scenario_gen=scenario_gen
         self.challenge_type = (
             ChallengeType.SCENARIO_GEN if scenario_gen else ChallengeType.SIM_AGENTS
         )
@@ -190,6 +191,15 @@ class SMART(LightningModule):
     def validation_step(self, data, batch_idx):
         # if batch_idx<127:
         #     return None
+        self.token_processor.pred_init=self.scenario_gen
+        self.token_processor.learn_init=self.scenario_gen
+        if self.token_processor.pred_init:
+            self.encoder.agent_encoder.interative_decoder.gail_start_step = 0
+            self.encoder.agent_encoder.interative_decoder.dis_start_step = 0 if self.token_processor.learn_init else 1
+        else:
+            self.encoder.agent_encoder.interative_decoder.gail_start_step = 1
+            self.encoder.agent_encoder.interative_decoder.dis_start_step = 2
+
         tokenized_map, tokenized_agent = self.token_processor(data)
 
         # All ranks must enter submission synchronization. Normal validation
