@@ -7,6 +7,7 @@ implementation, while the training stages are split into small helpers.
 from __future__ import annotations
 
 import copy
+import random
 from collections import deque
 from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
 
@@ -73,19 +74,14 @@ class SMART_GAIL(SMART):
 
         self.use_lcf = bool(self.encoder.use_lcf)
         self.use_gradient_penalty = bool(self.token_processor.use_gradient_penalty)
-        self.pred_init = bool(self.token_processor.pred_init)
         self.use_kl_penalty=False
-
-        decoder = self.encoder.agent_encoder.interative_decoder
-        self.gail_start_step = int(decoder.gail_start_step)
-        self.dis_start_step = int(decoder.dis_start_step)
 
         if self.gail:
             self.return_meanstd = RunningMeanStdTorch(shape=(1,))
             self.ego_return_meanstd = RunningMeanStdTorch(shape=(1,))
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1,))
 
-        init_uses_gan = self.pred_init and self.encoder.init_decoder.use_gan
+        init_uses_gan = self.token_processor.pred_init and self.encoder.init_decoder.use_gan
         #self.automatic_optimization=True
         if self.gail or init_uses_gan:
             self.automatic_optimization = False
@@ -162,7 +158,7 @@ class SMART_GAIL(SMART):
         if logits is None:
             return _zero(reference), reference.new_empty((0,)),reference.new_empty((0,))
 
-        start_step = 0 if key == "expert" else self.gail_start_step
+        start_step = 0 if key == "expert" else self.encoder.discriminator.interative_decoder.gail_start_step
         valid_mask = agent["valid_mask"][:, start_step:]
         actions = agent["sampled_idx"][:, start_step + 1 :].long()
         state_action_mask = get_train_mask(agent, start_step)
@@ -316,7 +312,7 @@ class SMART_GAIL(SMART):
         if not discriminator.training:
             return _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards").detach()
 
-        if self.dis_start_step==0:
+        if self.encoder.discriminator.interative_decoder.dis_start_step==0:
             self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
             self._log_train(f"train/{key}_ego_score1", torch.sigmoid(ego_logits[mask_t[0].sum():]).mean())
 
@@ -392,7 +388,7 @@ class SMART_GAIL(SMART):
         gp_loss = _zero(ego_logits)
         if use_gp:
             gp_valid_mask = agent["valid_mask"].clone()
-            gp_valid_mask[:, : self.dis_start_step] = False
+            gp_valid_mask[:, : self.encoder.discriminator.interative_decoder.dis_start_step] = False
             #
             # (
             #     gp_loss,
@@ -448,8 +444,8 @@ class SMART_GAIL(SMART):
         )
 
     def _discriminator_mask(self, agent: Mapping[str, Any]) -> Tensor:
-        mask_t = agent["valid_mask"].transpose(0, 1)[self.dis_start_step :]
-        if not self.pred_init:
+        mask_t = agent["valid_mask"].transpose(0, 1)[self.encoder.discriminator.interative_decoder.dis_start_step :]
+        if not self.token_processor.pred_init:
             train_mask = agent.get("train_mask")
             if train_mask is not None:
                 mask_t = mask_t[:, train_mask]
@@ -494,7 +490,7 @@ class SMART_GAIL(SMART):
 
         # _discriminator_mask() applies train_mask on the agent dimension,
         # so metadata must use exactly the same filtering.
-        if not self.pred_init:
+        if not self.token_processor.pred_init:
             train_mask = agent.get("train_mask")
             if train_mask is not None:
                 batch = batch[train_mask]
@@ -562,7 +558,7 @@ class SMART_GAIL(SMART):
         if not self.gail:
             return expert_nll
 
-        if self.pred_init:
+        if self.token_processor.pred_init:
             expert_agent["pred_mask"] = None
         else:
             expert_agent["train_mask"] =  expert_agent["pred_mask"]
@@ -646,12 +642,7 @@ class SMART_GAIL(SMART):
 
     def _optimizers(self):
         optimizers = tuple(self.optimizers())
-        expected = 3 if self.token_processor.learn_init else 2
-        if len(optimizers) != expected:
-            raise RuntimeError(
-                f"Expected {expected} optimizers, received {len(optimizers)}."
-            )
-        if expected == 3:
+        if len(optimizers) == 3:
             actor, discriminator, initial = optimizers
         else:
             actor, discriminator = optimizers
@@ -693,10 +684,10 @@ class SMART_GAIL(SMART):
             value,
         )
 
-        if "train_mask" in rollout_agent:
+        if "train_mask" in rollout_agent and rollout_agent["train_mask"] is not None:
             policy_transition_mask = get_train_mask(
                 rollout_agent,
-                self.gail_start_step,
+                self.encoder.discriminator.interative_decoder.gail_start_step,
             )
 
             # 对齐 advantage 的最后 policy 部分
@@ -785,6 +776,27 @@ class SMART_GAIL(SMART):
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
         #self.token_processor.train()
+        if random.random()<0.5:
+            self.token_processor.learn_init = False
+            self.token_processor.pred_init = False
+        else:
+            self.token_processor.learn_init = True
+            self.token_processor.pred_init = True
+
+
+        if self.token_processor.pred_init:
+            self.encoder.discriminator.interative_decoder.gail_start_step = 0
+            self.encoder.discriminator.interative_decoder.dis_start_step = 0 if self.token_processor.learn_init else 1
+            self.encoder.agent_encoder.interative_decoder.gail_start_step = 0
+            self.encoder.agent_encoder.interative_decoder.dis_start_step = 0 if self.token_processor.learn_init else 1
+
+        else:
+            self.encoder.agent_encoder.interative_decoder.gail_start_step = 1
+            self.encoder.agent_encoder.interative_decoder.dis_start_step = 2
+
+            self.encoder.discriminator.interative_decoder.gail_start_step = 1
+            self.encoder.discriminator.interative_decoder.dis_start_step = 2
+
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
@@ -867,7 +879,7 @@ class SMART_GAIL(SMART):
                     init_optimizer,
                 ]
 
-            if self.pred_init:
+            if self.token_processor.pred_init:
                 actor_modules = (
                     self.encoder.agent_encoder.agent_token_embedding,
                     self.encoder.agent_encoder.interative_decoder,

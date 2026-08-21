@@ -570,8 +570,6 @@ class InterativeDecoder(nn.Module):
             later_ta = mask_a[:, step >= self.dis_start_step].T
 
             if agent_train_mask is None:
-                if dis_mask.numel() != later_ta.numel():
-                    raise ValueError("dis_mask has the wrong size.")
                 dense_dis = dis_mask.reshape_as(later_ta)
             else:
                 selected_shape = later_ta[:, agent_train_mask].shape

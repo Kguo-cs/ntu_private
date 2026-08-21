@@ -62,12 +62,6 @@ class SMARTDecoder(nn.Module):
         self.token_processor = token_processor
         self.finetune = bool(finetune)
 
-        self.pred_init = bool(token_processor.pred_init)
-        self.learn_init = bool(token_processor.learn_init)
-        if self.learn_init and not self.pred_init:
-            raise ValueError(
-                "token_processor.learn_init=True requires pred_init=True."
-            )
 
         self.gail = dis_a2a_radius > 0
         self.use_lcf = reward_weight != 0
@@ -125,7 +119,7 @@ class SMARTDecoder(nn.Module):
         self.nei_value_network: Optional[MLPLayer] = None
         self.init_value_network: Optional[MLPLayer] = None
 
-        if self.pred_init:
+        if self.token_processor.pred_init:
             self._build_initial_decoder(
                 hidden_dim=hidden_dim,
                 num_heads=num_heads,
@@ -265,14 +259,8 @@ class SMARTDecoder(nn.Module):
 
         self.value_network = MLPLayer(hidden_dim, hidden_dim * 2, 1)
 
-        if self.use_lcf:
-            self.nei_value_network = MLPLayer(
-                hidden_dim,
-                hidden_dim * 2,
-                1,
-            )
 
-        if self.learn_init:
+        if self.token_processor.learn_init:
             if self.init_decoder is None:
                 raise RuntimeError(
                     "Initial value learning requires init_decoder."
@@ -303,7 +291,7 @@ class SMARTDecoder(nn.Module):
         tokenized_agent: TensorDict,
         map_feature,
     ):
-        if not self.pred_init:
+        if not self.token_processor.pred_init:
             return None
 
         cached = tokenized_agent.get("initial_map_feature")
@@ -326,7 +314,7 @@ class SMARTDecoder(nn.Module):
 
     def _skip_agent_supervision(self) -> bool:
         """Train only the initial-state model in this configuration."""
-        return self.learn_init and self.finetune and not self.gail
+        return self.token_processor.learn_init and self.finetune and not self.gail
 
     def forward(
         self,
@@ -347,7 +335,7 @@ class SMARTDecoder(nn.Module):
             )
 
         # In GAIL mode initial-state RL is updated separately.
-        if self.learn_init and not self.gail:
+        if self.token_processor.learn_init and not self.gail:
             self._prepare_initial_map_feature(
                 tokenized_map,
                 tokenized_agent,

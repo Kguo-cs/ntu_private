@@ -88,8 +88,7 @@ class SMARTAgentDecoder(nn.Module):
             discriminator=discriminator,
         )
 
-        self.pred_init = bool(token_processor.pred_init and not discriminator)
-        self.learn_init = bool(token_processor.learn_init)
+        self.token_processor = token_processor
 
     def predict_agent(
         self,
@@ -249,7 +248,7 @@ class SMARTAgentDecoder(nn.Module):
         pred_traj_10hz, pred_head_10hz = [], []
         initial_local_vel = None
 
-        if self.pred_init and random.random()<0.5:
+        if self.token_processor.pred_init :
             pos_a, head_a, sampled_idx, shape, initial_local_vel = (
                 self._run_init_decoder(
                     init_decoder,
@@ -291,7 +290,7 @@ class SMARTAgentDecoder(nn.Module):
         for rollout_step in range(num_steps):
             logits = None
 
-            if rollout_step == 0 and cached_logits is not None and not self.pred_init:
+            if rollout_step == 0 and cached_logits is not None and not self.token_processor.pred_init:
                 a_num = active_mask.sum()
 
                 logits = cached_logits[
@@ -347,7 +346,7 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["token_mask"] = token_mask
 
         if "gt_z_raw" in tokenized_agent:
-            if self.pred_init:
+            if self.token_processor.pred_init:
                 tokenized_agent["initial_local_vel"] = initial_local_vel
 
             tokenized_agent["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
