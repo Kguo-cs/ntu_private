@@ -575,8 +575,6 @@ class InterativeDecoder(nn.Module):
                 dense_dis = dis_mask.reshape_as(later_ta)
             else:
                 selected_shape = later_ta[:, agent_train_mask].shape
-                if dis_mask.numel() != selected_shape.numel():
-                    raise ValueError("dis_mask has the wrong size.")
                 dense_dis = torch.zeros_like(later_ta)
                 dense_dis[:, agent_train_mask] = dis_mask.reshape(
                     selected_shape

@@ -6,60 +6,17 @@ defaults:
 
 model:
   model_config:
-    lr: 1e-4
+    lr: 1e-40
     lr_min_ratio: 0.05
-    token_processor:
-      map_token_sampling: # open-loop
-        num_k: 1 # for k nearest neighbors
-        temp: 1.0 # uniform sampling
-      agent_token_sampling: # closed-loop
-        num_k: 1 # for k nearest neighbors
-        temp: 1.0
-    training_rollout_sampling:
-      criterium: topk_prob # {topk_dist_sampled_with_prob, topk_prob, topk_prob_sampled_with_dist}
-      num_k: 2048 # for k nearest neighbors, set to -1 to turn-off closed-loop training
-      temp: 1.0
-    validation_rollout_sampling:
-      criterium: topk_prob
-      num_k: 2048 # for k most likely
-      temp: 1.0
-    val_open_loop: False
-    #val_closed_loop: False
     finetune: true
-    smart : false
     n_rollout_closed_val: 8
     decoder:
-      hist_drop_prob: 0 #0.1 #0.1
-     # dropout: 0.1
-
       dis_a2a_radius: 60
-      dis_a2a_neighbor: 20
-
-      dis_weight: 20
-      dist_decay: 3
-      reward_weight: 0
-      reward_decay: 2.5
 
 #ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
-ckpt_path: './waymo_data/bc40_inter1_hist0_t3_noego_alldiff_epoch=31-step=389600.ckpt'
+ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
 #ckpt_path: './waymo_data/bc48_t60_noego_l3_diff_ep64_epoch=63-step=649344.ckpt'
 
-logger:
-  wandb:
-    _target_: lightning.pytorch.loggers.wandb.WandbLogger
-    name: ${task_name}
-    save_dir: "${paths.output_dir}"
-    offline: False
-    id: null # pass correct id to resume experiment!
-    anonymous: null # enable anonymous logging
-    project: sim
-    log_model: False # upload lightning ckpts
-    prefix: "" # a string to put at the beginning of metric keys
-    entity: u3006612
-    group: ""
-    tags: []
-    job_type: ""
-    resume: allow
 
 task_name: AIRL24_203_dis_noauto_eval_start2 #diff_all_start1_t3_no_R_nonego #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
@@ -68,7 +25,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
  # val_check_interval: 0.5
-  #val_check_interval: 0.000002
+  val_check_interval: 0.000002
   max_epochs: 6
   gradient_clip_val: 0.0
 

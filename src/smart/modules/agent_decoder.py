@@ -10,7 +10,7 @@
 # disclosure or distribution of this material and related documentation
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
-
+import random
 from typing import Dict, Optional
 
 import torch
@@ -244,13 +244,12 @@ class SMARTAgentDecoder(nn.Module):
         gt_valid = tokenized_agent["valid_mask"]
         gt_idx = tokenized_agent["sampled_idx"]
 
-        current_step = int(current_step)
-        num_steps = int(max_step)
+        current_step =1 #int(current_step)
 
         pred_traj_10hz, pred_head_10hz = [], []
         initial_local_vel = None
 
-        if self.pred_init:
+        if self.pred_init and random.random()<0.5:
             pos_a, head_a, sampled_idx, shape, initial_local_vel = (
                 self._run_init_decoder(
                     init_decoder,
@@ -261,13 +260,6 @@ class SMARTAgentDecoder(nn.Module):
             )
             current_step = head_a.shape[1]
 
-            if "gt_z_raw" in tokenized_agent:
-                total_steps = (
-                    self.num_historical_steps - 1 + self.num_future_steps
-                ) // self.shift
-                num_steps = max(total_steps - current_step, 0)
-            else:
-                num_steps = max(gt_valid.shape[1] - current_step, 0)
 
             valid_mask = torch.ones(
                 head_a.shape[:2],
@@ -283,6 +275,14 @@ class SMARTAgentDecoder(nn.Module):
             shape = tokenized_agent["shape"]
             valid_mask = gt_valid[:, :current_step]
             token_mask = tokenized_agent["token_mask"][:, :current_step]
+
+        if "gt_z_raw" in tokenized_agent:
+            total_steps = (
+                self.num_historical_steps - 1 + self.num_future_steps
+            ) // self.shift
+            num_steps = max(total_steps - current_step, 0)
+        else:
+            num_steps = max(gt_valid.shape[1] - current_step, 0)
 
         # Agents valid at the rollout boundary remain active for the rollout.
         active_mask = valid_mask[:, -1].clone()

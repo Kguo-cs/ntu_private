@@ -123,7 +123,14 @@ class SMART_GAIL(SMART):
             total_loss: scalar tensor.
             selected_log_prob: one-dimensional tensor; empty when unavailable.
         """
+        if key=="agent":
+            tokenized_agent["train_mask"] = None
+
         prediction = self.encoder(tokenized_map, tokenized_agent)
+
+        if key == "agent":
+            tokenized_agent["train_mask"] = tokenized_agent["pred_mask"]
+
         reference = self._prediction_reference(prediction, tokenized_agent)
 
         policy_loss, log_prob,policy_entropy = self._policy_nll(prediction, tokenized_agent, key, reference)
@@ -310,9 +317,6 @@ class SMART_GAIL(SMART):
             return _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards").detach()
 
         if self.dis_start_step==0:
-            # ego_logits1=torch.zeros_like(mask_t).to(torch.float)
-            # ego_logits1[mask_t]=ego_logits
-            # print(torch.all(ego_logits1[0]==ego_logits[:mask_t[0].sum()]))
             self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
             self._log_train(f"train/{key}_ego_score1", torch.sigmoid(ego_logits[mask_t[0].sum():]).mean())
 
@@ -561,10 +565,7 @@ class SMART_GAIL(SMART):
         if self.pred_init:
             expert_agent["pred_mask"] = None
         else:
-            expert_agent["train_mask"] = (
-                expert_agent["pred_mask"]
-                & expert_agent["token_mask"][:, self.gail_start_step :].all(dim=1)
-            )
+            expert_agent["train_mask"] =  expert_agent["pred_mask"]
 
         expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(
             expert_agent,
@@ -678,7 +679,10 @@ class SMART_GAIL(SMART):
         finally:
             edge_encoder.rollout_traj = old_rollout_flag
 
-        value = self._value_predictions(rollout_agent)
+        value = self._value_predictions(
+            rollout_agent,
+            num_agents=rewards.shape[1],
+        )
 
         init_step=len(value)-len(rewards)
 
@@ -689,9 +693,23 @@ class SMART_GAIL(SMART):
             value,
         )
 
-        #advantages_2d = (advantages_2d - advantages_2d.mean()) / advantages_2d.std()
+        if "train_mask" in rollout_agent:
+            policy_transition_mask = get_train_mask(
+                rollout_agent,
+                self.gail_start_step,
+            )
 
-        advantages_flat = advantages_2d.reshape(-1)
+            # 对齐 advantage 的最后 policy 部分
+            policy_advantages = advantages_2d[
+                -policy_transition_mask.shape[0]:
+            ]
+
+            advantages_flat = policy_advantages[
+                policy_transition_mask
+            ]
+        else:
+            advantages_flat = advantages_2d.reshape(-1)
+
         self.return_meanstd.update(advantages_flat.detach())
         advantages_flat = self.return_meanstd.normalize(advantages_flat)
 
@@ -717,7 +735,7 @@ class SMART_GAIL(SMART):
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss-agent_entropy*1e-3
         return policy_loss, advantages_flat, advantages_2d
 
-    def _value_predictions(self, rollout_agent: TensorDict) -> Tensor:
+    def _value_predictions(self, rollout_agent: TensorDict  ,  num_agents: int) -> Tensor:
         initial_value = None
         if self.token_processor.learn_init:
             initial_value = self.encoder.init_value_network(
@@ -725,9 +743,8 @@ class SMART_GAIL(SMART):
             )[...,0].transpose(0,1)
 
         if "feat_a" in rollout_agent:
-            batch_size = len(rollout_agent["batch"])
             values = self.encoder.value_network(rollout_agent["feat_a"])[..., 0]
-            values = values.reshape(-1, batch_size)
+            values = values.reshape(-1, num_agents)
             if initial_value is not None:
                 values = torch.cat((initial_value, values), dim=0)
             return values
