@@ -8,8 +8,8 @@ model:
     lr: 1e-4
     lr_min_ratio: 0.05
     token_processor:
-      pred_init: False
-      learn_init: False
+      pred_init: True
+      learn_init: True
 
     finetune: true
     decoder:
