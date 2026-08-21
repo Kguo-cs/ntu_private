@@ -244,7 +244,7 @@ class SMARTAgentDecoder(nn.Module):
         gt_valid = tokenized_agent["valid_mask"]
         gt_idx = tokenized_agent["sampled_idx"]
 
-        current_step =1 #int(current_step)
+        current_step =int(current_step)
 
         pred_traj_10hz, pred_head_10hz = [], []
         initial_local_vel = None

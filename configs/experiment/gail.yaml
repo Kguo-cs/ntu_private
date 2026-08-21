@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 1e-40
+    lr: 1e-4
     lr_min_ratio: 0.05
     finetune: true
     n_rollout_closed_val: 8
