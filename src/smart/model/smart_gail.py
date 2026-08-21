@@ -776,7 +776,7 @@ class SMART_GAIL(SMART):
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
         #self.token_processor.train()
-        if random.random()<0.5:
+        if random.random()<0.75:
             self.token_processor.learn_init = False
             self.token_processor.pred_init = False
         else:
