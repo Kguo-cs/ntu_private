@@ -99,7 +99,7 @@ def _component_loss(
         # )
         loss=F.l1_loss(prediction, target, reduction="none")
     else:
-        loss = F.l1_loss(prediction, target, reduction="none")#.square()
+        loss = F.mse_loss(prediction, target, reduction="none")#.square()
     return loss.mean(-1)
 
 
@@ -421,7 +421,7 @@ def _time_weight(
     valid = (t > 0) & (t < 1)
 
     if x_pred:
-        weight = (1 - t).clamp_min(t_eps).reciprocal()#.square()
+        weight = (1 - t).clamp_min(t_eps).reciprocal().square()
         if max_loss_weight is not None:
             weight = weight.clamp_max(max_loss_weight)
     else:
