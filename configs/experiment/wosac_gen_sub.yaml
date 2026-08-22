@@ -18,7 +18,7 @@ model:
       temp: 1.0
     wosac_submission:
       is_active: true
-      method_name: "Flow"
+      method_name: "GenDecompGAIL"
       authors: ke
       affiliation: ntu
       description: Tro
@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_d18_std005_token10_l1_scale1_nosq-epoch=3-step=182625-valmeta=0.6506.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_d18_std005_token10_l1_scale01_nosq_05-epoch=4-step=190437-valmeta=0.6513.ckpt"
 
 trainer:
   limit_train_batches: 1.0
