@@ -126,7 +126,7 @@ class SMART(LightningModule):
         self.n_vis_rollout = int(model_config.n_vis_rollout)
         self.n_batch_wosac_metric = int(model_config.n_batch_wosac_metric)
 
-        scenario_gen =False #bool(self.token_processor.pred_init)
+        scenario_gen = bool(self.token_processor.pred_init)
         self.scenario_gen=scenario_gen
         self.challenge_type = (
             ChallengeType.SCENARIO_GEN if scenario_gen else ChallengeType.SIM_AGENTS
