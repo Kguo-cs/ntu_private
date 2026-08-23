@@ -189,7 +189,7 @@ class SMART(LightningModule):
         return trainer is None or bool(trainer.is_global_zero)
 
     def validation_step(self, data, batch_idx):
-        # if batch_idx<127:
+        # if batch_idx<73:
         #     return None
         self.token_processor.pred_init=self.scenario_gen
         self.token_processor.learn_init=self.scenario_gen
@@ -434,6 +434,9 @@ class SMART(LightningModule):
         }
 
     def test_step(self, data, batch_idx):
+        # if batch_idx<73:
+        #     return None
+        #
         if not self.wosac_submission.is_active:
             raise RuntimeError("test_step requires an active WOSAC submission.")
         tokenized_map, agent = self.token_processor(data)
