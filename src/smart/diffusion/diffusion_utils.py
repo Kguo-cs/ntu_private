@@ -198,7 +198,7 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)
+    total_loss = F.l1_loss(real_state,fake_state, reduction="none").mean(-1)
     # total_loss=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
@@ -421,7 +421,7 @@ def _time_weight(
     valid = (t > 0) & (t < 1)
 
     if x_pred:
-        weight = (1 - t).clamp_min(t_eps).reciprocal().square()
+        weight = (1 - t).clamp_min(t_eps).reciprocal()#.square()
         if max_loss_weight is not None:
             weight = weight.clamp_max(max_loss_weight)
     else:
@@ -472,7 +472,7 @@ def get_diff_loss(
         )
         collision_loss = (edge_loss * weight[start_idx]).mean()
 
-    w_pos=w_heading=w_shape=w_vel=0.1
+    w_pos=w_heading=w_shape=w_vel=0.01
     # w_heading=1#0.05
     # w_shape=1#0.05
     # w_vel=1
