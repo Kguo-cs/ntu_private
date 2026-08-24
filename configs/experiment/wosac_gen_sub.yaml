@@ -55,5 +55,5 @@ data:
   shuffle: false
   pin_memory: false
 
-action: test
+action: validate
 #action: test
