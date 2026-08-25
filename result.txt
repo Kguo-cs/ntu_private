@@ -979,6 +979,7 @@ all32_d58_std005_token10_l1_scale01_nosqcol-epoch=4-step=228282-valmeta=0.6491.c
 all32_d18_std005_token10_l1_scale01_nosq_05-epoch=4-step=190437-valmeta=0.6513.ckpt
 
 test:0.6503
+val: 0.6508
 
 
 
