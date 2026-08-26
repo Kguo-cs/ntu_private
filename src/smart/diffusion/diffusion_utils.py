@@ -198,8 +198,8 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    #total_loss = F.mse_loss(real_state,fake_state, reduction="none").sum(-1)*w_pos
-    total_loss=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)
+    total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
+    #total_loss=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
@@ -381,12 +381,12 @@ def get_closest_sum_idx_fast(
 
         real_group = real[idx]
         fake_group = fake[idx]
-        cost=np.abs(real_group - fake_group).sum(axis=1, keepdims=True)
-        # cost = (
-        #     np.sum(real_group**2, axis=1, keepdims=True)
-        #     + np.sum(fake_group**2, axis=1, keepdims=True).T
-        #     - 2.0 * real_group @ fake_group.T
-        # )
+        #cost=np.abs(real_group - fake_group).sum(axis=1, keepdims=True)
+        cost = (
+            np.sum(real_group**2, axis=1, keepdims=True)
+            + np.sum(fake_group**2, axis=1, keepdims=True).T
+            - 2.0 * real_group @ fake_group.T
+        )
         np.maximum(cost, 0, out=cost)
         row, col = linear_sum_assignment(cost)
         matched[idx[row]] = idx[col]
@@ -422,7 +422,7 @@ def _time_weight(
     valid = (t > 0) & (t < 1)
 
     if x_pred:
-        weight = t.clamp_min(t_eps).reciprocal()#.square()
+        weight = t.clamp_min(t_eps).reciprocal().square()
         if max_loss_weight is not None:
             weight = weight.clamp_max(max_loss_weight)
     else:
@@ -479,7 +479,7 @@ def get_diff_loss(
     # w_vel=1
 
 
-    w_pos=w_heading=w_shape=w_vel=0.1
+    w_pos=w_heading=w_shape=w_vel=1
     # w_pos=5
     # w_heading=0.05
     # w_shape=0.01
