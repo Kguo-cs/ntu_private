@@ -381,11 +381,12 @@ def get_closest_sum_idx_fast(
 
         real_group = real[idx]
         fake_group = fake[idx]
-        cost = (
-            np.sum(real_group**2, axis=1, keepdims=True)
-            + np.sum(fake_group**2, axis=1, keepdims=True).T
-            - 2.0 * real_group @ fake_group.T
-        )
+        cost=np.abs(real_group - fake_group).sum(axis=1, keepdims=True)
+        # cost = (
+        #     np.sum(real_group**2, axis=1, keepdims=True)
+        #     + np.sum(fake_group**2, axis=1, keepdims=True).T
+        #     - 2.0 * real_group @ fake_group.T
+        # )
         np.maximum(cost, 0, out=cost)
         row, col = linear_sum_assignment(cost)
         matched[idx[row]] = idx[col]
