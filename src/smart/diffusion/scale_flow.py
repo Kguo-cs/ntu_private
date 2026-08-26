@@ -1022,18 +1022,21 @@ class ScaleFlow(nn.Module):
                     noise_level=noise_level[stochastic],
                 )
                 # (
-                #     stochastic_next,
-                #     stochastic_log_prob,
-                #     _,
-                #     _,
-                # ) = self.precise_step_with_logprob(
+                #     stochastic_next1,
+                #     stochastic_log_prob1,
+                #     new_next_mean,
+                #     new_std,
+                # ) = self.sde_step_with_logprob(
                 #     time=time[stochastic],
                 #     next_time=next_time[stochastic],
-                #     pred_x0=x0[stochastic],
+                #     model_output=velocity[stochastic],
                 #     sample=latent[stochastic],
-                #     eta=noise_level[stochastic],
-                # )
+                #     noise_level=noise_level[stochastic],
                 #
+                #     # 关键：使用完全相同的 transition sample
+                #     prev_sample=stochastic_next.detach(),
+                # )
+
                 next_latent[stochastic] = stochastic_next
                 log_prob[stochastic] = stochastic_log_prob
 
@@ -1296,30 +1299,17 @@ class ScaleFlow(nn.Module):
 
         return latent
 
-    # ==================================================================
-    # SDE transition and log-probability
-    # ==================================================================
     def sde_step_with_logprob(
-        self,
-        time: Tensor,
-        next_time: Tensor,
-        model_output: Tensor,
-        sample: Tensor,
-        noise_level=0.7,
-        prev_sample: Optional[Tensor] = None,
-        sde_type: str = "sde",
+            self,
+            time: Tensor,
+            next_time: Tensor,
+            model_output: Tensor,
+            sample: Tensor,
+            noise_level=0.7,
+            prev_sample: Optional[Tensor] = None,
     ):
-        """Finite SDE transition in Rectified-Flow time.
+        """SDE transition directly in raw data space."""
 
-        Convention:
-            x_t = (1 - t) * x0 + t * x1
-            dx_t/dt = v = x1 - x0
-
-        Generation direction:
-            next_time <= time, with t decreasing from 1 to 0.
-
-        ``model_output`` is the Rectified-Flow velocity ``x1-x0``.
-        """
         eps = 1e-5
 
         scale = self.model.normal_scale.to(
@@ -1327,153 +1317,87 @@ class ScaleFlow(nn.Module):
             dtype=sample.dtype,
         ).clamp_min(eps)
 
-        model_output = model_output / scale
-        sample_normalized = self.model.normalize(sample)
-
-        next_normalized = (
-            None
-            if prev_sample is None
-            else self.model.normalize(prev_sample)
-        )
-
-        time = torch.as_tensor(
-            time,
-            device=sample.device,
-            dtype=sample.dtype,
-        )
-        next_time = torch.as_tensor(
-            next_time,
-            device=sample.device,
-            dtype=sample.dtype,
-        )
-        noise_level = torch.as_tensor(
-            noise_level,
+        mean = self.model.normal_mean.to(
             device=sample.device,
             dtype=sample.dtype,
         )
 
         dt = next_time - time
 
-        if torch.any(dt > 1e-7):
-            raise ValueError(
-                "Expected non-increasing Rectified-Flow time, "
-                "but next_time > time."
-            )
+        time_for_ratio = torch.where(
+            time >= 1.0,
+            torch.full_like(time, 0.95),
+            time,
+        )
 
-        if sde_type == "sde":
-            time_for_ratio = torch.where(
-                time >= 1.0,
-                torch.full_like(time, 0.95),
-                time,
-            )
+        # diffusion = (
+        #         torch.sqrt(
+        #             time.clamp_min(0.0)
+        #             / (1.0 - time_for_ratio).clamp_min(eps)
+        #         )
+        #         * noise_level
+        # )
+        diffusion=torch.tensor(0.05)
 
-            diffusion = torch.sqrt(
-                time.clamp_min(0.0)
-                / (1.0 - time_for_ratio).clamp_min(eps)
-            ) * noise_level
+        safe_time = time.clamp_min(eps)
 
-            safe_time = time.clamp_min(eps)
+        # Normalized-space transition coefficients.
+        A = (
+                1.0
+                + diffusion.square()
+                / (2.0 * safe_time)
+                * dt
+        )
 
-            next_mean = (
-                sample_normalized
-                * (
-                    1.0
-                    + diffusion.square()
-                    / (2.0 * safe_time)
-                    * dt
-                )
-            )
-
-            next_mean = (
-                next_mean
-                + model_output
-                * (
+        B = (
                     1.0
                     + diffusion.square()
                     * (1.0 - time)
                     / (2.0 * safe_time)
-                )
-                * dt
-            )
+            ) * dt
 
-            transition_std = (
+        # Equivalent mean directly in raw space.
+        next_mean = (
+                mean
+                + A * (sample - mean)
+                + B * model_output
+        )
+
+        # Raw-space transition std.
+        transition_std = (
                 diffusion
                 * torch.sqrt((-dt).clamp_min(eps))
+                * scale
+        ).clamp_min(eps)
+
+        # Sample transition.
+        if prev_sample is None:
+            next_sample = (
+                    next_mean
+                    + transition_std
+                    * torch.randn_like(sample)
             )
-
-        elif sde_type == "cps":
-            transition_std = (
-                next_time
-                * torch.sin(
-                    noise_level
-                    * math.pi
-                    / 2.0
-                )
-            ).clamp_min(eps)
-
-            # x_t = (1-t)x0 + t*x1, v=x1-x0.
-            predicted_x0 = (
-                sample_normalized
-                - time * model_output
-            )
-
-            estimated_x1 = (
-                sample_normalized
-                + model_output * (1.0 - time)
-            )
-
-            remaining_variance = (
-                next_time.square()
-                - transition_std.square()
-            ).clamp_min(eps)
-
-            next_mean = (
-                predicted_x0 * (1.0 - next_time)
-                + estimated_x1 * remaining_variance.sqrt()
-            )
-
         else:
-            raise ValueError(
-                f"Unsupported sde_type: {sde_type!r}."
-            )
+            next_sample = prev_sample
 
-        if next_normalized is None:
-            next_normalized = (
-                next_mean
-                + transition_std
-                * torch.randn_like(model_output)
-            )
+        # Raw-space Gaussian log probability.
+        residual = (
+                next_sample.detach()
+                - next_mean
+        )
 
         log_prob_element = (
-            -(
-                next_normalized.detach()
-                - next_mean
-            ).square()
-            / (
-                2.0
-                * transition_std.square()
-                .clamp_min(eps)
-            )
-            - torch.log(
-                transition_std.clamp_min(eps)
-            )
-            - 0.5
-            * math.log(
-                2.0 * math.pi
-            )
+                -0.5
+                * (
+                        residual.square()
+                        / transition_std.square()
+                        + 2.0 * torch.log(transition_std)
+                        + math.log(2.0 * math.pi)
+                )
         )
 
         log_prob = log_prob_element.mean(
-            dim=tuple(
-                range(
-                    1,
-                    log_prob_element.ndim,
-                )
-            )
-        )
-
-        next_sample = self.model.denormalize(
-            next_normalized
+            dim=tuple(range(1, log_prob_element.ndim))
         )
 
         return (
@@ -1482,6 +1406,193 @@ class ScaleFlow(nn.Module):
             next_mean,
             transition_std,
         )
+    #
+    # # ==================================================================
+    # # SDE transition and log-probability
+    # # ==================================================================
+    # def sde_step_with_logprob(
+    #     self,
+    #     time: Tensor,
+    #     next_time: Tensor,
+    #     model_output: Tensor,
+    #     sample: Tensor,
+    #     noise_level=0.7,
+    #     prev_sample: Optional[Tensor] = None,
+    #     sde_type: str = "sde",
+    # ):
+    #     """Finite SDE transition in Rectified-Flow time.
+    #
+    #     Convention:
+    #         x_t = (1 - t) * x0 + t * x1
+    #         dx_t/dt = v = x1 - x0
+    #
+    #     Generation direction:
+    #         next_time <= time, with t decreasing from 1 to 0.
+    #
+    #     ``model_output`` is the Rectified-Flow velocity ``x1-x0``.
+    #     """
+    #     eps = 1e-5
+    #
+    #     scale = self.model.normal_scale.to(
+    #         device=sample.device,
+    #         dtype=sample.dtype,
+    #     ).clamp_min(eps)
+    #
+    #     model_output = model_output / scale
+    #     sample_normalized = self.model.normalize(sample)
+    #
+    #     next_normalized = (
+    #         None
+    #         if prev_sample is None
+    #         else self.model.normalize(prev_sample)
+    #     )
+    #
+    #     time = torch.as_tensor(
+    #         time,
+    #         device=sample.device,
+    #         dtype=sample.dtype,
+    #     )
+    #     next_time = torch.as_tensor(
+    #         next_time,
+    #         device=sample.device,
+    #         dtype=sample.dtype,
+    #     )
+    #     noise_level = torch.as_tensor(
+    #         noise_level,
+    #         device=sample.device,
+    #         dtype=sample.dtype,
+    #     )
+    #
+    #     dt = next_time - time
+    #
+    #     if torch.any(dt > 1e-7):
+    #         raise ValueError(
+    #             "Expected non-increasing Rectified-Flow time, "
+    #             "but next_time > time."
+    #         )
+    #
+    #     if sde_type == "sde":
+    #         time_for_ratio = torch.where(
+    #             time >= 1.0,
+    #             torch.full_like(time, 0.95),
+    #             time,
+    #         )
+    #
+    #         diffusion = torch.sqrt(
+    #             time.clamp_min(0.0)
+    #             / (1.0 - time_for_ratio).clamp_min(eps)
+    #         ) * noise_level
+    #
+    #         safe_time = time.clamp_min(eps)
+    #
+    #         next_mean = (
+    #             sample_normalized
+    #             * (
+    #                 1.0
+    #                 + diffusion.square()
+    #                 / (2.0 * safe_time)
+    #                 * dt
+    #             )
+    #         )
+    #
+    #         next_mean = (
+    #             next_mean
+    #             + model_output
+    #             * (
+    #                 1.0
+    #                 + diffusion.square()
+    #                 * (1.0 - time)
+    #                 / (2.0 * safe_time)
+    #             )
+    #             * dt
+    #         )
+    #
+    #         transition_std = (
+    #             diffusion
+    #             * torch.sqrt((-dt).clamp_min(eps))
+    #         )
+    #
+    #     elif sde_type == "cps":
+    #         transition_std = (
+    #             next_time
+    #             * torch.sin(
+    #                 noise_level
+    #                 * math.pi
+    #                 / 2.0
+    #             )
+    #         ).clamp_min(eps)
+    #
+    #         # x_t = (1-t)x0 + t*x1, v=x1-x0.
+    #         predicted_x0 = (
+    #             sample_normalized
+    #             - time * model_output
+    #         )
+    #
+    #         estimated_x1 = (
+    #             sample_normalized
+    #             + model_output * (1.0 - time)
+    #         )
+    #
+    #         remaining_variance = (
+    #             next_time.square()
+    #             - transition_std.square()
+    #         ).clamp_min(eps)
+    #
+    #         next_mean = (
+    #             predicted_x0 * (1.0 - next_time)
+    #             + estimated_x1 * remaining_variance.sqrt()
+    #         )
+    #
+    #     else:
+    #         raise ValueError(
+    #             f"Unsupported sde_type: {sde_type!r}."
+    #         )
+    #
+    #     if next_normalized is None:
+    #         next_normalized = (
+    #             next_mean
+    #             + transition_std
+    #             * torch.randn_like(model_output)
+    #         )
+    #
+    #     log_prob_element = (
+    #         -(
+    #             next_normalized.detach()
+    #             - next_mean
+    #         ).square()
+    #         / (
+    #             2.0
+    #             * transition_std.square()
+    #             .clamp_min(eps)
+    #         )
+    #         - torch.log(
+    #             transition_std.clamp_min(eps)
+    #         )
+    #         - 0.5
+    #         * math.log(
+    #             2.0 * math.pi
+    #         )
+    #     )
+    #
+    #     log_prob = log_prob_element.mean(
+    #         dim=tuple(
+    #             range(
+    #                 1,
+    #                 log_prob_element.ndim,
+    #             )
+    #         )
+    #     )
+    #
+    #     next_sample = self.model.denormalize(
+    #         next_normalized
+    #     )
+    #
+    #     return (
+    #         next_sample,
+    #         log_prob,
+    #         next_mean,
+    #         transition_std,
+    #     )
 
     def repeat_input_copy(self, tokenized_agent, n_step):
         out = copy.copy(tokenized_agent)
