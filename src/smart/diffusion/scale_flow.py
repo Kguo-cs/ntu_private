@@ -1026,7 +1026,7 @@ class ScaleFlow(nn.Module):
                 #     stochastic_log_prob1,
                 #     new_next_mean,
                 #     new_std,
-                # ) = self.sde_step_with_logprob(
+                # ) = self.sde_step_with_logprob1(
                 #     time=time[stochastic],
                 #     next_time=next_time[stochastic],
                 #     model_output=velocity[stochastic],
@@ -1324,12 +1324,12 @@ class ScaleFlow(nn.Module):
 
         dt = next_time - time
 
-        time_for_ratio = torch.where(
-            time >= 1.0,
-            torch.full_like(time, 0.95),
-            time,
-        )
-
+        # time_for_ratio = torch.where(
+        #     time >= 1.0,
+        #     torch.full_like(time, 0.95),
+        #     time,
+        # )
+        #
         # diffusion = (
         #         torch.sqrt(
         #             time.clamp_min(0.0)
@@ -1337,7 +1337,7 @@ class ScaleFlow(nn.Module):
         #         )
         #         * noise_level
         # )
-        diffusion=torch.tensor(0.05)
+        diffusion=0.05/torch.sqrt(-dt)
 
         safe_time = time.clamp_min(eps)
 
@@ -1406,7 +1406,7 @@ class ScaleFlow(nn.Module):
             next_mean,
             transition_std,
         )
-    #
+    # #
     # # ==================================================================
     # # SDE transition and log-probability
     # # ==================================================================
