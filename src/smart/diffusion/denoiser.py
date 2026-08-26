@@ -379,7 +379,7 @@ class InitDenoiser(nn.Module):
         It does not inject shape via ``FourierEmbedding``. Shape is part of
         the projected continuous state ``m_delta[:, 4:]``.
         """
-        beta = self._format_beta(beta, m_delta.shape[0])
+        beta = self._format_beta(1-beta, m_delta.shape[0])
 
         feat_a = self.proj_in_m_delta(m_delta[:, 4:])
         feat_a = feat_a + self.noise_embedding(beta)
