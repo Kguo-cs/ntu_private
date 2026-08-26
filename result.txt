@@ -984,6 +984,9 @@ val: 0.6508
 
 
 
+
+
+
 take all position for generation
 simformer: For each
 agent, it sequentially predicts (a) an agent type token,

@@ -14,7 +14,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/all32_d18_std005_token10_l1_sca
 
 rsync -avz ke@10.87.225.106:~/code/sim/src/logs/all32_d58_std005_token10_pre_sq/2026-08-15_21-39-04/bc/iwgs04wt/checkpoints/all32_d58_std005_token10_pre_sq-epoch=3-step=159798-valmeta=0.6539.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all32_d18_std005_token10_l1_scale1_nosq/2026-08-20_10-28-22/bc/kc1u4rga/checkpoints/all32_d18_std005_token10_l1_scale1_nosq-epoch=3-step=182625-valmeta=0.6506.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all32_d18_std005_token10_mse_scale1_05/2026-08-25_02-14-01/bc/y23x6wuz/checkpoints/all32_d18_std005_token10_mse_scale1_05-epoch=4-step=253832-valmeta=0.6518.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
