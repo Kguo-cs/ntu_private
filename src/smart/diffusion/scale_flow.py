@@ -1326,7 +1326,7 @@ class ScaleFlow(nn.Module):
 
         # time_for_ratio = torch.where(
         #     time >= 1.0,
-        #     torch.full_like(time, 0.9),
+        #     torch.full_like(time, 0.95),
         #     time,
         # )
         #
@@ -1335,9 +1335,9 @@ class ScaleFlow(nn.Module):
         #             time.clamp_min(0.0)
         #             / (1.0 - time_for_ratio).clamp_min(eps)
         #         )
-        #         * 0.1
+        #         * noise_level
         # )
-        diffusion=torch.tensor(0.01) #0.05/torch.sqrt(-dt)#torch.tensor(0.1)#
+        diffusion=0.05/torch.sqrt(-dt)
 
         safe_time = time.clamp_min(eps)
 
@@ -1361,7 +1361,7 @@ class ScaleFlow(nn.Module):
                 mean
                 + A * (sample - mean)
                 + B * model_output
-        )#a
+        )
 
         # Raw-space transition std.
         transition_std = (
