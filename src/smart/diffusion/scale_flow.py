@@ -1337,7 +1337,7 @@ class ScaleFlow(nn.Module):
         #         )
         #         * 0.1
         # )
-        diffusion=torch.tensor(0.1) #0.05/torch.sqrt(-dt)#torch.tensor(0.1)#
+        diffusion=torch.tensor(0.01) #0.05/torch.sqrt(-dt)#torch.tensor(0.1)#
 
         safe_time = time.clamp_min(eps)
 
@@ -1361,7 +1361,7 @@ class ScaleFlow(nn.Module):
                 mean
                 + A * (sample - mean)
                 + B * model_output
-        )
+        )#a
 
         # Raw-space transition std.
         transition_std = (
