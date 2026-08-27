@@ -1337,7 +1337,7 @@ class ScaleFlow(nn.Module):
         #         )
         #         * noise_level
         # )
-        diffusion=torch.tensor(0.1)#0.05/torch.sqrt(-dt)
+        diffusion=0.05/torch.sqrt(-dt)#torch.tensor(0.1)#
 
         safe_time = time.clamp_min(eps)
 
