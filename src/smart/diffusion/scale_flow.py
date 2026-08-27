@@ -1324,20 +1324,20 @@ class ScaleFlow(nn.Module):
 
         dt = next_time - time
 
-        # time_for_ratio = torch.where(
-        #     time >= 1.0,
-        #     torch.full_like(time, 0.95),
-        #     time,
-        # )
-        #
-        # diffusion = (
-        #         torch.sqrt(
-        #             time.clamp_min(0.0)
-        #             / (1.0 - time_for_ratio).clamp_min(eps)
-        #         )
-        #         * noise_level
-        # )
-        diffusion=0.05/torch.sqrt(-dt)
+        time_for_ratio = torch.where(
+            time >= 1.0,
+            torch.full_like(time, 0.9),
+            time,
+        )
+
+        diffusion = (
+                torch.sqrt(
+                    time.clamp_min(0.0)
+                    / (1.0 - time_for_ratio).clamp_min(eps)
+                )
+                * 0.2#noise_level
+        )
+       # diffusion=0.05/torch.sqrt(-dt)
 
         safe_time = time.clamp_min(eps)
 
