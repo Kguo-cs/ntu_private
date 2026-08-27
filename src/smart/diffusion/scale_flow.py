@@ -454,7 +454,7 @@ class ScaleFlow(nn.Module):
             time,
             self.t_eps,
             scale=self.model.normal_scale,
-            use_col=True,
+            use_col=False,
             x_pred=True,
         )
 
@@ -1335,7 +1335,7 @@ class ScaleFlow(nn.Module):
                     time.clamp_min(0.0)
                     / (1.0 - time_for_ratio).clamp_min(eps)
                 )
-                * 0.05#noise_level
+                * 0.1#noise_level
         )
        # diffusion=0.05/torch.sqrt(-dt)
 
