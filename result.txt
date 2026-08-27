@@ -982,6 +982,8 @@ test:0.6503
 val: 0.6508
 
 
+all32_d18_std005_token10_mse_scale1_05-epoch=4-step=253832-valmeta=0.6518.ckpt
+
 
 
 

@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_d18_std005_token10_mse_scale1_05-epoch=4-step=253832-valmeta=0.6518.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_d18_std005_match_l1_nosq_scale1_05-epoch=4-step=190439-valmeta=0.6490.ckpt"
 
 trainer:
   limit_train_batches: 1.0
