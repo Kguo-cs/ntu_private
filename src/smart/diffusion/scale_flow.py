@@ -454,7 +454,7 @@ class ScaleFlow(nn.Module):
             time,
             self.t_eps,
             scale=self.model.normal_scale,
-            use_col=True,
+            use_col=False,
             x_pred=True,
         )
 

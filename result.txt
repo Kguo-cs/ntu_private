@@ -988,7 +988,7 @@ no
 
 all32_d18_std005_match_l1_nosq_scale1_05-epoch=4-step=190439-valmeta=0.6490.ckpt
 
-
+0.6490
 
 all32_d18_std005_match_mse_scale1_t05-epoch=4-step=190439-valmeta=0.6508.ckpt
 
