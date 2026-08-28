@@ -454,7 +454,7 @@ class ScaleFlow(nn.Module):
             time,
             self.t_eps,
             scale=self.model.normal_scale,
-            use_col=False,
+            use_col=True,
             x_pred=True,
         )
 
@@ -1337,7 +1337,7 @@ class ScaleFlow(nn.Module):
                 )
                 * 0.5#noise_level
         )
-       # diffusion=0.05/torch.sqrt(-dt)
+        #diffusion=0.05/torch.sqrt(-dt)
 
         safe_time = time.clamp_min(eps)
 
