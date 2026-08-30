@@ -997,6 +997,9 @@ all32_d18_std005_match_mse_scale1_t05-epoch=4-step=190439-valmeta=0.6508.ckpt
 all32_d08_noise02_mse_scale1_t05-epoch=4-step=190439-valmeta=0.6474.ckpt
 
 
+all32_d08_noise05_mse_scale1_t05-epoch=2-step=114271-valmeta=0.6514.ckpt
+
+
 
 take all position for generation
 simformer: For each

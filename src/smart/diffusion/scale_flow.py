@@ -1396,7 +1396,7 @@ class ScaleFlow(nn.Module):
                 )
         )
 
-        log_prob = log_prob_element.mean(
+        log_prob = log_prob_element.sum(
             dim=tuple(range(1, log_prob_element.ndim))
         )
 
