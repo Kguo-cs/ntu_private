@@ -479,7 +479,7 @@ def get_diff_loss(
     # w_vel=1
 
 
-    w_pos=w_heading=w_shape=w_vel=1#0.1
+    w_pos=w_heading=w_shape=w_vel=10#0.1
     # w_pos=5
     # w_heading=0.05
     # w_shape=0.01
