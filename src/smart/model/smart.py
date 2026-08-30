@@ -189,7 +189,7 @@ class SMART(LightningModule):
         return trainer is None or bool(trainer.is_global_zero)
 
     def validation_step(self, data, batch_idx):
-        # if batch_idx<64:
+        # if batch_idx<86:
         #     return None
         self.token_processor.pred_init=self.scenario_gen
         self.token_processor.learn_init=self.scenario_gen
