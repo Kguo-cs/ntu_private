@@ -563,10 +563,14 @@ class SMART_GAIL(SMART):
         else:
             expert_agent["train_mask"] =  expert_agent["pred_mask"]
 
-        expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(
-            expert_agent,
-            "expert",
-        )
+        if self.token_processor.learn_init == False:
+            expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(
+                expert_agent,
+                "expert",
+            )
+        else:
+            expert_dis_loss=expert_gp=0
+            expert_dis_mask = self._discriminator_mask(expert_agent).reshape(-1)
 
         with torch.no_grad():
             self.encoder.eval()
@@ -591,7 +595,9 @@ class SMART_GAIL(SMART):
             actor_optimizer, discriminator_optimizer, init_optimizer = self._optimizers()
         else:
             actor_optimizer=discriminator_optimizer=init_optimizer=None
-        self._optimizer_step(discriminator_optimizer, critic_loss)
+
+        if self.token_processor.learn_init == False:
+            self._optimizer_step(discriminator_optimizer, critic_loss)
 
         policy_loss, advantages_flat, advantages_2d = self._actor_value_loss(
             tokenized_map,
