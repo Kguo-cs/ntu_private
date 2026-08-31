@@ -582,11 +582,21 @@ class SMART_GAIL(SMART):
         #     rollout_agent,
         #     perturb_prob=1,
         # )
-        agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
-            rollout_agent,
-            "agent",
-            expert_dis_mask,
-        )
+
+        if self.token_processor.learn_init == False:
+            agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+                rollout_agent,
+                "agent",
+                expert_dis_mask,
+            )
+        else:
+            with torch.no_grad():
+
+                agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+                    rollout_agent,
+                    "agent",
+                    expert_dis_mask,
+                )
 
         critic_loss = expert_dis_loss + agent_dis_loss + expert_gp + agent_gp
         self._log_train("train/critic_loss", critic_loss)
