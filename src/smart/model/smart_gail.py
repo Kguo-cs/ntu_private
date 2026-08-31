@@ -571,7 +571,7 @@ class SMART_GAIL(SMART):
         else:
             expert_agent["train_mask"] =  expert_agent["pred_mask"]
 
-        if self.token_processor.learn_init == False:
+        if self.token_processor.learn_init :#== False
             expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(
                 expert_agent,
                 "expert",
@@ -591,7 +591,7 @@ class SMART_GAIL(SMART):
         #     perturb_prob=1,
         # )
 
-        if self.token_processor.learn_init == False:
+        if self.token_processor.learn_init :#== False
             agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
                 rollout_agent,
                 "agent",
@@ -614,7 +614,7 @@ class SMART_GAIL(SMART):
         else:
             actor_optimizer=discriminator_optimizer=init_optimizer=None
 
-        if self.token_processor.learn_init == False:
+        if self.token_processor.learn_init :#== False
             self._optimizer_step(discriminator_optimizer, critic_loss)
 
         #if self.token_processor.learn_init:
