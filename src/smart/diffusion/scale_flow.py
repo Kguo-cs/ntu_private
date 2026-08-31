@@ -1000,7 +1000,7 @@ class ScaleFlow(nn.Module):
             self.use_sde
             and branch_mask is not None
             and branch_mask.any()
-           and "gt_z_raw" not in tokenized_agent
+           # and "gt_z_raw" not in tokenized_agent
         ):
             noise_level = self.get_adaptive_noise_level(time, next_time)
             noise_level = noise_level * branch_mask[:, None].to(latent.dtype)
