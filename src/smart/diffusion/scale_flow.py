@@ -69,6 +69,7 @@ class ScaleFlow(nn.Module):
 
         self.use_all_type = self.model.use_all_type
         self.t_eps = 0.05
+        self.token_processor=token_processor
 
         # --------------------------------------------------------------
         # Initial-state policy optimization
@@ -1000,6 +1001,7 @@ class ScaleFlow(nn.Module):
             self.use_sde
             and branch_mask is not None
             and branch_mask.any()
+            and self.token_processor.learn_init
            # and "gt_z_raw" not in tokenized_agent
         ):
             noise_level = self.get_adaptive_noise_level(time, next_time)
