@@ -571,14 +571,14 @@ class SMART_GAIL(SMART):
         else:
             expert_agent["train_mask"] =  expert_agent["pred_mask"]
 
-        if self.token_processor.learn_init :#== False
-            expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(
-                expert_agent,
-                "expert",
-            )
-        else:
-            expert_dis_loss=expert_gp=0
-            expert_dis_mask = self._discriminator_mask(expert_agent).reshape(-1)
+        #if self.token_processor.learn_init :#== False
+        expert_dis_loss, _, _, expert_gp, expert_dis_mask = self.get_reward(
+            expert_agent,
+            "expert",
+        )
+        # else:
+        #     expert_dis_loss=expert_gp=0
+        #     expert_dis_mask = self._discriminator_mask(expert_agent).reshape(-1)
 
         with torch.no_grad():
             self.encoder.eval()
@@ -591,20 +591,20 @@ class SMART_GAIL(SMART):
         #     perturb_prob=1,
         # )
 
-        if self.token_processor.learn_init :#== False
-            agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
-                rollout_agent,
-                "agent",
-                expert_dis_mask,
-            )
-        else:
-            with torch.no_grad():
-
-                agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
-                    rollout_agent,
-                    "agent",
-                    expert_dis_mask,
-                )
+       # if self.token_processor.learn_init :#== False
+        agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+            rollout_agent,
+            "agent",
+            expert_dis_mask,
+        )
+        # else:
+        #     with torch.no_grad():
+        #
+        #         agent_dis_loss, agent_rewards, _, agent_gp, _ = self.get_reward(
+        #             rollout_agent,
+        #             "agent",
+        #             expert_dis_mask,
+        #         )
 
         critic_loss = expert_dis_loss + agent_dis_loss + expert_gp + agent_gp
         self._log_train("train/critic_loss", critic_loss)
@@ -614,8 +614,8 @@ class SMART_GAIL(SMART):
         else:
             actor_optimizer=discriminator_optimizer=init_optimizer=None
 
-        if self.token_processor.learn_init :#== False
-            self._optimizer_step(discriminator_optimizer, critic_loss)
+        # if self.token_processor.learn_init :#== False
+        self._optimizer_step(discriminator_optimizer, critic_loss)
 
         #if self.token_processor.learn_init:
 
