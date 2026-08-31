@@ -554,14 +554,14 @@ class SMART_GAIL(SMART):
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
 
-        if self.token_processor.learn_init:
+       # if self.token_processor.learn_init:
 
-            expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
-        else:
-            map_feature = self.encoder._get_map_feature(
-                tokenized_map,
-                tokenized_agent,
-            )
+        expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
+        # else:
+        #     map_feature = self.encoder._get_map_feature(
+        #         tokenized_map,
+        #         tokenized_agent,
+        #     )
 
         if not self.gail:
             return expert_nll
@@ -617,17 +617,17 @@ class SMART_GAIL(SMART):
         if self.token_processor.learn_init == False:
             self._optimizer_step(discriminator_optimizer, critic_loss)
 
-        if self.token_processor.learn_init:
+        #if self.token_processor.learn_init:
 
-            policy_loss, advantages_flat, advantages_2d = self._actor_value_loss(
-                tokenized_map,
-                rollout_agent,
-                agent_rewards,
-                expert_nll,
-            )
-            self._optimizer_step(actor_optimizer, policy_loss)
-        else:
-            policy_loss=torch.zeros(1,device=critic_loss.device)
+        policy_loss, advantages_flat, advantages_2d = self._actor_value_loss(
+            tokenized_map,
+            rollout_agent,
+            agent_rewards,
+            expert_nll,
+        )
+        self._optimizer_step(actor_optimizer, policy_loss)
+        # else:
+        #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
         if self.token_processor.learn_init:
             init_loss=self._initial_state_update(
