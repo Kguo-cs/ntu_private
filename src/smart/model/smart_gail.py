@@ -554,14 +554,16 @@ class SMART_GAIL(SMART):
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
 
-       # if self.token_processor.learn_init:
+        if not self.token_processor.learn_init:
 
-        expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
-        # else:
-        #     map_feature = self.encoder._get_map_feature(
-        #         tokenized_map,
-        #         tokenized_agent,
-        #     )
+            expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
+        else:
+            map_feature = self.encoder._get_map_feature(
+                tokenized_map,
+                tokenized_agent,
+            )
+
+            expert_nll=torch.zeros(1,device=self.device)
 
         if not self.gail:
             return expert_nll
@@ -625,7 +627,9 @@ class SMART_GAIL(SMART):
             agent_rewards,
             expert_nll,
         )
-        self._optimizer_step(actor_optimizer, policy_loss)
+
+        if not self.token_processor.learn_init:
+            self._optimizer_step(actor_optimizer, policy_loss)
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
