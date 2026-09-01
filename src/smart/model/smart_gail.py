@@ -422,8 +422,8 @@ class SMART_GAIL(SMART):
                     destination_index,
                 ),
                 valid_mask=gp_valid_mask,
-                gamma=0.001,
-                interaction_gamma=0.001,
+                gamma=0.01,
+                interaction_gamma=0.01,
                 position_scale=1.0,
                 heading_scale=1.0,
                 shape_scale=1.0,
@@ -808,7 +808,7 @@ class SMART_GAIL(SMART):
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
         #self.token_processor.train()
-        if random.random()<0.5:
+        if random.random()<0:
             self.token_processor.learn_init = False
             self.token_processor.pred_init = True
         else:
