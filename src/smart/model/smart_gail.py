@@ -422,8 +422,8 @@ class SMART_GAIL(SMART):
                     destination_index,
                 ),
                 valid_mask=gp_valid_mask,
-                gamma=0.01,
-                interaction_gamma=0.01,
+                gamma=0.001,
+                interaction_gamma=0.001,
                 position_scale=1.0,
                 heading_scale=1.0,
                 shape_scale=1.0,
@@ -554,17 +554,17 @@ class SMART_GAIL(SMART):
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
 
-       # if not self.token_processor.learn_init:
+        if not self.token_processor.learn_init:
 
-        expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
-        # else:
-        #     map_feature = self.encoder._get_map_feature(
-        #         tokenized_map,
-        #         tokenized_agent,
-        #     )
-        #
-        #     expert_nll=torch.zeros(1,device=self.device)
-        #
+            expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
+        else:
+            map_feature = self.encoder._get_map_feature(
+                tokenized_map,
+                tokenized_agent,
+            )
+
+            expert_nll=torch.zeros(1,device=self.device)
+
         if not self.gail:
             return expert_nll
 
@@ -629,7 +629,7 @@ class SMART_GAIL(SMART):
         )
 
         #if not self.token_processor.learn_init:
-        self._optimizer_step(actor_optimizer, policy_loss)
+        self._optimizer_step(actor_optimizer, policy_loss)#policy update use no sde, initial update use sde
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
@@ -742,6 +742,9 @@ class SMART_GAIL(SMART):
         else:
             ppo_loss = _zero(value)
 
+        if  self.token_processor.learn_init:
+            ppo_loss=torch.zeros_like(ppo_loss)
+
         if self.token_processor.learn_init:
             value_loss = value_loss_elements[init_step+1:].mean()
             init_value_loss = value_loss_elements[:init_step+1].mean()
@@ -782,7 +785,7 @@ class SMART_GAIL(SMART):
         optimizer,
     ) -> None:
         normalized = advantages_flat.view_as(advantages_2d)
-        #tokenized_agent["advantages"] = normalized[:tokenized_agent["noise_feat"].shape[1]]
+        tokenized_agent["advantages"] = normalized[:tokenized_agent["noise_feat"].shape[1]]
 
         match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss = self.encoder.init_decoder(tokenized_agent)
         rl_loss = tokenized_agent["rl_loss"]
@@ -808,7 +811,7 @@ class SMART_GAIL(SMART):
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
         #self.token_processor.train()
-        if random.random()<0:
+        if random.random()<0.5:
             self.token_processor.learn_init = False
             self.token_processor.pred_init = True
         else:
