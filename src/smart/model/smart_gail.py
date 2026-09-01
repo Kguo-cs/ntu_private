@@ -554,17 +554,17 @@ class SMART_GAIL(SMART):
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
 
-        if not self.token_processor.learn_init:
+       # if not self.token_processor.learn_init:
 
-            expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
-        else:
-            map_feature = self.encoder._get_map_feature(
-                tokenized_map,
-                tokenized_agent,
-            )
-
-            expert_nll=torch.zeros(1,device=self.device)
-
+        expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
+        # else:
+        #     map_feature = self.encoder._get_map_feature(
+        #         tokenized_map,
+        #         tokenized_agent,
+        #     )
+        #
+        #     expert_nll=torch.zeros(1,device=self.device)
+        #
         if not self.gail:
             return expert_nll
 
@@ -628,8 +628,8 @@ class SMART_GAIL(SMART):
             expert_nll,
         )
 
-        if not self.token_processor.learn_init:
-            self._optimizer_step(actor_optimizer, policy_loss)
+        #if not self.token_processor.learn_init:
+        self._optimizer_step(actor_optimizer, policy_loss)
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
@@ -782,7 +782,7 @@ class SMART_GAIL(SMART):
         optimizer,
     ) -> None:
         normalized = advantages_flat.view_as(advantages_2d)
-        tokenized_agent["advantages"] = normalized[:tokenized_agent["noise_feat"].shape[1]]
+        #tokenized_agent["advantages"] = normalized[:tokenized_agent["noise_feat"].shape[1]]
 
         match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss = self.encoder.init_decoder(tokenized_agent)
         rl_loss = tokenized_agent["rl_loss"]
@@ -808,7 +808,7 @@ class SMART_GAIL(SMART):
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
         #self.token_processor.train()
-        if random.random()<0.5:
+        if random.random()<0:
             self.token_processor.learn_init = False
             self.token_processor.pred_init = True
         else:

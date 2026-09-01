@@ -414,6 +414,8 @@ class ScaleFlow(nn.Module):
                 )
 
             tokenized_agent["rl_loss"] = rl_loss
+        else:
+            tokenized_agent["rl_loss"] = torch.tensor(0.0).to(x.device)
 
         return loss
 
@@ -998,10 +1000,10 @@ class ScaleFlow(nn.Module):
         used_noise_level = latent.new_zeros(latent.shape)
 
         if (
-            self.use_sde
+            False
             and branch_mask is not None
             and branch_mask.any()
-            and self.token_processor.learn_init
+            # and self.token_processor.learn_init
             #and "gt_z_raw" not in tokenized_agent
         ):
             noise_level = self.get_adaptive_noise_level(time, next_time)
