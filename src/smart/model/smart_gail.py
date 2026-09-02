@@ -813,7 +813,7 @@ class SMART_GAIL(SMART):
         #self.token_processor.train()
         if random.random()<0.5:
             self.token_processor.learn_init = False
-            self.token_processor.pred_init = True
+            self.token_processor.pred_init = False
         else:
             self.token_processor.learn_init = True
             self.token_processor.pred_init = True
