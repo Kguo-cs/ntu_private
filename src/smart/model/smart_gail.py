@@ -554,16 +554,16 @@ class SMART_GAIL(SMART):
 
         expert_agent = self._prepare_expert_agent(tokenized_agent)
 
-        if not self.token_processor.learn_init:
+        #if not self.token_processor.learn_init:
 
-            expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
-        else:
-            map_feature = self.encoder._get_map_feature(
-                tokenized_map,
-                tokenized_agent,
-            )
+        expert_nll, _ ,_= self.get_pred(tokenized_map, tokenized_agent, key="expert")
+        # else:
+        #     map_feature = self.encoder._get_map_feature(
+        #         tokenized_map,
+        #         tokenized_agent,
+        #     )
 
-            expert_nll=torch.zeros(1,device=self.device)
+        #expert_nll=torch.zeros(1,device=self.device)
 
         if not self.gail:
             return expert_nll
@@ -742,8 +742,8 @@ class SMART_GAIL(SMART):
         else:
             ppo_loss = _zero(value)
 
-        if  self.token_processor.learn_init:
-            ppo_loss=torch.zeros_like(ppo_loss)
+        # if  self.token_processor.learn_init:
+        #     ppo_loss=torch.zeros_like(ppo_loss)
 
         if self.token_processor.learn_init:
             value_loss = value_loss_elements[init_step+1:].mean()
@@ -758,7 +758,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/running_var", self.return_meanstd.var)
         self._log_train("train/value_loss", value_loss)
 
-        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss-agent_entropy*1e-3
+        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss
         return policy_loss, advantages_flat, advantages_2d
 
     def _value_predictions(self, rollout_agent: TensorDict  ,  num_agents: int) -> Tensor:
