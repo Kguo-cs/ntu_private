@@ -804,7 +804,7 @@ class SMART_GAIL(SMART):
 
         self._optimizer_step(optimizer, match_loss + rl_loss + col_loss)
 
-        return match_loss + rl_loss + col_loss
+        return match_loss + rl_loss + col_loss*10
 
     # ------------------------------------------------------------------
     # Lightning entry point
