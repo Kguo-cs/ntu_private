@@ -847,22 +847,6 @@ class ScaleFlow(nn.Module):
                     sample=latent[stochastic],
                     noise_level=noise_level[stochastic],
                 )
-                # (
-                #     stochastic_next1,
-                #     stochastic_log_prob1,
-                #     new_next_mean,
-                #     new_std,
-                # ) = self.sde_step_with_logprob1(
-                #     time=time[stochastic],
-                #     next_time=next_time[stochastic],
-                #     model_output=velocity[stochastic],
-                #     sample=latent[stochastic],
-                #     noise_level=noise_level[stochastic],
-                #
-                #     # 关键：使用完全相同的 transition sample
-                #     prev_sample=stochastic_next.detach(),
-                # )
-
                 next_latent[stochastic] = stochastic_next
                 log_prob[stochastic] = stochastic_log_prob
 
