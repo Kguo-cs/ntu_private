@@ -363,9 +363,8 @@ class SMART_GAIL(SMART):
             probabilities.std(unbiased=False),
         )
 
-        #ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
-        scene_reward = _reshape_valid_rewards(scene_reward, mask_t, "ego_rewards")
-        interaction_reward = _reshape_valid_rewards(interaction_reward, mask_t, "ego_rewards")
+        # scene_reward = _reshape_valid_rewards(scene_reward, mask_t, "ego_rewards")
+        # interaction_reward = _reshape_valid_rewards(interaction_reward, mask_t, "ego_rewards")
 
         self.ego_return_meanstd.update(scene_reward.detach())
         scene_reward = self.ego_return_meanstd.normalize(scene_reward)
@@ -373,7 +372,8 @@ class SMART_GAIL(SMART):
         self.global_return_meanstd.update(interaction_reward.detach())
         interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
 
-        ego_reward_grid=0.5*scene_reward+0.5*interaction_reward
+        ego_rewards=0.5*scene_reward+0.5*interaction_reward
+        ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
         neighbour_reward_grid = None
         if _has_elements(neighbour_rewards):
@@ -746,8 +746,16 @@ class SMART_GAIL(SMART):
         self.return_meanstd.update(advantages_flat.detach())
         advantages_flat = self.return_meanstd.normalize(advantages_flat)
 
+        ppo_advantages = advantages_flat[-agent_log_prob.numel() :].detach()
+        init_advantages = advantages_flat[:-agent_log_prob.numel() ].detach()
+        #
+        # self.return_meanstd.update(ppo_advantages.detach())
+        # ppo_advantages = self.return_meanstd.normalize(ppo_advantages)
+        #
+        # self.ego_return_meanstd.update(init_advantages.detach())
+        # init_advantages = self.ego_return_meanstd.normalize(init_advantages)
+
         if self.training_rollout_len > 1 and agent_log_prob.numel():
-            ppo_advantages = advantages_flat[-agent_log_prob.numel() :].detach()
             ppo_loss = -(agent_log_prob * ppo_advantages).mean()
         else:
             ppo_loss = _zero(value)
@@ -769,7 +777,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/value_loss", value_loss)
 
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss
-        return policy_loss, advantages_flat, advantages_2d
+        return policy_loss, init_advantages, advantages_2d
 
     def _value_predictions(self, rollout_agent: TensorDict  ,  num_agents: int) -> Tensor:
         initial_value = None
@@ -794,8 +802,8 @@ class SMART_GAIL(SMART):
         advantages_2d: Tensor,
         optimizer,
     ) -> None:
-        normalized = advantages_flat.view_as(advantages_2d)
-        tokenized_agent["advantages"] = normalized[:tokenized_agent["noise_feat"].shape[1]]
+        #normalized = advantages_flat.view_as(advantages_2d)
+        tokenized_agent["advantages"] =advantages_flat #normalized[:tokenized_agent["noise_feat"].shape[1]]
 
         match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss = self.encoder.init_decoder(tokenized_agent)
         rl_loss = tokenized_agent["rl_loss"]
