@@ -347,48 +347,6 @@ class ScaleFlow(nn.Module):
 
         return velocity, x0
 
-    def get_adaptive_noise_level(
-        self,
-        time: Tensor,
-        next_time: Tensor,
-    ) -> Tensor:
-        """Return SDE noise level in Rectified-Flow time.
-
-        Convention:
-            x_t = (1 - t) * x0 + t * x1
-
-        Generation runs backward, so ``next_time <= time``. The transition
-        standard deviation is
-
-            std = sqrt(t / (1-t)) * noise_level * sqrt(t-next_t),
-
-        apart from the same t=1 boundary stabilization used previously.
-        """
-        eps = 1e-5
-
-        if time.shape != next_time.shape:
-            raise ValueError("time and next_time must have the same shape.")
-
-        delta_t = (time - next_time).clamp_min(0.0)
-        time_mid = (0.5 * (time + next_time)).clamp(0.0, 1.0)
-
-        # Desired transition std in normalized state space.
-        target_std = 0.05  # e.g. self.target_step_std * (1.0 - time_mid)
-
-        time_for_ratio = torch.where(
-            time >= 1.0,
-            torch.full_like(time, 0.95),
-            time,
-        )
-
-        base_std = torch.sqrt(
-            time.clamp_min(0.0)
-            / (1.0 - time_for_ratio).clamp_min(eps)
-        ) * torch.sqrt(delta_t.clamp_min(eps))
-
-        noise_level = target_std / base_std.clamp_min(eps)
-        return noise_level
-
     def get_loss(
         self,
         x: Tensor,
@@ -502,13 +460,6 @@ class ScaleFlow(nn.Module):
         if not torch.any(non_ego):
             return current.new_zeros(())
 
-        # valid_transition = torch.zeros(
-        #     num_agents,
-        #     num_branches,
-        #     device=current.device,
-        #     dtype=torch.bool,
-        # )
-
         tokenized_agent=self.repeat_input_copy(tokenized_agent,num_branches)
 
         velocities, pred_x0 = self._model_velocity(
@@ -517,11 +468,6 @@ class ScaleFlow(nn.Module):
             tokenized_agent,
             map_feature,
         )
-        # pred_x0 = pred_x0.reshape(
-        #     num_branches,
-        #     num_agents,
-        #     -1,
-        # ).transpose(0, 1)
 
         velocities = velocities.reshape(
             num_branches,
@@ -536,20 +482,11 @@ class ScaleFlow(nn.Module):
         active = (
                 non_ego[:, None]
                 & (branch_noise.amax(dim=-1) > 0)
-                & (delta_t.amax(dim=-1) > 1e-7)
-        )
-
-        if not torch.any(active):
-            return current.new_zeros(())
-
-        log_prob = current.new_zeros(
-            num_agents,
-            num_branches,
         )
 
         (
             _,
-            active_log_prob,
+            selected_log_prob,
             _,
             _,
         ) = self.sde_step_with_logprob(
@@ -561,158 +498,36 @@ class ScaleFlow(nn.Module):
             prev_sample=next_sample[active],
         )
 
-        # (
-        #     _,
-        #     active_log_prob,
-        #     _,
-        #     _,
-        # ) = self.precise_step_with_logprob(
-        #     time=time[active],
-        #     next_time=next_time[active],
-        #     pred_x0=pred_x0[active],
-        #     sample=current[active],
-        #     eta=branch_noise[active],
-        #     prev_sample=next_sample[active],
-        # )
-
-        log_prob[active] = active_log_prob
-
-        # for branch in range(num_branches):
-        #     # velocity, _ = self._model_velocity(
-        #     #     current[:, branch],
-        #     #     time[:, branch],
-        #     #     tokenized_agent,
-        #     #     map_feature,
-        #     # )
-        #
-        #     #velocity=velocities.reshape(num_branches,len(current),-1)[branch]
-        #
-        #     branch_noise = (
-        #         saved_noise_level[:, branch]
-        #         .detach()
-        #     )
-        #
-        #     active = (
-        #         non_ego
-        #         & (
-        #             branch_noise.amax(dim=-1)
-        #             > 0
-        #         )
-        #     )
-        #
-        #     # if not torch.any(active):
-        #     #     continue
-        #     #
-        #     # (
-        #     #     _,
-        #     #     branch_log_prob,
-        #     #     _,
-        #     #     _,
-        #     # ) = self.sde_step_with_logprob(
-        #     #     time=time[active, branch],
-        #     #     next_time=next_time[active, branch],
-        #     #     model_output=velocity[active],
-        #     #     sample=current[active, branch],
-        #     #     noise_level=branch_noise[active],
-        #     #     prev_sample=next_sample[
-        #     #         active,
-        #     #         branch,
-        #     #     ],
-        #     # )
-        #     #
-        #     # log_prob[
-        #     #     active,
-        #     #     branch,
-        #     # ] = branch_log_prob
-        #
-        #     valid_transition[
-        #         active,
-        #         branch,
-        #     ] = True
-
-        valid_transition = ( non_ego[:, None]
-                & (saved_noise_level.amax(dim=-1) > 0)
-        )  # [num_agents, num_branches]
-
-
-        if not torch.any(valid_transition):
-            return current.new_zeros(())
-
         advantages = tokenized_agent["advantages"].transpose(0, 1) #a,t
 
-        #advantages = (advantages - advantages.mean(dim=0, keepdim=True)) / advantages.std(dim=0, keepdim=True)
+        selected_advantage = advantages[active]
 
-        selected_log_prob = log_prob[
-            valid_transition
-        ]
-        selected_advantage = advantages[
-            valid_transition
-        ]
+        time_for_ratio = torch.where(
+            time >= 1.0,
+            torch.full_like(time, 0.9),
+            time,
+        )
 
-
-        if (
-            self.use_init_ppo_ratio
-            and old_log_prob is not None
-        ):
-            selected_old_log_prob = (
-                old_log_prob.detach()[
-                    valid_transition
-                ]
-            )
-
-            selected_old_log_prob = torch.nan_to_num(
-                selected_old_log_prob,
-                nan=0.0,
-                posinf=0.0,
-                neginf=0.0,
-            ).clamp(
-                -self.init_logprob_clip,
-                self.init_logprob_clip,
-            )
-
-            log_ratio = (
-                selected_log_prob
-                - selected_old_log_prob
-            ).clamp(
-                -10.0,
-                10.0,
-            )
-
-            ratio = log_ratio.exp()
-
-            clipped_ratio = ratio.clamp(
-                1.0 - self.init_ppo_clip,
-                1.0 + self.init_ppo_clip,
-            )
-
-            policy_loss = -torch.minimum(
-                ratio * selected_advantage,
-                clipped_ratio * selected_advantage,
-            ).mean()
-
-            tokenized_agent[
-                "init_ratio_mean"
-            ] = ratio.detach().mean()
-
-            tokenized_agent[
-                "init_clip_fraction"
-            ] = (
-                (
-                    ratio
-                    < 1.0 - self.init_ppo_clip
+        diffusion = (
+                torch.sqrt(
+                    time.clamp_min(0.0)
+                    / (1.0 - time_for_ratio)
                 )
-                | (
-                    ratio
-                    > 1.0 + self.init_ppo_clip
-                )
-            ).float().mean().detach()
+                * branch_noise#noise_level
+        )
 
-            return policy_loss
 
-        return -(
+        step_std = (diffusion* torch.sqrt(torch.abs(delta_t)))[active]
+
+        weight = step_std / (
+                step_std.mean().detach() + 1e-8
+        )
+        loss=-(weight*
             selected_log_prob
             * selected_advantage
         ).mean()
+
+        return loss
 
     def _direct_advantage_loss(
         self,
@@ -1004,7 +819,7 @@ class ScaleFlow(nn.Module):
             and self.token_processor.learn_init
             #and "gt_z_raw" not in tokenized_agent
         ):
-            noise_level = self.get_adaptive_noise_level(time, next_time)
+            noise_level =0.5 #self.get_adaptive_noise_level(time, next_time)
             noise_level = noise_level * branch_mask[:, None].to(latent.dtype)
 
             stochastic = branch_mask.bool() & (~ego_mask)
@@ -1337,7 +1152,7 @@ class ScaleFlow(nn.Module):
                     time.clamp_min(0.0)
                     / (1.0 - time_for_ratio).clamp_min(eps)
                 )
-                * 0.5#noise_level
+                * noise_level#noise_level
         )
         #diffusion=0.05/torch.sqrt(-dt)
 
@@ -1433,158 +1248,3 @@ class ScaleFlow(nn.Module):
         ).flatten(0, 1)
 
         return out
-
-    def precise_step_with_logprob(
-        self,
-        time: Tensor,
-        next_time: Tensor,
-        pred_x0: Tensor,
-        sample: Tensor,
-        eta=0.2,
-        prev_sample: Optional[Tensor] = None,
-    ):
-        """Exact finite-step Gaussian transition in Rectified-Flow time.
-
-        Convention:
-            x_t = (1 - t) * x0 + t * x1
-
-        Generation direction:
-            next_time <= time, with t decreasing from 1 to 0.
-        """
-        eps = 1e-6
-
-        sample_normalized = self.model.normalize(sample)
-        x0_normalized = self.model.normalize(pred_x0)
-
-        next_normalized = (
-            None
-            if prev_sample is None
-            else self.model.normalize(prev_sample)
-        )
-
-        time = torch.as_tensor(
-            time,
-            device=sample.device,
-            dtype=sample.dtype,
-        )
-
-        next_time = torch.as_tensor(
-            next_time,
-            device=sample.device,
-            dtype=sample.dtype,
-        )
-
-        eta = torch.as_tensor(
-            eta,
-            device=sample.device,
-            dtype=sample.dtype,
-        )
-
-        if torch.any(next_time > time + 1e-7):
-            raise ValueError(
-                "Expected next_time <= time."
-            )
-
-        safe_time = time.clamp_min(eps)
-
-        # x1_hat implied by current x_t and predicted x0:
-        # x_t = (1-t)x0 + t*x1.
-        x1_hat = (
-            sample_normalized
-            - (1.0 - time) * x0_normalized
-        ) / safe_time
-
-        # rho = [ next_t(1-t) / (t(1-next_t)) ]^(eta^2/2)
-        numerator = (
-            next_time.clamp_min(0.0)
-            * (1.0 - time).clamp_min(0.0)
-        )
-
-        denominator = (
-            time.clamp_min(eps)
-            * (1.0 - next_time).clamp_min(eps)
-        )
-
-        base_ratio = (
-            numerator / denominator
-        ).clamp(
-            min=0.0,
-            max=1.0,
-        )
-
-        log_base = torch.log(
-            base_ratio.clamp_min(1e-12)
-        )
-
-        rho = torch.exp(
-            0.5 * eta.square() * log_base
-        )
-
-        rho = torch.where(
-            numerator <= eps,
-            torch.zeros_like(rho),
-            rho,
-        )
-
-        # eta=0 recovers deterministic Rectified Flow.
-        rho = torch.where(
-            eta.abs() <= eps,
-            torch.ones_like(rho),
-            rho,
-        )
-
-        rho = rho.clamp(0.0, 1.0)
-
-        next_mean = (
-            (1.0 - next_time) * x0_normalized
-            + next_time * rho * x1_hat
-        )
-
-        transition_std = (
-            next_time
-            * torch.sqrt(
-                (1.0 - rho.square()).clamp_min(0.0)
-            )
-        )
-
-        if next_normalized is None:
-            next_normalized = (
-                next_mean
-                + transition_std
-                * torch.randn_like(next_mean)
-            )
-
-        safe_std = transition_std.clamp_min(eps)
-
-        log_prob_element = (
-            -0.5
-            * (
-                (
-                    next_normalized.detach()
-                    - next_mean
-                )
-                / safe_std
-            ).square()
-            - torch.log(safe_std)
-            - 0.5 * math.log(2.0 * math.pi)
-        )
-
-        log_prob = log_prob_element.mean(
-            dim=tuple(
-                range(
-                    1,
-                    log_prob_element.ndim,
-                )
-            )
-        )
-
-        next_sample = self.model.denormalize(
-            next_normalized
-        )
-
-        return (
-            next_sample,
-            log_prob,
-            next_mean,
-            transition_std,
-        )
