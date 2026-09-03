@@ -514,7 +514,7 @@ class ScaleFlow(nn.Module):
                     / (1.0 - time_for_ratio)
                 )
                 * branch_noise#noise_level
-        )
+        )#smaller t , smaller std
 
         step_std_dim = (
                 diffusion * torch.sqrt(torch.abs(delta_t))
@@ -522,7 +522,7 @@ class ScaleFlow(nn.Module):
 
         step_std = step_std_dim.mean(dim=-1)
 
-        selected_step_std = step_std[active]  # [N]
+        selected_step_std = 1/step_std[active]  # [N]
 
         weight = selected_step_std / (
                 selected_step_std.mean().detach() + 1e-8
