@@ -309,8 +309,7 @@ class SMART_GAIL(SMART):
         (ego_logits, interaction_logits, map_logits) = disc_out[0]
         ego_rewards, neighbour_rewards, scene_reward, interaction_reward = disc_out[2]
 
-        if not discriminator.training:
-            return _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards").detach()
+
 
         if self.encoder.discriminator.interative_decoder.dis_start_step==0:
             self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
@@ -364,7 +363,18 @@ class SMART_GAIL(SMART):
             probabilities.std(unbiased=False),
         )
 
-        ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
+        #ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
+        scene_reward = _reshape_valid_rewards(scene_reward, mask_t, "ego_rewards")
+        interaction_reward = _reshape_valid_rewards(interaction_reward, mask_t, "ego_rewards")
+
+        self.ego_return_meanstd.update(scene_reward.detach())
+        scene_reward = self.ego_return_meanstd.normalize(scene_reward)
+
+        self.global_return_meanstd.update(interaction_reward.detach())
+        interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
+
+        ego_reward_grid=0.5*scene_reward+0.5*interaction_reward
+
         neighbour_reward_grid = None
         if _has_elements(neighbour_rewards):
             neighbour_reward_grid = _reshape_valid_rewards(

@@ -527,7 +527,7 @@ class ScaleFlow(nn.Module):
         # weight = selected_step_std / (
         #         selected_step_std.mean().detach() + 1e-8
         # )
-        v_norm=velocities[active].norm(dim=-1).mean()
+        #v_norm=velocities[active].norm(dim=-1).mean()
 
         weight=1
 
@@ -536,7 +536,7 @@ class ScaleFlow(nn.Module):
             * selected_advantage
         ).mean()
 
-        return loss+v_norm*0.01
+        return loss#+v_norm*0.01
 
     def _direct_advantage_loss(
         self,
