@@ -363,13 +363,13 @@ class SMART_GAIL(SMART):
             probabilities.std(unbiased=False),
         )
 
-        # self.ego_return_meanstd.update(scene_reward.detach())
-        # scene_reward = self.ego_return_meanstd.normalize(scene_reward)
-        #
-        # self.global_return_meanstd.update(interaction_reward.detach())
-        # interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
-        #
-        # ego_rewards=0.5*scene_reward+0.5*interaction_reward
+        self.ego_return_meanstd.update(scene_reward.detach())
+        scene_reward = self.ego_return_meanstd.normalize(scene_reward)
+
+        self.global_return_meanstd.update(interaction_reward.detach())
+        interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
+
+        ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
         neighbour_reward_grid = None
@@ -740,25 +740,22 @@ class SMART_GAIL(SMART):
         else:
             advantages_flat = advantages_2d.reshape(-1)
 
-        #self.return_meanstd.update(advantages_flat.detach())
-        #advantages_flat = self.return_meanstd.normalize(advantages_flat)
+        self.return_meanstd.update(advantages_flat.detach())
+        advantages_flat = self.return_meanstd.normalize(advantages_flat)
 
         ppo_advantages = advantages_flat[-agent_log_prob.numel() :].detach()
         init_advantages = advantages_flat[:-agent_log_prob.numel() ].detach()
 
-        self.return_meanstd.update(ppo_advantages.detach())
-        ppo_advantages = self.return_meanstd.normalize(ppo_advantages)
-
-        self.ego_return_meanstd.update(init_advantages.detach())
-        init_advantages = self.ego_return_meanstd.normalize(init_advantages)
+        # self.return_meanstd.update(ppo_advantages.detach())
+        # ppo_advantages = self.return_meanstd.normalize(ppo_advantages)
+        #
+        # self.ego_return_meanstd.update(init_advantages.detach())
+        # init_advantages = self.ego_return_meanstd.normalize(init_advantages)
 
         if self.training_rollout_len > 1 and agent_log_prob.numel():
             ppo_loss = -(agent_log_prob * ppo_advantages).mean()
         else:
             ppo_loss = _zero(value)
-
-        # if  self.token_processor.learn_init:
-        #     ppo_loss=torch.zeros_like(ppo_loss)
 
         if self.token_processor.learn_init:
             value_loss = value_loss_elements[init_step+1:].mean()
