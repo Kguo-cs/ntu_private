@@ -802,7 +802,7 @@ class SMART_GAIL(SMART):
         for name, value in metrics.items():
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
-        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss*0.1)
+        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss)
 
         return match_loss + rl_loss + col_loss
 
@@ -811,7 +811,7 @@ class SMART_GAIL(SMART):
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
         #self.token_processor.train()
-        if random.random()<0.5:
+        if random.random()<0:
             self.token_processor.learn_init = False
             self.token_processor.pred_init = True
         else:
