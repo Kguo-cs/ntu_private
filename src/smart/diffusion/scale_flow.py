@@ -516,11 +516,16 @@ class ScaleFlow(nn.Module):
                 * branch_noise#noise_level
         )
 
+        step_std_dim = (
+                diffusion * torch.sqrt(torch.abs(delta_t))
+        )
 
-        step_std = (diffusion* torch.sqrt(torch.abs(delta_t)))[active]
+        step_std = step_std_dim.mean(dim=-1)
 
-        weight = step_std / (
-                step_std.mean().detach() + 1e-8
+        selected_step_std = step_std[active]  # [N]
+
+        weight = selected_step_std / (
+                selected_step_std.mean().detach() + 1e-8
         )
         loss=-(weight*
             selected_log_prob
