@@ -502,37 +502,41 @@ class ScaleFlow(nn.Module):
 
         selected_advantage = advantages[active]
 
-        time_for_ratio = torch.where(
-            time >= 1.0,
-            torch.full_like(time, 0.9),
-            time,
-        )
+        # time_for_ratio = torch.where(
+        #     time >= 1.0,
+        #     torch.full_like(time, 0.9),
+        #     time,
+        # )
+        #
+        # diffusion = (
+        #         torch.sqrt(
+        #             time.clamp_min(0.0)
+        #             / (1.0 - time_for_ratio)
+        #         )
+        #         * branch_noise#noise_level
+        # )#smaller t , smaller std
+        #
+        # step_std_dim = (
+        #         diffusion * torch.sqrt(torch.abs(delta_t))
+        # )
+        #
+        # step_std = step_std_dim.mean(dim=-1)
+        #
+        # selected_step_std = 1/step_std[active]  # [N]
+        #
+        # weight = selected_step_std / (
+        #         selected_step_std.mean().detach() + 1e-8
+        # )
+        v_norm=velocities[active].norm(dim=-1).mean()
 
-        diffusion = (
-                torch.sqrt(
-                    time.clamp_min(0.0)
-                    / (1.0 - time_for_ratio)
-                )
-                * branch_noise#noise_level
-        )#smaller t , smaller std
+        weight=1
 
-        step_std_dim = (
-                diffusion * torch.sqrt(torch.abs(delta_t))
-        )
-
-        step_std = step_std_dim.mean(dim=-1)
-
-        selected_step_std = 1/step_std[active]  # [N]
-
-        weight = selected_step_std / (
-                selected_step_std.mean().detach() + 1e-8
-        )
         loss=-(weight*
             selected_log_prob
             * selected_advantage
         ).mean()
 
-        return loss
+        return loss+v_norm*0.01
 
     def _direct_advantage_loss(
         self,

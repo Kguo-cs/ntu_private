@@ -999,8 +999,6 @@ all32_d08_noise02_mse_scale1_t05-epoch=4-step=190439-valmeta=0.6474.ckpt
 0.6489
 
 
-
-
 all32_d08_matchl1_noise05sum_l1sq_scale1_t05-epoch=4-step=190439-valmeta=0.6469.ckpt
 
 val:  0.6491
