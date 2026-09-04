@@ -320,21 +320,6 @@ class ScaleFlow(nn.Module):
             use_map_condition=use_map_condition,
         )
 
-        if (
-            prediction.ndim != 2
-            or prediction.shape[0] != latent.shape[0]
-        ):
-            raise ValueError(
-                "Denoiser prediction must have shape "
-                f"[N, D], got {tuple(prediction.shape)}."
-            )
-
-        if prediction.shape[-1] < latent.shape[-1]:
-            raise ValueError(
-                "Denoiser output has fewer dimensions "
-                "than the latent state."
-            )
-
         x0 = prediction[:, : latent.shape[-1]]
 
         # x_t = (1-t)x0 + t*x1 and v = x1-x0 imply
@@ -360,19 +345,10 @@ class ScaleFlow(nn.Module):
         )
 
         if "advantages" in tokenized_agent:
-            if self.use_sde:
-                rl_loss = self._sde_advantage_loss(
-                    tokenized_agent,
-                    initial_map_feature,
-                )
-            else:
-                rl_loss = self._direct_advantage_loss(
-                    tokenized_agent,
-                    initial_map_feature,
-                )
-
-            tokenized_agent["rl_loss"] = rl_loss
-
+            tokenized_agent["rl_loss"] = self._sde_advantage_loss(
+                tokenized_agent,
+                initial_map_feature,
+            )
         return loss
 
     def _supervised_loss(
@@ -477,7 +453,7 @@ class ScaleFlow(nn.Module):
 
         branch_noise = saved_noise_level.detach()
 
-        delta_t = time - next_time
+        # delta_t = time - next_time
 
         active = (
                 non_ego[:, None]
@@ -538,105 +514,6 @@ class ScaleFlow(nn.Module):
 
         return loss#+v_norm*0.01
 
-    def _direct_advantage_loss(
-        self,
-        tokenized_agent: HeteroData,
-        map_feature: Mapping[str, Tensor],
-    ) -> Tensor:
-        sampled_x0 = tokenized_agent["gen_z"]
-
-        _, time, latent = (
-            self._prepare_supervised_batch(
-                sampled_x0,
-                tokenized_agent,
-            )
-        )
-
-        _, current_x0 = self._model_velocity(
-            latent,
-            time,
-            tokenized_agent,
-            map_feature,
-        )
-
-        scale = self.model.normal_scale.clamp_min(
-            1e-6
-        )
-
-        log_prob = self.adaptive_x0_logprob(
-            current_x0 / scale,
-            sampled_x0.detach() / scale,
-        )
-
-        num_agents = sampled_x0.shape[0]
-
-        non_ego = ~tokenized_agent[
-            "ego_mask"
-        ].bool()
-
-        if not torch.any(non_ego):
-            return sampled_x0.new_zeros(())
-
-        advantages = self._prepare_advantages(
-            tokenized_agent["advantages"],
-            num_agents,
-        )[non_ego]
-
-        old_log_prob = log_prob.detach()
-
-        ratio = (
-            log_prob - old_log_prob
-        ).clamp(
-            -10.0,
-            10.0,
-        ).exp()[non_ego]
-
-        clipped_ratio = ratio.clamp(
-            1.0 - self.init_ppo_clip,
-            1.0 + self.init_ppo_clip,
-        )
-
-        tokenized_agent[
-            "sampled_match_loss"
-        ] = -log_prob.detach()
-
-        tokenized_agent[
-            "clip_ratio"
-        ] = (
-            (
-                ratio
-                < 1.0 - self.init_ppo_clip
-            )
-            | (
-                ratio
-                > 1.0 + self.init_ppo_clip
-            )
-        ).float().detach()
-
-        return -torch.minimum(
-            ratio * advantages,
-            clipped_ratio * advantages,
-        ).mean() * 100.0
-
-    @staticmethod
-    def adaptive_x0_logprob(
-        pred_x0: Tensor,
-        target_x0: Tensor,
-    ) -> Tensor:
-        error = pred_x0 - target_x0
-
-        l1_scale = error.abs().mean(
-            dim=-1,
-            keepdim=True,
-        ).clamp_min(
-            1e-5
-        ).detach()
-
-        return -0.1 * (
-            error.square()
-            / l1_scale
-        ).mean(dim=-1)
-
     # ==================================================================
     # Multi-branch sampling
     # ==================================================================
@@ -649,11 +526,6 @@ class ScaleFlow(nn.Module):
             int | Sequence[int] | Tensor
         ],
     ) -> Tensor:
-        if total_steps <= 0:
-            raise ValueError(
-                "steps must be positive."
-            )
-
         if (
             branch_steps is None
             and self.fixed_branch_steps is not None
@@ -687,21 +559,6 @@ class ScaleFlow(nn.Module):
                 }
             )
 
-            if not selected:
-                raise ValueError(
-                    "branch_steps cannot be empty."
-                )
-
-            if (
-                selected[0] < 0
-                or selected[-1] >= total_steps
-            ):
-                raise ValueError(
-                    "branch step indices must be in "
-                    f"[0, {total_steps - 1}], "
-                    f"got {selected}."
-                )
-
             return torch.tensor(
                 selected,
                 device=device,
@@ -717,12 +574,6 @@ class ScaleFlow(nn.Module):
             else int(branch_steps)
         )
 
-        if count <= 0:
-            raise ValueError(
-                "The number of branch steps "
-                "must be positive."
-            )
-
         count = min(
             count,
             total_steps,
@@ -731,7 +582,7 @@ class ScaleFlow(nn.Module):
         # Sampling without replacement for every scene.
         random_score = torch.rand(
             num_graphs,
-            total_steps,
+            total_steps-1,
             device=device,
         )
 
@@ -739,9 +590,7 @@ class ScaleFlow(nn.Module):
             dim=1
         )[:, :count]
 
-        return selected.sort(
-            dim=1
-        ).values
+        return selected
 
     @staticmethod
     def _gather_steps(

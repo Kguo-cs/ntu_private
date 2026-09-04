@@ -363,13 +363,13 @@ class SMART_GAIL(SMART):
             probabilities.std(unbiased=False),
         )
 
-        self.ego_return_meanstd.update(scene_reward.detach())
-        scene_reward = self.ego_return_meanstd.normalize(scene_reward)
-
-        self.global_return_meanstd.update(interaction_reward.detach())
-        interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
-
-        ego_rewards=0.2*scene_reward+0.8*interaction_reward
+        # self.ego_return_meanstd.update(scene_reward.detach())
+        # scene_reward = self.ego_return_meanstd.normalize(scene_reward)
+        #
+        # self.global_return_meanstd.update(interaction_reward.detach())
+        # interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
+        #
+        # ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
         neighbour_reward_grid = None
@@ -714,9 +714,9 @@ class SMART_GAIL(SMART):
             num_agents=rewards.shape[1],
         )
 
-        init_step=len(value)-len(rewards)
+        init_step=len(value)-len(rewards)+1
 
-        rewards_pad= torch.cat([torch.zeros([init_step,value.shape[1]],device=rewards.device), rewards])
+        rewards_pad= torch.cat([torch.zeros([init_step-1,value.shape[1]],device=rewards.device), rewards])
 
         advantages_2d, value_loss_elements = compute_advantages(
             rewards_pad,#[-len(value) :]
@@ -823,7 +823,7 @@ class SMART_GAIL(SMART):
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
         #self.token_processor.train()
-        if random.random()<0.5:
+        if random.random()<0:
             self.token_processor.learn_init = False
             self.token_processor.pred_init = True
         else:
