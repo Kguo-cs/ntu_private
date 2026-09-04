@@ -363,13 +363,13 @@ class SMART_GAIL(SMART):
             probabilities.std(unbiased=False),
         )
 
-        # self.ego_return_meanstd.update(scene_reward.detach())
-        # scene_reward = self.ego_return_meanstd.normalize(scene_reward)
-        #
-        # self.global_return_meanstd.update(interaction_reward.detach())
-        # interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
-        #
-        # ego_rewards=0.2*scene_reward+0.8*interaction_reward
+        self.ego_return_meanstd.update(scene_reward.detach())
+        scene_reward = self.ego_return_meanstd.normalize(scene_reward)
+
+        self.global_return_meanstd.update(interaction_reward.detach())
+        interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
+
+        ego_rewards=0.1*scene_reward+0.9*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
         neighbour_reward_grid = None
