@@ -34,7 +34,7 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "./waymo_data/full/training_map2_init5"
-map_data_directory  = "./waymo_data/map_all/training"
+map_data_directory  = "./waymo_data/map_full/training"
 ouput_data_directory = "./waymo_data/full/training_mapall_init5"
 
 
