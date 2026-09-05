@@ -533,7 +533,7 @@ class ScaleFlow(nn.Module):
             "ego_mask"
         ].bool()
 
-        selected_advantage = tokenized_agent["advantages"][non_ego]
+        selected_advantage = tokenized_agent["advantages"].transpose(0, 1) [non_ego]
 
         selected_velocity = velocities[non_ego]
         fm_target =(noise-sampled_x0)[non_ego]
@@ -541,7 +541,7 @@ class ScaleFlow(nn.Module):
         target = (
                 selected_velocity.detach()
                 + 0.1
-                * selected_advantage[..., None]
+                * selected_advantage
                 * (fm_target - selected_velocity.detach())
         )
 
