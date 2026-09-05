@@ -509,45 +509,108 @@ class ScaleFlow(nn.Module):
         return loss#+v_norm*0.01
 
     def _direct_advantage_loss(
-        self,
-        tokenized_agent: HeteroData,
-        map_feature: Mapping[str, Tensor],
+            self,
+            tokenized_agent: HeteroData,
+            map_feature: Mapping[str, Tensor],
     ) -> Tensor:
-        sampled_x0 = tokenized_agent["gen_z"]
+        sampled_x0 = tokenized_agent["gen_z"].detach()
 
-        noise, time, latent = (
-            self._prepare_supervised_batch(
-                sampled_x0,
-                tokenized_agent,
-            )
+        _, time, latent = self._prepare_supervised_batch(
+            sampled_x0,
+            tokenized_agent,
         )
 
-        velocities, current_x0 = self._model_velocity(
+        _, pred_x0 = self._model_velocity(
             latent,
             time,
             tokenized_agent,
             map_feature,
         )
 
-        non_ego = ~tokenized_agent[
-            "ego_mask"
-        ].bool()
+        non_ego = ~tokenized_agent["ego_mask"].bool()
 
-        selected_advantage = tokenized_agent["advantages"].transpose(0, 1) [non_ego]
+        if not torch.any(non_ego):
+            return sampled_x0.new_zeros(())
 
-        selected_velocity = velocities[non_ego]
-        fm_target =(noise-sampled_x0)[non_ego]
-
-        target = (
-                selected_velocity.detach()
-                + 0.1
-                * selected_advantage
-                * (fm_target - selected_velocity.detach())
+        advantage = (
+            tokenized_agent["advantages"][non_ego]
+            .detach()
         )
 
-        loss = (selected_velocity-target).square().mean()
+        # Assuming advantage has already been normalized.
+        advantage = advantage.clamp(-2.0, 2.0)
+
+        pred = pred_x0[non_ego]
+        target_endpoint = sampled_x0[non_ego]
+
+        alpha_pos = 0.10
+        alpha_neg = 0.05
+
+        coeff = torch.where(
+            advantage >= 0,
+            alpha_pos * advantage,
+            alpha_neg * advantage,
+        )
+
+        coeff = coeff.clamp(
+            min=-0.10,
+            max=0.20,
+        )
+
+        target_x0 = (
+                pred.detach()
+                + coeff[..., None]
+                * (
+                        target_endpoint
+                        - pred.detach()
+                )
+        )
+
+        loss = 0.5 * (
+                pred - target_x0.detach()
+        ).square().mean()
 
         return loss
+    # def _direct_advantage_loss(
+    #     self,
+    #     tokenized_agent: HeteroData,
+    #     map_feature: Mapping[str, Tensor],
+    # ) -> Tensor:
+    #     sampled_x0 = tokenized_agent["gen_z"]
+    #
+    #     noise, time, latent = (
+    #         self._prepare_supervised_batch(
+    #             sampled_x0,
+    #             tokenized_agent,
+    #         )
+    #     )
+    #
+    #     velocities, current_x0 = self._model_velocity(
+    #         latent,
+    #         time,
+    #         tokenized_agent,
+    #         map_feature,
+    #     )
+    #
+    #     non_ego = ~tokenized_agent[
+    #         "ego_mask"
+    #     ].bool()
+    #
+    #     selected_advantage = tokenized_agent["advantages"].transpose(0, 1) [non_ego]
+    #
+    #     selected_velocity = velocities[non_ego]
+    #     fm_target =(noise-sampled_x0)[non_ego]
+    #
+    #     target = (
+    #             selected_velocity.detach()
+    #             + 0.1
+    #             * selected_advantage
+    #             * (fm_target - selected_velocity.detach())
+    #     )
+    #
+    #     loss = (selected_velocity-target).square().mean()
+    #
+    #     return loss
 
 
         # scale = self.model.normal_scale.clamp_min(
