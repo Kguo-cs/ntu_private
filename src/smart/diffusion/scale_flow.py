@@ -533,7 +533,7 @@ class ScaleFlow(nn.Module):
             return sampled_x0.new_zeros(())
 
         advantage = (
-            tokenized_agent["advantages"][non_ego]
+            tokenized_agent["advantages"].transpose(0, 1)[:,0][non_ego]
             .detach()
         )
 
