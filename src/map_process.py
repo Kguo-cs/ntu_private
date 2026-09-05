@@ -508,19 +508,19 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[31+8+3+2+5:]
-    # func = partial(
-    #     wm2argo,
-    #     split=split,
-    #     output_dir=output_dir,
-    #     output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
-    # )
-    #
-    # with multiprocessing.Pool(num_workers) as p:
-    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[31+8+3+2+5:]
+    func = partial(
+        wm2argo,
+        split=split,
+        output_dir=output_dir,
+        output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
+    )
+
+    with multiprocessing.Pool(num_workers) as p:
+        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
     # print(len(packages))
-    for file_path in tqdm(packages):
-        wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
+    # for file_path in tqdm(packages):
+    #     wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
 
 if __name__ == "__main__":
@@ -528,8 +528,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/home/ke/code/sim/src/waymo_data/waymo131",
-        #default="/home/ke/keguo/waymo",
+        #default="/home/ke/code/sim/src/waymo_data/waymo131",
+        default="/home/ke/keguo/waymo",
     )
     parser.add_argument(
         "--output_dir", type=str, default="./waymo_data/map_full"
