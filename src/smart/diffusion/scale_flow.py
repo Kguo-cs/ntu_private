@@ -508,7 +508,7 @@ class ScaleFlow(nn.Module):
                 * (fm_target - selected_velocity.detach())
         )
 
-        loss = (selected_velocity-target).abs().mean()
+        loss = (selected_velocity-target).square().mean()
         return loss#+v_norm*0.01
 
     # ==================================================================
@@ -672,7 +672,7 @@ class ScaleFlow(nn.Module):
             and branch_mask is not None
             and branch_mask.any()
             and self.token_processor.learn_init
-            and "gt_z_raw" not in tokenized_agent
+            #and "gt_z_raw" not in tokenized_agent
         ):
             noise_level =0.5 #self.get_adaptive_noise_level(time, next_time)
             noise_level = noise_level * branch_mask[:, None].to(latent.dtype)
