@@ -74,9 +74,7 @@ class ScaleFlow(nn.Module):
         # --------------------------------------------------------------
         # Initial-state policy optimization
         # --------------------------------------------------------------
-        self.use_sde = bool(
-            gail and getattr(token_processor, "learn_init", False)
-        )
+        self.use_sde = False#bool( gail and getattr(token_processor, "learn_init", False) )
 
         self.use_init_ppo_ratio = bool(
             getattr(args, "use_init_ppo_ratio", False)
@@ -229,6 +227,7 @@ class ScaleFlow(nn.Module):
         #     noise[matched_index]
         # )
         #
+
     def _sample_time(
         self,
         x: Tensor,
@@ -331,10 +330,19 @@ class ScaleFlow(nn.Module):
         )
 
         if "advantages" in tokenized_agent:
-            tokenized_agent["rl_loss"] = self._sde_advantage_loss(
-                tokenized_agent,
-                initial_map_feature,
-            )
+            if self.use_sde:
+                rl_loss = self._sde_advantage_loss(
+                    tokenized_agent,
+                    initial_map_feature,
+                )
+            else:
+                rl_loss = self._direct_advantage_loss(
+                    tokenized_agent,
+                    initial_map_feature,
+                )
+
+            tokenized_agent["rl_loss"] = rl_loss
+
         return loss
 
     def _supervised_loss(
@@ -498,8 +506,37 @@ class ScaleFlow(nn.Module):
             * selected_advantage
         ).mean()
 
-        selected_velocity = velocities[active]
-        fm_target =(-tokenized_agent["gen_z"]+tokenized_agent["gen_noise"])[non_ego]
+        return loss#+v_norm*0.01
+
+    def _direct_advantage_loss(
+        self,
+        tokenized_agent: HeteroData,
+        map_feature: Mapping[str, Tensor],
+    ) -> Tensor:
+        sampled_x0 = tokenized_agent["gen_z"]
+
+        noise, time, latent = (
+            self._prepare_supervised_batch(
+                sampled_x0,
+                tokenized_agent,
+            )
+        )
+
+        velocities, current_x0 = self._model_velocity(
+            latent,
+            time,
+            tokenized_agent,
+            map_feature,
+        )
+
+        non_ego = ~tokenized_agent[
+            "ego_mask"
+        ].bool()
+
+        selected_advantage = tokenized_agent["advantages"][non_ego]
+
+        selected_velocity = velocities[non_ego]
+        fm_target =(noise-sampled_x0)[non_ego]
 
         target = (
                 selected_velocity.detach()
@@ -509,8 +546,62 @@ class ScaleFlow(nn.Module):
         )
 
         loss = (selected_velocity-target).square().mean()
-        return loss#+v_norm*0.01
 
+        return loss
+
+
+        # scale = self.model.normal_scale.clamp_min(
+        #     1e-6
+        # )
+        #
+        # log_prob = self.adaptive_x0_logprob(
+        #     current_x0 / scale,
+        #     sampled_x0.detach() / scale,
+        # )
+        #
+        # num_agents = sampled_x0.shape[0]
+        #
+
+        # if not torch.any(non_ego):
+        #     return sampled_x0.new_zeros(())
+        #
+        #
+        # old_log_prob = log_prob.detach()
+        #
+        # ratio = (
+        #     log_prob - old_log_prob
+        # ).clamp(
+        #     -10.0,
+        #     10.0,
+        # ).exp()[non_ego]
+        #
+        # clipped_ratio = ratio.clamp(
+        #     1.0 - self.init_ppo_clip,
+        #     1.0 + self.init_ppo_clip,
+        # )
+        #
+        # tokenized_agent[
+        #     "sampled_match_loss"
+        # ] = -log_prob.detach()
+        #
+        # tokenized_agent[
+        #     "clip_ratio"
+        # ] = (
+        #     (
+        #         ratio
+        #         < 1.0 - self.init_ppo_clip
+        #     )
+        #     | (
+        #         ratio
+        #         > 1.0 + self.init_ppo_clip
+        #     )
+        # ).float().detach()
+        #
+        # return -torch.minimum(
+        #     ratio * advantages,
+        #     clipped_ratio * advantages,
+        # ).mean() * 100.0
+        #
     # ==================================================================
     # Multi-branch sampling
     # ==================================================================
