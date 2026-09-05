@@ -111,14 +111,6 @@ class ScaleFlow(nn.Module):
         self.target_step_std = float(
             getattr(args, "target_step_std", 0.1)
         )
-
-        # self.register_buffer(
-        #     "noise_dim_weights",
-        #     torch.zeros(
-        #         [8],
-        #         dtype=torch.float32,
-        #     )[None],
-        # )
         self.use_ref = False
         self.apply(weight_init)
 
@@ -262,12 +254,8 @@ class ScaleFlow(nn.Module):
         time: Tensor,
         tokenized_agent: HeteroData,
     ) -> None:
-        ego_mask = tokenized_agent[
-            "ego_mask"
-        ].bool()
-
+        ego_mask = tokenized_agent[ "ego_mask"]
         latent[ego_mask] = clean[ego_mask]
-        # Under x_t=(1-t)x0+t*x1, clean data corresponds to t=0.
         time[ego_mask] = 0.0
 
     def _prepare_supervised_batch(
@@ -322,8 +310,6 @@ class ScaleFlow(nn.Module):
 
         x0 = prediction[:, : latent.shape[-1]]
 
-        # x_t = (1-t)x0 + t*x1 and v = x1-x0 imply
-        # v = (x_t-x0) / t.
         velocity = (
             latent - x0
         ) / time.clamp_min(
@@ -512,6 +498,17 @@ class ScaleFlow(nn.Module):
             * selected_advantage
         ).mean()
 
+        selected_velocity = velocities[active]
+        fm_target =(tokenized_agent["gen_z"]-tokenized_agent["gen_noise"])[non_ego]
+
+        target = (
+                selected_velocity.detach()
+                + 0.1
+                * selected_advantage[..., None]
+                * (fm_target - selected_velocity.detach())
+        )
+
+        loss = (selected_velocity-target).abs().mean()
         return loss#+v_norm*0.01
 
     # ==================================================================
@@ -656,7 +653,7 @@ class ScaleFlow(nn.Module):
             tokenized_agent,
         )
 
-        ego_mask = tokenized_agent["ego_mask"].bool()
+        ego_mask = tokenized_agent["ego_mask"]
         next_time[ego_mask] = 0.0
 
         velocity, x0 = self._model_velocity(
@@ -746,6 +743,7 @@ class ScaleFlow(nn.Module):
         latent = self.model.denormalize(
             latent
         )
+        tokenized_agent["gen_noise"]=latent.clone()
 
         if "expert_input" not in tokenized_agent:
             expert_input, _ = self.model.get_input(
@@ -951,6 +949,8 @@ class ScaleFlow(nn.Module):
             selected_time,
             selected_next_time,
         )
+
+        tokenized_agent["gen_z"]=latent
 
         tokenized_agent[ "sde_noise_level"] = selected_noise_level.detach()
 
