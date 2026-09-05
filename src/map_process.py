@@ -26,6 +26,16 @@ from scipy.interpolate import interp1d
 from tqdm import tqdm
 from waymo_open_dataset.protos import scenario_pb2
 import os
+import sys
+
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
+sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+sys.path.append('/home/zs/code/sim')
+sys.path.append('/mnt/d/code/sim')
+sys.path.append('/home/ke/keguo/sim')
+sys.path.append('/home/guoke/sim')
+
 from src.smart.utils.geometry import wrap_angle
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
 
