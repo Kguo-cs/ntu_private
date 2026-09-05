@@ -35,9 +35,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./waymo_data/full/training_map2_03_light"
-# map_data_directory  = "./waymo_data/map2_light/training"
-ouput_data_directory = "./waymo_data/full/training_map2_init5"
+agent_data_directory = "./waymo_data/full/training_map2_init5"
+map_data_directory  = "./waymo_data/map2_all/training"
+ouput_data_directory = "./waymo_data/full/training_mapall_init5"
 
 pred_init=True
 
@@ -127,37 +127,38 @@ def process_file(filename):
         del data['agent']
 
     else:
-        tokenized_agent=data1["tokenized_agent"]
+        
+        # tokenized_agent=data1["tokenized_agent"]
 
-        ego_mask = torch.zeros_like(tokenized_agent['pred_mask']).to(torch.bool)
-        ego_mask[-1]=True
+        # ego_mask = torch.zeros_like(tokenized_agent['pred_mask']).to(torch.bool)
+        # ego_mask[-1]=True
 
-        tokenized_agent["ego_mask"]=ego_mask
-        agent_shape, token_traj_all, token_traj = token_processor._get_agent_shape_and_token_traj(
-            tokenized_agent["type"]
-        )
+        # tokenized_agent["ego_mask"]=ego_mask
+        # agent_shape, token_traj_all, token_traj = token_processor._get_agent_shape_and_token_traj(
+        #     tokenized_agent["type"]
+        # )
 
-        tokenized_agent['token_traj_all']=token_traj_all
+        # tokenized_agent['token_traj_all']=token_traj_all
 
-        tokenized_agent["sampled_idx"]=tokenized_agent["sampled_idx"].long()
-
-
-        token_processor.get_init(tokenized_agent)
-
-        init_tokenized_agent={}
-
-        for key in ["initial_shape", "initial_pos", "initial_heading", "ego_pos2","ego_heading2","local_vel","type"]:
-            init_tokenized_agent[key]=tokenized_agent[key]
+        # tokenized_agent["sampled_idx"]=tokenized_agent["sampled_idx"].long()
 
 
-        init_tokenized_agent["ego_pos2"] =init_tokenized_agent["ego_pos2"].repeat(len(init_tokenized_agent["initial_heading"]),1,1)
-        init_tokenized_agent["ego_heading2"] =init_tokenized_agent["ego_heading2"].repeat(len(init_tokenized_agent["initial_heading"]),1)
+        # token_processor.get_init(tokenized_agent)
 
-        for key in init_tokenized_agent.keys():
-            init_tokenized_agent[key] = init_tokenized_agent[key].cpu()
-        init_tokenized_agent["num_nodes"]=len(init_tokenized_agent["initial_heading"])
+        # init_tokenized_agent={}
 
-        data["tokenized_agent"]=init_tokenized_agent
+        # for key in ["initial_shape", "initial_pos", "initial_heading", "ego_pos2","ego_heading2","local_vel","type"]:
+        #     init_tokenized_agent[key]=tokenized_agent[key]
+
+
+        # init_tokenized_agent["ego_pos2"] =init_tokenized_agent["ego_pos2"].repeat(len(init_tokenized_agent["initial_heading"]),1,1)
+        # init_tokenized_agent["ego_heading2"] =init_tokenized_agent["ego_heading2"].repeat(len(init_tokenized_agent["initial_heading"]),1)
+
+        # for key in init_tokenized_agent.keys():
+        #     init_tokenized_agent[key] = init_tokenized_agent[key].cpu()
+        # init_tokenized_agent["num_nodes"]=len(init_tokenized_agent["initial_heading"])
+
+        # data["tokenized_agent"]=init_tokenized_agent
 
     output_path = os.path.join(ouput_data_directory, filename[:-3]+'.pt')
 

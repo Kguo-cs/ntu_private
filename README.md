@@ -8,7 +8,7 @@ rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/bc_init64_l1_v1.ck
 
 rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_map2light ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_mapall ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/all32_08_match1_05sum_l1sq_w1col10_noent_pred/2026-09-02_23-32-31/bc/y7jwh86a/checkpoints/all32_08_match1_05sum_l1sq_w1col10_noent_pred-epoch=3-step=152321-valmeta=0.6529.ckpt ./
 

@@ -33,9 +33,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./waymo_data/full/training_map2_init10_light"
-map_data_directory  = "./waymo_data/map_lane/training"
-ouput_data_directory = "./waymo_data/full/training_lane_init10_light"
+agent_data_directory = "./waymo_data/full/training_map2_init5"
+map_data_directory  = "./waymo_data/map2_all/training"
+ouput_data_directory = "./waymo_data/full/training_mapall_init5"
 
 
 # agent_data_directory = "/home/ke/code/sim/src/waymo_data/full/validation_map2light"
@@ -51,8 +51,6 @@ def process_file(filename):
     #     data = pickle.load(f)
 
     data=torch.load(input_path)
-
-    filename=filename[:-2]+'.pt'
 
     #data1= HeteroData(data).cuda()
 
