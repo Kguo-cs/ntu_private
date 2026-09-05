@@ -508,7 +508,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[31+8+3+2:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[31+8+3+2+5:]
     # func = partial(
     #     wm2argo,
     #     split=split,

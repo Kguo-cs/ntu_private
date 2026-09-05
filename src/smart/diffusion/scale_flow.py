@@ -499,7 +499,7 @@ class ScaleFlow(nn.Module):
         ).mean()
 
         selected_velocity = velocities[active]
-        fm_target =(tokenized_agent["gen_z"]-tokenized_agent["gen_noise"])[non_ego]
+        fm_target =(-tokenized_agent["gen_z"]+tokenized_agent["gen_noise"])[non_ego]
 
         target = (
                 selected_velocity.detach()
