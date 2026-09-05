@@ -948,7 +948,7 @@ class ScaleFlow(nn.Module):
                         "noise_feat"
                     ] = tokenized_agent[
                         "noise_feat_cur"
-                    ]
+                    ][:,None]
 
         finally:
             self.model.train(
@@ -962,7 +962,6 @@ class ScaleFlow(nn.Module):
         ][ego_mask]
 
         if not self.use_sde:
-            tokenized_agent["noise_feat"] = feature_history[0]
             tokenized_agent["gen_z"] = latent
             return latent
 
