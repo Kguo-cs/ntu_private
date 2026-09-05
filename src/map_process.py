@@ -535,7 +535,7 @@ if __name__ == "__main__":
         "--output_dir", type=str, default="./waymo_data/map_full"
     )
     parser.add_argument("--split", type=str, default="training")
-    parser.add_argument("--num_workers", type=int, default=2)
+    parser.add_argument("--num_workers", type=int, default=4)
     args = parser.parse_args()
 
     batch_process9s_transformer(
