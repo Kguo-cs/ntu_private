@@ -57,7 +57,7 @@ class InitDiffusion(nn.Module):
         values = {
             "dataset": "argoverse_v2",
             "input_dim": 2,
-            "hidden_dim": 256,
+            "hidden_dim": 128,
             "output_dim": 2,
             "output_head": False,
             "init_timestep": 50,
@@ -153,7 +153,7 @@ class InitDiffusion(nn.Module):
     ):
         if "initial_map_feature" in agent:
             feature=agent["initial_map_feature"]["pt_token"]
-            if feature.shape[-1]==128:
+            if feature.shape[-1]!=self.G1.model.hidden_dim:
                 agent["initial_map_feature"]["pt_token"] = self.G1.model.lane_embed(feature)
 
             return agent["initial_map_feature"]
