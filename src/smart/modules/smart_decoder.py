@@ -260,10 +260,6 @@ class SMARTDecoder(nn.Module):
 
 
         if self.token_processor.learn_init:
-            if self.init_decoder is None:
-                raise RuntimeError(
-                    "Initial value learning requires init_decoder."
-                )
             self.init_value_network = MLPLayer(
                 self.init_decoder.G1.hidden_dim,
                 hidden_dim * 2,
