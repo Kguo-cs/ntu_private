@@ -23,7 +23,7 @@ task_name: xflow512_l1 #_07505v4_scalegmm30  #_valid32 #_huber1_sqrt #posheadl1 
 trainer:
   check_val_every_n_epoch: 4
  # val_check_interval: 0.0000002
-  max_epochs: 64
+  max_epochs: 32
 
 data:
   train_batch_size: 128
