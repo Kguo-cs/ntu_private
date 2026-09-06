@@ -74,7 +74,7 @@ class ScaleFlow(nn.Module):
         # --------------------------------------------------------------
         # Initial-state policy optimization
         # --------------------------------------------------------------
-        self.use_sde = False#bool( gail and getattr(token_processor, "learn_init", False) )
+        self.use_sde = bool( gail and getattr(token_processor, "learn_init", False) )
 
         self.use_init_ppo_ratio = bool(
             getattr(args, "use_init_ppo_ratio", False)
