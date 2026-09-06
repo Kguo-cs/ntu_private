@@ -1019,6 +1019,11 @@ all32_08_match1_05sum_l1sq_w1_0_invnoiseW-epoch=3-step=182628-valmeta=0.6489.ckp
 
 all32_08_match1_05sum_l1sq_w1_R02-epoch=3-step=152321-valmeta=0.6498.ckpt
 
+0.6502
+
+all32_08_match1_05sum_l1sq_w1_branch1_R02-epoch=3-step=152321-valmeta=0.6490.ckpt
+
+
 
 
 take all position for generation

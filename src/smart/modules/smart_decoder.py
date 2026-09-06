@@ -112,7 +112,7 @@ class SMARTDecoder(nn.Module):
         # Define optional attributes in every configuration.
         self.init_decoder: Optional[InitDiffusion] = None
         self.init_map_encoder: Optional[SMARTMapDecoder] = None
-        self.sep_map = False
+        self.sep_map = True
 
         self.discriminator: Optional[SMARTAgentDecoder] = None
         self.value_network: Optional[MLPLayer] = None
@@ -194,7 +194,6 @@ class SMARTDecoder(nn.Module):
             self.token_processor,
             self.gail,
         )
-        self.sep_map = bool(self.init_decoder.sep_map)
 
         if not self.sep_map:
             return

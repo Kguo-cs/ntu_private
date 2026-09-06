@@ -112,13 +112,6 @@ class SMARTMapDecoder(nn.Module):
 
         if tokenized_agent is None:
             mask = (map_type == 4) | (map_type == 5)
-        elif batch.numel() == 0:
-            return {
-                "pt_token": pos_pt.new_empty((0, self.type_pt_emb.embedding_dim)),
-                "position": pos_pt,
-                "orientation": orient_pt,
-                "batch": batch,
-            }
         else:
             gt_initial_pos = tokenized_agent["initial_pos"]
             ego_mask = tokenized_agent["ego_mask"]

@@ -211,7 +211,7 @@ class SMART(LightningModule):
             self._validate_closed_loop(data, tokenized_map, tokenized_agent, batch_idx)
 
     def _validate_closed_loop(self, data, tokenized_map, agent, batch_idx: int) -> None:
-        out = self._rollouts(tokenized_map, agent)
+        out = self._rollouts(tokenized_map, agent,data)
 
         if self.challenge_type == ChallengeType.SCENARIO_GEN:
             if not self.wosac_submission.is_active:
@@ -241,10 +241,11 @@ class SMART(LightningModule):
             self._visualize(data, agent, scenarios, out["z_list"], batch_idx)
 
     @torch.no_grad()
-    def _rollouts(self, tokenized_map, agent) -> dict[str, Any]:
+    def _rollouts(self, tokenized_map, agent,data) -> dict[str, Any]:
         if getattr(self.encoder, "sep_map", False):
+            tokenized_map1= self.token_processor.tokenize_map1(data)
             agent["initial_map_feature"] = self.encoder.init_map_encoder(
-                tokenized_map, tokenized_agent=agent
+                tokenized_map1, tokenized_agent=agent
             )
         map_feature = self.encoder.map_encoder(tokenized_map)
         agent["map_feature"] = map_feature
@@ -440,7 +441,7 @@ class SMART(LightningModule):
         if not self.wosac_submission.is_active:
             raise RuntimeError("test_step requires an active WOSAC submission.")
         tokenized_map, agent = self.token_processor(data)
-        out = self._rollouts(tokenized_map, agent)
+        out = self._rollouts(tokenized_map, agent,data)
         self._submission_update(data, out, batch_idx)
 
     def _pred_z_list_ego_local_to_global(

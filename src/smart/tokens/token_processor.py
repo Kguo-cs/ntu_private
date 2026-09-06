@@ -264,6 +264,31 @@ class TokenProcessor(torch.nn.Module):
                 persistent=False,
             )
 
+    def tokenize_map1(self, data: HeteroData) -> Dict[str, Tensor]:
+        pos = data["map_save1"]["traj_pos"]
+        heading = data["map_save1"]["traj_theta"]
+        local_pos, _ = transform_to_local(
+            pos_global=pos,
+            head_global=None,
+            pos_now=pos[:, 0],
+            head_now=heading,
+        )
+        distance = (
+            self.map_token_sample_pt - local_pos.unsqueeze(1)
+        ).square().sum((-2, -1))
+
+        result = {
+            "position": pos[:, 0].contiguous(),
+            "orientation": heading,
+            "token_idx": distance.argmin(-1),
+            "traj_pos_local": local_pos[:, 1:],
+            "type": data["pt_token1"]["type"],
+        }
+        for key in ("batch", "light_type"):
+            if key in data["pt_token1"]:
+                result[key] = data["pt_token1"][key]
+        return result
+
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
         pos = data["map_save"]["traj_pos"]
         heading = data["map_save"]["traj_theta"]

@@ -41,7 +41,6 @@ class InitDiffusion(nn.Module):
         self.learn_autoencoder = False
         self.latent_diffusion = False
         self.ldm = False
-        self.sep_map = False
         self.use_gan = False
 
         args = self._make_args( )
@@ -153,6 +152,10 @@ class InitDiffusion(nn.Module):
         num_graphs: int,
     ):
         if "initial_map_feature" in agent:
+            feature=agent["initial_map_feature"]["pt_token"]
+            if feature.shape[-1]==128:
+                agent["initial_map_feature"]["pt_token"] = self.G1.model.lane_embed(feature)
+
             return agent["initial_map_feature"]
 
         map_feature = self._require(agent, "map_feature")
@@ -181,12 +184,8 @@ class InitDiffusion(nn.Module):
                 scene_heading[batch],
             )
 
-        lane_embed = getattr(self.G1.model, "lane_embed", None)
-        if lane_embed is None:
-            raise AttributeError("ScaleFlow.model must define lane_embed.")
-
         result = {
-            "pt_token": lane_embed(feature),
+            "pt_token": self.G1.model.lane_embed(feature),
             "position": position,
             "orientation": orientation,
             "batch": batch,
