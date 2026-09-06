@@ -274,10 +274,6 @@ class SMART_GAIL(SMART):
         Rewards returned for policy optimization are detached, preventing actor
         backward from entering the discriminator graph.
         """
-
-        if key not in {"expert", "agent"}:
-            raise ValueError(f"Unsupported discriminator sample type: {key!r}")
-
         discriminator = self.encoder.discriminator
         mask_t = self._discriminator_mask(agent)
 
@@ -307,9 +303,7 @@ class SMART_GAIL(SMART):
         )
 
         (ego_logits, interaction_logits, map_logits) = disc_out[0]
-        ego_rewards, neighbour_rewards, scene_reward, interaction_reward = disc_out[2]
-
-
+        ego_rewards, dis_action_pred, scene_reward, interaction_reward = disc_out[2]
 
         if self.encoder.discriminator.interative_decoder.dis_start_step==0:
             self._log_train(f"train/{key}_ego_score0", torch.sigmoid(ego_logits[:mask_t[0].sum()]).mean())
@@ -354,7 +348,77 @@ class SMART_GAIL(SMART):
         else:
             interaction_loss = _zero(ego_logits)
 
-        discriminator_loss = ego_loss + interaction_loss
+        if dis_action_pred is not None:
+            start = (
+                self.encoder.discriminator
+                .interative_decoder
+                .dis_start_step
+            )
+
+            # mask_t: [T - start, A_selected]
+            # 已经从 dis_start_step 开始，不要再次切 start。
+            #
+            # state t 必须有效，并且 next state/action t+1 也必须有效。
+            pair_mask = (
+                    mask_t[:-1]
+                    & mask_t[1:]
+            )  # [T-start-1, A_selected]
+
+            # ----------------------------------------------------------
+            # target action: a_{t+1}
+            # ----------------------------------------------------------
+            actions = agent["sampled_idx"][
+                :, start + 1:
+            ].long()  # [A, T-start-1]
+
+            # _discriminator_mask() 在非 pred_init 情况下会应用 train_mask，
+            # action target 必须执行完全相同的 agent filtering。
+            if not self.token_processor.pred_init:
+                train_mask = agent.get("train_mask")
+                if train_mask is not None:
+                    actions = actions[train_mask]
+
+            # time-major，与 discriminator feat_a 的排列一致
+            action_targets = actions.transpose(0, 1)[
+                pair_mask
+            ]  # [N_pair]
+
+            # ----------------------------------------------------------
+            # select corresponding discriminator logits
+            # ----------------------------------------------------------
+            # dis_action_pred 对应 mask_t 中所有 True state：
+            #
+            #   mask_t.reshape(-1)[mask_t.reshape(-1)]
+            #
+            # 但最后一个 state 没有 next action，
+            # next invalid 的 state 也不能计算 action CE。
+            predict_mask = torch.zeros_like(mask_t)
+            predict_mask[:-1] = pair_mask
+
+            # 压缩到 dis_action_pred 的 index space
+            selected_predict_mask = (
+                predict_mask.reshape(-1)[
+                    mask_t.reshape(-1)
+                ]
+            )
+
+            action_logits = dis_action_pred[
+                selected_predict_mask
+            ]
+
+            action_loss = torch.nn.functional.cross_entropy(
+                action_logits,
+                action_targets,
+            )
+
+            self._log_train(
+                f"train/{key}_dis_action_loss",
+                action_loss,
+            )
+        else:
+            action_loss = _zero(ego_logits)
+
+        discriminator_loss = ego_loss + interaction_loss+action_loss
         combined = torch.cat(combined_logits)
         probabilities = combined.sigmoid()
         self._log_train(f"train/{key}_disc_val", probabilities.mean())
@@ -372,21 +436,21 @@ class SMART_GAIL(SMART):
         ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
-        neighbour_reward_grid = None
-        if _has_elements(neighbour_rewards):
-            neighbour_reward_grid = _reshape_valid_rewards(
-                neighbour_rewards,
-                mask_t,
-                "nei_rewards",
-            )
+        # neighbour_reward_grid = None
+        # if _has_elements(neighbour_rewards):
+        #     neighbour_reward_grid = _reshape_valid_rewards(
+        #         neighbour_rewards,
+        #         mask_t,
+        #         "nei_rewards",
+        #     )
+        # if neighbour_reward_grid is not None:
+        #     self._log_train(f"train/{key}_nei_rewards", neighbour_reward_grid.mean())
+        #     self._log_train(
+        #         f"train/{key}_all_rewards",
+        #         (ego_reward_grid + neighbour_reward_grid).mean(),
+        #     )
 
         self._log_train(f"train/{key}_rewards", ego_reward_grid.mean())
-        if neighbour_reward_grid is not None:
-            self._log_train(f"train/{key}_nei_rewards", neighbour_reward_grid.mean())
-            self._log_train(
-                f"train/{key}_all_rewards",
-                (ego_reward_grid + neighbour_reward_grid).mean(),
-            )
         if _has_elements(scene_reward):
             self._log_train(f"train/{key}_scene_reward", scene_reward.mean())
         if _has_elements(interaction_reward):
@@ -445,7 +509,7 @@ class SMART_GAIL(SMART):
         return (
             discriminator_loss,
             ego_reward_grid.detach(),
-            None if neighbour_reward_grid is None else neighbour_reward_grid.detach(),
+            None ,#if neighbour_reward_grid is None else neighbour_reward_grid.detach()
             gp_loss,
             dis_mask,
         )

@@ -57,7 +57,7 @@ class InitDiffusion(nn.Module):
         values = {
             "dataset": "argoverse_v2",
             "input_dim": 2,
-            "hidden_dim": 128,
+            "hidden_dim": 256,
             "output_dim": 2,
             "output_head": False,
             "init_timestep": 50,
@@ -65,7 +65,7 @@ class InitDiffusion(nn.Module):
             "num_heads": 8,
             "head_dim": 16,
             "dropout": 0.0,
-            "num_denoiser_layers": 1,
+            "num_denoiser_layers": 2,
             "diff_type": "vd",
             "m_dim": 10,
             "use_dit": False,

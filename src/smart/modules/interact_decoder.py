@@ -90,15 +90,6 @@ class InterativeDecoder(nn.Module):
     ) -> None:
         super().__init__()
 
-        if num_layers < 1:
-            raise ValueError("num_layers must be >= 1.")
-        if token_processor.shift <= 0:
-            raise ValueError("token_processor.shift must be positive.")
-        if discriminator and dist_decay <= 0:
-            raise ValueError(
-                "dist_decay must be positive for the discriminator."
-            )
-
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.shift = int(token_processor.shift)
@@ -205,6 +196,9 @@ class InterativeDecoder(nn.Module):
             output_dim=n_token_agent,
         )
 
+        if discriminator:
+            self.token_predict_head1 = nn.Linear(hidden_dim, 2048)
+
         self.feat_a_cache: list[Optional[Tensor]] = [
             None for _ in range(self.decode_layers)
         ]
@@ -289,12 +283,6 @@ class InterativeDecoder(nn.Module):
         output_count = int(output_valid.sum().item())
 
         if not self.edge_encoder.rollout_traj and not self.discriminator:
-            expected = int(local_valid.sum().item())
-            if len(features) != expected:
-                raise ValueError(
-                    f"Expected {expected} spatial features, got {len(features)}."
-                )
-
             dense = features.new_zeros(
                 local_valid.shape[1],
                 local_valid.shape[0],
@@ -306,12 +294,6 @@ class InterativeDecoder(nn.Module):
                 self.feat_a_cache[layer] = dense
             else:
                 previous = self.feat_a_cache[layer]
-                if previous is None:
-                    raise RuntimeError("Feature cache is not initialized.")
-                if previous.shape[1] != dense.shape[1]:
-                    raise ValueError(
-                        "The selected agent set changed during inference."
-                    )
 
                 self.feat_a_cache[layer] = torch.cat(
                     [previous, dense], 0
@@ -440,6 +422,8 @@ class InterativeDecoder(nn.Module):
         if not self.discriminator:
             return token_logits, feat_a, None, None
 
+        dis_action_pred=self.token_predict_head1(feat_a)
+
         scene_logit = token_logits[:, 0]
         scene_reward = scene_logit.detach()
 
@@ -462,7 +446,7 @@ class InterativeDecoder(nn.Module):
         logits = (scene_logit, interaction_logits[:, 0], None)
         rewards = (
             total_reward,
-            torch.zeros_like(total_reward),
+            dis_action_pred,
             scene_reward,
             interaction_reward_all,
         )
