@@ -206,7 +206,7 @@ class SMARTDecoder(nn.Module):
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
-            pt2pt_neighbor=pt2pt_neighbor,
+            pt2pt_neighbor=99,
             token_processor=self.token_processor,
         )
 
