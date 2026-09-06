@@ -21,7 +21,7 @@ ckpt_path: "./waymo_data/AIRL32_interdis_mean_203_t3_nodiff_epoch=9-step=152190_
 task_name: xflow512_l1_128allpt99 #_07505v4_scalegmm30  #_valid32 #_huber1_sqrt #posheadl1 #_meanflow #_head5 #_pos1_w5 #_pta #colmax50 #scene #_seq #_seqWeightsceneshift16a1noclip #shiftpower #_pow3 #map1000 #6080 #selector_feat_fix4
 
 trainer:
-  check_val_every_n_epoch: 4
+  check_val_every_n_epoch: 2
  # val_check_interval: 0.0000002
   max_epochs: 32
 
