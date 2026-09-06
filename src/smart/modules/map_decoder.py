@@ -58,57 +58,33 @@ class SMARTMapDecoder(nn.Module):
 
         self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
-        if num_layers>0:
-            self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,use_pl2a=True)
+        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands, use_pl2a=True)
 
-            self.pt2pt_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(num_layers)
-                ]
-            )
+        self.pt2pt_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=False,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
 
-            self.pred_offroad=False
-
-            self.apply(weight_init)
+        self.apply(weight_init)
 
     def forward(self, tokenized_map: Dict,tokenized_agent=None):
 
         map_type=tokenized_map["type"].long()
-        # map_type[map_type>9] = 9
-        
-        # mask = torch.zeros_like(map_type, dtype=bool)
-        # #mask = torch.ones_like(map_type, dtype=bool)
-        #
-        # type4_indices=torch.where((map_type==4) |(map_type==5))[0]
-        #
-        # sampled_indices = type4_indices[::2]
-        #
-        # mask[sampled_indices] = True
-        #
-        # mask[(map_type!=4)&(map_type!=5)] = True
-        #
-        # map_type[map_type==5]=4
-        # map_type[map_type==8]=7
-        # map_type[map_type==0]=1
-        # map_type[map_type==2]=1
-        # map_type[map_type==3]=1
-        # # #
-        # mask=(map_type==4) | (map_type==6) | (map_type==7)  | (map_type==9) #| (map_type==1)
 
-        batch = tokenized_map["batch"]#[mask]
-        pos_pt = tokenized_map["position"]#[mask]
-        orient_pt = tokenized_map["orientation"]#[mask]
-        token_idx=tokenized_map["token_idx"].long()#[mask]
+        batch = tokenized_map["batch"]
+        pos_pt = tokenized_map["position"]
+        orient_pt = tokenized_map["orientation"]
+        token_idx=tokenized_map["token_idx"].long()
         light_type=tokenized_map["light_type"].long()
-        #map_type=map_type[mask]
 
         if tokenized_agent is None:
             mask = (map_type == 4) | (map_type == 5)
@@ -129,7 +105,6 @@ class SMARTMapDecoder(nn.Module):
             light_type=light_type[dist_mask]
             map_type=map_type[dist_mask]
             mask = (dist[dist_mask]<self.token_processor.init_map_range) & ((map_type == 4) | (map_type == 5))
-            #mask=torch.ones_like(map_type).to(torch.bool)
 
         pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
         x_pt = pt_token_emb_src[token_idx]

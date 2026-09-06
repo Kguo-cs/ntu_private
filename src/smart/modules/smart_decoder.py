@@ -199,7 +199,7 @@ class SMARTDecoder(nn.Module):
             return
 
         self.init_map_encoder = self._make_map_encoder(
-            hidden_dim=hidden_dim,
+            hidden_dim=hidden_dim*2,
             pl2pl_radius=pl2pl_radius,
             num_freq_bands=num_freq_bands,
             num_layers=1,
@@ -311,21 +311,20 @@ class SMARTDecoder(nn.Module):
         else:
             tokenized_agent["map_feature"] = map_feature
 
-    def _skip_agent_supervision(self) -> bool:
-        """Train only the initial-state model in this configuration."""
-        return self.token_processor.learn_init and self.finetune and not self.gail
-
     def forward(
         self,
         tokenized_map: TensorDict,
         tokenized_agent: TensorDict,
     ) -> TensorDict:
-        map_feature = self._get_map_feature(
-            tokenized_map,
-            tokenized_agent,
-        )
+        if  self.sep_map and self.token_processor.learn_init and not self.gail:
+            map_feature = None
+        else:
+            map_feature = self._get_map_feature(
+                tokenized_map,
+                tokenized_agent,
+            )
 
-        if self._skip_agent_supervision():
+        if self.token_processor.learn_init and not self.gail:
             prediction: TensorDict = {}
         else:
             prediction = self.agent_encoder(
@@ -333,7 +332,6 @@ class SMARTDecoder(nn.Module):
                 map_feature,
             )
 
-        # In GAIL mode initial-state RL is updated separately.
         if self.token_processor.learn_init and not self.gail:
             self._prepare_initial_map_feature(
                 tokenized_map,
