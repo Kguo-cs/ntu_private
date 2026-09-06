@@ -198,6 +198,14 @@ class InterativeDecoder(nn.Module):
 
         if discriminator:
             self.token_predict_head1 = nn.Linear(hidden_dim, 2048)
+            self.a2a_attn_layers1= AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=False,
+                    has_pos_emb=True,
+                )
 
         self.feat_a_cache: list[Optional[Tensor]] = [
             None for _ in range(self.decode_layers)
@@ -402,6 +410,20 @@ class InterativeDecoder(nn.Module):
             )
 
         if self.discriminator:
+            feat_a1 = self.a2a_attn_layers1(
+                feat_a, r_a2a, edge_index_a2a
+            )
+
+            dis_action_pred=self.token_predict_head1(feat_a1)
+
+            dis_action_pred = self._select_outputs(
+                dis_action_pred,
+                inference_mask,
+                self.dis_start_step,
+                n_current,
+            )
+
+        if self.discriminator:
             feat_a = self._select_outputs(
                 feat_a,
                 inference_mask,
@@ -422,7 +444,6 @@ class InterativeDecoder(nn.Module):
         if not self.discriminator:
             return token_logits, feat_a, None, None
 
-        dis_action_pred=self.token_predict_head1(feat_a)
 
         scene_logit = token_logits[:, 0]
         scene_reward = scene_logit.detach()
