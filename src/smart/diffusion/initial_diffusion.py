@@ -65,7 +65,7 @@ class InitDiffusion(nn.Module):
             "num_heads": 8,
             "head_dim": 16,
             "dropout": 0.0,
-            "num_denoiser_layers": 2,
+            "num_denoiser_layers": 3,
             "diff_type": "vd",
             "m_dim": 10,
             "use_dit": False,
