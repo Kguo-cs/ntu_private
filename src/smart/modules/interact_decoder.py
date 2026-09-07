@@ -196,16 +196,16 @@ class InterativeDecoder(nn.Module):
             output_dim=n_token_agent,
         )
 
-        if discriminator:
-            self.token_predict_head1 = nn.Linear(hidden_dim, 2048)
-            self.a2a_attn_layers1= AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
+        # if discriminator:
+        #     self.token_predict_head1 = nn.Linear(hidden_dim, 2048)
+        #     self.a2a_attn_layers1= AttentionLayer(
+        #             hidden_dim=hidden_dim,
+        #             num_heads=num_heads,
+        #             head_dim=head_dim,
+        #             dropout=dropout,
+        #             bipartite=False,
+        #             has_pos_emb=True,
+        #         )
 
         self.feat_a_cache: list[Optional[Tensor]] = [
             None for _ in range(self.decode_layers)
