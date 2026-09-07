@@ -106,6 +106,9 @@ class SMARTMapDecoder(nn.Module):
             map_type=map_type[dist_mask]
             mask = (dist[dist_mask]<self.token_processor.init_map_range) & ((map_type == 4) | (map_type == 5))#& (map_type<4)#
 
+            valid_idx = torch.where(mask)[0]
+            mask[valid_idx[::2]] = True
+
         pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
         x_pt = pt_token_emb_src[token_idx]
 
