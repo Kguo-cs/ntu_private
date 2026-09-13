@@ -882,17 +882,18 @@ class SMART_GAIL(SMART):
             # )
 
             delta_mu=prediction[:,:base.shape[-1]]
-            # log_std=prediction[:,base.shape[-1]:] .clamp(
+            log_std=prediction[:,base.shape[-1]:]
+            #.clamp(
             #         math.log(0.03),
             #         math.log(0.30),
             #     )
-            min_log_std = math.log(0.03)
-            max_log_std = math.log(0.3)
-
-            log_std = min_log_std + (
-                    0.5 * (torch.tanh(prediction[:,base.shape[-1]:]) + 1.0)
-                    * (max_log_std - min_log_std)
-            )
+            # min_log_std = math.log(0.03)
+            # max_log_std = math.log(0.3)
+            #
+            # log_std = min_log_std + (
+            #         0.5 * (torch.tanh(prediction[:,base.shape[-1]:]) + 1.0)
+            #         * (max_log_std - min_log_std)
+            # )
             std = log_std.exp().expand_as(delta_mu)
 
             dist = torch.distributions.Normal(
