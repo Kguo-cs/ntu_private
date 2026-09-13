@@ -909,9 +909,11 @@ class ScaleFlow(nn.Module):
                 # --------------------------------------
                 res =  delta * self.model.normal_scale#base +
 
-                res[:, 4:] = base[:, 4:] + res[:, 4:]
+                latent=base +res
 
-                latent = self.model.output_transform(res, base[:, :2],torch.atan2(base[:, 3], base[:, 2]))
+                # res[:, 4:] = base[:, 4:] + res[:, 4:]
+                #
+                # latent = self.model.output_transform(res, base[:, :2],torch.atan2(base[:, 3], base[:, 2]))
 
                 # tokenized_agent["log_prob"] = dist.log_prob(latent)[~ego_mask].sum(dim=-1)
                 latent[ego_mask] = tokenized_agent["expert_input"  ][ego_mask]

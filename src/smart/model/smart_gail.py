@@ -909,9 +909,11 @@ class SMART_GAIL(SMART):
 
             res=delta_mu * self.encoder.init_decoder.G1.model.normal_scale
 
-            res[:,4:]=base[:,4:] +res[:,4:]
+            refine_mean =res+base
 
-            refine_mean =self.encoder.init_decoder.G1.model.output_transform(res, base[:, :2], torch.atan2(base[:, 3], base[:, 2]))
+            # res[:,4:]=base[:,4:] +res[:,4:]
+            #
+            # refine_mean =self.encoder.init_decoder.G1.model.output_transform(res, base[:, :2], torch.atan2(base[:, 3], base[:, 2]))
 
             edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
                 refine_mean, tokenized_agent["batch"]
