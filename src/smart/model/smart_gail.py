@@ -880,17 +880,13 @@ class SMART_GAIL(SMART):
                     self.encoder.init_decoder.G1.refiner_delta_scale
                     * torch.tanh(prediction[:,:base.shape[-1]])
             )
-            log_std=prediction[:,base.shape[-1]:]
+            log_std=prediction[:,base.shape[-1]:] .clamp(
+                    math.log(0.03),
+                    math.log(0.30),
+                )
 
             std = log_std.exp().expand_as(delta_mu)
 
-            # log_std = (
-            #     self.encoder.init_decoder.G1.refiner_log_std
-            #     .clamp(
-            #         math.log(0.05),
-            #         math.log(0.20),
-            #     )
-            # )
             dist = torch.distributions.Normal(
                 delta_mu[non_ego],
                 std[non_ego],
@@ -927,7 +923,7 @@ class SMART_GAIL(SMART):
 
             rl_loss = (
                     pg_loss
-                    + 0.05 * residual_loss
+                    + 0.02 * residual_loss
                     + 0.1 * std_loss
                     #+ 0.1* collision_loss
             )
