@@ -876,10 +876,12 @@ class SMART_GAIL(SMART):
                 tokenized_agent["initial_map_feature"],
             )
 
-            delta_mu = (
-                    self.encoder.init_decoder.G1.refiner_delta_scale
-                    * torch.tanh(prediction[:,:base.shape[-1]])
-            )
+            # delta_mu = (
+            #         self.encoder.init_decoder.G1.refiner_delta_scale
+            #         * torch.tanh(prediction[:,:base.shape[-1]])
+            # )
+
+            delta_mu=prediction[:,:base.shape[-1]]
             # log_std=prediction[:,base.shape[-1]:] .clamp(
             #         math.log(0.03),
             #         math.log(0.30),

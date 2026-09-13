@@ -883,10 +883,11 @@ class ScaleFlow(nn.Module):
                 # --------------------------------------
                 # bounded mean in normalized space
                 # --------------------------------------
-                delta_mu = (
-                        self.refiner_delta_scale
-                        * torch.tanh(prediction[:,:base.shape[-1]])
-                )
+                # delta_mu = (
+                #         self.refiner_delta_scale
+                #         * torch.tanh(prediction[:,:base.shape[-1]])
+                # )
+                delta_mu = prediction[:, :base.shape[-1]]
 
                 # std: initially keep it tightly bounded
                 # log_std = self.refiner_log_std.clamp(
