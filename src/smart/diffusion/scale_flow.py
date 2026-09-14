@@ -281,7 +281,7 @@ class ScaleFlow(nn.Module):
                 * torch.tanh(prediction[:, :base.shape[-1]])
         )
 
-        delta_mu[:, 4:6] = 0.0  # don't touch length / width
+        #delta_mu[:, 4:6] = 0.0  # don't touch length / width
 
         # delta_mu=prediction[:,:base.shape[-1]]
 
@@ -346,7 +346,7 @@ class ScaleFlow(nn.Module):
 
             # Don't let exploration std explode.
             std_loss = (
-                    log_std - math.log(0.1)
+                    log_std - math.log(0.05)
             ).square().mean()
 
             rl_loss = (
