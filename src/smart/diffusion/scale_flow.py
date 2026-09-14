@@ -26,7 +26,7 @@ from torch_geometric.data import HeteroData
 
 from src.smart.diffusion.diffusion_utils import (
     get_closest_sum_idx_fast,
-    get_diff_loss,
+    get_diff_loss,multi_circle_collision_loss_mem_efficient
 )
 from src.smart.utils import weight_init
 import copy
@@ -286,6 +286,76 @@ class ScaleFlow(nn.Module):
                     tokenized_agent,
                     map_feature,
                 )
+            elif  self.token_processor.use_refiner:
+                non_ego = ~tokenized_agent["ego_mask"].bool()
+
+                base = tokenized_agent["refiner_base"]
+                old_action = tokenized_agent["refiner_action"]
+
+                prediction = self.refine_model(
+                    base,
+                    torch.zeros_like(base[:, :1]),
+                    tokenized_agent,
+                    tokenized_agent["initial_map_feature"],
+                )
+
+                delta_mu = (
+                        self.refiner_delta_scale
+                        * torch.tanh(prediction[:,:base.shape[-1]])
+                )
+
+                # delta_mu=prediction[:,:base.shape[-1]]
+                log_std=prediction[:,base.shape[-1]:]#.clamp(  math.log(0.03),  math.log(0.30)  )
+                # min_log_std = math.log(0.03)
+                # max_log_std = math.log(0.3)
+                #
+                # log_std = min_log_std + (
+                #         0.5 * (torch.tanh(prediction[:,base.shape[-1]:]) + 1.0)
+                #         * (max_log_std - min_log_std)
+                # )
+                std = log_std.exp().expand_as(delta_mu)
+
+                dist = torch.distributions.Normal(
+                    delta_mu[non_ego],
+                    std[non_ego],
+                )
+
+                log_prob = dist.log_prob(
+                    old_action[non_ego]
+                ).sum(dim=-1)
+
+                advantage = tokenized_agent["advantages"][0][non_ego].detach()
+
+                pg_loss = -(log_prob * advantage).mean()
+
+                # Keep correction small.
+                residual_loss = delta_mu[non_ego].square().mean()
+
+                #res=delta_mu * self.encoder.init_decoder.G1.model.normal_scale
+
+                #refine_mean =res+base
+
+                # res[:,4:]=base[:,4:] +res[:,4:]
+                #
+                # refine_mean =self.encoder.init_decoder.G1.model.output_transform(res, base[:, :2], torch.atan2(base[:, 3], base[:, 2]))
+
+                # edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
+                #     refine_mean, tokenized_agent["batch"]
+                # )
+                # collision_loss = edge_loss.mean()
+
+                # Don't let exploration std explode.
+                std_loss = (
+                        log_std - math.log(0.1)
+                ).square().mean()
+
+                rl_loss = (
+                        pg_loss
+                        + 0.02* residual_loss
+                        + 0.1 * std_loss
+                        #+ 0.1* collision_loss
+                )
+
             else:
                 rl_loss = self._direct_advantage_loss(
                     tokenized_agent,
@@ -883,11 +953,11 @@ class ScaleFlow(nn.Module):
                 # --------------------------------------
                 # bounded mean in normalized space
                 # --------------------------------------
-                # delta_mu = (
-                #         self.refiner_delta_scale
-                #         * torch.tanh(prediction[:,:base.shape[-1]])
-                # )
-                delta_mu = prediction[:, :base.shape[-1]]
+                delta_mu = (
+                        self.refiner_delta_scale
+                        * torch.tanh(prediction[:,:base.shape[-1]])
+                )
+                # delta_mu = prediction[:, :base.shape[-1]]
 
                 # std: initially keep it tightly bounded
                 # log_std = self.refiner_log_std.clamp(
