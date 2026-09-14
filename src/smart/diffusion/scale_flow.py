@@ -343,7 +343,7 @@ class ScaleFlow(nn.Module):
 
             # Don't let exploration std explode.
             std_loss = (
-                    log_std - math.log(0.2)
+                    std -0.1 #math.log(0.2)
             ).square().mean()
 
             rl_loss = (
