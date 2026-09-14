@@ -240,13 +240,11 @@ class InitDiffusion(nn.Module):
         if self.use_rl:
             self._collision_advantage(agent, map_feature, batch)
 
-        loss, _, _, _ = self.G1.get_loss(
+        loss = self.G1.get_loss(
             diff_input,
             agent,
             map_feature,
         )
-        if len(loss) != 6:
-            raise ValueError("ScaleFlow must return six loss components.")
 
         names = (
             "match_loss",
