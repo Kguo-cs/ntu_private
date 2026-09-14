@@ -84,7 +84,7 @@ class ScaleFlow(nn.Module):
                 token_processor,
                 input_dim=args.input_dim,
                 hidden_dim=args.hidden_dim,
-                output_dim=args.input_dim,#,
+                output_dim=args.input_dim*2,#,
                 num_freq_bands=args.num_freq_bands,
                 num_layers=1,
                 num_heads=args.num_heads,
@@ -280,10 +280,10 @@ class ScaleFlow(nn.Module):
                 self.refiner_delta_scale
                 * torch.tanh(prediction[:, :base.shape[-1]])
         )
-
-        log_std=self.refiner_log_std
         # delta_mu=prediction[:,:base.shape[-1]]
-        #log_std = prediction[:, base.shape[-1]:]  # .clamp(  math.log(0.03),  math.log(0.30)  )
+
+        #log_std=self.refiner_log_std
+        log_std = prediction[:, base.shape[-1]:]  # .clamp(  math.log(0.03),  math.log(0.30)  )
         # min_log_std = math.log(0.03)
         # max_log_std = math.log(0.3)
         #
@@ -343,7 +343,7 @@ class ScaleFlow(nn.Module):
 
             # Don't let exploration std explode.
             std_loss = (
-                    log_std - math.log(0.1)
+                    log_std - math.log(0.2)
             ).square().mean()
 
             rl_loss = (
