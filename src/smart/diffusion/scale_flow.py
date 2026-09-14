@@ -336,21 +336,21 @@ class ScaleFlow(nn.Module):
             #
             # refine_mean =self.encoder.init_decoder.G1.model.output_transform(res, base[:, :2], torch.atan2(base[:, 3], base[:, 2]))
 
-            # edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
-            #     refine_mean, tokenized_agent["batch"]
-            # )
-            # collision_loss = edge_loss.mean()
+            edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
+                refine_mean, tokenized_agent["batch"]
+            )
+            collision_loss = edge_loss.mean()
 
             # Don't let exploration std explode.
             std_loss = (
-                    std -0.1 #math.log(0.2)
+                    log_std - math.log(0.1)
             ).square().mean()
 
             rl_loss = (
                     pg_loss
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
-                    #+ 1 * collision_loss
+                    + 1 * collision_loss
             )
 
             tokenized_agent["rl_loss"] = rl_loss
