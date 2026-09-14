@@ -85,18 +85,9 @@ def get_scale(x0_prediction: Tensor, x0: Tensor, eps: float = 1e-5) -> Tensor:
 def _component_loss(
     prediction: Tensor,
     target: Tensor,
-    use_huber: bool,
-    huber_beta: float,
+    use_l1: bool,
 ) -> Tensor:
-    if use_huber:
-        # if huber_beta <= 0:
-        #     raise ValueError("huber_beta must be positive")
-        # loss = F.smooth_l1_loss(
-        #     prediction,
-        #     target,
-        #     beta=huber_beta,
-        #     reduction="none",
-        # )
+    if use_l1:
         loss=F.l1_loss(prediction, target, reduction="none")
     else:
         loss = F.mse_loss(prediction, target, reduction="none")#.square()
@@ -139,8 +130,7 @@ def matching_loss(
     w_heading=0.5,
     w_shape=0.2,
     w_vel=0.2,
-    use_huber: bool = False,
-    huber_beta: float = 0.1,
+    use_l1: bool = False,
     scale=None,
 ):
     """Return total and component losses, each with shape [N]."""
@@ -155,12 +145,12 @@ def matching_loss(
 
     if mode == "deterministic":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
-        pos_loss = _component_loss(fake_pos, real_pos, True, huber_beta)
+        pos_loss = _component_loss(fake_pos, real_pos, use_l1)
         heading_loss = _component_loss(
-            fake_heading, real_heading, True, huber_beta
+            fake_heading, real_heading, use_l1
         )
-        shape_loss = _component_loss(fake_shape, real_shape, True, huber_beta)
-        vel_loss = _component_loss(fake_vel, real_vel, True, huber_beta)
+        shape_loss = _component_loss(fake_shape, real_shape, use_l1)
+        vel_loss = _component_loss(fake_vel, real_vel, use_l1)
 
     elif mode == "gaussian":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
@@ -177,8 +167,8 @@ def matching_loss(
         heading_loss1 = _component_loss(
             fake_heading, real_heading, True, huber_beta
         )
-        shape_loss1 = _component_loss(fake_shape, real_shape, use_huber, huber_beta)
-        vel_loss1 = _component_loss(fake_vel, real_vel, use_huber, huber_beta)
+        shape_loss1 = _component_loss(fake_shape, real_shape, use_l1, huber_beta)
+        vel_loss1 = _component_loss(fake_vel, real_vel, use_l1, huber_beta)
 
     else:
         fake_pos = prediction[..., POS]
@@ -447,13 +437,15 @@ def get_diff_loss(
     w_shape: float = 0.2/ 5,
     w_vel: float = 1 / 5,
     max_loss_weight: float | None = None,
-    use_huber: bool = False,
-    huber_beta: float = 0.1,
+    use_l1: bool = False,
 ):
     """State reconstruction loss plus optional symmetric collision loss."""
     num_states = len(fake_state)
     batch = tokenized_agent["batch"][-num_states:].to(fake_state.device)
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
+
+    if not use_l1:
+        weight=weight.square()
 
     if use_match:
         fake_idx = get_closest_sum_idx_fast(
@@ -484,8 +476,7 @@ def get_diff_loss(
         w_heading=w_heading * weight,
         w_shape=w_shape * weight,
         w_vel=w_vel * weight,
-        use_huber=use_huber,
-        huber_beta=huber_beta,
+        use_l1=use_l1,
         scale=scale
     )
 
