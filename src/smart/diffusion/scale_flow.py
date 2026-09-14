@@ -353,7 +353,7 @@ class ScaleFlow(nn.Module):
                         pg_loss
                         + 0.02* residual_loss
                         + 0.1 * std_loss
-                        + 10* collision_loss
+                        + 1* collision_loss
                 )
             else:
                 rl_loss = self._direct_advantage_loss(
