@@ -280,6 +280,9 @@ class ScaleFlow(nn.Module):
                 self.refiner_delta_scale
                 * torch.tanh(prediction[:, :base.shape[-1]])
         )
+
+        delta_mu[:, 4:6] = 0.0  # don't touch length / width
+
         # delta_mu=prediction[:,:base.shape[-1]]
 
         #log_std=self.refiner_log_std
