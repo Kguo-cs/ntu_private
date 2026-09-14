@@ -331,18 +331,18 @@ class ScaleFlow(nn.Module):
                 # Keep correction small.
                 residual_loss = delta_mu[non_ego].square().mean()
 
-                #res=delta_mu * self.encoder.init_decoder.G1.model.normal_scale
+                res=delta_mu * self.model.normal_scale
 
-                #refine_mean =res+base
+                refine_mean =res+base
 
                 # res[:,4:]=base[:,4:] +res[:,4:]
                 #
                 # refine_mean =self.encoder.init_decoder.G1.model.output_transform(res, base[:, :2], torch.atan2(base[:, 3], base[:, 2]))
 
-                # edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
-                #     refine_mean, tokenized_agent["batch"]
-                # )
-                # collision_loss = edge_loss.mean()
+                edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
+                    refine_mean, tokenized_agent["batch"]
+                )
+                collision_loss = edge_loss.mean()
 
                 # Don't let exploration std explode.
                 std_loss = (
@@ -353,9 +353,8 @@ class ScaleFlow(nn.Module):
                         pg_loss
                         + 0.02* residual_loss
                         + 0.1 * std_loss
-                        #+ 0.1* collision_loss
+                        +  collision_loss
                 )
-
             else:
                 rl_loss = self._direct_advantage_loss(
                     tokenized_agent,
