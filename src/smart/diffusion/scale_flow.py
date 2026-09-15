@@ -92,7 +92,7 @@ class ScaleFlow(nn.Module):
                     hidden_dim=args.hidden_dim,
                     output_dim=args.input_dim*2,#,
                     num_freq_bands=args.num_freq_bands,
-                    num_layers=3,
+                    num_layers=1,
                     num_heads=args.num_heads,
                     head_dim=args.head_dim,
                     dropout=args.dropout,
@@ -321,13 +321,15 @@ class ScaleFlow(nn.Module):
                 base,
                 tokenized_agent )
 
+            active_dims = [0, 1, 2, 3, 6, 7]
+
             dist = torch.distributions.Normal(
-                delta_mu[non_ego],
-                std[non_ego],
+                delta_mu[non_ego][:, active_dims],
+                std[non_ego][:, active_dims],
             )
 
             log_prob = dist.log_prob(
-                old_action[non_ego]
+                old_action[non_ego][:, active_dims]
             ).sum(dim=-1)
 
             advantage = tokenized_agent["advantages"][0][non_ego].detach()
@@ -352,7 +354,7 @@ class ScaleFlow(nn.Module):
 
             # Don't let exploration std explode.
             std_loss = (
-                    log_std - math.log(0.1)
+                    log_std[:,active_dims] - math.log(0.1)
             ).square().mean()
 
             rl_loss = (
@@ -974,6 +976,8 @@ class ScaleFlow(nn.Module):
 
                 if "gt_z_raw" not in tokenized_agent:
                     eps = torch.randn_like(delta_mu)
+
+                    eps[:,4:6]=0
                 else:
                     eps=torch.zeros_like(delta_mu)
 

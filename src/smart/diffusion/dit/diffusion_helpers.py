@@ -547,7 +547,7 @@ class FactorizedDiTBlock(nn.Module):
             # l2l
             # we stack several l2l blocks to give more capacity for lane modeling
             self.l2l_blocks = []
-            for _ in range(num_l2l_blocks):
+            for _ in range(self.num_l2l_blocks):
                 self.l2l_blocks.append(DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio))
             self.l2l_blocks = nn.ModuleList(self.l2l_blocks)
 

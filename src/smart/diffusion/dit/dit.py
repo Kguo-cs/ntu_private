@@ -14,6 +14,7 @@ from src.smart.utils import (
     rotate_to_local,
     weight_init
 )
+from src.smart.layers import MLPLayer
 
 class DiT(nn.Module):
 
@@ -22,7 +23,8 @@ class DiT(nn.Module):
         # self.cfg = cfg
         # self.cfg_model = self.cfg.model
         # self.cfg_dataset = self.cfg.dataset
-        self.lane_embed = nn.Linear(256 + 4, hidden_dim)
+        self.lane_embed = TwoLayerResMLP(256 + 4, hidden_dim)
+        self.ego_embed = TwoLayerResMLP(12, hidden_dim)
 
         self.agent_hidden_dim=hidden_dim
         self.dropout=0
@@ -33,18 +35,18 @@ class DiT(nn.Module):
         self.agent_latent_dim=8
 
 
-        self.emb_drop = nn.Dropout(self.dropout)
+        #self.emb_drop = nn.Dropout(self.dropout)
         # # Condition on scene type
         # self.scene_type_embedder = LabelEmbedder(self.cfg_dataset.num_map_ids * 2, hidden_dim,
         #                                          self.cfg_model.label_dropout) ## 2type: either nocturne_compatible (1) or not (0) used for sampling GPU-Drive compatible scenes
         self.scene_type_embedder = LabelEmbedder(3, hidden_dim,  0) ## 2type: either nocturne_compatible (1) or not (0) used for sampling GPU-Drive compatible scenes
 
         # Condition on number of agents and lanes
-        self.num_agents_embedder = LabelEmbedder(350, hidden_dim, 0)
-        self.num_lanes_embedder =LabelEmbedder(450, hidden_dim, 0)#n.Linear(1, hidden_dim) #
+        #self.num_agents_embedder = LabelEmbedder(350, hidden_dim, 0)
+        #self.num_lanes_embedder =LabelEmbedder(450, hidden_dim, 0)#n.Linear(1, hidden_dim) #
 
         # Diffusion timestep embedding
-        self.t_embedder = TimestepEmbedder(hidden_dim)
+       # self.t_embedder = TimestepEmbedder(hidden_dim)
         # Used because agent embedding is smaller than lane embedding
         self.downsample_c = nn.Linear(hidden_dim, self.agent_hidden_dim)
 
@@ -146,12 +148,12 @@ class DiT(nn.Module):
         nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
 
         # Initialize num lane and num agent embedding tables:
-        nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
-        nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
+        #nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
+       # nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
 
         # Initialize timestep embedding MLP:
-        nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
-        nn.init.normal_(self.t_embedder.mlp[2].weight, std=0.02)
+       # nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
+        #nn.init.normal_(self.t_embedder.mlp[2].weight, std=0.02)
 
         # Zero-out adaLN modulation layers in DiT blocks:
         for block in self.blocks:
@@ -201,7 +203,7 @@ class DiT(nn.Module):
         agent_batch = data["batch"]
         nonego_type=data["type"]
         batch_size=data["num_graphs"]
-        ego_embedding=0#data["ego_embedding"]
+        ego_embedding=self.ego_embed(data["ego_feat"])
 
         #agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding=data
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False,hidden_dim=self.agent_hidden_dim)
@@ -221,31 +223,32 @@ class DiT(nn.Module):
         # scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
         # scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training,
         #                                       force_drop_ids=torch.ones_like(scene_idx) if unconditional else None)
-        agent_scene_type = self.scene_type_embedder(nonego_type, train=self.training,
-                                              force_drop_ids=torch.ones_like(nonego_type) if unconditional else None)
+        # agent_scene_type = self.scene_type_embedder(nonego_type, train=self.training,
+        #                                       force_drop_ids=torch.ones_like(nonego_type) if unconditional else None)
+        agent_scene_type =self.scene_type_embedder(nonego_type,train=self.training)
         # agent_batch = data['agent'].batch
         # lane_batch = data['lane'].batch
         # agent_scene_type = scene_type[agent_batch]
         # lane_scene_type = scene_type[lane_batch]
-        num_agents = torch.bincount(agent_batch, minlength=batch_size)
-        num_lanes = torch.bincount(lane_batch, minlength=batch_size)
+        #num_agents = torch.bincount(agent_batch, minlength=batch_size)
+        #num_lanes = torch.bincount(lane_batch, minlength=batch_size)
 
        # print(num_lanes.max(),num_agents.max())
 
         # num_agents = data['num_agents'].long()
         # num_lanes = data['num_lanes'].long()
-        num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
-        num_lanes_emb =self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]#self.num_lanes_embedder(num_lanes[:,None].to(torch.float32))[lane_batch] #
+        #num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
+        #num_lanes_emb =self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]#self.num_lanes_embedder(num_lanes[:,None].to(torch.float32))[lane_batch] #
 
         #if lane_timestep is  None:
-        lane_timestep=torch.ones_like(lane_batch)
+        #lane_timestep=torch.ones_like(lane_batch)
 
         # embedding of timestep
-        t =self.t_embedder(torch.cat([lane_timestep, agent_timestep[:,0]], dim=-1))
+        #t =self.t_embedder(torch.cat([lane_timestep, agent_timestep[:,0]], dim=-1))
         # embedding of number of agents and lanes
-        n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
+        #n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
         # embedding of scene type
-        y = torch.cat([torch.zeros_like(num_lanes_emb), agent_scene_type+ego_embedding], dim=0)
+        y = torch.cat([ego_embedding[lane_batch], agent_scene_type+ego_embedding[agent_batch]], dim=0)
 
         # l2l_edge_index = data['lane', 'to', 'lane'].edge_index
         # a2a_edge_index = data['agent', 'to', 'agent'].edge_index
@@ -253,13 +256,13 @@ class DiT(nn.Module):
         # l2a_edge_index[1] = l2a_edge_index[1] + x_lane.shape[0]
 
         # conditioning vector for DiT block
-        c = t + n+ y
+        c =  y#t + n+
         # # necessary for A2A and L2A attention
         c_small = self.downsample_c(c)
 
         # apply dropout
         #x_lane = self.emb_drop(x_lane)
-        x_agent = self.emb_drop(x_agent)
+        #x_agent = self.emb_drop(x_agent)
 
 
         # factorized dit block processing
