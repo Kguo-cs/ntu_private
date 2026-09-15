@@ -292,7 +292,7 @@ class ScaleFlow(nn.Module):
         # delta_mu=prediction[:,:base.shape[-1]]
 
         #log_std=self.refiner_log_std
-        log_std = prediction[:, base.shape[-1]:].clamp(  math.log(0.05),  math.log(0.2)  )
+        log_std = prediction[:, base.shape[-1]:].clamp(  math.log(0.01),  math.log(1)  )
         # min_log_std = math.log(0.03)
         # max_log_std = math.log(0.3)
         #
