@@ -17,8 +17,8 @@ class LDM(nn.Module):
         hidden_dim=256
 
         self.model = DiT(hidden_dim)
-        self.ego_embedding1= MLPLayer(19, hidden_dim, hidden_dim)
-        self.lane_embed1= nn.Linear(128+4, hidden_dim)
+        self.ego_embedding= MLPLayer(19, hidden_dim, hidden_dim)
+        self.lane_embed= nn.Linear(128+4, hidden_dim)
 
         n_timesteps = 20
         betas = cosine_beta_schedule(n_timesteps)
@@ -255,7 +255,7 @@ class LDM(nn.Module):
         orient_pl = initial_map_feature["orientation"][::2]
         feat_map = initial_map_feature["pt_token"][::2]
 
-        x_lane=self.lane_embed1(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
+        x_lane=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
         tokenized_agent["lane_batch"] = lane_batch
 
         num_agents = len(agent_batch)
@@ -421,7 +421,7 @@ class LDM(nn.Module):
         pos_pl = initial_map_feature["position"][::2]
         orient_pl = initial_map_feature["orientation"][::2]
         feat_map = initial_map_feature["pt_token"][::2]
-        x_lane=self.lane_embed1(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
+        x_lane=self.lane_embed(torch.cat([feat_map,pos_pl,orient_pl.cos()[:,None],orient_pl.sin()[:,None]],dim=-1))
         tokenized_agent["lane_batch"] = lane_batch
 
         if torch.all(self.normal_mean==0):

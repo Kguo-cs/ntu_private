@@ -80,18 +80,24 @@ class ScaleFlow(nn.Module):
 
         if self.use_refiner:
             self.use_sde=False
-            self.refine_model = InitDenoiser(
-                token_processor,
-                input_dim=args.input_dim,
-                hidden_dim=args.hidden_dim,
-                output_dim=args.input_dim*2,#,
-                num_freq_bands=args.num_freq_bands,
-                num_layers=2,
-                num_heads=args.num_heads,
-                head_dim=args.head_dim,
-                dropout=args.dropout,
-                x_pred=False
-            )
+            self.use_dit=True
+
+            if self.use_dit:
+                from .dit.dit import DiT
+                self.refine_model = DiT(args.hidden_dim )
+            else:
+                self.refine_model = InitDenoiser(
+                    token_processor,
+                    input_dim=args.input_dim,
+                    hidden_dim=args.hidden_dim,
+                    output_dim=args.input_dim*2,#,
+                    num_freq_bands=args.num_freq_bands,
+                    num_layers=2,
+                    num_heads=args.num_heads,
+                    head_dim=args.head_dim,
+                    dropout=args.dropout,
+                    x_pred=False
+                )
 
             # normalized-space exploration std
             # self.refiner_log_std = nn.Parameter(
