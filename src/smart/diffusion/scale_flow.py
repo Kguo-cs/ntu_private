@@ -287,12 +287,12 @@ class ScaleFlow(nn.Module):
                 * torch.tanh(prediction[:, :base.shape[-1]])
         )
 
-        delta_mu[:, 4:6] = 0.0  # don't touch length / width
+       # delta_mu[:, 4:6] = 0.0  # don't touch length / width
 
         # delta_mu=prediction[:,:base.shape[-1]]
 
         #log_std=self.refiner_log_std
-        log_std = prediction[:, base.shape[-1]:]  # .clamp(  math.log(0.03),  math.log(0.30)  )
+        log_std = prediction[:, base.shape[-1]:].clamp(  math.log(0.03),  math.log(0.30)  )
         # min_log_std = math.log(0.03)
         # max_log_std = math.log(0.3)
         #
@@ -321,7 +321,7 @@ class ScaleFlow(nn.Module):
                 base,
                 tokenized_agent )
 
-            active_dims = [0, 1, 2, 3, 6, 7]
+            active_dims = [0, 1, 2, 3, 4,5,6, 7]
 
             dist = torch.distributions.Normal(
                 delta_mu[non_ego][:, active_dims],
@@ -977,7 +977,7 @@ class ScaleFlow(nn.Module):
                 if "gt_z_raw" not in tokenized_agent:
                     eps = torch.randn_like(delta_mu)
 
-                    eps[:,4:6]=0
+                    #eps[:,4:6]=0
                 else:
                     eps=torch.zeros_like(delta_mu)
 
