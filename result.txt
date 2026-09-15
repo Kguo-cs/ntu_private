@@ -1033,16 +1033,16 @@ all32_08_m1_05sum_l1sq_w1_nolearn.ckpt
 
 0.6507
 
-all32_08_m1_05sum_l1_v1_nolearn-epoch=2-step=91314-valmeta=0.6521.ckpt
-
-
-all32_08_m1_05sum_l1_v1_noscalematch_05-epoch=3-step=152321-valmeta=0.6480.ckpt
-
 all32_08_05sum_l1_v1_res01pred_003std-epoch=4-step=205455-valmeta=0.6518.ckpt
 
 0.6508
 
 all32_l1_v1_lossres002std01col01_01std-epoch=4-step=205455-valmeta=0.6522.ckpt
+
+
+
+all32_res002std01col1_std01_detachshape-epoch=4-step=205455-valmeta=0.6523.ckpt
+
 
 
 

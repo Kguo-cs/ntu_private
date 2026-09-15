@@ -80,7 +80,7 @@ class ScaleFlow(nn.Module):
 
         if self.use_refiner:
             self.use_sde=False
-            self.use_dit=True
+            self.use_dit=False
 
             if self.use_dit:
                 from .dit.dit import DiT
@@ -92,7 +92,7 @@ class ScaleFlow(nn.Module):
                     hidden_dim=args.hidden_dim,
                     output_dim=args.input_dim*2,#,
                     num_freq_bands=args.num_freq_bands,
-                    num_layers=2,
+                    num_layers=3,
                     num_heads=args.num_heads,
                     head_dim=args.head_dim,
                     dropout=args.dropout,
@@ -287,7 +287,7 @@ class ScaleFlow(nn.Module):
                 * torch.tanh(prediction[:, :base.shape[-1]])
         )
 
-        #delta_mu[:, 4:6] = 0.0  # don't touch length / width
+        delta_mu[:, 4:6] = 0.0  # don't touch length / width
 
         # delta_mu=prediction[:,:base.shape[-1]]
 
@@ -300,7 +300,7 @@ class ScaleFlow(nn.Module):
         #         0.5 * (torch.tanh(prediction[:,base.shape[-1]:]) + 1.0)
         #         * (max_log_std - min_log_std)
         # )
-        std = log_std.exp().expand_as(delta_mu)
+        std = log_std.exp()
 
         return std, delta_mu, log_std
 
