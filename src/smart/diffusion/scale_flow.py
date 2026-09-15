@@ -86,7 +86,7 @@ class ScaleFlow(nn.Module):
                 hidden_dim=args.hidden_dim,
                 output_dim=args.input_dim*2,#,
                 num_freq_bands=args.num_freq_bands,
-                num_layers=1,
+                num_layers=2,
                 num_heads=args.num_heads,
                 head_dim=args.head_dim,
                 dropout=args.dropout,
