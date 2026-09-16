@@ -375,11 +375,22 @@ class ScaleFlow(nn.Module):
             # sum over action dimensions, mean over agents
             kl = kl_per_dim.sum(dim=-1)[non_ego].mean()
 
+            shape_delta = delta_mu[non_ego, 4:6]
+
+            shape_loss = (
+                    shape_delta
+                    / torch.tensor(
+                [0.20, 0.10],
+                device=shape_delta.device,
+            )
+            ).square().mean()
+
             rl_loss = (
                     pg_loss
                    # +kl*0.1
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
+                    +0.1*shape_loss
                     #+ 1 * collision_loss
             )
 
@@ -1012,16 +1023,16 @@ class ScaleFlow(nn.Module):
                 #     0.60,  # dv_long, m/s
                 #     0.30,  # dv_lat,  m/s
                 # ])*5
-                refiner_scale = torch.tensor([
-                    0.30,  # dx_long, m
-                    0.20,  # dy_lat,  m
-                    0.03,  # cos-heading residual
-                    0.05,  # sin-heading residual
-                    0.20,  # length residual, m
-                    0.10,  # width residual,  m
-                    0.40,  # dv_long, m/s
-                    0.20,  # dv_lat,  m/s
-                ])*5
+                # refiner_scale = torch.tensor([
+                #     0.30,  # dx_long, m
+                #     0.20,  # dy_lat,  m
+                #     0.03,  # cos-heading residual
+                #     0.05,  # sin-heading residual
+                #     0.20,  # length residual, m
+                #     0.10,  # width residual,  m
+                #     0.40,  # dv_long, m/s
+                #     0.20,  # dv_lat,  m/s
+                # ])*5
                 # refiner_scale = torch.tensor([
                 #     0.80,  # dx_long, m
                 #     0.50,  # dy_lat,  m
