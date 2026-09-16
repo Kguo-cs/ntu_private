@@ -1012,15 +1012,25 @@ class ScaleFlow(nn.Module):
                 #     0.60,  # dv_long, m/s
                 #     0.30,  # dv_lat,  m/s
                 # ])*5
+                # refiner_scale = torch.tensor([
+                #     0.30,  # dx_long, m
+                #     0.20,  # dy_lat,  m
+                #     0.03,  # cos-heading residual
+                #     0.05,  # sin-heading residual
+                #     0.20,  # length residual, m
+                #     0.10,  # width residual,  m
+                #     0.40,  # dv_long, m/s
+                #     0.20,  # dv_lat,  m/s
+                # ])*5
                 refiner_scale = torch.tensor([
-                    0.30,  # dx_long, m
-                    0.20,  # dy_lat,  m
-                    0.03,  # cos-heading residual
-                    0.05,  # sin-heading residual
-                    0.20,  # length residual, m
-                    0.10,  # width residual,  m
-                    0.40,  # dv_long, m/s
-                    0.20,  # dv_lat,  m/s
+                    0.80,  # dx_long, m
+                    0.50,  # dy_lat,  m
+                    0.08,  # cos-heading residual
+                    0.12,  # sin-heading residual
+                    0.50,  # length residual, m
+                    0.25,  # width residual,  m
+                    1.00,  # dv_long, m/s
+                    0.50,  # dv_lat,  m/s
                 ])*5
                 # --------------------------------------
                 # normalized residual -> raw residual
