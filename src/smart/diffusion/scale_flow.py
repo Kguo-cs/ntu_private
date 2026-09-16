@@ -1035,7 +1035,7 @@ class ScaleFlow(nn.Module):
                 # --------------------------------------
                 # normalized residual -> raw residual
                 # --------------------------------------
-                res =  delta *refiner_scale[None].to(delta.device)#
+                res =  delta *self.model.normal_scale#refiner_scale[None].to(delta.device)#
 
                 latent=base +res
 
