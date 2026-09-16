@@ -100,13 +100,13 @@ class ScaleFlow(nn.Module):
                 )
 
             # normalized-space exploration std
-            self.refiner_log_std = nn.Parameter(
-                torch.full(
-                    (args.input_dim,),
-                    math.log( 0.1  ),
-                ),
-                # requires_grad=False
-            )
+            # self.refiner_log_std = nn.Parameter(
+            #     torch.full(
+            #         (args.input_dim,),
+            #         math.log( 0.1  ),
+            #     ),
+            #     # requires_grad=False
+            # )
             # refiner mean 最大修正量，normalized space
             self.refiner_delta_scale = 0.2
 
@@ -291,8 +291,8 @@ class ScaleFlow(nn.Module):
 
         # delta_mu=prediction[:,:base.shape[-1]]
 
-        log_std=self.refiner_log_std.clamp(  math.log(0.03),  math.log(0.3)  ).expand_as(delta_mu)
-        #log_std = prediction[:, base.shape[-1]:]#
+        #log_std=self.refiner_log_std.clamp(  math.log(0.03),  math.log(0.3)  ).expand_as(delta_mu)
+        log_std = prediction[:, base.shape[-1]:]#
         # min_log_std = math.log(0.03)
         # max_log_std = math.log(0.3)
         #
@@ -357,10 +357,27 @@ class ScaleFlow(nn.Module):
                     log_std[:,active_dims] - math.log(0.1)
             ).square().mean()
 
+            std_sq = torch.exp(2.0 * log_std)
+
+            ref_std=0.1
+
+            ref_log_std = math.log(ref_std)
+            ref_var = ref_std ** 2
+
+            kl_per_dim = 0.5 * (
+                    (std_sq + delta_mu.square()) / ref_var
+                    - 1.0
+                    + 2.0 * (ref_log_std - log_std)
+            )
+
+            # sum over action dimensions, mean over agents
+            kl = kl_per_dim.sum(dim=-1)[non_ego].mean()
+
             rl_loss = (
                     pg_loss
-                    + 0.02 * residual_loss
-                    + 0.1 * std_loss
+                    +kl
+                    # + 0.02 * residual_loss
+                    # + 0.1 * std_loss
                     #+ 1 * collision_loss
             )
 
