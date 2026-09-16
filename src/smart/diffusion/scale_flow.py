@@ -337,10 +337,8 @@ class ScaleFlow(nn.Module):
             pg_loss = -(log_prob * advantage).mean()
 
             # Keep correction small.
-            target=torch.zeros_like(delta_mu[non_ego])
-            target[:,3]=1
 
-            residual_loss = (delta_mu[non_ego]-target).square().mean()
+            residual_loss =delta_mu[non_ego].square().mean()
 
             # res = delta_mu * self.model.normal_scale
             #
@@ -1011,6 +1009,7 @@ class ScaleFlow(nn.Module):
                 #latent=base +res
 
                 res[:, 4:] = base[:, 4:] + res[:, 4:]
+                res[:, 2] = res[:, 2] + 1
 
                 latent = self.model.output_transform(res, base[:, :2],torch.atan2(base[:, 3], base[:, 2]))
 
