@@ -337,11 +337,14 @@ class ScaleFlow(nn.Module):
             pg_loss = -(log_prob * advantage).mean()
 
             # Keep correction small.
-            residual_loss = delta_mu[non_ego].square().mean()
+            target=torch.zeros_like(delta_mu[non_ego])
+            target[:,3]=1
 
-            res = delta_mu * self.model.normal_scale
+            residual_loss = (delta_mu[non_ego]-target).square().mean()
 
-            refine_mean = res + base
+            # res = delta_mu * self.model.normal_scale
+            #
+            # refine_mean = res + base
 
             # res[:,4:]=base[:,4:] +res[:,4:]
             #
@@ -357,27 +360,27 @@ class ScaleFlow(nn.Module):
                     log_std[:,active_dims] - math.log(0.1)
             ).square().mean()
 
-            std_sq = torch.exp(2.0 * log_std)
-
-            ref_std=0.1
-
-            ref_log_std = math.log(ref_std)
-            ref_var = ref_std ** 2
-
-            kl_per_dim = 0.5 * (
-                    (std_sq + delta_mu.square()) / ref_var
-                    - 1.0
-                    + 2.0 * (ref_log_std - log_std)
-            )
-
-            # sum over action dimensions, mean over agents
-            kl = kl_per_dim.sum(dim=-1)[non_ego].mean()
+            # std_sq = torch.exp(2.0 * log_std)
+            #
+            # ref_std=0.1
+            #
+            # ref_log_std = math.log(ref_std)
+            # ref_var = ref_std ** 2
+            #
+            # kl_per_dim = 0.5 * (
+            #         (std_sq + delta_mu.square()) / ref_var
+            #         - 1.0
+            #         + 2.0 * (ref_log_std - log_std)
+            # )
+            #
+            # # sum over action dimensions, mean over agents
+            # kl = kl_per_dim.sum(dim=-1)[non_ego].mean()
 
             rl_loss = (
                     pg_loss
-                    +kl*0.01
-                    # + 0.02 * residual_loss
-                    # + 0.1 * std_loss
+                    #+kl*0.01
+                    + 0.02 * residual_loss
+                    + 0.1 * std_loss
                     #+ 1 * collision_loss
             )
 
@@ -1005,11 +1008,11 @@ class ScaleFlow(nn.Module):
                 # --------------------------------------
                 res =  delta * self.model.normal_scale#base +
 
-                latent=base +res
+                #latent=base +res
 
-                # res[:, 4:] = base[:, 4:] + res[:, 4:]
-                #
-                # latent = self.model.output_transform(res, base[:, :2],torch.atan2(base[:, 3], base[:, 2]))
+                res[:, 4:] = base[:, 4:] + res[:, 4:]
+
+                latent = self.model.output_transform(res, base[:, :2],torch.atan2(base[:, 3], base[:, 2]))
 
                 # tokenized_agent["log_prob"] = dist.log_prob(latent)[~ego_mask].sum(dim=-1)
                 latent[ego_mask] = tokenized_agent["expert_input"  ][ego_mask]

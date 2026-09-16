@@ -62,7 +62,6 @@ class InitDenoiser(nn.Module):
         head_dim: int,
         dropout: float,
         x_pred: bool = True,
-        init_embedding_mode: str = "original",
     ) -> None:
         super().__init__()
 
@@ -75,7 +74,6 @@ class InitDenoiser(nn.Module):
         self.dropout = dropout
         self.x_pred = x_pred
         self.token_processor = token_processor
-        self.init_embedding_mode = init_embedding_mode
 
         self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
@@ -93,28 +91,13 @@ class InitDenoiser(nn.Module):
         #     group_dims=(2, 2, 2, self.m_delta_dim - 6)
         # )
         #
-        if self.init_embedding_mode == "new":
-            # New path: AgentTokenEncoder-style state/noise/type/shape embedding.
-            self.state_embedder = DenoiserStateEmbedder(
-                token_processor=token_processor,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-                m_delta_dim=self.m_delta_dim,
-                num_classes=self.num_classes,
-                shape_dim=self.shape_dim,
-            )
+        self.type_a_emb = nn.Embedding(self.num_classes + 1, hidden_dim)
+        self.noise_embedding = MLPLayer(self.m_delta_dim, hidden_dim, hidden_dim)
+
+        if self.x_pred:
+            self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
         else:
-            # Original path: old denoiser embedding style.
-            # It projects m_delta[:, 4:] with a Linear layer and adds
-            # noise embedding + type embedding directly.
-            self.type_a_emb = nn.Embedding(self.num_classes + 1, hidden_dim)
-            self.noise_embedding = MLPLayer(self.m_delta_dim, hidden_dim, hidden_dim)
-
-            if self.x_pred:
-                self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
-            else:
-                self.proj_in_m_delta = nn.Linear(self.m_delta_dim , hidden_dim)
-
+            self.proj_in_m_delta = nn.Linear(self.m_delta_dim, hidden_dim)
 
         # Ego-context embedding. The input is:
         #   local ego poses relative to the generated agent + per-scene type count.
@@ -380,18 +363,11 @@ class InitDenoiser(nn.Module):
 
         beta = self._format_beta(beta, m_delta.shape[0])
 
-        if self.init_embedding_mode == "new":
-            feat_a = self.state_embedder(
-                m_delta=m_delta,
-                beta=beta,
-                agent_type=agent_type,
-            )
-        else:
-            feat_a = self._original_state_embedding(
-                m_delta=m_delta,
-                beta=beta,
-                agent_type_embed=agent_type_embed,
-            )
+        feat_a = self._original_state_embedding(
+            m_delta=m_delta,
+            beta=beta,
+            agent_type_embed=agent_type_embed,
+        )
 
         feat_a = feat_a + ego_embedding
 
