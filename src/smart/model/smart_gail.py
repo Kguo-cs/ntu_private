@@ -978,10 +978,23 @@ class SMART_GAIL(SMART):
                     lr=self.lr,
                 )
                 if self.token_processor.use_refiner:
+                    # init_optimizer = torch.optim.AdamW(
+                    #     _trainable_parameters(self.encoder.init_decoder.G1.refine_model),
+                    #     lr=self.lr,
+                    # )
                     init_optimizer = torch.optim.AdamW(
-                        _trainable_parameters(self.encoder.init_decoder.G1.refine_model),
-                        lr=self.lr,
+                        [
+                            {
+                                "params": self.encoder.init_decoder.G1.refine_model.parameters(),
+                                "lr": self.lr ,#*5,
+                            },
+                            {
+                                "params": [self.encoder.init_decoder.G1.refiner_log_std],
+                                "lr": self.lr *5,
+                            },
+                        ]
                     )
+
                 else:
                     init_optimizer = torch.optim.AdamW(
                         _trainable_parameters(self.encoder.init_decoder),

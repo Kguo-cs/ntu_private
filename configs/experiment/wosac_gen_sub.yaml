@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_res002std01col1_std01_detachshape-epoch=4-step=205455-valmeta=0.6523.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_res002std01_std005-epoch=3-step=159798-valmeta=0.6540.ckpt"
 
 trainer:
   limit_train_batches: 1.0
