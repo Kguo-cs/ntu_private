@@ -117,6 +117,7 @@ class ScaleFlow(nn.Module):
         value,
     ) -> Optional[tuple[int, ...]]:
         if value is None:
+
             return None
 
         if torch.is_tensor(value):
@@ -355,28 +356,28 @@ class ScaleFlow(nn.Module):
 
             # Don't let exploration std explode.
             std_loss = (
-                    log_std[:,active_dims] - math.log(0.1)
+                    log_std[:,active_dims] - math.log(self.refiner_delta_scale/2)
             ).square().mean()
 
-            # std_sq = torch.exp(2.0 * log_std)
-            #
-            # ref_std=0.1
-            #
-            # ref_log_std = math.log(ref_std)
-            # ref_var = ref_std ** 2
-            #
-            # kl_per_dim = 0.5 * (
-            #         (std_sq + delta_mu.square()) / ref_var
-            #         - 1.0
-            #         + 2.0 * (ref_log_std - log_std)
-            # )
-            #
-            # # sum over action dimensions, mean over agents
-            # kl = kl_per_dim.sum(dim=-1)[non_ego].mean()
+            std_sq = torch.exp(2.0 * log_std)
+
+            ref_std=0.1
+
+            ref_log_std = math.log(ref_std)
+            ref_var = ref_std ** 2
+
+            kl_per_dim = 0.5 * (
+                    (std_sq + delta_mu.square()) / ref_var
+                    - 1.0
+                    + 2.0 * (ref_log_std - log_std)
+            )
+
+            # sum over action dimensions, mean over agents
+            kl = kl_per_dim.sum(dim=-1)[non_ego].mean()
 
             rl_loss = (
                     pg_loss
-                    #+kl*0.01
+                   # +kl*0.1
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
                     #+ 1 * collision_loss
@@ -1001,10 +1002,21 @@ class ScaleFlow(nn.Module):
 
                 delta = delta_mu + std * eps
 
+                refiner_scale = torch.tensor([
+                    0.50,  # dx_long, m
+                    0.30,  # dy_lat,  m
+                    0.05,  # cos-heading residual
+                    0.08,  # sin-heading residual
+                    0.30,  # length residual, m
+                    0.15,  # width residual,  m
+                    0.60,  # dv_long, m/s
+                    0.30,  # dv_lat,  m/s
+                ])*5
+
                 # --------------------------------------
                 # normalized residual -> raw residual
                 # --------------------------------------
-                res =  delta * self.model.normal_scale#base +
+                res =  delta * refiner_scale[None].to(delta.device)#self.model.normal_scale#base +
 
                 #latent=base +res
 

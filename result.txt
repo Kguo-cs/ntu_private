@@ -1048,6 +1048,9 @@ all32_res002std01col1_std01_detachshape-epoch=4-step=205455-valmeta=0.6523.ckpt
 
 all32_res002std01_std005-epoch=3-step=159798-valmeta=0.6540.ckpt
 
+0.6507
+
+
 
 take all position for generation
 simformer: For each
