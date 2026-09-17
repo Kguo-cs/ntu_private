@@ -1051,6 +1051,14 @@ all32_res002std01_std005-epoch=3-step=159798-valmeta=0.6540.ckpt
 
 all32_l1_v1_lossres002std01col01_01std-epoch=4-step=205455-valmeta=0.6522.ckpt
 
+0.6511
+
+
+all32_res002std01_std01_target1-epoch=3-step=159798-valmeta=0.6530.ckpt
+
+
+
+
 
 take all position for generation
 simformer: For each

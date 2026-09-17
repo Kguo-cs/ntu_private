@@ -39,7 +39,7 @@ model:
       learn_init: True
 
 
-ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_l1_v1_lossres002std01col01_01std-epoch=4-step=205455-valmeta=0.6522.ckpt"
+ckpt_path: "/home/ke/code/sim/src/waymo_data/all32_res002std01_std01_target1-epoch=3-step=159798-valmeta=0.6530.ckpt"
 
 trainer:
   limit_train_batches: 1.0
