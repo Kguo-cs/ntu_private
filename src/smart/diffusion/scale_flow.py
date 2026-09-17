@@ -390,7 +390,7 @@ class ScaleFlow(nn.Module):
                    # +kl*0.1
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
-                    +shape_loss
+                    #+shape_loss
                     #+ 1 * collision_loss
             )
 
@@ -1048,12 +1048,12 @@ class ScaleFlow(nn.Module):
                 # --------------------------------------
                 res =  delta *self.model.normal_scale#refiner_scale[None].to(delta.device)#
 
-                #latent=base +res
+                latent=base +res
 
-                res[:, 4:] = base[:, 4:] + res[:, 4:]
-                res[:, 2] = res[:, 2] + 1
-
-                latent = self.model.output_transform(res, base[:, :2],torch.atan2(base[:, 3], base[:, 2]))
+                # res[:, 4:] = base[:, 4:] + res[:, 4:]
+                # res[:, 2] = res[:, 2] + 1
+                #
+                # latent = self.model.output_transform(res, base[:, :2],torch.atan2(base[:, 3], base[:, 2]))
 
                 # tokenized_agent["log_prob"] = dist.log_prob(latent)[~ego_mask].sum(dim=-1)
                 latent[ego_mask] = tokenized_agent["expert_input"  ][ego_mask]
