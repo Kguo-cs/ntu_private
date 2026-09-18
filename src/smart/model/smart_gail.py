@@ -762,17 +762,17 @@ class SMART_GAIL(SMART):
     def _value_predictions(self, rollout_agent: TensorDict  ,  num_agents: int) -> Tensor:
         initial_value = None
         if self.token_processor.learn_init:
-            if self.token_processor.use_refiner:
-                base=rollout_agent["refiner_base"]
-                prediction = self.encoder.init_decoder.G1.refine_model(
-                    base,
-                    torch.zeros_like(base[:, :1]),
-                    rollout_agent,
-                    rollout_agent["initial_map_feature"],
-                )
-
-                rollout_agent["noise_feat"]=rollout_agent["noise_feat_cur"][:,None]
-                rollout_agent["prediction"]=prediction
+            # if self.token_processor.use_refiner:
+            #     base=rollout_agent["refiner_base"]
+            #     prediction = self.encoder.init_decoder.G1.refine_model(
+            #         base,
+            #         torch.zeros_like(base[:, :1]),
+            #         rollout_agent,
+            #         rollout_agent["initial_map_feature"],
+            #     )
+            #
+            #     rollout_agent["noise_feat"]=rollout_agent["noise_feat_cur"][:,None]
+            #     rollout_agent["prediction"]=prediction
 
             initial_value = self.encoder.init_value_network(
                 rollout_agent["noise_feat"]
