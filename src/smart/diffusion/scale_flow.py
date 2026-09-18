@@ -276,19 +276,23 @@ class ScaleFlow(nn.Module):
         return velocity, x0
 
     def get_ref_mean_std(self,base,tokenized_agent: HeteroData) -> tuple[Tensor, Tensor,Tensor]:
-        prediction = self.refine_model(
-            base,
-            torch.zeros_like(base[:, :1]),
-            tokenized_agent,
-            tokenized_agent["initial_map_feature"],
-        )
+
+        if "prediction"  in tokenized_agent:
+            prediction=tokenized_agent["prediction"]
+        else:
+            prediction = self.refine_model(
+                base,
+                torch.zeros_like(base[:, :1]),
+                tokenized_agent,
+                tokenized_agent["initial_map_feature"],
+            )
 
         delta_mu = (
                 self.refiner_delta_scale
                 * torch.tanh(prediction[:, :base.shape[-1]])
         )
 
-       # delta_mu[:, 4:6] = 0.0  # don't touch length / width
+        # delta_mu[:, 4:6] = 0.0  # don't touch length / width
 
         # delta_mu=prediction[:,:base.shape[-1]]
 

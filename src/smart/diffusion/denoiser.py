@@ -566,9 +566,9 @@ class InitDenoiser(nn.Module):
         if self.x_pred :
             res =self.output_transform(res, pos_s, theta)
 
-        ego_mask = tokenized_agent.get("ego_mask", None)
-        if not self.training and len(beta)==len(ego_mask): #and torch.all(beta[~ego_mask] == 0):
-            tokenized_agent["noise_feat_cur"] = feat_a
+        #ego_mask = tokenized_agent.get("ego_mask", None)
+        #if not self.training and len(beta)==len(ego_mask): #and torch.all(beta[~ego_mask] == 0):
+        tokenized_agent["noise_feat_cur"] = feat_a
 
         return res
 
