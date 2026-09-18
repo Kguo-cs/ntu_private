@@ -813,7 +813,7 @@ class SMART_GAIL(SMART):
         for name, value in metrics.items():
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
-        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss+1e-3 *init_value_loss)
+        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss+init_value_loss)
 
         return match_loss + rl_loss + col_loss
 
@@ -906,8 +906,7 @@ class SMART_GAIL(SMART):
             if self.token_processor.learn_init:
                 actor_optimizer = torch.optim.AdamW(
                     _trainable_parameters(
-                        self.encoder.agent_encoder.agent_token_embedding,
-                        self.encoder.agent_encoder.interative_decoder,
+                        self.encoder.agent_encoder,
                         self.encoder.value_network,
                         #self.encoder.init_value_network,
                     ),
@@ -917,8 +916,7 @@ class SMART_GAIL(SMART):
                     init_optimizer = torch.optim.AdamW(
                         _trainable_parameters(self.encoder.init_decoder.G1.refine_model,
                                               self.encoder.init_value_network,
-                                              self.encoder.agent_encoder.agent_token_embedding,
-                                              self.encoder.agent_encoder.interative_decoder,
+                                              self.encoder.agent_encoder,
                                               self.encoder.value_network,
                                               ),
                         lr=self.lr,
