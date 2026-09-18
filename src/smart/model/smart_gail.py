@@ -604,7 +604,7 @@ class SMART_GAIL(SMART):
         )
 
         #if not self.token_processor.learn_init:
-        self._optimizer_step(actor_optimizer, policy_loss)#policy update use no sde, initial update use sde
+        #self._optimizer_step(actor_optimizer, policy_loss)#policy update use no sde, initial update use sde
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
@@ -614,7 +614,7 @@ class SMART_GAIL(SMART):
                 advantages_flat,
                 advantages_2d,
                 init_optimizer,
-                init_value_loss
+                policy_loss
             )
         else:
             init_loss=torch.zeros(1,device=critic_loss.device)
@@ -756,7 +756,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/running_var", self.return_meanstd.var)
         self._log_train("train/value_loss", value_loss)
 
-        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss #+ 1e-3 * init_value_loss
+        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss
         return policy_loss,init_value_loss, init_advantages, advantages_2d
 
     def _value_predictions(self, rollout_agent: TensorDict  ,  num_agents: int) -> Tensor:
@@ -914,27 +914,32 @@ class SMART_GAIL(SMART):
                     lr=self.lr,
                 )
                 if self.token_processor.use_refiner:
-                    # init_optimizer = torch.optim.AdamW(
-                    #     _trainable_parameters(self.encoder.init_decoder.G1.refine_model),
-                    #     lr=self.lr,
-                    # )
                     init_optimizer = torch.optim.AdamW(
-                        [
-                            {
-                                "params": self.encoder.init_decoder.G1.refine_model.parameters(),
-                                "lr": self.lr ,#*5,
-                            },
-                            {
-                                "params": self.encoder.init_value_network.parameters(),
-                                "lr": self.lr,  # *5,
-                            },
-
-                            # {
-                            #     "params": [self.encoder.init_decoder.G1.refiner_log_std],
-                            #     "lr": self.lr *5,
-                            # },
-                        ]
+                        _trainable_parameters(self.encoder.init_decoder.G1.refine_model,
+                                              self.encoder.init_value_network,
+                                              self.encoder.agent_encoder.agent_token_embedding,
+                                              self.encoder.agent_encoder.interative_decoder,
+                                              self.encoder.value_network,
+                                              ),
+                        lr=self.lr,
                     )
+                    # init_optimizer = torch.optim.AdamW(
+                    #     [
+                    #         {
+                    #             "params": self.encoder.init_decoder.G1.refine_model.parameters(),
+                    #             "lr": self.lr ,#*5,
+                    #         },
+                    #         {
+                    #             "params": self.encoder.init_value_network.parameters(),
+                    #             "lr": self.lr,  # *5,
+                    #         },
+                    #
+                    #         # {
+                    #         #     "params": [self.encoder.init_decoder.G1.refiner_log_std],
+                    #         #     "lr": self.lr *5,
+                    #         # },
+                    #     ]
+                    # )
 
                 else:
                     init_optimizer = torch.optim.AdamW(
