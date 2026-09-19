@@ -236,7 +236,7 @@ class SMARTDecoder(nn.Module):
             num_historical_steps=num_historical_steps,
             num_future_steps=num_future_steps,
             time_span=10,
-            pl2a_radius=pl2a_radius,
+            pl2a_radius=10,
             a2a_radius=dis_a2a_radius,
             num_freq_bands=num_freq_bands,
             num_layers=1,
