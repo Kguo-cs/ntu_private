@@ -432,7 +432,7 @@ class SMART_GAIL(SMART):
         self.global_return_meanstd.update(interaction_reward.detach())
         interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
 
-        ego_rewards=0.3*scene_reward+0.7*interaction_reward
+        ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
         # neighbour_reward_grid = None
@@ -596,7 +596,7 @@ class SMART_GAIL(SMART):
 
         #if self.token_processor.learn_init:
 
-        policy_loss,init_value_loss, advantages_flat, advantages_2d = self._actor_value_loss(
+        policy_loss, advantages_flat, advantages_2d = self._actor_value_loss(
             tokenized_map,
             rollout_agent,
             agent_rewards,
@@ -604,7 +604,7 @@ class SMART_GAIL(SMART):
         )
 
         #if not self.token_processor.learn_init:
-        #self._optimizer_step(actor_optimizer, policy_loss)#policy update use no sde, initial update use sde
+        self._optimizer_step(actor_optimizer, policy_loss)#policy update use no sde, initial update use sde
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
@@ -614,7 +614,6 @@ class SMART_GAIL(SMART):
                 advantages_flat,
                 advantages_2d,
                 init_optimizer,
-                policy_loss
             )
         else:
             init_loss=torch.zeros(1,device=critic_loss.device)
@@ -678,42 +677,18 @@ class SMART_GAIL(SMART):
         finally:
             edge_encoder.rollout_traj = old_rollout_flag
 
-        initial_value, rollout_value = self._value_predictions(
+        value = self._value_predictions(
             rollout_agent,
             num_agents=rewards.shape[1],
         )
-        value_for_actor = torch.cat(
-            [
-                initial_value.detach(),
-                rollout_value,
-            ],
-            dim=0,
-        )
 
-        # ---------------------------------------------------------
-        # Init graph:
-        # initial_value 有梯度
-        # rollout_value 完全 detach
-        # ---------------------------------------------------------
-        value_for_init = torch.cat(
-            [
-                initial_value,
-                rollout_value.detach(),
-            ],
-            dim=0,
-        )
+        init_step=len(value)-len(rewards)+1
 
-        init_step=len(value_for_actor)-len(rewards)+1
-
-        rewards_pad= torch.cat([torch.zeros([init_step-1,value_for_actor.shape[1]],device=rewards.device), rewards])
+        rewards_pad= torch.cat([torch.zeros([init_step-1,value.shape[1]],device=rewards.device), rewards])
 
         advantages_2d, value_loss_elements = compute_advantages(
             rewards_pad,#[-len(value) :]
-            value_for_actor,
-        )
-        advantages_2d, init_value_loss_elements = compute_advantages(
-            rewards_pad,#[-len(value) :]
-            value_for_init,
+            value,
         )
 
         if "train_mask" in rollout_agent and rollout_agent["train_mask"] is not None:
@@ -745,11 +720,18 @@ class SMART_GAIL(SMART):
         # self.ego_return_meanstd.update(init_advantages.detach())
         # init_advantages = self.ego_return_meanstd.normalize(init_advantages)
 
-        ppo_loss = -(agent_log_prob * ppo_advantages).mean()
+        if self.training_rollout_len > 1 and agent_log_prob.numel():
+            ppo_loss = -(agent_log_prob * ppo_advantages).mean()
+        else:
+            ppo_loss = _zero(value)
 
-        value_loss = value_loss_elements[init_step:].mean()
-        init_value_loss = init_value_loss_elements[:init_step].mean()
-        self._log_train("train/init_value_loss", init_value_loss)
+        if self.token_processor.learn_init:
+            value_loss = value_loss_elements[init_step:].mean()
+            init_value_loss = value_loss_elements[:init_step].mean()
+            self._log_train("train/init_value_loss", init_value_loss)
+        else:
+            value_loss = value_loss_elements.mean()
+            init_value_loss = _zero(value)
 
         self._log_train("train/ppo_loss", ppo_loss)
         self._log_train("train/running_mean", self.return_meanstd.mean)
@@ -757,23 +739,11 @@ class SMART_GAIL(SMART):
         self._log_train("train/value_loss", value_loss)
 
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss
-        return policy_loss,init_value_loss, init_advantages, advantages_2d
+        return policy_loss, init_advantages, advantages_2d
 
     def _value_predictions(self, rollout_agent: TensorDict  ,  num_agents: int) -> Tensor:
         initial_value = None
         if self.token_processor.learn_init:
-            # if self.token_processor.use_refiner:
-            #     base=rollout_agent["refiner_base"]
-            #     prediction = self.encoder.init_decoder.G1.refine_model(
-            #         base,
-            #         torch.zeros_like(base[:, :1]),
-            #         rollout_agent,
-            #         rollout_agent["initial_map_feature"],
-            #     )
-            #
-            #     rollout_agent["noise_feat"]=rollout_agent["noise_feat_cur"][:,None]
-            #     rollout_agent["prediction"]=prediction
-
             initial_value = self.encoder.init_value_network(
                 rollout_agent["noise_feat"]
             )[...,0].transpose(0,1)
@@ -781,11 +751,11 @@ class SMART_GAIL(SMART):
         if "feat_a" in rollout_agent:
             values = self.encoder.value_network(rollout_agent["feat_a"])[..., 0]
             values = values.reshape(-1, num_agents)
-            # if initial_value is not None:
-            #     values = torch.cat((initial_value, values), dim=0)
-            # return values
+            if initial_value is not None:
+                values = torch.cat((initial_value, values), dim=0)
+            return values
 
-        return initial_value, values
+        return initial_value
 
     def _initial_state_update(
         self,
@@ -793,7 +763,6 @@ class SMART_GAIL(SMART):
         advantages_flat: Tensor,
         advantages_2d: Tensor,
         optimizer,
-        init_value_loss
     ) -> None:
         #normalized = advantages_flat.view_as(advantages_2d)
         tokenized_agent["advantages"] =advantages_flat.view_as(advantages_2d[:tokenized_agent["noise_feat"].shape[1]]) #normalized[:tokenized_agent["noise_feat"].shape[1]]
@@ -813,7 +782,7 @@ class SMART_GAIL(SMART):
         for name, value in metrics.items():
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
-        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss+init_value_loss)
+        self._optimizer_step(optimizer, match_loss + rl_loss + col_loss)
 
         return match_loss + rl_loss + col_loss
 
@@ -908,17 +877,13 @@ class SMART_GAIL(SMART):
                     _trainable_parameters(
                         self.encoder.agent_encoder,
                         self.encoder.value_network,
-                        #self.encoder.init_value_network,
+                        self.encoder.init_value_network,
                     ),
                     lr=self.lr,
                 )
                 if self.token_processor.use_refiner:
                     init_optimizer = torch.optim.AdamW(
-                        _trainable_parameters(self.encoder.init_decoder.G1.refine_model,
-                                              self.encoder.init_value_network,
-                                              self.encoder.agent_encoder,
-                                              self.encoder.value_network,
-                                              ),
+                        _trainable_parameters(self.encoder.init_decoder),
                         lr=self.lr,
                     )
                     # init_optimizer = torch.optim.AdamW(
@@ -927,11 +892,6 @@ class SMART_GAIL(SMART):
                     #             "params": self.encoder.init_decoder.G1.refine_model.parameters(),
                     #             "lr": self.lr ,#*5,
                     #         },
-                    #         {
-                    #             "params": self.encoder.init_value_network.parameters(),
-                    #             "lr": self.lr,  # *5,
-                    #         },
-                    #
                     #         # {
                     #         #     "params": [self.encoder.init_decoder.G1.refiner_log_std],
                     #         #     "lr": self.lr *5,
