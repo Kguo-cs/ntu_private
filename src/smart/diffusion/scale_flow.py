@@ -349,6 +349,12 @@ class ScaleFlow(nn.Module):
             #
             refine_mean = res + base
 
+            refine_mean = torch.where(
+                tokenized_agent["ego_mask"][:,None],
+                base,
+                refine_mean,
+            )
+
             # res[:,4:]=base[:,4:] +res[:,4:]
             #
             # refine_mean =self.encoder.init_decoder.G1.model.output_transform(res, base[:, :2], torch.atan2(base[:, 3], base[:, 2]))
@@ -395,20 +401,20 @@ class ScaleFlow(nn.Module):
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
                     +shape_loss
-                    #+ 1 * collision_loss
+                    + 10 * collision_loss
             )
 
             tokenized_agent["rl_loss"] = rl_loss
 
-            match_loss= col_loss= pos_loss= heading_loss=shape_loss=vel_loss=torch.zeros_like(rl_loss)
+            # match_loss= col_loss= pos_loss= heading_loss=shape_loss=vel_loss=torch.zeros_like(rl_loss)
+            #
+            # loss=(match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
-            loss=(match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss)
-
-            # loss = self._supervised_loss(
-            #     x,
-            #     tokenized_agent,
-            #     map_feature,
-            # )
+            loss = self._supervised_loss(
+                x,
+                tokenized_agent,
+                map_feature,
+            )
 
             return loss
 
