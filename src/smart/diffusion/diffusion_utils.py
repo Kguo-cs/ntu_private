@@ -90,7 +90,7 @@ def _component_loss(
     if use_l1:
         loss=F.l1_loss(prediction, target, reduction="none")
     else:
-        loss = F.mse_loss(prediction, target, reduction="none")#.square()
+        loss = F.mse_loss(prediction, target, reduction="none")
     return loss.mean(-1)
 
 
@@ -130,7 +130,7 @@ def matching_loss(
     w_heading=0.5,
     w_shape=0.2,
     w_vel=0.2,
-    use_l1: bool = False,
+    use_l1: bool = True,
     scale=None,
 ):
     """Return total and component losses, each with shape [N]."""
@@ -437,7 +437,7 @@ def get_diff_loss(
     w_shape: float = 0.2/ 5,
     w_vel: float = 1 / 5,
     max_loss_weight: float | None = None,
-    use_l1: bool = False,
+    use_l1: bool = True,
 ):
     """State reconstruction loss plus optional symmetric collision loss."""
     num_states = len(fake_state)
