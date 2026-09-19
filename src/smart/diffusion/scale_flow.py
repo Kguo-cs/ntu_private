@@ -395,16 +395,20 @@ class ScaleFlow(nn.Module):
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
                     +shape_loss
-                    + 1 * collision_loss
+                    #+ 1 * collision_loss
             )
 
             tokenized_agent["rl_loss"] = rl_loss
 
-            loss = self._supervised_loss(
-                x,
-                tokenized_agent,
-                map_feature,
-            )
+            match_loss= col_loss= pos_loss= heading_loss=shape_loss=vel_loss=torch.zeros_like(rl_loss)
+
+            loss=(match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+
+            # loss = self._supervised_loss(
+            #     x,
+            #     tokenized_agent,
+            #     map_feature,
+            # )
 
             return loss
 

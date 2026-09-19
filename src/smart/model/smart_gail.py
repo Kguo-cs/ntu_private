@@ -10,6 +10,7 @@ import copy
 import random
 from collections import deque
 from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
+from torch_scatter import scatter_sum
 
 import torch
 from torch import Tensor
@@ -301,7 +302,7 @@ class SMART_GAIL(SMART):
             shape,
         )
 
-        (ego_logits, interaction_logits, map_logits) = disc_out[0]
+        (ego_logits, interaction_logits, interaction_dst,num_interaction_nodes) = disc_out[0]
         ego_rewards, dis_action_pred, scene_reward, interaction_reward = disc_out[2]
 
         if self.encoder.discriminator.interative_decoder.dis_start_step==0:
@@ -319,17 +320,6 @@ class SMART_GAIL(SMART):
         combined_logits = [ego_logits.reshape(-1)]
 
         self._log_train(f"train/{key}_ego_score", torch.sigmoid(ego_logits).mean())
-
-        if _has_elements(map_logits):
-            map_logits = _select_ego_logits(map_logits, dis_mask, mask_t)
-            map_loss = _weighted_bce_with_logits(
-                logits=map_logits,
-                target=target,
-                weight=torch.ones_like(map_logits),
-            )
-            ego_loss = ego_loss + map_loss
-            combined_logits.append(map_logits.reshape(-1))
-            self._log_train(f"train/{key}_map_score", torch.sigmoid(map_logits).mean())
 
         interaction_weight = None
         if _has_elements(interaction_logits):
@@ -429,8 +419,15 @@ class SMART_GAIL(SMART):
         self.ego_return_meanstd.update(scene_reward.detach())
         scene_reward = self.ego_return_meanstd.normalize(scene_reward)
 
-        self.global_return_meanstd.update(interaction_reward.detach())
-        interaction_reward = self.global_return_meanstd.normalize(interaction_reward)
+        self.global_return_meanstd.update(interaction_logits.detach())
+        interaction_logits = self.global_return_meanstd.normalize(interaction_logits.detach())
+
+        interaction_reward = scatter_sum(
+            interaction_logits.detach()*interaction_weight,
+            interaction_dst,
+            dim=0,
+            dim_size=num_interaction_nodes,
+        )
 
         ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
@@ -883,7 +880,7 @@ class SMART_GAIL(SMART):
                 )
                 if self.token_processor.use_refiner:
                     init_optimizer = torch.optim.AdamW(
-                        _trainable_parameters(self.encoder.init_decoder),
+                        _trainable_parameters(self.encoder.init_decoder.G1.refine_model),
                         lr=self.lr,
                     )
                     # init_optimizer = torch.optim.AdamW(

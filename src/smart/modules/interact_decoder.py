@@ -464,7 +464,7 @@ class InterativeDecoder(nn.Module):
             ]
             
         total_reward = scene_reward + interaction_reward
-        logits = (scene_logit, interaction_logits[:, 0], None)
+        logits = (scene_logit, interaction_logits[:, 0], interaction_dst,num_interaction_nodes)
         rewards = (
             total_reward,
             None,
