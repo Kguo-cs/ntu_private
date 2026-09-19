@@ -429,7 +429,7 @@ class SMART_GAIL(SMART):
             dim_size=num_interaction_nodes,
         )
 
-        ego_rewards=0.8*scene_reward+0.2*interaction_reward
+        ego_rewards=0.9*scene_reward+0.1*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
         # neighbour_reward_grid = None
