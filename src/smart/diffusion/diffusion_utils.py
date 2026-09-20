@@ -437,7 +437,7 @@ def get_diff_loss(
     w_shape: float = 0.2/ 5,
     w_vel: float = 1 / 5,
     max_loss_weight: float | None = None,
-    use_l1: bool = False,
+    use_l1: bool = True,
 ):
     """State reconstruction loss plus optional symmetric collision loss."""
     num_states = len(fake_state)
