@@ -1,4 +1,0 @@
-export PROJECT_ROOT=$(pwd)
-export SCRATCH_ROOT=$(pwd)
-export DATASET_ROOT=$SCRATCH_ROOT
-export CONFIG_PATH=$PROJECT_ROOT/cfgs

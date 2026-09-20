@@ -406,15 +406,15 @@ class ScaleFlow(nn.Module):
 
             tokenized_agent["rl_loss"] = rl_loss
 
-            # match_loss= col_loss= pos_loss= heading_loss=shape_loss=vel_loss=torch.zeros_like(rl_loss)
-            #
-            # loss=(match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+            match_loss= col_loss= pos_loss= heading_loss=shape_loss=vel_loss=torch.zeros_like(rl_loss)
 
-            loss = self._supervised_loss(
-                x,
-                tokenized_agent,
-                map_feature,
-            )
+            loss=(match_loss, col_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+
+            # loss = self._supervised_loss(
+            #     x,
+            #     tokenized_agent,
+            #     map_feature,
+            # )
 
             return loss
 
@@ -1022,12 +1022,12 @@ class ScaleFlow(nn.Module):
                     base,
                     tokenized_agent)
 
-                if "gt_z_raw" not in tokenized_agent:
-                    eps = torch.randn_like(delta_mu)
+                #if "gt_z_raw" not in tokenized_agent:
+                eps = torch.randn_like(delta_mu)
 
                     #eps[:,4:6]=0
-                else:
-                    eps=torch.zeros_like(delta_mu)
+                # else:
+                #     eps=torch.zeros_like(delta_mu)
 
                 delta = delta_mu + std * eps
 
