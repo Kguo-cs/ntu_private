@@ -1067,7 +1067,7 @@ all32_res002std01_std01_r10_shape-epoch=4-step=228282-valmeta=0.6518.ckpt
 
 all32_res002std01_std01_target1-epoch=3-step=159798-valmeta=0.6530.ckpt
 
-
+0.6511
 
 
 take all position for generation
