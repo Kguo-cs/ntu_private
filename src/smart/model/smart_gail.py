@@ -327,7 +327,7 @@ class SMART_GAIL(SMART):
             interaction_loss = _weighted_bce_with_logits(
                 logits=interaction_logits,
                 target=target,
-                weight=interaction_weight,
+                weight=torch.ones_like(interaction_weight),
             )
             combined_logits.append(interaction_logits.reshape(-1))
             self._log_train(
@@ -422,32 +422,9 @@ class SMART_GAIL(SMART):
         self.global_return_meanstd.update(interaction_reward.detach())
         interaction_reward = self.global_return_meanstd.normalize(interaction_reward.detach())
 
-        # self.global_return_meanstd.update(interaction_logits.detach())
-        # interaction_logits = self.global_return_meanstd.normalize(interaction_logits.detach())
-        #
-        # interaction_reward = scatter_sum(
-        #     interaction_logits.detach()*interaction_weight,
-        #     interaction_dst,
-        #     dim=0,
-        #     dim_size=num_interaction_nodes,
-        # )
-        #
         ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
-        # neighbour_reward_grid = None
-        # if _has_elements(neighbour_rewards):
-        #     neighbour_reward_grid = _reshape_valid_rewards(
-        #         neighbour_rewards,
-        #         mask_t,
-        #         "nei_rewards",
-        #     )
-        # if neighbour_reward_grid is not None:
-        #     self._log_train(f"train/{key}_nei_rewards", neighbour_reward_grid.mean())
-        #     self._log_train(
-        #         f"train/{key}_all_rewards",
-        #         (ego_reward_grid + neighbour_reward_grid).mean(),
-        #     )
 
         self._log_train(f"train/{key}_rewards", ego_reward_grid.mean())
         if _has_elements(scene_reward):
@@ -886,19 +863,6 @@ class SMART_GAIL(SMART):
                         _trainable_parameters(self.encoder.init_decoder.G1.refine_model),
                         lr=self.lr,
                     )
-                    # init_optimizer = torch.optim.AdamW(
-                    #     [
-                    #         {
-                    #             "params": self.encoder.init_decoder.G1.refine_model.parameters(),
-                    #             "lr": self.lr ,#*5,
-                    #         },
-                    #         # {
-                    #         #     "params": [self.encoder.init_decoder.G1.refiner_log_std],
-                    #         #     "lr": self.lr *5,
-                    #         # },
-                    #     ]
-                    # )
-
                 else:
                     init_optimizer = torch.optim.AdamW(
                         _trainable_parameters(self.encoder.init_decoder),
