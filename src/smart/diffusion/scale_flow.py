@@ -1023,13 +1023,13 @@ class ScaleFlow(nn.Module):
                     base,
                     tokenized_agent)
 
-                #if "gt_z_raw" not in tokenized_agent:
-                eps = torch.randn_like(delta_mu)
+                if "gt_z_raw" not in tokenized_agent:
+                    eps = torch.randn_like(delta_mu)
 
                     #eps[:,4:6]=0
-                # else:
-                #     eps=torch.zeros_like(delta_mu)
-                #
+                else:
+                    eps=torch.zeros_like(delta_mu)
+
                 delta = delta_mu + std * eps
 
                 # refiner_scale = torch.tensor([
