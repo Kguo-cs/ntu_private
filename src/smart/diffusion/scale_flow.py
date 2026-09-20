@@ -401,7 +401,7 @@ class ScaleFlow(nn.Module):
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
                     +shape_loss
-                    + 10 * collision_loss
+                   # + 10 * collision_loss
             )
 
             tokenized_agent["rl_loss"] = rl_loss
