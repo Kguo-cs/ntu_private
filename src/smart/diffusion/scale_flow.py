@@ -345,7 +345,15 @@ class ScaleFlow(nn.Module):
 
             residual_loss =delta_mu[non_ego].square().mean()
 
-            res = delta_mu * self.model.normal_scale
+            eps = torch.randn_like(delta_mu)
+
+            # eps[:,4:6]=0
+            # else:
+            #     eps=torch.zeros_like(delta_mu)
+
+            delta = delta_mu + std * eps
+
+            res = delta * self.model.normal_scale
             #
             refine_mean = res + base
 
@@ -401,7 +409,7 @@ class ScaleFlow(nn.Module):
                     + 0.02 * residual_loss
                     + 0.1 * std_loss
                     +shape_loss
-                   # + 10 * collision_loss
+                    +   collision_loss
             )
 
             tokenized_agent["rl_loss"] = rl_loss
