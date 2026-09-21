@@ -355,11 +355,11 @@ class InitDenoiser(nn.Module):
             elif mode == 0:
                 agent_type = torch.full_like(agent_type, self.num_classes)
 
-        if "agent_type_embed"  in tokenized_agent and not self.training:
-            agent_type_embed=tokenized_agent["agent_type_embed"]
-        else:
-            agent_type_embed=self.type_a_emb(agent_type)
-            tokenized_agent["agent_type_embed"]=agent_type_embed
+        # if "agent_type_embed"  in tokenized_agent and not self.training:
+        #     agent_type_embed=tokenized_agent["agent_type_embed"]
+        # else:
+        agent_type_embed=self.type_a_emb(agent_type)
+        #tokenized_agent["agent_type_embed"]=agent_type_embed
 
         beta = self._format_beta(beta, m_delta.shape[0])
 

@@ -1005,7 +1005,7 @@ class ScaleFlow(nn.Module):
                     "noise_feat_cur"
                 ][:,None]
 
-        del tokenized_agent["agent_type_embed"]
+       # del tokenized_agent["agent_type_embed"]
 
         latent[
             ego_mask
