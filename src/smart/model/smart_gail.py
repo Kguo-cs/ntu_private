@@ -755,6 +755,9 @@ class SMART_GAIL(SMART):
             "vel_loss": vel_loss,
             "rl_loss": rl_loss,
             "col_loss": col_loss,
+            "delta_mu":tokenized_agent["delta_mu"].mean(),
+            "std":tokenized_agent["std"].mean(),
+            "delta_mu_abs":tokenized_agent["delta_mu"].abs().mean(),
         }
         for name, value in metrics.items():
             self._log_train(f"train/{name}", _safe_mean(value, reference))

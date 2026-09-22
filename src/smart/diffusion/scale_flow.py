@@ -350,6 +350,8 @@ class ScaleFlow(nn.Module):
             # eps[:,4:6]=0
             # else:
             #     eps=torch.zeros_like(delta_mu)
+            tokenized_agent["delta_mu"]=delta_mu
+            tokenized_agent["std"]=std
 
             delta = delta_mu + std * eps
 
