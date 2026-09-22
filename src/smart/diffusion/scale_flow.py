@@ -376,7 +376,7 @@ class ScaleFlow(nn.Module):
 
             # Don't let exploration std explode.
             std_loss = (
-                    log_std[:,active_dims] - math.log(0.2)
+                    log_std[:,active_dims] - math.log(0.1)
             ).square().mean()
 
             # std_sq = torch.exp(2.0 * log_std)
