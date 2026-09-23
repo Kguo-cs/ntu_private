@@ -59,6 +59,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_range = 100
         self.use_gradient_penalty = False
         self.use_refiner=True
+        self.use_noise=True
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))

@@ -1033,7 +1033,7 @@ class ScaleFlow(nn.Module):
                     base,
                     tokenized_agent)
 
-                if "gt_z_raw" not in tokenized_agent and self.token_processor.learn_init:
+                if "gt_z_raw" not in tokenized_agent and self.token_processor.use_noise:
                     eps = torch.randn_like(delta_mu)
 
                     #eps[:,4:6]=0
