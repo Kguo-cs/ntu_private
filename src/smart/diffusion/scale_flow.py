@@ -108,7 +108,7 @@ class ScaleFlow(nn.Module):
             #     # requires_grad=False
             # )
             # refiner mean 最大修正量，normalized space
-            self.refiner_delta_scale = 0.1
+            self.refiner_delta_scale = 0.2
 
         self.apply(weight_init)
 
@@ -345,7 +345,7 @@ class ScaleFlow(nn.Module):
 
             residual_loss =delta_mu[non_ego].square().mean()
 
-            eps = torch.randn_like(delta_mu)
+            #eps = torch.randn_like(delta_mu)
 
             # eps[:,4:6]=0
             # else:
@@ -1033,7 +1033,7 @@ class ScaleFlow(nn.Module):
                     base,
                     tokenized_agent)
 
-                if "gt_z_raw" not in tokenized_agent:
+                if "gt_z_raw" not in tokenized_agent and self.token_processor.learn_init:
                     eps = torch.randn_like(delta_mu)
 
                     #eps[:,4:6]=0
