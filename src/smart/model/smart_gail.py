@@ -668,7 +668,7 @@ class SMART_GAIL(SMART):
         advantages_2d, value_loss_elements = compute_advantages(
             rewards_pad,#[-len(value) :]
             value,
-            gamma=0.9,
+            gamma=0.99,
             lam=0.8
         )
 
