@@ -582,8 +582,8 @@ class SMART_GAIL(SMART):
         )
 
         #if not self.token_processor.learn_init:
-        if not self.token_processor.use_noise:
-            self._optimizer_step(actor_optimizer, policy_loss)#policy update use no sde, initial update use sde
+       # if not self.token_processor.use_noise:
+        self._optimizer_step(actor_optimizer, policy_loss)#policy update use no sde, initial update use sde
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
