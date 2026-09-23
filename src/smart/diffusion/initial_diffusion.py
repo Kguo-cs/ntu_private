@@ -14,7 +14,7 @@ from torch_scatter import scatter_sum
 from src.smart.utils import transform_to_local
 
 from .diffusion_utils import multi_circle_collision_loss_mem_efficient
-from .scale_flow import ScaleFlow
+from .scale_flow import Flow
 
 
 class InitDiffusion(nn.Module):
@@ -44,7 +44,7 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
 
         args = self._make_args( )
-        self.G1 = ScaleFlow(args, token_processor, gail)
+        self.G1 = Flow(args, token_processor, gail)
 
         self.use_rl = bool(args.use_rl)
         self.sampling_steps = int(args.sampling_steps)
@@ -56,10 +56,10 @@ class InitDiffusion(nn.Module):
         """Create deterministic ScaleFlow settings without parsing process CLI."""
         values = {
             "input_dim": 8,
-            "hidden_dim": 256,
-            "num_freq_bands": 64,
+            "hidden_dim": 1024,
+            "num_freq_bands": 64*4,
             "num_heads": 8,
-            "head_dim": 16,
+            "head_dim": 16*4,
             "dropout": 0.0,
             "num_denoiser_layers": 3,
             "num_branch_steps": 1,

@@ -33,7 +33,7 @@ import copy
 from .denoiser import InitDenoiser
 
 
-class ScaleFlow(nn.Module):
+class Flow(nn.Module):
     """Initial-state flow with simple timestep-adaptive branch noise."""
 
     def __init__(
