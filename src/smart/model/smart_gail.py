@@ -669,7 +669,7 @@ class SMART_GAIL(SMART):
             rewards_pad,#[-len(value) :]
             value,
             gamma=0.95,
-            lam=0.9
+            lam=0.8
         )
 
         if "train_mask" in rollout_agent and rollout_agent["train_mask"] is not None:
