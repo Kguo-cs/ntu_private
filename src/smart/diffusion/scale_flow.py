@@ -488,7 +488,7 @@ class Flow(nn.Module):
             time,
             self.t_eps,
             scale=self.model.normal_scale,
-            use_col=False,
+            use_col=True,
             x_pred=True,
         )
 
