@@ -1301,9 +1301,9 @@ class Flow(nn.Module):
         ).transpose(0, 1).flatten(0, 1)
 
         out["batch"] = repeated_batch
-        out["agent_type_embed"] = tokenized_agent["agent_type_embed"][None].repeat(
-            n_step, 1,1
-        ).flatten(0, 1)
+        # out["agent_type_embed"] = tokenized_agent["agent_type_embed"][None].repeat(
+        #     n_step, 1,1
+        # ).flatten(0, 1)
         out["num_graphs"] = num_graphs * n_step
 
         out["ego_feat"] = tokenized_agent["ego_feat"][None].repeat(

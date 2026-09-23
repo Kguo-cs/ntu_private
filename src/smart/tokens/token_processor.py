@@ -58,7 +58,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_goal = False
         self.init_map_range = 100
         self.use_gradient_penalty = False
-        self.use_refiner=False
+        self.use_refiner=True
         self.use_noise=True
 
         module_dir = os.path.dirname(__file__)
