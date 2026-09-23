@@ -587,7 +587,7 @@ class SMART_GAIL(SMART):
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
-        if self.token_processor.learn_init and self.token_processor.use_noise:
+        if self.token_processor.learn_init :#and self.token_processor.use_noise
             init_loss=self._initial_state_update(
                 tokenized_agent,
                 advantages_flat,
@@ -771,15 +771,15 @@ class SMART_GAIL(SMART):
     # Lightning entry point
     # ------------------------------------------------------------------
     def training_step(self, data: Any, batch_idx: int) -> Tensor:
-        if random.random()<0.5:
-            self.token_processor.use_noise = True
-            # self.token_processor.learn_init = False
-            # self.token_processor.pred_init = True
-        else:
-            self.token_processor.use_noise = False
-            # self.token_processor.learn_init = True
-            # self.token_processor.pred_init = True
-
+        # if random.random()<0.5:
+        #     self.token_processor.use_noise = True
+        #     # self.token_processor.learn_init = False
+        #     # self.token_processor.pred_init = True
+        # else:
+        #     self.token_processor.use_noise = False
+        #     # self.token_processor.learn_init = True
+        #     # self.token_processor.pred_init = True
+        #
 
         # if self.token_processor.pred_init:
         #     self.encoder.discriminator.interative_decoder.gail_start_step = 0
