@@ -585,7 +585,7 @@ class SMART_GAIL(SMART):
         # else:
         #     policy_loss=torch.zeros(1,device=critic_loss.device)
 
-        if self.token_processor.learn_init:
+        if self.token_processor.learn_init and self.token_processor.use_noise:
             init_loss=self._initial_state_update(
                 tokenized_agent,
                 advantages_flat,
