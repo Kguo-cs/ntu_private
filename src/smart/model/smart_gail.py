@@ -569,7 +569,8 @@ class SMART_GAIL(SMART):
             actor_optimizer=discriminator_optimizer=init_optimizer=None
 
         # if self.token_processor.learn_init :#== False
-        self._optimizer_step(discriminator_optimizer, critic_loss)
+        if self.token_processor.use_noise:
+            self._optimizer_step(discriminator_optimizer, critic_loss)
 
         #if self.token_processor.learn_init:
 
