@@ -11,42 +11,33 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 
-import multiprocessing
+"""SMART preprocessing with the uploaded Scenario Dreamer single-scene rules.
+
+Copy this file, scenario_dreamer_filter.py and sd_reference.py into the same
+project directory. The SMART map/trajectory formats are retained.
+
+For dataset-level reproduction, replay an explicit frame manifest. A seed alone
+cannot reproduce the official processing order or 50k evaluation membership.
+"""
+import json
 import random
-import pickle
+import warnings
 from argparse import ArgumentParser
-from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Optional
+import os
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 import torch
 from tqdm import tqdm
-from waymo_open_dataset.protos import scenario_pb2
-import os
-from src.smart.utils.geometry import wrap_angle
-from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
 
-# agent_types = {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
-# agent_roles = {0: "ego_vehicle", 1: "interest", 2: "predict"}
-# polyline_type = {
-#     # for lane
-#     "TYPE_FREEWAY": 0,
-#     "TYPE_SURFACE_STREET": 1,
-#     "TYPE_STOP_SIGN": 2,
-#     "TYPE_BIKE_LANE": 3,
-#     # for roadedge
-#     "TYPE_ROAD_EDGE_BOUNDARY": 4,
-#     "TYPE_ROAD_EDGE_MEDIAN": 5,
-#     # for roadline
-#     "BROKEN": 6,
-#     "SOLID_SINGLE": 7,
-#     "DOUBLE": 8,
-#     # for crosswalk, speed bump and drive way
-#     "TYPE_CROSSWALK": 9,
-# }
+from scenario_dreamer_filter import (
+    get_agent_features,
+    get_get_agent_features,
+    decode_tracks_from_proto,
+)
+
 _polygon_types = ["lane", "road_edge", "road_line", "crosswalk"]
 _polygon_light_type = [
     "NO_LANE_STATE",
@@ -56,348 +47,6 @@ _polygon_light_type = [
     "LANE_STATE_CAUTION",
 ]
 
-
-def _sd_rotate(xy: np.ndarray, angle: float) -> np.ndarray:
-    c, s = np.cos(angle), np.sin(angle)
-    matrix = np.array([[c, -s], [s, c]], dtype=np.float64)
-    return np.asarray(xy, dtype=np.float64) @ matrix.T
-
-
-def _sd_wrap(angles):
-    return (np.asarray(angles) + np.pi) % (2 * np.pi) - np.pi
-
-
-def _sd_resample(points: np.ndarray, count: int) -> np.ndarray:
-    """Arc-length interpolation, including the upstream one-point-lane case."""
-    points = np.asarray(points, dtype=np.float64)
-    distances = np.linalg.norm(np.diff(points, axis=0), axis=1)
-    cumulative = np.r_[0.0, np.cumsum(distances)]
-    targets = np.linspace(0.0, cumulative[-1], count)
-    return np.column_stack([
-        np.interp(targets, cumulative, points[:, axis]) for axis in range(2)
-    ])
-
-
-def get_scenario_dreamer_compact_lanes(scenario) -> Dict[int, np.ndarray]:
-    """Build the compact centerlines needed by the SD offroad filter.
-
-    Uses raw proto lane types (1=freeway, 2=surface street). Do not use the
-    uploaded map_infos type labels: that decoder relabels undefined lanes.
-    Successive degree-two lanes are concatenated, omitting the next lane's
-    first point, as in SD. Lateral edges are unnecessary for this operation.
-
-    A malformed reference to an excluded lane is removed completely; unlike
-    upstream's list mutation during iteration, this cannot leave stale IDs.
-    This safety difference only concerns malformed/dangling graph references.
-    """
-    raw = {
-        int(feature.id): feature.lane
-        for feature in scenario.map_features
-        if feature.HasField("lane")
-    }
-    # Upstream constructs connectivity only between lanes with >=2 points.
-    connected_ids = {i for i, lane in raw.items() if len(lane.polyline) >= 2}
-    lanes = {
-        i: np.array([(p.x, p.y) for p in lane.polyline], dtype=np.float64)
-        for i, lane in raw.items()
-        if int(lane.type) in (1, 2) and len(lane.polyline) > 0
-    }
-    if not lanes:
-        return {}
-
-    predecessors, successors = {}, {}
-    for lane_id in lanes:
-        lane = raw[lane_id]
-        predecessors[lane_id] = [
-            int(i) for i in lane.entry_lanes
-            if lane_id in connected_ids and int(i) in connected_ids and int(i) in lanes
-        ]
-        successors[lane_id] = [
-            int(i) for i in lane.exit_lanes
-            if lane_id in connected_ids and int(i) in connected_ids and int(i) in lanes
-        ]
-
-    starts = {
-        i for i in set(predecessors) | set(successors)
-        if not (len(predecessors[i]) == 1
-                and len(successors[predecessors[i][0]]) == 1)
-    }
-    visited, groups = set(), []
-
-    def walk(start):
-        chain = []
-        current = start
-        while current not in visited:
-            visited.add(current)
-            chain.append(current)
-            if len(successors[current]) != 1:
-                break
-            nxt = successors[current][0]
-            if len(predecessors[nxt]) != 1:
-                break
-            current = nxt
-        if chain:
-            groups.append(chain)
-
-    for lane_id in starts:
-        walk(lane_id)
-    # Fully closed degree-two cycles have no starting lane.
-    while len(visited) < len(lanes):
-        walk(list(set(predecessors) - visited)[0])
-
-    return {
-        group_id: np.concatenate([
-            lanes[lane_id] if offset == 0 else lanes[lane_id][1:]
-            for offset, lane_id in enumerate(chain)
-        ], axis=0)
-        for group_id, chain in enumerate(groups)
-    }
-
-
-def _sd_lanes_in_view(
-    compact_lanes: Mapping[int, np.ndarray],
-    center: np.ndarray,
-    rotation: float,
-    fov: float,
-    upsample_points: int,
-) -> Dict[int, np.ndarray]:
-    """Crop stored vertices, THEN resample each retained compact lane."""
-    result = {}
-    for lane_id, points in compact_lanes.items():
-        points = np.asarray(points, dtype=np.float64)
-        if points.ndim != 2 or points.shape[1] != 2:
-            raise ValueError("compact_lanes values must have shape [P, 2].")
-        if not np.isfinite(points).all():
-            raise ValueError("Lane coordinates must be finite.")
-        local = _sd_rotate(points - center, rotation)
-        inside = (np.abs(local) < fov / 2).all(axis=1)
-        if inside.any():
-            result[lane_id] = _sd_resample(local[inside], upsample_points)
-    return result
-
-
-def select_scenario_dreamer_agents(
-    positions_ego: np.ndarray,
-    object_types: np.ndarray,
-    valid: np.ndarray,
-    lane_points_ego: np.ndarray,
-    *,
-    fov: float = 64.0,
-    max_num_agents: int = 30,
-    offroad_threshold: float = 1.5,
-    generate_only_vehicles: bool = False,
-    remove_offroad_agents: bool = True,
-) -> np.ndarray:
-    """Return ORIGINAL track-row indices in SD's distance-sorted order.
-
-    Types use the user's encoding: vehicle=0, pedestrian=1, cyclist=2.
-    Order matters: valid/type -> nearest 30 -> square FOV -> offroad removal.
-    There is NO refill, lane-heading test, velocity-heading test or collision
-    test. The first distance-sorted row is exempt from offroad removal, exactly
-    as in SD (normally the ego at the origin). Equal-position ties retain
-    NumPy's argsort semantics rather than introducing a new ego tie-breaker.
-
-    lane_points_ego must contain the 1000-point, cropped COMPACT lanes, not the
-    later 20-point lanes used to serialize the scene or compute JSD.
-    """
-    xy = np.asarray(positions_ego, dtype=np.float64)
-    types = np.asarray(object_types)
-    valid = np.asarray(valid, dtype=bool)
-    road = np.asarray(lane_points_ego, dtype=np.float64)
-    if xy.ndim != 2 or xy.shape[1] != 2:
-        raise ValueError("positions_ego must have shape [N, 2].")
-    if valid.shape != (len(xy),) or types.shape != (len(xy),):
-        raise ValueError("valid and object_types must have shape [N].")
-    if road.ndim != 2 or road.shape[1] != 2:
-        raise ValueError("lane_points_ego must have shape [P, 2].")
-    if fov <= 0 or max_num_agents < 1 or offroad_threshold < 0:
-        raise ValueError("Require fov > 0, max_num_agents >= 1, threshold >= 0.")
-    if not np.isfinite(road).all():
-        raise ValueError("Lane coordinates must be finite.")
-
-    accepted_types = (0,) if generate_only_vehicles else (0, 1, 2)
-    candidates = np.flatnonzero(valid & np.isin(types, accepted_types))
-    if len(candidates) == 0 or len(road) == 0:
-        return np.empty(0, dtype=np.int64)
-    if not np.isfinite(xy[candidates]).all():
-        raise ValueError("Valid agent coordinates must be finite.")
-
-    distance = np.linalg.norm(xy[candidates], axis=1)
-    selected = candidates[np.argsort(distance)[:max_num_agents]]
-    inside = (np.abs(xy[selected]) < fov / 2).all(axis=1)
-    selected = selected[inside]
-
-    if remove_offroad_agents and len(selected) > 1:
-        keep = np.ones(len(selected), dtype=bool)
-        # <=30 agents: loop over agents to avoid allocating [N, all_lane_pts, 2].
-        for row, original_idx in enumerate(selected[1:], start=1):
-            if types[original_idx] == 0:
-                distance = np.linalg.norm(road - xy[original_idx], axis=1).min()
-                keep[row] = distance <= offroad_threshold
-        selected = selected[keep]
-    return selected.astype(np.int64, copy=False)
-
-
-def get_agent_features(
-    track_infos: Dict[str, np.ndarray],
-    split,
-    num_historical_steps: int,
-    num_steps: int,
-    all_agent: bool = False,
-    *,
-    scenario=None,
-    compact_lanes: Optional[Mapping[int, np.ndarray]] = None,
-    scene_timestep=None,
-    rng: Optional[random.Random] = None,
-    fov: float = 64.0,
-    max_num_agents: int = 30,
-    offroad_threshold: float = 1.5,
-    generate_only_vehicles: bool = False,
-    remove_offroad_agents: bool = True,
-    return_scene_info: bool = False,
-):
-    """SD initial-scene agent selection with the original SMART output fields.
-
-    Required map input: raw `scenario`, or OFFICIAL compact_lanes in world XY.
-    scene_timestep=None: uniformly sample an ego-valid raw frame (SD behavior).
-    scene_timestep="current": use num_historical_steps-1 (explicit adaptation).
-    An integer fixes the raw frame, e.g. the official eval cache's timestep.
-    `split` is kept for API compatibility and does not change the selection.
-
-    No gap interpolation. Invalid and padded trajectory slots stay zero/False.
-    All trajectories stay in WORLD coordinates and original time indices.
-    shape uses the last raw valid frame (SD uses its length/width; height is
-    retained here only to preserve your [N,3] shape schema).
-
-    When return_scene_info=True, return (agent_dict, scene_info). The latter
-    holds the selected original indices, sampled timestep, and unnormalised
-    SD [x,y,speed,cos_heading,sin_heading,length,width] features in EGO +Y frame.
-    Empty/invalid scenes return num_nodes=0 and valid_scene=False.
-    """
-    if all_agent:
-        raise ValueError("all_agent=True bypasses SD selection; use False.")
-    if scenario is None and compact_lanes is None:
-        raise ValueError("Pass scenario=... or official compact_lanes=...; the SD filter needs lanes.")
-
-    states = np.asarray(track_infos["states"])
-    valid = np.asarray(track_infos["valid"], dtype=bool)
-    types = np.asarray(track_infos["object_type"])
-    roles = np.asarray(track_infos["role"], dtype=bool)
-    ids = np.asarray(track_infos["object_id"], dtype=np.int64)
-    if states.ndim != 3 or states.shape[2] != 9:
-        raise ValueError("states must be [N,T,9]: x,y,z,l,w,h,heading,vx,vy.")
-    n, total_steps, _ = states.shape
-    if valid.shape != (n, total_steps) or roles.shape != (n, 3):
-        raise ValueError("valid or role has the wrong shape.")
-    if types.shape != (n,) or ids.shape != (n,):
-        raise ValueError("object_type and object_id must have shape [N].")
-    if num_steps < total_steps:
-        raise ValueError("num_steps must cover the raw sequence; do not silently truncate SD input.")
-    if fov <= 0 or max_num_agents < 1 or offroad_threshold < 0:
-        raise ValueError("Invalid FOV, agent limit or offroad threshold.")
-
-    ego_rows = np.flatnonzero(roles[:, 0])
-    if len(ego_rows) != 1:
-        raise ValueError("Exactly one SDC must be identified by track_infos['role'][:,0].")
-    ego = int(ego_rows[0])
-    eligible_times = np.flatnonzero(valid[ego])
-    scene_info = {
-        "valid_scene": False, "scene_timestep": -1, "reason": "no_valid_ego_frame",
-        "source_index": torch.empty(0, dtype=torch.int64), "ego_index": -1,
-        "agent_states": torch.empty((0, 7), dtype=torch.float32),
-        "agent_types": torch.empty((0, 3), dtype=torch.float32),
-        "road_points": torch.empty((0, 20, 2), dtype=torch.float32),
-        "coordinate_frame": "ego_y_forward", "normalized": False,
-    }
-    selected = np.empty(0, dtype=np.int64)
-    local_xy, local_lanes, center, rotation = None, {}, None, None
-
-    if len(eligible_times):
-        if scene_timestep is None:
-            source_rng = random if rng is None else rng
-            timestep = int(eligible_times[source_rng.randrange(len(eligible_times))])
-        elif isinstance(scene_timestep, str) and scene_timestep == "current":
-            timestep = num_historical_steps - 1
-        elif isinstance(scene_timestep, (int, np.integer)):
-            timestep = int(scene_timestep)
-        else:
-            raise ValueError("scene_timestep must be None, 'current', or an integer.")
-        if not 0 <= timestep < total_steps:
-            raise ValueError(f"scene_timestep={timestep} outside raw sequence length {total_steps}.")
-        scene_info["scene_timestep"] = timestep
-        scene_info["reason"] = "ego_invalid_at_selected_frame"
-        if valid[ego, timestep]:
-            frame = np.asarray(states[:, timestep], dtype=np.float64)
-            if not np.isfinite(frame[valid[:, timestep]]).all():
-                raise ValueError("A raw valid state contains nonfinite values.")
-            center = frame[ego, :2].copy()
-            ego_heading = float(_sd_wrap(frame[ego, 6]))
-            rotation = np.pi / 2 - ego_heading
-            local_xy = _sd_rotate(frame[:, :2] - center, rotation)
-            if compact_lanes is None:
-                compact_lanes = get_scenario_dreamer_compact_lanes(scenario)
-            local_lanes = _sd_lanes_in_view(compact_lanes, center, rotation, fov, 1000)
-            scene_info["reason"] = "no_lane_vertices_in_fov"
-            if local_lanes:
-                road = np.concatenate(list(local_lanes.values()), axis=0)
-                selected = select_scenario_dreamer_agents(
-                    local_xy, types, valid[:, timestep], road,
-                    fov=fov, max_num_agents=max_num_agents,
-                    offroad_threshold=offroad_threshold,
-                    generate_only_vehicles=generate_only_vehicles,
-                    remove_offroad_agents=remove_offroad_agents,
-                )
-                scene_info["reason"] = "no_selected_agents" if len(selected) == 0 else ""
-
-    # Same keys, shapes, dtypes and WORLD coordinate frame as the uploaded code.
-    count = len(selected)
-    out = {
-        "num_nodes": count,
-        "valid_mask": torch.zeros((count, num_steps), dtype=torch.bool),
-        "role": torch.from_numpy(roles[selected].copy()),
-        "id": torch.from_numpy(ids[selected].copy()),
-        "type": torch.from_numpy(types[selected].astype(np.uint8)),
-        "position": torch.zeros((count, num_steps, 3), dtype=torch.float32),
-        "heading": torch.zeros((count, num_steps), dtype=torch.float32),
-        "velocity": torch.zeros((count, num_steps, 2), dtype=torch.float32),
-        "shape": torch.zeros((count, 3), dtype=torch.float32),
-    }
-    for row, source_idx in enumerate(selected):
-        times = np.flatnonzero(valid[source_idx])
-        source = states[source_idx, times]
-        if not np.isfinite(source).all():
-            raise ValueError(f"Nonfinite valid state for track {ids[source_idx]}.")
-        out["valid_mask"][row, times] = True
-        out["position"][row, times] = torch.as_tensor(source[:, :3], dtype=torch.float32)
-        out["velocity"][row, times] = torch.as_tensor(source[:, 7:9], dtype=torch.float32)
-        out["heading"][row, times] = torch.as_tensor(
-            _sd_wrap(source[:, 6].astype(np.float64)), dtype=torch.float32
-        )
-        out["shape"][row] = torch.as_tensor(states[source_idx, times[-1], 3:6], dtype=torch.float32)
-
-    if count:
-        sampled = states[selected, scene_info["scene_timestep"]].astype(np.float64)
-        local_velocity = _sd_rotate(sampled[:, 7:9], rotation)
-        local_heading = _sd_wrap(_sd_wrap(sampled[:, 6]) + rotation)
-        features = np.column_stack([
-            local_xy[selected], np.linalg.norm(local_velocity, axis=1),
-            np.cos(local_heading), np.sin(local_heading), out["shape"][:, :2].numpy(),
-        ])
-        # SD serializes the regular graph after downsampling and nearest-100 cap.
-        lanes20 = np.stack([_sd_resample(p, 20) for p in local_lanes.values()])
-        lane_order = np.argsort(np.linalg.norm(lanes20, axis=2).min(axis=1))[:100]
-        ego_selected = np.flatnonzero(selected == ego)
-        scene_info.update({
-            "valid_scene": True,
-            "source_index": torch.from_numpy(selected.copy()),
-            "ego_index": int(ego_selected[0]) if len(ego_selected) else -1,
-            "center_world": torch.tensor(center, dtype=torch.float64),
-            "rotation_angle": float(rotation),
-            "agent_states": torch.tensor(features, dtype=torch.float32),
-            "agent_types": torch.from_numpy(np.eye(3, dtype=np.float32)[types[selected].astype(int)]),
-            "road_points": torch.tensor(lanes20[lane_order], dtype=torch.float32),
-        })
-    return (out, scene_info) if return_scene_info else out
 
 
 def get_map_features(map_infos, tf_current_light,dim=2, remove_last=False):
@@ -503,61 +152,8 @@ def process_dynamic_map(dynamic_map_infos):
     return tf_lights
 
 
-def decode_tracks_from_proto(scenario):
-    sdc_track_index = scenario.sdc_track_index
-    track_index_predict = [i.track_index for i in scenario.tracks_to_predict]
-    object_id_interest = [i for i in scenario.objects_of_interest]
-
-    track_infos = {
-        "object_id": [],
-        "object_type": [],
-        "states": [],
-        "valid": [],
-        "role": [],
-    }
-    for i, cur_data in enumerate(scenario.tracks):  # number of objects
-
-        step_state = []
-        step_valid = []
-        for s in cur_data.states:
-            step_state.append(
-                [
-                    s.center_x,
-                    s.center_y,
-                    s.center_z,
-                    s.length,
-                    s.width,
-                    s.height,
-                    s.heading,
-                    s.velocity_x,
-                    s.velocity_y,
-                ]
-            )
-            step_valid.append(s.valid)
-            # This angle is normalized to [-pi, pi). The velocity vector in m/s
-
-        track_infos["object_id"].append(cur_data.id)
-        track_infos["object_type"].append(cur_data.object_type - 1)
-        track_infos["states"].append(np.array(step_state, dtype=np.float32))
-        track_infos["valid"].append(np.array(step_valid))
-
-        track_infos["role"].append([False, False, False])
-        if i in track_index_predict:
-            track_infos["role"][-1][2] = True  # predict=2
-        if cur_data.id in object_id_interest:
-            track_infos["role"][-1][1] = True  # interest=1
-        if i == sdc_track_index:  # ego_vehicle=0
-            track_infos["role"][-1][0] = True
-
-    track_infos["states"] = np.array(track_infos["states"], dtype=np.float32)
-    track_infos["valid"] = np.array(track_infos["valid"], dtype=bool)
-    track_infos["role"] = np.array(track_infos["role"], dtype=bool)
-    track_infos["object_id"] = np.array(track_infos["object_id"], dtype=np.int64)
-    # Keep raw UNSET=-1 representable until the type filter removes it.
-    track_infos["object_type"] = np.array(track_infos["object_type"], dtype=np.int16)
-    return track_infos
-
 def decode_map_features_from_proto(map_features,remove_mapid=[]):
+    from src.smart.utils.preprocess import get_polylines_from_polygon
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
     polylines = []
     point_cnt = 0
@@ -723,115 +319,192 @@ def decode_dynamic_map_states_from_proto(dynamic_map_states):
     return dynamic_map_infos
 
 
-def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted, *, rng=None, scene_timestep=None):
-    dataset = tf.data.TFRecordDataset(
-        file_path, compression_type="", num_parallel_reads=3
-    )
-    for tf_data in dataset:
-        tf_data = tf_data.numpy()
-        scenario = scenario_pb2.Scenario()
-        scenario.ParseFromString(bytes(tf_data))
-
-        track_infos = decode_tracks_from_proto(scenario)
-        # map_infos = decode_map_features_from_proto(scenario.map_features)
-        # dynamic_map_infos = decode_dynamic_map_states_from_proto(
-        #     scenario.dynamic_map_states
-        # )
-        #
-        current_time_index = scenario.current_time_index
-        scenario_id = scenario.scenario_id
-        agent_data, scene_info = get_agent_features(
-            track_infos,
-            split=split,
-            num_historical_steps=current_time_index + 1,
-            num_steps=91,
-            scenario=scenario,
-            scene_timestep=scene_timestep,
-            rng=rng,
-            return_scene_info=True,
-        )
-        if not scene_info["valid_scene"]:
-            continue
-
-        # Use the same raw timestep for scene metadata and traffic signals.
-        # Agent trajectories and SMART map points both remain in world coordinates.
-        # tf_lights = process_dynamic_map(dynamic_map_infos)
-        # tf_current_light = tf_lights.loc[
-        #     tf_lights["time_step"] == scene_info["scene_timestep"]
-        # ]
-        # map_data = get_map_features(map_infos, tf_current_light)
-        # data = preprocess_map(map_data)
-        data={}
-        data["agent"] = agent_data
-        data["scenario_dreamer"] = scene_info
-
-        data["scenario_id"] = scenario_id
-        torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
-
-        if output_dir_tfrecords_splitted is not None:
-            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-                file_writer.write(tf_data)
+def _parse_frame(value):
+    if value in (None, "random"):
+        return None
+    if value == "current":
+        return "current"
+    return int(value)
 
 
-def batch_process9s_transformer(input_dir, output_dir, split, num_workers, seed=42, scene_timestep=None):
+def load_frame_manifest(path):
+    """JSONL rows: scenario_id, scene_timestep, optional sample_name/lg_type.
+
+    One scenario may have several reference frames. Replay is independent of
+    TFRecord traversal order because each entry specifies a physical frame.
+    It is NOT valid to infer scenario_id from an official raw-pickle basename.
+    Use an explicit mapping when converting an official eval list.
+    """
+    if path is None:
+        return None
+    by_scenario, names = {}, set()
+    with Path(path).open(encoding="utf-8") as file:
+        for line_no, text in enumerate(file, 1):
+            if not text.strip():
+                continue
+            entry = json.loads(text)
+            sid = str(entry["scenario_id"])
+            t = entry["scene_timestep"]
+            if isinstance(t, bool) or not isinstance(t, int) or t < 0:
+                raise ValueError(f"Manifest line {line_no}: timestep must be a nonnegative integer")
+            lg_type = entry.get("lg_type", 0)
+            if lg_type not in (0, 1):
+                raise ValueError(f"Manifest line {line_no}: lg_type must be 0 or 1")
+            name = entry.get("sample_name", f"{sid}_{lg_type}_{t}.pt")
+            if not isinstance(name, str) or not name or Path(name).name != name or "\\" in name or name in (".", ".."):
+                raise ValueError(f"Manifest line {line_no}: sample_name must be a plain filename")
+            name = str(Path(name).with_suffix(".pt"))
+            if name in names:
+                raise ValueError(f"Manifest line {line_no}: duplicate output name {name}")
+            names.add(name)
+            by_scenario.setdefault(sid, []).append({
+                "scene_timestep": t, "sample_name": name, "lg_type": lg_type,
+            })
+    if not by_scenario:
+        raise ValueError("Frame manifest is empty")
+    return by_scenario
+
+
+def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted,
+            *, rng=None, scene_timestep=None, frame_manifest=None,
+            save_scene_info=False, manifest_writer=None, written_names=None):
+    import tensorflow as tf
+    from waymo_open_dataset.protos import scenario_pb2
+    from src.smart.utils.preprocess import preprocess_map
+
     output_dir = Path(output_dir)
-    output_dir_tfrecords_splitted = None
-    if split == "validation":
-        output_dir_tfrecords_splitted = output_dir / "validation_tfrecords_splitted"
-        output_dir_tfrecords_splitted.mkdir(exist_ok=True, parents=True)
-    output_dir = output_dir / split
-    output_dir.mkdir(exist_ok=True, parents=True)
+    seen = set()
+    count = 0
+    dataset = tf.data.TFRecordDataset(file_path, compression_type="")
+    for tf_data in dataset:
+        raw_bytes = bytes(tf_data.numpy())
+        scenario = scenario_pb2.Scenario()
+        scenario.ParseFromString(raw_bytes)
+        sid = scenario.scenario_id
+        if frame_manifest is not None and sid not in frame_manifest:
+            continue
+        seen.add(sid)
+        requests = frame_manifest[sid] if frame_manifest is not None else [{
+            "scene_timestep": scene_timestep, "lg_type": 0,
+        }]
+        track_infos = decode_tracks_from_proto(scenario)
+        #map_infos = decode_map_features_from_proto(scenario.map_features)
+        #dynamic = decode_dynamic_map_states_from_proto(scenario.dynamic_map_states)
+        # if len(dynamic["lane_id"]):
+        #     lights = process_dynamic_map(dynamic)
+        # else:
+        #     lights = pd.DataFrame(columns=["lane_id", "time_step", "state"])
 
+        wrote_scenario = False
+        for request in requests:
+            agents, scene = get_agent_features(
+                track_infos, split=split,
+                num_historical_steps=scenario.current_time_index + 1,
+                num_steps=max(91, track_infos["states"].shape[1]),
+                scenario=scenario, scene_timestep=request["scene_timestep"],
+                rng=rng, return_scene_info=True,
+            )
+            if not scene["valid_scene"]:
+                if frame_manifest is not None:
+                    raise ValueError(f"Requested reference sample {sid}: {scene['reason']}")
+                continue
+            #t = scene["scene_timestep"]
+            #lg_type = request["lg_type"]
+            #graph = scene["graphs"]["regular" if lg_type == 0 else "partitioned"]
+            #scene["lg_type"] = lg_type
+            #scene["road_points"] = graph["road_points"]
+            #scene["num_lanes"] = graph["num_lanes"]
+            name = request.get("sample_name", f"{sid}.pt")
+            if written_names is not None:
+                if name in written_names:
+                    raise ValueError(f"Duplicate output sample {name}; use an explicit, unique manifest")
+                written_names.add(name)
+
+            #current_lights = lights.loc[lights["time_step"] == t]
+            #data = preprocess_map(get_map_features(map_infos, current_lights))
+            data={}
+            data["agent"] = agents
+            data["scenario_id"] = sid
+            # Always keep the physical reference time, even without scene_info.
+          #  data["scene_timestep"] = t
+            #data["agent_source_index"] = scene["source_index"]
+            # if save_scene_info:
+            #     data["scenario_dreamer"] = scene
+            torch.save(data, output_dir / name)
+            count += 1
+            wrote_scenario = True
+            # if manifest_writer is not None:
+            #     record = {
+            #         "scenario_id": sid, "scene_timestep": t, "lg_type": lg_type,
+            #         "sample_name": name, "source_tfrecord": Path(file_path).name,
+            #         "selected_track_ids": agents["id"].tolist(),
+            #     }
+            #     manifest_writer.write(json.dumps(record) + "\n")
+            #     manifest_writer.flush()
+        if wrote_scenario and output_dir_tfrecords_splitted is not None:
+            out_record = Path(output_dir_tfrecords_splitted) / f"{sid}.tfrecords"
+            with tf.io.TFRecordWriter(str(out_record)) as writer:
+                writer.write(raw_bytes)
+    return seen, count
+
+
+def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
+                                seed=10, scene_timestep=None, *, frame_manifest=None,
+                                save_scene_info=False):
+    """Sequential processing; no unannounced RNG reordering from worker pools."""
+    if num_workers != 1:
+        warnings.warn("Processing sequentially to keep RNG order fixed; num_workers is ignored.")
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[6:]
-    # func = partial(
-    #     wm2argo,
-    #     split=split,
-    #     output_dir=output_dir,
-    #     output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
-    # )
-    #
-    # with multiprocessing.Pool(num_workers) as p:
-    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
-    print(len(packages))
-    rng = random.Random(seed)
-    for file_path in tqdm(packages):
-        wm2argo(
-            file_path, split, output_dir, output_dir_tfrecords_splitted,
-            rng=rng, scene_timestep=scene_timestep,
-        )
+    root = Path(output_dir)
+    target = root / split
+    target.mkdir(parents=True, exist_ok=True)
+    record_dir = root / "validation_tfrecords_splitted" if split == "validation" else None
+    if record_dir is not None:
+        record_dir.mkdir(parents=True, exist_ok=True)
+    packages = sorted(p for p in input_dir.iterdir() if p.is_file() and "tfrecord" in p.name)
+    if not packages:
+        raise FileNotFoundError(f"No TFRecord files under {input_dir}")
+    replay = load_frame_manifest(frame_manifest)
+    generator = random.Random(seed)
+    written, seen, total = set(), set(), 0
+    log_path = target / "sample_manifest.jsonl"
+    # Do not overwrite the very manifest being replayed.
+    if frame_manifest is not None and Path(frame_manifest).resolve() == log_path.resolve():
+        log_path = target / "sample_manifest_replayed.jsonl"
+    with log_path.open("w", encoding="utf-8") as writer:
+        for path in tqdm(packages):
+            found, count = wm2argo(
+                str(path), split, target, record_dir, rng=generator,
+                scene_timestep=scene_timestep, frame_manifest=replay,
+                save_scene_info=save_scene_info, manifest_writer=writer,
+                written_names=written,
+            )
+            seen.update(found)
+            total += count
+    if replay is not None:
+        missing = set(replay) - seen
+        if missing:
+            raise FileNotFoundError(f"{len(missing)} requested scenarios not found; examples: {sorted(missing)[:5]}")
+    print(f"Saved {total} samples; replay manifest: {log_path}")
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument(
-        "--input_dir",
-        type=str,
-        default="/home/ke/code/sim/src/waymo_data/waymo131",
-    )
-    parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/sim/src/waymo_data/scenario_dreamer"
-    )
-    parser.add_argument("--split", type=str, default="training")
-    parser.add_argument("--num_workers", type=int, default=12)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--scene_timestep", default="random",
-        help="random (SD sampling), current (original current frame), or an integer raw frame index",
-    )
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument("--input_dir", default='/home/ke/code/sim/src/waymo_data/waymo131', help="Directory containing training/validation/testing")
+    parser.add_argument("--output_dir", default='/home/ke/code/sim/src/waymo_data/scenario_dreamer_data')
+    parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
+    parser.add_argument("--num_workers", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=10)
+    parser.add_argument("--scene_timestep", default="random", help="random, current, or raw-frame integer")
+    parser.add_argument("--frame_manifest", help="JSONL with explicit scenario_id / scene_timestep entries")
+    parser.add_argument("--save_scene_info", action="store_true", help="Save exact-precision local features and both map variants")
     args = parser.parse_args()
-    if args.scene_timestep == "random":
-        scene_timestep = None
-    elif args.scene_timestep == "current":
-        scene_timestep = "current"
-    else:
-        try:
-            scene_timestep = int(args.scene_timestep)
-        except ValueError:
-            parser.error("--scene_timestep must be random, current, or an integer")
-
+    try:
+        frame = _parse_frame(args.scene_timestep)
+    except (ValueError, TypeError):
+        parser.error("--scene_timestep must be random, current, or an integer")
     batch_process9s_transformer(
-        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers,
-        seed=args.seed, scene_timestep=scene_timestep,
+        args.input_dir, args.output_dir, args.split, args.num_workers,
+        args.seed, frame, frame_manifest=args.frame_manifest,
+        save_scene_info=args.save_scene_info,
     )
