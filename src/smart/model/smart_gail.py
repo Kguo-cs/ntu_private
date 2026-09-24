@@ -427,7 +427,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/global_return_mean", self.global_return_meanstd.mean)
         self._log_train("train/global_return_var", self.global_return_meanstd.var)
 
-        ego_rewards=0.2*scene_reward+0.1*interaction_reward  #/8
+        ego_rewards=scene_reward+interaction_reward  #/80.1*0.2*
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
 
