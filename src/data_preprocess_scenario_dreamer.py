@@ -26,7 +26,14 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import os
-
+# import sys
+# sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
+# sys.path.append('/home/ke/code/sim')
+# sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+# sys.path.append('/home/zs/code/sim')
+# sys.path.append('/mnt/d/code/sim')
+# sys.path.append('/home/ke/keguo/sim')
+# sys.path.append('/home/guoke/sim')
 import numpy as np
 import pandas as pd
 import torch
@@ -370,7 +377,7 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted,
             save_scene_info=False, manifest_writer=None, written_names=None):
     import tensorflow as tf
     from waymo_open_dataset.protos import scenario_pb2
-    from src.smart.utils.preprocess import preprocess_map
+   # from src.smart.utils.preprocess import preprocess_map
 
     output_dir = Path(output_dir)
     seen = set()
