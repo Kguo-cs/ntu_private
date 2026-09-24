@@ -495,7 +495,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
         wm2argo,
         split=split,
         output_dir=output_dir,
-        output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
+        output_dir_tfrecords_splitted=None,
     )
 
     with multiprocessing.Pool(num_workers) as p:
