@@ -422,6 +422,11 @@ class SMART_GAIL(SMART):
         self.global_return_meanstd.update(interaction_reward.detach())
         interaction_reward = self.global_return_meanstd.normalize(interaction_reward.detach())
 
+        self._log_train("train/ego_return_mean", self.ego_return_meanstd.mean)
+        self._log_train("train/ego_return_var", self.ego_return_meanstd.var)
+        self._log_train("train/global_return_mean", self.global_return_meanstd.mean)
+        self._log_train("train/global_return_var", self.global_return_meanstd.var)
+
         ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
@@ -668,8 +673,8 @@ class SMART_GAIL(SMART):
         advantages_2d, value_loss_elements = compute_advantages(
             rewards_pad,#[-len(value) :]
             value,
-            gamma=0.5,
-            lam=0.95
+            gamma=0.99,
+            lam=0.99
         )
 
         if "train_mask" in rollout_agent and rollout_agent["train_mask"] is not None:
@@ -717,6 +722,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/ppo_loss", ppo_loss)
         self._log_train("train/running_mean", self.return_meanstd.mean)
         self._log_train("train/running_var", self.return_meanstd.var)
+
         self._log_train("train/value_loss", value_loss)
 
         policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss + 1e-3 * init_value_loss
