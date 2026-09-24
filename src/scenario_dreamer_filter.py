@@ -176,7 +176,7 @@ def build_scene(
     graph = ops.get_lane_graph_within_fov(graph)
     if len(graph["lanes"]) == 0:
         return {**invalid, "reason": "no_lane_vertices_in_fov"}
-    #partitioned = ops.partition_compact_lane_graph(copy.deepcopy(graph))
+    partitioned = ops.partition_compact_lane_graph(copy.deepcopy(graph))
 
     exists = copy.deepcopy(all_states[:, t, -1]).astype(bool)
     if cfg.generate_only_vehicles:
@@ -198,25 +198,23 @@ def build_scene(
         return {**invalid, "reason": "no_selected_agents"}
 
     variants = {}
-    # for lg_type, local_graph in enumerate((graph, partitioned)):
-    #     points, pre, suc, left, right, n = ops.get_road_points_adj(local_graph)
-    #     variants["regular" if lg_type == 0 else "partitioned"] = {
-    #         "lg_type": lg_type, "road_points": points, "num_lanes": n,
-    #         "pre_adj": pre, "suc_adj": suc, "left_adj": left, "right_adj": right,
-    #     }
+    for lg_type, local_graph in enumerate((graph, partitioned)):
+        points, pre, suc, left, right, n = ops.get_road_points_adj(local_graph)
+        variants["regular" if lg_type == 0 else "partitioned"] = {
+            "lg_type": lg_type, "road_points": points, "num_lanes": n,
+            "pre_adj": pre, "suc_adj": suc, "left_adj": left, "right_adj": right,
+        }
     rows = types_with_ids[:, -1].astype(np.int64)
     ego_rows = np.flatnonzero(rows == ego)
-
     return {
         "valid_scene": True, "reason": "", "scene_timestep": t,
         "source_index": rows, "ego_index": int(ego_rows[0]) if len(ego_rows) else -1,
         "agent_states": agents[:, :-1], "agent_types": types_with_ids[:, 1:4],
-        "num_agents": len(agents),
-        # "num_lanes": variants["regular"]["num_lanes"],
-        # "road_points": variants["regular"]["road_points"], "lg_type": 0,
-        # "graphs": variants, "center_world": normalizer["center"],
-        # "rotation_angle": (np.pi / 2) + np.sign(-normalizer["yaw"]) * np.abs(normalizer["yaw"]),
-        # "coordinate_frame": "ego_y_forward", "normalized": False,
+        "num_agents": len(agents), "num_lanes": variants["regular"]["num_lanes"],
+        "road_points": variants["regular"]["road_points"], "lg_type": 0,
+        "graphs": variants, "center_world": normalizer["center"],
+        "rotation_angle": (np.pi / 2) + np.sign(-normalizer["yaw"]) * np.abs(normalizer["yaw"]),
+        "coordinate_frame": "ego_y_forward", "normalized": False,
     }
 
 
@@ -310,9 +308,31 @@ def get_agent_features(
     cfg = SceneConfig(fov=fov, max_num_agents=max_num_agents, offroad_threshold=offroad_threshold,
                       generate_only_vehicles=generate_only_vehicles, remove_offroad_agents=remove_offroad_agents)
     scene = build_scene(raw_data, scene_timestep=scene_timestep, rng=rng, config=cfg)
-    raw_selected = scene["source_index"]
-    selected = mapping[raw_selected].astype(np.int64)
-    count = len(selected)
+    # `scene["source_index"]` is in Scenario Dreamer's official selected order
+    # (normally ego first). Keep that order untouched inside `scene_info`, because
+    # scene["agent_states"] / scene["agent_types"] are reference SD local features.
+    sd_raw_selected = np.asarray(scene["source_index"], dtype=np.int64).copy()
+    sd_selected = mapping[sd_raw_selected].astype(np.int64)
+    count = len(sd_selected)
+
+    # SMART convention requested here: non-ego agents first, ego ALWAYS last.
+    # Reordering happens only AFTER Scenario Dreamer's filtering, so it cannot
+    # affect FOV/off-road selection or the max-agent truncation.
+    if count:
+        ego_rows = np.flatnonzero(roles[sd_selected, 0])
+        if len(ego_rows) != 1:
+            raise ValueError("Exactly one selected ego is required before moving ego to the last row")
+        ego_row = int(ego_rows[0])
+        output_order = np.concatenate([
+            np.arange(count, dtype=np.int64)[np.arange(count) != ego_row],
+            np.asarray([ego_row], dtype=np.int64),
+        ])
+        raw_selected = sd_raw_selected[output_order]
+        selected = sd_selected[output_order]
+    else:
+        raw_selected = sd_raw_selected
+        selected = sd_selected
+
     out = {
         "num_nodes": count,
         "valid_mask": torch.zeros((count, num_steps), dtype=torch.bool),
@@ -324,21 +344,39 @@ def get_agent_features(
         "velocity": torch.zeros((count, num_steps, 2), dtype=torch.float32),
         "shape": torch.zeros((count, 3), dtype=torch.float32),
     }
+
+    # IMPORTANT: the SMART output below is entirely in the ORIGINAL Waymo/world
+    # frame. No ego translation/rotation is applied to position, velocity, or
+    # heading. Invalid time slots remain zero and are identified by valid_mask.
     for row, original in enumerate(selected):
         times = np.flatnonzero(valid[original])
         values = states[original, times]
         out["valid_mask"][row, times] = True
         out["position"][row, times] = torch.as_tensor(values[:, :3], dtype=torch.float32)
         out["velocity"][row, times] = torch.as_tensor(values[:, 7:9], dtype=torch.float32)
-        # World headings and height belong to the SMART adapter, not SD's cache.
-        heading = (values[:, 6].astype(np.float64) + np.pi) % (2 * np.pi) - np.pi
-        out["heading"][row, times] = torch.as_tensor(heading, dtype=torch.float32)
+        out["heading"][row, times] = torch.as_tensor(values[:, 6], dtype=torch.float32)
         obj = raw_data["objects"][raw_selected[row]]
-        out["shape"][row] = torch.tensor([obj["length"], obj["width"], states[original, times[-1], 5]], dtype=torch.float32)
+        out["shape"][row] = torch.tensor(
+            [obj["length"], obj["width"], states[original, times[-1], 5]],
+            dtype=torch.float32,
+        )
+
+    # Sanity check for downstream SMART code: if agents exist, the last row is ego.
+    if count and not bool(out["role"][-1, 0]):
+        raise RuntimeError("Internal error: ego was not moved to the last output row")
+
     if not return_scene_info:
         return out
-    scene["raw_source_index"] = raw_selected.copy()
-    scene["source_index"] = selected
+
+    # Keep SD reference order/coordinate frame intact in scene_info.
+    # Add explicit output mapping for consumers that need to align scene_info
+    # with the ego-last SMART out_dict.
+    scene["raw_source_index"] = sd_raw_selected
+    scene["source_index"] = sd_selected
+    scene["output_raw_source_index"] = raw_selected.copy()
+    scene["output_source_index"] = selected.copy()
+    scene["output_ego_index"] = count - 1 if count else -1
+    scene["output_coordinate_frame"] = "world"
     return out, _to_torch(scene)
 
 

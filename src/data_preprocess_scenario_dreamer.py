@@ -26,14 +26,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import os
-# import sys
-# sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
-# sys.path.append('/home/ke/code/sim')
-# sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
-# sys.path.append('/home/zs/code/sim')
-# sys.path.append('/mnt/d/code/sim')
-# sys.path.append('/home/ke/keguo/sim')
-# sys.path.append('/home/guoke/sim')
+
 import numpy as np
 import pandas as pd
 import torch
