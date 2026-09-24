@@ -176,7 +176,7 @@ def build_scene(
     graph = ops.get_lane_graph_within_fov(graph)
     if len(graph["lanes"]) == 0:
         return {**invalid, "reason": "no_lane_vertices_in_fov"}
-    partitioned = ops.partition_compact_lane_graph(copy.deepcopy(graph))
+    #partitioned = ops.partition_compact_lane_graph(copy.deepcopy(graph))
 
     exists = copy.deepcopy(all_states[:, t, -1]).astype(bool)
     if cfg.generate_only_vehicles:
@@ -198,23 +198,25 @@ def build_scene(
         return {**invalid, "reason": "no_selected_agents"}
 
     variants = {}
-    for lg_type, local_graph in enumerate((graph, partitioned)):
-        points, pre, suc, left, right, n = ops.get_road_points_adj(local_graph)
-        variants["regular" if lg_type == 0 else "partitioned"] = {
-            "lg_type": lg_type, "road_points": points, "num_lanes": n,
-            "pre_adj": pre, "suc_adj": suc, "left_adj": left, "right_adj": right,
-        }
+    # for lg_type, local_graph in enumerate((graph, partitioned)):
+    #     points, pre, suc, left, right, n = ops.get_road_points_adj(local_graph)
+    #     variants["regular" if lg_type == 0 else "partitioned"] = {
+    #         "lg_type": lg_type, "road_points": points, "num_lanes": n,
+    #         "pre_adj": pre, "suc_adj": suc, "left_adj": left, "right_adj": right,
+    #     }
     rows = types_with_ids[:, -1].astype(np.int64)
     ego_rows = np.flatnonzero(rows == ego)
+
     return {
         "valid_scene": True, "reason": "", "scene_timestep": t,
         "source_index": rows, "ego_index": int(ego_rows[0]) if len(ego_rows) else -1,
         "agent_states": agents[:, :-1], "agent_types": types_with_ids[:, 1:4],
-        "num_agents": len(agents), "num_lanes": variants["regular"]["num_lanes"],
-        "road_points": variants["regular"]["road_points"], "lg_type": 0,
-        "graphs": variants, "center_world": normalizer["center"],
-        "rotation_angle": (np.pi / 2) + np.sign(-normalizer["yaw"]) * np.abs(normalizer["yaw"]),
-        "coordinate_frame": "ego_y_forward", "normalized": False,
+        "num_agents": len(agents),
+        # "num_lanes": variants["regular"]["num_lanes"],
+        # "road_points": variants["regular"]["road_points"], "lg_type": 0,
+        # "graphs": variants, "center_world": normalizer["center"],
+        # "rotation_angle": (np.pi / 2) + np.sign(-normalizer["yaw"]) * np.abs(normalizer["yaw"]),
+        # "coordinate_frame": "ego_y_forward", "normalized": False,
     }
 
 

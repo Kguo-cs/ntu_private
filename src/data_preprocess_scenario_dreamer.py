@@ -38,6 +38,8 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
+from functools import partial
+import multiprocessing
 
 from scenario_dreamer_filter import (
     get_agent_features,
@@ -478,16 +480,28 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
     # Do not overwrite the very manifest being replayed.
     if frame_manifest is not None and Path(frame_manifest).resolve() == log_path.resolve():
         log_path = target / "sample_manifest_replayed.jsonl"
-    with log_path.open("w", encoding="utf-8") as writer:
-        for path in tqdm(packages):
-            found, count = wm2argo(
-                str(path), split, target, record_dir, rng=generator,
-                scene_timestep=scene_timestep, frame_manifest=replay,
-                save_scene_info=save_scene_info, manifest_writer=writer,
-                written_names=written,
-            )
-            seen.update(found)
-            total += count
+    # with log_path.open("w", encoding="utf-8") as writer:
+    #     for path in tqdm(packages):
+    #         found, count = wm2argo(
+    #             str(path), split, target, record_dir, rng=generator,
+    #             scene_timestep=scene_timestep, frame_manifest=replay,
+    #             save_scene_info=save_scene_info, manifest_writer=writer,
+    #             written_names=written,
+    #         )
+    #         seen.update(found)
+    #         total += count
+
+    func = partial(
+        wm2argo,
+        split=split,
+        output_dir=output_dir,
+        output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
+    )
+
+    with multiprocessing.Pool(num_workers) as p:
+        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+
+
     if replay is not None:
         missing = set(replay) - seen
         if missing:
@@ -500,7 +514,7 @@ if __name__ == "__main__":
     parser.add_argument("--input_dir", default='/home/ke/keguo/waymo', help="Directory containing training/validation/testing")
     parser.add_argument("--output_dir", default='./waymo_data/scenario_dreamer_data')
     parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
-    parser.add_argument("--num_workers", type=int, default=1)
+    parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=10)
     parser.add_argument("--scene_timestep", default="random", help="random, current, or raw-frame integer")
     parser.add_argument("--frame_manifest", help="JSONL with explicit scenario_id / scene_timestep entries")
