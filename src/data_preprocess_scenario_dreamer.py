@@ -490,8 +490,8 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
 
 if __name__ == "__main__":
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--input_dir", default='/home/ke/code/sim/src/waymo_data/waymo131', help="Directory containing training/validation/testing")
-    parser.add_argument("--output_dir", default='/home/ke/code/sim/src/waymo_data/scenario_dreamer_data')
+    parser.add_argument("--input_dir", default='/home/ke/keguo/waymo', help="Directory containing training/validation/testing")
+    parser.add_argument("--output_dir", default='./waymo_data/scenario_dreamer_data')
     parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
     parser.add_argument("--num_workers", type=int, default=1)
     parser.add_argument("--seed", type=int, default=10)
