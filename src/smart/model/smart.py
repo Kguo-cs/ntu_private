@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import math
+import json
 import numbers
 import time
 from pathlib import Path
@@ -28,7 +29,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from waymo_open_dataset.utils.sim_agents.submission_specs import ChallengeType
 
 from src.smart.metrics import CrossEntropy, TokenCls, WOSACSubmission, minADE
-from src.smart.metrics.gen_metrics import compute_agent_metrics, compute_gen_samples
+from src.smart.metrics.gen_metrics import ScenarioDreamerEvaluator
 from src.smart.metrics.wosac_metrics import WOSACMetrics
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.tokens.token_processor import TokenProcessor
@@ -56,6 +57,21 @@ def _cpu(value: Any) -> Any:
         return type(value)(_cpu(x) for x in value)
     if isinstance(value, dict):
         return {k: _cpu(v) for k, v in value.items()}
+    return value
+
+
+def _clone_rollout_input(value):
+    """Prevent inference from changing the next rollout's initial conditions."""
+    if torch.is_tensor(value):
+        return value.clone()
+    if isinstance(value, dict):
+        return {k: _clone_rollout_input(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clone_rollout_input(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_clone_rollout_input(v) for v in value)
+    if isinstance(value, np.ndarray):
+        return value.copy()
     return value
 
 
@@ -127,11 +143,18 @@ class SMART(LightningModule):
         self.n_batch_wosac_metric = int(model_config.n_batch_wosac_metric)
 
         scenario_gen = bool(self.token_processor.pred_init)
+
+        self.scenario_dreamer_eval=False
+
         self.scenario_gen=scenario_gen
         self.challenge_type = (
             ChallengeType.SCENARIO_GEN if scenario_gen else ChallengeType.SIM_AGENTS
         )
-        self.n_rollout_closed_val = int( 2 if scenario_gen else 8)
+        self.n_rollout_closed_val = 2 if scenario_gen else 8
+
+        if self.scenario_dreamer_eval:
+            self.n_rollout_closed_val=1
+
         self.metric_chunk_size = int(
             _cfg(model_config, "metric_chunk_size", 1 if 'code' in  os.getcwd() else 64)
         )
@@ -152,9 +175,17 @@ class SMART(LightningModule):
             self.n_rollout_closed_val = int(_cfg(model_config, "submission_rollouts", 32))
 
         self.video_dir = self._video_dir()
-        self.samples: list[Any] = []
-        self.gt_samples: list[Any] = []
-        self.gt_dist = None
+        self.sd_evaluator = None
+        self.sd_metric_settings = {
+            "official_repo": _cfg(model_config, "sd_repo", '/home/ke/code/scenario-dreamer'),
+            "cache_root": _cfg(model_config, "sd_gt_cache_root", '/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
+            "eval_set": _cfg(model_config, "sd_eval_set", '/home/ke/code/scenario-dreamer/metadata/waymo_eval_set.pkl'),
+            "expected_scenes": int(_cfg(model_config, "sd_expected_scenes", 50_000)),
+            "gen_timestep": int(_cfg(model_config, "sd_gen_timestep", 5)),
+            "prediction_frame": _cfg(model_config, "sd_prediction_frame", "world"),
+            "require_generation_timestep": bool(_cfg(model_config, "sd_require_generation_timestep", False)),
+            "export_dir": _cfg(model_config, "sd_export_dir", None),
+        }
 
        # self.wosac_submission.save_sub_file()
 
@@ -188,7 +219,30 @@ class SMART(LightningModule):
         trainer = getattr(self, "_trainer", None)
         return trainer is None or bool(trainer.is_global_zero)
 
+    def on_validation_epoch_start(self) -> None:
+        if not self.val_closed_loop or not self.scenario_gen or self.wosac_submission.is_active:
+            return
+        trainer = getattr(self, "_trainer", None)
+        if trainer is not None and getattr(trainer, "sanity_checking", False):
+            return
+        # A rank-zero-only evaluator cannot see all samples under a distributed
+        # validation sampler. Fail explicitly rather than report partial 50k metrics.
+        if trainer is not None and getattr(trainer, "world_size", 1) != 1:
+            raise RuntimeError("Use one device for strict Scenario Dreamer 50k validation.")
+        for key in ("official_repo", "cache_root", "eval_set"):
+            if not self.sd_metric_settings[key]:
+                raise ValueError(f"Missing Scenario Dreamer setting: {key}")
+        if self.compute_mmd:
+            raise ValueError("Set compute_mmd=False: TrafficGen MMD is not a Scenario Dreamer agent metric.")
+        if self.sd_evaluator is None:
+            self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
+        else:
+            self.sd_evaluator.reset()
+
     def validation_step(self, data, batch_idx):
+        trainer = getattr(self, "_trainer", None)
+        if self.scenario_gen and trainer is not None and getattr(trainer, "sanity_checking", False):
+            return
         # if batch_idx<86:
         #     return None
         # self.token_processor.learn_init=self.scenario_gen
@@ -208,24 +262,25 @@ class SMART(LightningModule):
     def _validate_closed_loop(self, data, tokenized_map, agent, batch_idx: int) -> None:
         out = self._rollouts(tokenized_map, agent,data)
 
-        if self.challenge_type == ChallengeType.SCENARIO_GEN:
+        if self.scenario_dreamer_eval:
             if not self.wosac_submission.is_active:
-                compute_gen_samples(
-                    data, agent,
-                    out["traj"], out["vel"], out["head"], out["size"],
-                    self.samples, self.gt_samples, self.gt_dist,
-                    compute_mmd=self.compute_mmd,
-                )
+                if self.sd_evaluator is None:
+                    raise RuntimeError("Scenario Dreamer evaluator was not initialized at epoch start.")
+                self.sd_evaluator.update(data, agent, out)
+                # SD initial-scene metrics are not WOSAC trajectory metrics.
+                # Keep SIM_AGENTS and submission paths below unchanged.
+                return
         else:
-            self.minADE.update(
-                pred=out["traj"],
-                target=data["agent"]["position"][
-                    :, self.num_historical_steps :, : out["traj"].shape[-1]
-                ],
-                target_valid=data["agent"]["valid_mask"][
-                    :, self.num_historical_steps :
-                ],
-            )
+            if not self.scenario_gen:
+                self.minADE.update(
+                    pred=out["traj"],
+                    target=data["agent"]["position"][
+                        :, self.num_historical_steps :, : out["traj"].shape[-1]
+                    ],
+                    target_valid=data["agent"]["valid_mask"][
+                        :, self.num_historical_steps :
+                    ],
+                )
 
         if self.wosac_submission.is_active:
             scenarios = self._submission_update(data, out, batch_idx)
@@ -250,15 +305,15 @@ class SMART(LightningModule):
 
         traj, z, head, size, vel, z_list = [], [], [], [], [], []
         for _ in range(self.n_rollout_closed_val):
-            rollout_agent = agent#dict(agent)  # prevent cross-rollout dictionary mutation
+            rollout_agent = _clone_rollout_input(agent)
             pred = self.encoder.inference(rollout_agent)
             trajectory = pred["pred_traj_10hz"]
-            traj.append(trajectory)
-            head.append(pred["pred_head_10hz"])
-            z.append(pred["pred_z_10hz"])
-            size.append(_shape_over_time(pred["shape"], trajectory.shape[1]))
+            traj.append(trajectory.clone())
+            head.append(pred["pred_head_10hz"].clone())
+            z.append(pred["pred_z_10hz"].clone())
+            size.append(_shape_over_time(pred["shape"], trajectory.shape[1]).clone())
             if "initial_local_vel" in pred:
-                vel.append(pred["initial_local_vel"])
+                vel.append(pred["initial_local_vel"].clone())
 
             generated = rollout_agent.get("pred_z_list")
             if self.n_vis_batch > 0 and generated is not None:
@@ -268,6 +323,8 @@ class SMART(LightningModule):
                     ).detach().cpu()
                 )
 
+        if vel and len(vel) != self.n_rollout_closed_val:
+            raise ValueError("Only some rollouts supplied initial_local_vel.")
         out = {
             "traj": torch.stack(traj, 1),
             "z": torch.stack(z, 1),
@@ -365,6 +422,9 @@ class SMART(LightningModule):
             )
 
     def on_validation_epoch_end(self) -> None:
+        trainer = getattr(self, "_trainer", None)
+        if trainer is not None and getattr(trainer, "sanity_checking", False):
+            return
         if not self.val_closed_loop:
             return
         if self.wosac_submission.is_active:
@@ -374,29 +434,25 @@ class SMART(LightningModule):
         if not self._global_zero:
             return
 
-        metrics = (
-            self.wosac_metrics.compute()
-            if self.n_batch_wosac_metric > 0 else {}
-        )
-        if self.challenge_type == ChallengeType.SCENARIO_GEN:
-            if self.samples:
-                start = time.time()
-                result, self.gt_dist = compute_agent_metrics(
-                    self.samples, self.gt_samples, self.gt_dist,
-                    self.n_vis_batch > 0,
-                )
-                metrics.update(result)
-                print(f"metric compute time: {time.time() - start:.2f}s")
-            self.samples.clear()
+        if self.scenario_dreamer_eval:
+            if self.sd_evaluator is None:
+                raise RuntimeError("No Scenario Dreamer evaluator exists.")
+            metrics = self.sd_evaluator.compute()
+            report = self.sd_evaluator.report()
+            report["agent_metrics"] = metrics
+            with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2)
+            print("Scenario Dreamer agent metrics:", metrics)
+            print("Evaluated initial scenes:", report["num_samples"])
+            metrics['val_closed/wosac_likelihood/metametric']=1
         else:
-            metrics["val_closed/ADE"] = self.minADE.compute()
+            metrics = self.wosac_metrics.compute() if self.n_batch_wosac_metric > 0 else {}
+            if not self.scenario_gen:
+                metrics["val_closed/ADE"] = self.minADE.compute()
 
         for key, value in metrics.items():
-            self.log(
-                str(key), _scalar(value, str(key)),
-                on_step=False, on_epoch=True, prog_bar=True,
-                sync_dist=False, rank_zero_only=True,
-            )
+            self.log(str(key), _scalar(value, str(key)), on_step=False,
+                     on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
         self.wosac_metrics.reset()
         self.minADE.reset()
 

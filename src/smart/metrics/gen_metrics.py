@@ -1,695 +1,515 @@
+"""Scenario Dreamer initial-scene AGENT metrics for SMART.
+
+Scope: six vehicle-distribution JSDs + instantaneous vehicle collision rate.
+The official Python functions are loaded from ``sd_repo``. No TrafficGen filter,
+no raw-map fallback, no finite-difference speed, and no per-batch JSD averaging.
+
+SMART may retain ego-last/world-coordinate trajectories. Only a COPY of the
+chosen generated snapshot is converted to the saved SD reference coordinate
+frame. Ground truth comes directly from the official eval cache.
+"""
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+import os
+import pickle
+from collections import Counter, OrderedDict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping
+
 import numpy as np
-import tensorflow as tf
 import torch
 from scipy.spatial import distance
-from waymo_open_dataset.protos import (
-    scenario_pb2,
-    sim_agents_metrics_pb2,
-    sim_agents_submission_pb2,
+
+try:
+    from .official_backend import load_official_backend
+except ImportError:  # standalone use
+    from official_backend import load_official_backend
+
+# (metric key, clipping lower bound, upper bound, bin width, displayed multiplier)
+SPECS = (
+    ("nearest_dist_jsd", 0.0, 50.0, 1.0, 10.0),
+    ("lat_dev_jsd", 0.0, 1.5, 0.1, 10.0),
+    ("ang_dev_jsd", -200.0, 200.0, 5.0, 100.0),
+    ("length_jsd", 0.0, 25.0, 0.1, 100.0),
+    ("width_jsd", 0.0, 5.0, 0.1, 100.0),
+    ("speed_jsd", 0.0, 50.0, 1.0, 100.0),
 )
 
-from data_preprocess import decode_map_features_from_proto
-from .mmd_metric import compute_mmd_metrics
-from .trafficgen_metrics1 import (
-    _extract_center_lane_vectors_in_ego,
-    get_select_index,
-)
+
+def as_numpy(value: Any) -> np.ndarray:
+    if torch.is_tensor(value):
+        return value.detach().cpu().numpy()
+    return np.asarray(value)
 
 
-# State layouts used below.
-REAL_POS = slice(0, 2)
-REAL_TYPE = 10
-REAL_VEL = slice(7, 9)
-REAL_HEADING = 9
-MODEL_EGO_INDEX = -1  # This codebase stores the ego as the last local agent.
+def scalar(value: Any, name: str) -> int:
+    array = as_numpy(value)
+    if array.size != 1:
+        raise ValueError(f"{name} must be scalar, got {array.shape}")
+    item = array.item()
+    if isinstance(item, bool) or not np.isfinite(item) or int(item) != item:
+        raise ValueError(f"{name} must be an integer, got {item!r}")
+    return int(item)
 
 
-def resample_polyline(points: np.ndarray, num_points: int = 20) -> np.ndarray:
-    """Resample a polyline at uniformly spaced arc-length positions."""
-    points = np.asarray(points, dtype=np.float32)
-    if len(points) == 0:
-        return np.empty((0, 2), dtype=np.float32)
-    if len(points) == 1:
-        return np.repeat(points[:, :2], num_points, axis=0)
-
-    segment_length = np.linalg.norm(np.diff(points[:, :2], axis=0), axis=1)
-    arc_length = np.concatenate(([0.0], np.cumsum(segment_length)))
-
-    if arc_length[-1] <= 1e-8:
-        return np.repeat(points[:1, :2], num_points, axis=0)
-
-    target = np.linspace(0.0, arc_length[-1], num_points)
-    return np.stack(
-        (
-            np.interp(target, arc_length, points[:, 0]),
-            np.interp(target, arc_length, points[:, 1]),
-        ),
-        axis=-1,
-    ).astype(np.float32, copy=False)
+def field_of(data: Any, name: str, default: Any = None) -> Any:
+    try:
+        return data[name] if name in data else default
+    except TypeError:
+        return getattr(data, name, default)
 
 
-def _load_scenario(tfrecord_path: str):
-    """Read the single Waymo Scenario stored in one TFRecord file."""
-    scenario = scenario_pb2.Scenario()
-    records = tf.data.TFRecordDataset([tfrecord_path], compression_type="")
-    for record in records:
-        scenario.ParseFromString(bytes(record.numpy()))
-        return scenario
-    raise ValueError(f"No Scenario record found in {tfrecord_path}")
+def validate_unified(scene: Mapping[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+    vehicles = as_numpy(scene["vehicles"])
+    lanes = as_numpy(scene["lanes"])
+    if vehicles.ndim != 2 or vehicles.shape[1] != 7:
+        raise ValueError(f"vehicles must be [N,7], not {vehicles.shape}; flatten rollouts into scenes.")
+    if lanes.ndim != 3 or lanes.shape[-1] != 2 or lanes.shape[0] == 0 or lanes.shape[1] < 2:
+        raise ValueError(f"Expected nonempty unified lanes [L,P,2], got {lanes.shape}")
+    if not np.isfinite(vehicles).all() or not np.isfinite(lanes).all():
+        raise ValueError("Nonfinite metric input; do not silently delete bad generated agents.")
+    return vehicles, lanes
 
 
-def _extract_resampled_centerlines(scenario, num_points: int = 100) -> np.ndarray:
-    """Extract non-bike centerlines for the JSD lane metrics."""
-    map_info = decode_map_features_from_proto(scenario.map_features)
-    all_polylines = map_info["all_polylines"]
-    centerlines = []
+@dataclass
+class DistributionAccumulator:
+    """Pool integer histogram counts; memory does not grow with scene count."""
+    histograms: list[np.ndarray] = field(default_factory=lambda: [
+        np.zeros(len(np.arange(lo, hi + step, step)) - 1, dtype=np.int64)
+        for _, lo, hi, step, _ in SPECS
+    ])
+    totals: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.int64))
+    num_scenes: int = 0
+    num_vehicles: int = 0
+    num_colliding: int = 0
 
-    for lane in map_info["lane"]:
-        if lane["type"] == 3:  # bike lane in the current preprocessing convention
-            continue
+    def update(self, scene: Mapping[str, Any], official, *, collision: bool = False) -> None:
+        vehicles, lane_points = validate_unified(scene)
+        # Exact official order: metric compact lanes -> resample to 100 -> onroad.
+        lanes = official.resample_lanes(lane_points, num_points=100)
+        onroad = official.get_onroad_vehicles(vehicles, lanes)
+        empty = np.empty(0, dtype=np.float64)
+        values = (
+            official.get_nearest_dists(vehicles) if len(vehicles) > 1 else empty,
+            official.get_lateral_devs(onroad, lanes) if len(onroad) else empty,
+            official.get_angular_devs(onroad, lanes) if len(onroad) else empty,
+            official.get_lengths(vehicles), official.get_widths(vehicles),
+            official.get_speeds(vehicles),
+        )
+        for i, (value, (_, lo, hi, step, _)) in enumerate(zip(values, SPECS)):
+            value = np.asarray(value).reshape(-1)
+            bins = np.arange(lo, hi + step, step)
+            counts = np.histogram(np.clip(value, lo, hi), bins=bins)[0]
+            self.histograms[i] += counts
+            self.totals[i] += len(value)
+        if collision and len(vehicles):
+            # Recover the integer count from the official per-scene fraction.
+            # Averaging per-scene fractions would give the wrong global rate.
+            rate = float(official.compute_collision_rate([{"vehicles": vehicles}]))
+            self.num_colliding += int(round(rate * len(vehicles)))
+        self.num_vehicles += len(vehicles)
+        self.num_scenes += 1
 
-        start, end = lane["polyline_index"]
-        lane_points = all_polylines[start:end]
-        if len(lane_points) == 0:
-            continue
-        centerlines.append(resample_polyline(lane_points, num_points=num_points))
 
-    if not centerlines:
-        return np.empty((0, num_points, 2), dtype=np.float32)
-    return np.stack(centerlines, axis=0)
+def finalize_metrics(generated: DistributionAccumulator, real: DistributionAccumulator) -> dict[str, float]:
+    metrics = {}
+    for i, (name, _, _, _, multiplier) in enumerate(SPECS):
+        if generated.totals[i] == 0 or real.totals[i] == 0:
+            raise ValueError(
+                f"{name} is undefined: generated count={generated.totals[i]}, "
+                f"GT count={real.totals[i]}. An empty distribution must not be reported as zero JSD."
+            )
+        p = generated.histograms[i] / generated.totals[i]
+        q = real.histograms[i] / real.totals[i]
+        metrics[name] = float(distance.jensenshannon(p, q) ** 2 * multiplier)
+    if generated.num_vehicles == 0:
+        raise ValueError("collision_rate is undefined: no generated vehicles")
+    metrics["collision_rate"] = generated.num_colliding / generated.num_vehicles * 100.0
+    return metrics
 
 
-def _build_real_state(data, timestep: int, batch: torch.Tensor):
-    """Build real-agent states without deleting invalid slots.
+def compute_agent_metrics(samples, gt_samples, gt_dist=None, vis=False, *, official_repo=None):
+    """Compatibility wrapper for unified SINGLE-SCENE dictionaries.
 
-    Keeping the complete local agent order is necessary because TrafficGen
-    applies a validity mask but does not compress the agent array before
-    sorting and filtering.
-
-    Columns:
-        x, y, speed, cos(h), sin(h), length, width, vx, vy, heading, type
+    Returns (metrics, None), retaining the SMART return convention. No stale GT
+    cache is retained. For 50k evaluation, use ScenarioDreamerEvaluator instead
+    of accumulating all lane arrays in lists.
     """
-    valid = data["agent"]["valid_mask"][:, timestep]
-    velocity = data["agent"]["velocity"][:, timestep]
-    heading = data["agent"]["heading"][:, timestep]
-
-    state = torch.cat(
-        (
-            data["agent"]["position"][:, timestep, :2],
-            velocity.norm(dim=-1, keepdim=True),
-            heading.cos().unsqueeze(-1),
-            heading.sin().unsqueeze(-1),
-            data["agent"]["shape"][:, :2],
-            velocity,
-            heading.unsqueeze(-1),
-            data["agent"]["type"].unsqueeze(-1),
-        ),
-        dim=-1,
-    )
-
-    return state, valid, batch, data["agent"]["type"]
+    del vis
+    if gt_dist is not None:
+        raise ValueError("Old gt_dist caches are incompatible; reset gt_dist=None.")
+    if len(samples) != len(gt_samples):
+        raise ValueError("Generated and GT scene counts must match.")
+    repo = official_repo or os.environ.get("SCENARIO_DREAMER_ROOT")
+    if not repo:
+        raise ValueError("Pass official_repo=... or set SCENARIO_DREAMER_ROOT.")
+    official = load_official_backend(str(repo))
+    gen, real = DistributionAccumulator(), DistributionAccumulator()
+    for sample, truth in zip(samples, gt_samples):
+        gen.update(sample, official, collision=True)
+        real.update(truth, official)
+    return finalize_metrics(gen, real), None
 
 
-def _build_generated_state(
-    pred_traj,
-    pred_vel,
-    pred_head,
-    pred_sizes,
-    timestep: int,
-):
-    """Build generated states with shape ``[agent, sample, 9]``.
+class OfficialReferenceStore:
+    """Read exact GT cache files; membership is keyed by cache filename, not batch order."""
+    def __init__(self, official_repo, cache_root, eval_set, *, expected_scenes=50_000):
+        self.official = load_official_backend(str(official_repo))
+        self.root = Path(cache_root).expanduser().resolve()
+        self.eval_set = Path(eval_set).expanduser().resolve()
+        if not self.root.is_dir():
+            raise FileNotFoundError(f"Official GT cache directory does not exist: {self.root}")
+        # Only load trusted, author-provided pickle files.
+        with self.eval_set.open("rb") as handle:
+            content = pickle.load(handle)
+        if not isinstance(content, dict) or "files" not in content:
+            raise ValueError("eval_set must contain a dict with key 'files'")
+        self.files = [Path(str(name)).name for name in content["files"]]
+        if not self.files or len(self.files) != len(set(self.files)):
+            raise ValueError("Expected a nonempty eval list with unique cache filenames.")
+        if expected_scenes and len(self.files) != expected_scenes:
+            raise ValueError(f"Expected {expected_scenes} official entries, got {len(self.files)}")
+        self.index = {name: i for i, name in enumerate(self.files)}
+        self.cache: OrderedDict[str, tuple[dict, dict]] = OrderedDict()
+        self.expected_scenes = int(expected_scenes)
 
-    Columns:
-        x, y, speed, cos(h), sin(h), length, width, vx, vy
+    def get(self, filename: str) -> tuple[dict, dict]:
+        name = Path(str(filename)).name
+        if name not in self.index:
+            raise ValueError(f"{name} is not in the official evaluation list")
+        if name in self.cache:
+            self.cache.move_to_end(name)
+            return self.cache[name]
+        path = self.root / name
+        if not path.is_file():
+            raise FileNotFoundError(f"Official reference cache missing: {path}")
+        with path.open("rb") as handle:
+            data = pickle.load(handle)
+        data = {k: as_numpy(v) if torch.is_tensor(v) else v for k, v in data.items()}
+        if scalar(data["lg_type"], "lg_type") != 0:
+            raise ValueError(f"Initial-scene metrics require regular lg_type=0: {name}")
+        if int(data.get("num_lanes", 0)) <= 0:
+            raise ValueError(f"Official reference has no lanes: {name}")
+        # Includes the SECOND metric-level lane graph compaction. Do not replace
+        # this with {'lanes': data['road_points']}.
+        unified = self.official.convert_data_to_unified_format(copy.deepcopy(data), dataset_name="waymo_gt")
+        validate_unified(unified)
+        self.cache[name] = (data, unified)
+        if len(self.cache) > 64:
+            self.cache.popitem(last=False)
+        return data, unified
+
+
+def _metric_metadata_field(data, name):
+    """Read a field without creating a missing HeteroData node store."""
+    if isinstance(data, Mapping):
+        return data.get(name)
+    global_store = getattr(data, "_global_store", None)
+    if global_store is not None:
+        if name in global_store:
+            return global_store[name]
+        # Older samples may store scenario_dreamer as a node-like container.
+        return getattr(data, "_node_store_dict", {}).get(name)
+    store = getattr(data, "_store", None)
+    if store is not None:
+        return store.get(name)
+    return field_of(data, name)
+
+
+def _split_metric_metadata(value, name, count, width=1):
+    """Split fixed-width graph metadata; reject ambiguous/malformed layouts.
+
+    Scalar fields: [B] or [B,1]. XY centers: [B,2], [B,1,2], or
+    concatenated [2*B]. Values and dtypes are preserved, not normalized.
+    None means the field is absent; the evaluator checks required fields.
     """
-    if isinstance(pred_vel, (list, tuple)):
-        pred_vel = torch.stack(pred_vel, dim=1)
+    if value is None:
+        return [None] * count
+    if name == "scenario_dreamer_cache_file":
+        if isinstance(value, (str, Path)):
+            if count != 1:
+                raise ValueError(f"{name}: one filename cannot describe {count} scenes")
+            return [str(value)]
+        if not isinstance(value, (list, tuple, np.ndarray)) or len(value) != count:
+            raise ValueError(f"{name} must contain exactly {count} filenames")
+        result = []
+        for item in value:
+            # An unbatched PyG example sometimes retains a one-element list.
+            if isinstance(item, (list, tuple, np.ndarray)) and len(item) == 1:
+                item = item[0]
+            if not isinstance(item, (str, Path)):
+                raise TypeError(f"{name}: expected a filename, got {type(item).__name__}")
+            result.append(str(item))
+        return result
 
-    heading = pred_head[:, :, timestep]
-    return torch.cat(
-        (
-            pred_traj[:, :, timestep],
-            pred_vel.norm(dim=-1, keepdim=True),
-            heading.cos().unsqueeze(-1),
-            heading.sin().unsqueeze(-1),
-            pred_sizes[:, :, timestep, :2],
-            pred_vel,
-        ),
-        dim=-1,
-    )
+    if isinstance(value, (list, tuple)) and any(torch.is_tensor(item) for item in value):
+        raise ValueError(
+            f"{name}: a list of tensors has ambiguous batch/coordinate axes. "
+            "Store each sample's metadata as a Tensor before PyG collation "
+            "using metadata_adapter.attach_sd_metric_metadata."
+        )
+    array = as_numpy(value)
+    allowed = {(count * width,), (count, width), (count, 1, width)}
+    if count == 1 and width == 1:
+        allowed.add(())
+    if tuple(array.shape) not in allowed:
+        raise ValueError(
+            f"{name}: got shape {array.shape}; expected {width} value(s) per "
+            f"scene for B={count}. Use metadata_adapter.attach_sd_metric_metadata "
+            "before batching; do not broadcast one scene's transform to a batch."
+        )
+    rows = array.reshape(count, width)
+    return [row.copy() if width != 1 else row[0] for row in rows]
 
 
-def compute_gen_samples(
-    data,
-    tokenized_agent,
-    pred_traj,
-    pred_vel,
-    pred_head,
-    pred_sizes,
-    samples,
-    gt_samples,
-    gt_dist,
-    compute_mmd=True
-):
-    """Append generated and, when needed, ground-truth scene data."""
-    init_timestep = 5
-    batch = tokenized_agent["batch"]
-    agent_type = tokenized_agent["type"]
+def _scene_records(data: Any, count: int) -> list[dict[str, Any]]:
+    """Read ONLY the per-scene metadata consumed by ScenarioDreamerEvaluator.
 
-    generated_state = _build_generated_state(
-        pred_traj=pred_traj,
-        pred_vel=pred_vel,
-        pred_head=pred_head,
-        pred_sizes=pred_sizes,
-        timestep=init_timestep,
-    )
+    Model forward passes may add node/edge stores or change tensor lengths.
+    Full Batch.to_data_list() would use stale collation slices for those stores.
+    We instead split the explicit fixed-width metadata contract and leave all
+    model stores, their tensors and PyG's internal slice/inc dictionaries alone.
+    """
+    if isinstance(count, bool) or not isinstance(count, (int, np.integer)) or count < 1:
+        raise ValueError("count must be a positive integer")
+    if isinstance(data, (list, tuple)):
+        if len(data) != count:
+            raise ValueError("Scene-list length disagrees with generated batch IDs")
+        return [_scene_records(item, 1)[0] for item in data]
 
-    if gt_dist is None:
-        real_state, real_valid, real_batch, real_type = _build_real_state(
-            data=data,
-            timestep=init_timestep,
-            batch=batch,
+    num_graphs = getattr(data, "num_graphs", None)
+    if num_graphs is not None and int(num_graphs) != count:
+        raise ValueError(
+            f"PyG scene count {int(num_graphs)} disagrees with generated batch count {count}"
         )
 
-    for graph_index in range(data.num_graphs):
-        output_index = len(samples)
+    records = [{} for _ in range(count)]
+    fields = (
+        ("scenario_dreamer_cache_file", 1),
+        ("scene_timestep", 1),
+        ("generation_scene_timestep", 1),
+        ("sd_center_world", 2),
+        ("sd_rotation_angle", 1),
+    )
+    for name, width in fields:
+        values = _split_metric_metadata(_metric_metadata_field(data, name), name, count, width)
+        for record, value in zip(records, values):
+            if value is not None:
+                record[name] = value
 
-        if gt_dist is None:
-            scenario = _load_scenario(data["tfrecord_path"][graph_index])
-            centerlines = _extract_resampled_centerlines(scenario)
-
-            graph_mask = real_batch == graph_index
-            real_agents_full = real_state[graph_mask].detach().cpu().numpy()
-            graph_valid = real_valid[graph_mask].detach().cpu().numpy().astype(bool)
-            graph_types = real_type[graph_mask].detach().cpu().numpy()
-
-
-            if compute_mmd:
-                ego_index = MODEL_EGO_INDEX % len(real_agents_full)
-                lane_vectors = _extract_center_lane_vectors_in_ego(
-                    scenario=scenario,
-                    ego_xy=real_agents_full[ego_index, REAL_POS],
-                    ego_heading=float(real_agents_full[ego_index, REAL_HEADING]),
-                )
-
-                # Exact TrafficGen semantics, adapted only for this model's type
-                # encoding: model type 0 corresponds to Waymo TYPE_VEHICLE == 1.
-                selected_index = get_select_index(
-                    lane_vectors=lane_vectors,
-                    positions=real_agents_full[:, REAL_POS],
-                    velocities=real_agents_full[:, REAL_VEL],
-                    headings=real_agents_full[:, REAL_HEADING],
-                    valid=graph_valid,
-                    object_types=graph_types,
-                    ego_index=ego_index,
-                    vehicle_type=0,
-                    lane_range=50.0,
-                    lane_dist_thres=5.0,
-                    max_agent_num=32,
-                    raster_resolution=0.25,
-                    randomize_agents=False,
-                )
-                select_agents=real_agents_full[selected_index]
+    # Legacy fallback: read only the transform and reference time, never the
+    # nested road graphs, agent tensors, source_index arrays, or adjacencies.
+    info = _metric_metadata_field(data, "scenario_dreamer")
+    if info is not None:
+        if isinstance(info, (list, tuple)) and len(info) != count:
+            raise ValueError("scenario_dreamer metadata list must have one item per scene")
+        for name, width in (("center_world", 2), ("rotation_angle", 1), ("scene_timestep", 1)):
+            if isinstance(info, (list, tuple)):
+                values = [
+                    _split_metric_metadata(_metric_metadata_field(item, name), name, 1, width)[0]
+                    for item in info
+                ]
             else:
-                select_agents=None
-
-            valid_vehicle = graph_valid & (graph_types == 0)
-            gt_samples.append(
-                {
-                    "lanes": centerlines,
-                    #"lane_vectors": lane_vectors,
-                    "vehicles": real_agents_full[valid_vehicle],
-                    # "all_agents": real_agents_full[graph_valid],
-                    # "select_index": selected_index,
-                    "select_agents": select_agents
-                }
-            )
-
-        graph_mask = batch == graph_index
-        generated_agents_full = generated_state[graph_mask].detach().cpu().numpy()
-        graph_types = agent_type[graph_mask].detach().cpu().numpy()
-        valid_vehicle =  (graph_types == 0)
-        samples.append({
-            "vehicles": generated_agents_full[valid_vehicle]
-        })
-
-        # if compute_mmd:
-        #
-        #     selected_index = np.asarray(
-        #         gt_samples[output_index]["select_index"], dtype=np.int64
-        #     )
-        #     sampled_dict
-        #
-        # samples.append(
-        #     {
-        #         "all_agents": generated_agents_full[graph_mask],
-        #         "select_index": selected_index,
-        #         "agents": generated_agents_full[selected_index],
-        #     }
-        # )
-
-
-# centerlines = data['road_points']
-# lanes = {}
-
-# for lane_id in data['road_info']['lane']:
-#     lane_type = data['road_info']['lane'][lane_id]['type']
-#     if lane_type == 'TYPE_UNDEFINED' or lane_type == 'TYPE_BIKE_LANE':
-#         continue
-#
-#     my_lane = data['road_info']['lane'][lane_id]['polyline']
-#     lanes[int(lane_id)] = my_lane[:, :2]
-#
-# compact_lane.append(data['lane_graph']['lanes'][lane_id])
-#
-# compact_lane_graph_scene = self.normalize_compact_lane_graph(copy.deepcopy(compact_lane_graph),
-#                                                              normalize_dict)
-# compact_lane_graph = self.get_lane_graph_within_fov(compact_lane_graph_scene)
-
-# resampled_lanes = []
-# idx_to_id = {}
-# id_to_idx = {}
-# i = 0
-#
-# for lane_id in compact_lane_graph['lanes']:
-#     lane = compact_lane_graph['lanes'][lane_id]
-#     resampled_lane = resample_polyline(lane, num_points=self.cfg.num_points_per_lane)
-#     resampled_lanes.append(resampled_lane)
-#
-# resampled_lanes = np.array(resampled_lanes)
-# num_lanes = min(len(resampled_lanes), self.cfg.max_num_lanes)
-# dist_to_origin = np.linalg.norm(resampled_lanes, axis=-1).min(1)
-# closest_lane_ids = np.argsort(dist_to_origin)[:num_lanes]
-# road_points = resampled_lanes[closest_lane_ids]
-# remove_offroad vehicle, fov: 64*64 in metres, max 30 agent
-
-# 20 point each
-
-# unified format for computing metrics
-# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-UNIFIED_FORMAT_INDICES = {
-    'pos_x': 0,
-    'pos_y': 1,
-    'speed': 2,
-    'cos_heading': 3,
-    'sin_heading': 4,
-    'length': 5,
-    'width': 6
-}
-
-def compute_vehicle_circles(xy_position, heading, length, width):
-    """ Computes the centroids and radii of circles around a vehicle based on its position, heading, length, and width."""
-    num_circles = 5
-    radius = width / 2
-    relative_x_positions = np.linspace(-length / 2 + radius, length / 2 - radius, num_circles)
-
-    # Compute the centroids of the circles
-    # First, create the (x, y) relative offsets based on heading
-    dx = np.cos(heading) * relative_x_positions
-    dy = np.sin(heading) * relative_x_positions
-
-    # Add these offsets to the vehicle's position to get the circle centroids
-    centroids = np.column_stack((xy_position[0] + dx, xy_position[1] + dy))
-
-    return centroids, np.array([radius]).repeat(num_circles)
-
-
-def compute_collision_rate(samples):
-    """ Computes the collision rate for the vehicles in the samples.
-    Collision rate is computed by testing for overlapping circles around vehicles (with some threshold)."""
-    print("Computing collision rate")
-    num_vehicles_all = 0
-    num_vehicles_in_collision_all = 0
-    collision=[]
-    for i in range(len(samples)):
-        data = samples[i]
-
-        for v in range(data['vehicles'].shape[1]):
-            vehicles = data['vehicles'][:,v]
-
-            centroids_all = []
-            #radii_all = []
-            for vehicle in vehicles:
-                # vehicle: [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-                heading = np.arctan2(vehicle[UNIFIED_FORMAT_INDICES['sin_heading']],
-                                     vehicle[UNIFIED_FORMAT_INDICES['cos_heading']])
-                centroids, radii = compute_vehicle_circles(vehicle[:UNIFIED_FORMAT_INDICES['pos_y'] + 1],
-                                                           heading,
-                                                           vehicle[UNIFIED_FORMAT_INDICES['length']],
-                                                           vehicle[UNIFIED_FORMAT_INDICES['width']])
-                centroids_all.append(centroids)
-               # radii_all.append(radii)
-            centroids_all = np.array(centroids_all)
-            #radii_all = np.array(radii_all)
-
-            num_vehicles_in_collision = 0
-            for j in range(len(vehicles)):
-                is_in_collision = False
-                for k in range(len(vehicles)):
-                    if j == k:
-                        continue
-
-                    thresh = (vehicles[j, 6] + vehicles[k, 6]) / np.sqrt(3.8)
-                    dist = np.linalg.norm(centroids_all[j, :, None] - centroids_all[k, None, :], axis=-1)
-                    bad = dist < thresh
-                    if bad.sum() >= 1:
-                        is_in_collision = True
-                        break
-
-                if is_in_collision:
-                    num_vehicles_in_collision += 1
-                    collision.append(True)
-                else:
-                    collision.append(False)
-
-            num_vehicles_in_collision_all += num_vehicles_in_collision
-            num_vehicles_all += len(vehicles)
-
-    return num_vehicles_in_collision_all / num_vehicles_all,np.stack(collision, axis=0)
-
-def get_onroad_vehicles(vehicles, lanes, tol=1.5):
-    """ Filters the vehicles that are on the road based on their distance to the lanes."""
-    lanes = lanes.reshape(-1, 2)
-
-    vehicle_road_dist = np.linalg.norm(
-        vehicles[:, np.newaxis, :UNIFIED_FORMAT_INDICES['pos_y'] + 1] - lanes[np.newaxis, :, :], axis=-1).min(1)
-    offroad_mask = vehicle_road_dist > tol  # following SceneControl
-    onroad_vehicles = np.where(~offroad_mask)[0]
-
-    return vehicles[onroad_vehicles]
-
-
-def get_nearest_dists(vehicles):
-    """ Computes the nearest distance between vehicles in the scene."""
-    vehicle_vehicle_dist = np.linalg.norm(vehicles[:, np.newaxis, :UNIFIED_FORMAT_INDICES['pos_y'] + 1] - vehicles[
-        np.newaxis, :, :UNIFIED_FORMAT_INDICES['pos_y'] + 1], axis=-1)
-    # set the distance to self to a large value to avoid self-distance
-    for i in range(len(vehicles)):
-        vehicle_vehicle_dist[i, i] = 1000
-
-    return vehicle_vehicle_dist.min(1)
-
-
-def get_lateral_devs(vehicles, lanes):
-    """ Computes the lateral deviations of vehicles from the nearest lane."""
-    agents_expanded = vehicles[:, np.newaxis, np.newaxis, :UNIFIED_FORMAT_INDICES['pos_y'] + 1]  # Shape (A, 1, 1, 2)
-    diffs = agents_expanded - lanes[np.newaxis, :, :, :]
-    dists_squared = np.sum(diffs ** 2, axis=-1)  # Shape (A, N, 20)
-    min_dists_squared = np.min(dists_squared, axis=(1, 2))
-
-    return np.sqrt(min_dists_squared)
-
-
-def get_angular_devs(vehicles, lanes):
-    """ Computes the angular deviations of vehicles from the nearest lane segment."""
-    agent_positions = vehicles[:, :UNIFIED_FORMAT_INDICES['pos_y'] + 1]  # Extract positions (x, y)
-    cos_theta = vehicles[:, UNIFIED_FORMAT_INDICES['cos_heading']]
-    sin_theta = vehicles[:, UNIFIED_FORMAT_INDICES['sin_heading']]
-    agent_headings = np.arctan2(sin_theta, cos_theta)
-
-    agents_expanded = agent_positions[:, np.newaxis, np.newaxis, :]
-    direction_vectors = lanes[:, 1:, :] - lanes[:, :-1, :]
-    centerline_headings = np.arctan2(direction_vectors[..., 1], direction_vectors[..., 0])  # Shape (N, 19)
-    diffs = agents_expanded - lanes[np.newaxis, :, :, :]  # Shape (A, N, 20, 2)
-    dists_squared = np.sum(diffs ** 2, axis=-1)  # Shape (A, N, 20)
-    # Find the indices of the nearest centerline point for each agent
-    nearest_flat_indices = np.argmin(dists_squared.reshape(dists_squared.shape[0], -1), axis=-1)
-    nearest_centerline_indices = nearest_flat_indices // dists_squared.shape[2]
-    nearest_point_indices = nearest_flat_indices % dists_squared.shape[2]
-
-    # Handle the case where nearest point is the first or last in the centerline
-    nearest_point_indices = np.clip(nearest_point_indices, 1, dists_squared.shape[-1] - 1)
-    # Get the corresponding headings of the nearest segments
-    nearest_centerline_headings = centerline_headings[nearest_centerline_indices, nearest_point_indices - 1]
-
-    # Compute the angular deviation in radians and convert to degrees
-    angular_deviation_radians = np.arctan2(np.sin(agent_headings - nearest_centerline_headings),
-                                           np.cos(
-                                               agent_headings - nearest_centerline_headings))  # Ensure correct angle difference
-    angular_deviation_degrees = np.degrees(angular_deviation_radians)
-
-    return angular_deviation_degrees
-
-
-def get_lengths(vehicles):
-    """ Returns the lengths of the vehicles in the scene."""
-    return vehicles[:, UNIFIED_FORMAT_INDICES['length']]
-
-
-def get_widths(vehicles):
-    """ Returns the widths of the vehicles in the scene."""
-    return vehicles[:, UNIFIED_FORMAT_INDICES['width']]
-
-
-def get_speeds(vehicles):
-    """ Returns the speeds of the vehicles in the scene."""
-    return vehicles[:, UNIFIED_FORMAT_INDICES['speed']]
-
-
-def jsd(sim, gt, clip_min, clip_max, bin_size):
-    """ Computes the Jensen-Shannon divergence (JSD) between generated (sim) and real (gt) distributions."""
-    # Clip the simulated and ground truth values
-    gt = np.clip(gt, clip_min, clip_max)
-    sim = np.clip(sim, clip_min, clip_max)
-
-    # Calculate bin edges based on the specified bin_size
-    bin_edges = np.arange(clip_min, clip_max + bin_size, bin_size)
-
-    # Compute the histograms and normalize to get probability distributions
-    P = np.histogram(sim, bins=bin_edges)[0] / len(sim)
-    Q = np.histogram(gt, bins=bin_edges)[0] / len(gt)
-
-    # Compute Jensen-Shannon divergence and square it
-    jsd_value = distance.jensenshannon(P, Q) ** 2  # Square to get the divergence
-    return jsd_value
-
-
-
-
-def resample_lanes(lanes, num_points):
-    """Resample a list of lanes (each lane is a polyline) to have `num_points` equally spaced points along each lane's arc-length."""
-    lanes_resampled = []
-    for lane in lanes:
-        lanes_resampled.append(resample_polyline(lane, num_points=num_points))
-
-    return np.array(lanes_resampled)
-
-
-
-def plot_gen_real_distribution(
-    gen,
-    real,
-    title,
-    clip_min,
-    clip_max,
-    bin_size
-):
-    import matplotlib.pyplot as plt
-
-    # 与 JSD 完全一致的 clipping
-    gen = np.clip(gen, clip_min, clip_max)
-    real = np.clip(real, clip_min, clip_max)
-
-    bins = np.arange(clip_min, clip_max + bin_size, bin_size)
-
-    # 关键：weights 让 histogram 变成 probability mass
-    gen_weights = np.ones_like(gen) / len(gen)
-    real_weights = np.ones_like(real) / len(real)
-
-    plt.figure()
-    plt.hist(gen, bins=bins, weights=gen_weights, alpha=0.5, label="Generated")
-    plt.hist(real, bins=bins, weights=real_weights, alpha=0.5, label="Real")
-    plt.legend()
-    plt.title(title)
-    plt.xlabel("Value")
-    plt.ylabel("Probability")
-    plt.tight_layout()
-    plt.show()
-
-def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
-    """ Computes the JSD agent metrics for the samples and ground truth samples."""
-    print("Computing agent jsd metrics")
-
-    nearest_dist_gen_all = []
-    lat_dev_gen_all = []
-    ang_dev_gen_all = []
-    length_gen_all = []
-    width_gen_all = []
-    speed_gen_all = []
-
-    if gt_dist is None:
-        nearest_dist_real_all = []
-        lat_dev_real_all = []
-        ang_dev_real_all = []
-        length_real_all = []
-        width_real_all = []
-        speed_real_all = []
-
-    for i in range(len(samples)):
-        data_gen = samples[i]
-        data_real = gt_samples[i]
-
-        lanes_gen=lanes_real=data_real['lanes']
-
-        if gt_dist is None:
-            vehicles_real = data_real['vehicles']
-
-            #lanes_real = resample_lanes(data_real['lanes'], num_points=100)
-            onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
-            if len(vehicles_real) > 1:
-                nearest_dist_real_all.append(get_nearest_dists(vehicles_real))
-            if len(onroad_vehicles_real) > 0:
-                lat_dev_real_all.append(get_lateral_devs(onroad_vehicles_real, lanes_real))
-                ang_dev_real_all.append(get_angular_devs(onroad_vehicles_real, lanes_real))
-            length_real_all.append(get_lengths(vehicles_real))
-            width_real_all.append(get_widths(vehicles_real))
-            speed_real_all.append(get_speeds(vehicles_real))
-
-        for j in range(data_gen['vehicles'].shape[1]):
-            vehicles_gen = data_gen['vehicles'][:,j] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-            # resample lanes to higher resolution
-            #lanes_gen = resample_lanes(data_gen['lanes'], num_points=100)
-            onroad_vehicles_gen = get_onroad_vehicles(vehicles_gen, lanes_gen)
-
-            if len(vehicles_gen) > 1:
-                nearest_dist_gen_all.append(get_nearest_dists(vehicles_gen))
-            if len(onroad_vehicles_gen) > 0:
-                lat_dev_gen_all.append(get_lateral_devs(onroad_vehicles_gen, lanes_gen))
-                ang_dev_gen_all.append(get_angular_devs(onroad_vehicles_gen, lanes_gen))
-            length_gen_all.append(get_lengths(vehicles_gen))
-            width_gen_all.append(get_widths(vehicles_gen))
-            speed_gen_all.append(get_speeds(vehicles_gen))
-
-            if vis:
-                plot_scene(
-                    lanes_real,
-                    vehicles_real,
-                    vehicles_gen,
-                    title=f"Frame_{i}, Sample_{j}"
-                )
-
-    nearest_dist_gen_all = np.concatenate(nearest_dist_gen_all, axis=0)
-    lat_dev_gen_all = np.concatenate(lat_dev_gen_all, axis=0)
-    ang_dev_gen_all = np.concatenate(ang_dev_gen_all, axis=0)
-    length_gen_all = np.concatenate(length_gen_all, axis=0)
-    width_gen_all = np.concatenate(width_gen_all, axis=0)
-    speed_gen_all = np.concatenate(speed_gen_all, axis=0)
-
-    if gt_dist is None:
-        nearest_dist_real_all = np.concatenate(nearest_dist_real_all, axis=0)
-        lat_dev_real_all = np.concatenate(lat_dev_real_all, axis=0)
-        ang_dev_real_all = np.concatenate(ang_dev_real_all, axis=0)
-        length_real_all = np.concatenate(length_real_all, axis=0)
-        width_real_all = np.concatenate(width_real_all, axis=0)
-        speed_real_all = np.concatenate(speed_real_all, axis=0)
-
-        gt_dist = (nearest_dist_real_all, lat_dev_real_all, ang_dev_real_all, length_real_all, width_real_all,
-                   speed_real_all)
+                values = _split_metric_metadata(_metric_metadata_field(info, name), name, count, width)
+            for record, value in zip(records, values):
+                if value is not None:
+                    record.setdefault("scenario_dreamer", {})[name] = value
+    return records
+
+
+def _generated_arrays(out: Mapping[str, Any]) -> tuple[np.ndarray, ...]:
+    pos, head, size = (as_numpy(out[k]) for k in ("traj", "head", "size"))
+    vel = out.get("vel")
+    if vel is None:
+        raise ValueError("Instantaneous velocity is required; do not substitute finite-difference trajectory speed.")
+    if isinstance(vel, (list, tuple)):
+        vel = np.stack([as_numpy(v) for v in vel], axis=1)
     else:
-        nearest_dist_real_all, lat_dev_real_all, ang_dev_real_all, length_real_all, width_real_all,speed_real_all=gt_dist
-
-    nearest_dist_jsd = jsd(nearest_dist_gen_all, nearest_dist_real_all, clip_min=0, clip_max=50, bin_size=1) * 10
-    lat_dev_jsd = jsd(lat_dev_gen_all, lat_dev_real_all, clip_min=0, clip_max=1.5, bin_size=0.1) * 10
-    ang_dev_jsd = jsd(ang_dev_gen_all, ang_dev_real_all, clip_min=-200, clip_max=200, bin_size=5) * 100
-    length_jsd = jsd(length_gen_all, length_real_all, clip_min=0, clip_max=25, bin_size=0.1) * 100
-    width_jsd = jsd(width_gen_all, width_real_all, clip_min=0, clip_max=5, bin_size=0.1) * 100
-    speed_jsd = jsd(speed_gen_all, speed_real_all, clip_min=0, clip_max=50, bin_size=1) * 100
-
-    # lat_dev_jsd1 = jsd(np.random.rand(*lat_dev_gen_all.shape)*1.5, lat_dev_real_all, clip_min=0, clip_max=1.5, bin_size=0.1) * 10
-    #
-    # plot_gen_real_distribution(
-    #     nearest_dist_gen_all,
-    #     nearest_dist_real_all,
-    #     "Nearest Distance",
-    #     clip_min=0,
-    #     clip_max=50,
-    #     bin_size=1
-    # )
-    #
-    # plot_gen_real_distribution(
-    #     lat_dev_gen_all,
-    #     lat_dev_real_all,
-    #     "Lateral Deviation",
-    #     clip_min=0,
-    #     clip_max=1.5,
-    #     bin_size=0.1
-    # )
-    #
-    # plot_gen_real_distribution(
-    #     ang_dev_gen_all,
-    #     ang_dev_real_all,
-    #     "Angular Deviation",
-    #     clip_min=-200,
-    #     clip_max=200,
-    #     bin_size=5
-    # )
-    #
-    # plot_gen_real_distribution(
-    #     length_gen_all,
-    #     length_real_all,
-    #     "Length",
-    #     clip_min=0,
-    #     clip_max=25,
-    #     bin_size=0.1
-    # )
-    #
-    # plot_gen_real_distribution(
-    #     width_gen_all,
-    #     width_real_all,
-    #     "Width",
-    #     clip_min=0,
-    #     clip_max=5,
-    #     bin_size=0.1
-    # )
-    #
-    # plot_gen_real_distribution(
-    #     speed_gen_all,
-    #     speed_real_all,
-    #     "Speed",
-    #     clip_min=0,
-    #     clip_max=50,
-    #     bin_size=1
-    # )
-
-    jsds=(nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd)
+        vel = as_numpy(vel)
+    if pos.ndim != 4 or pos.shape[-1] not in (2, 3):
+        raise ValueError(f"traj must be [N,R,T,2/3], got {pos.shape}")
+    n, r, t, _ = pos.shape
+    if head.shape != (n, r, t):
+        raise ValueError(f"head must be {(n,r,t)}, got {head.shape}")
+    if size.ndim != 4 or size.shape[:3] != (n, r, t) or size.shape[-1] < 2:
+        raise ValueError(f"size must be [N,R,T,2/3], got {size.shape}")
+    if vel.shape not in ((n, r, 2), (n, r, t, 2)):
+        raise ValueError(f"vel must be [N,R,2] or [N,R,T,2], got {vel.shape}")
+    return pos, head, size, vel
 
 
-    return jsds,gt_dist
+def make_generated_scene(out, batch, types, graph_index, timestep, record, gt,
+                         *, prediction_frame="world") -> tuple[dict, np.ndarray, np.ndarray]:
+    pos, head, size, vel = _generated_arrays(out)
+    if pos.shape[1] != 1:
+        raise ValueError("Use exactly one rollout per official entry: n_rollout_closed_val=1.")
+    if not 0 <= timestep < pos.shape[2]:
+        raise IndexError(f"sd_gen_timestep={timestep} outside generated T={pos.shape[2]}")
+    mask = batch == graph_index
+    xy = pos[mask, 0, timestep, :2].astype(np.float64)
+    yaw = head[mask, 0, timestep].astype(np.float64)
+    # Initial velocity [N,R,2] and per-timestep velocity [N,R,T,2] are distinct.
+    velocity = vel[mask, 0] if vel.ndim == 3 else vel[mask, 0, timestep]
+    speed = np.sqrt(velocity[:, 0] ** 2 + velocity[:, 1] ** 2)
+    dimensions = size[mask, 0, timestep, :2]
+    local_types = types[mask]
+    if prediction_frame == "world":
+        info = field_of(record, "scenario_dreamer")
+        center_value = field_of(record, "sd_center_world")
+        angle_value = field_of(record, "sd_rotation_angle")
+        if center_value is None and info is not None:
+            center_value = info.get("center_world")
+            angle_value = info.get("rotation_angle")
+        if center_value is None or angle_value is None:
+            raise ValueError(
+                "World-coordinate predictions require scenario_dreamer.center_world and "
+                "rotation_angle. Rebuild with --save-scene-info and preserve that metadata "
+                "through the dataset loader. Do not infer the transform from float32 GT positions."
+            )
+        center = as_numpy(center_value).reshape(2).astype(np.float64)
+        angle = float(as_numpy(angle_value).reshape(()))
+        offset = xy - center
+        c, s = np.cos(angle), np.sin(angle)
+        xy = np.column_stack((c * offset[:, 0] - s * offset[:, 1],
+                              s * offset[:, 0] + c * offset[:, 1]))
+        yaw = yaw + angle
+    elif prediction_frame != "sd_local":
+        raise ValueError("sd_prediction_frame must be 'world' or 'sd_local' (ego +Y).")
+    states = np.column_stack((xy, speed, np.cos(yaw), np.sin(yaw), dimensions))
+    # Do not reapply GT validity, TrafficGen filtering, FOV clipping or off-road
+    # deletion to generated agents. Optional model-emitted existence is allowed.
+    existence = out.get("initial_valid")
+    if existence is not None:
+        existence = as_numpy(existence)
+        if existence.shape == (len(batch), 1):
+            keep = existence[mask, 0].astype(bool)
+        elif existence.shape == (len(batch), 1, pos.shape[2]):
+            keep = existence[mask, 0, timestep].astype(bool)
+        else:
+            raise ValueError("initial_valid must be [N,R] or [N,R,T].")
+        states, local_types = states[keep], local_types[keep]
+    if not np.isin(local_types, (0, 1, 2)).all():
+        raise ValueError("Generated types must use SMART encoding vehicle=0, pedestrian=1, cyclist=2.")
+    scene = {"vehicles": states[local_types == 0], "lanes": gt["lanes"], "G": gt["G"]}
+    validate_unified(scene)
+    return scene, states, local_types
 
-def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
-    """ Computes the agent metrics for the samples and ground truth samples."""
-    #collision_rate1,collision1 = collision_rate_from_state(samples)
-    #collision_rate,collision = collision_rate_from_state1(samples)
 
-    #gt_collision_rate,gt_collision= compute_collision_rate(gt_samples)
+class ScenarioDreamerEvaluator:
+    """Streaming, single-process evaluator for this map-conditioned SMART model."""
+    def __init__(self, official_repo, cache_root, eval_set, *, expected_scenes=50_000,
+                 gen_timestep=5, prediction_frame="world", require_generation_timestep=True,
+                 export_dir=None):
+        self.store = OfficialReferenceStore(official_repo, cache_root, eval_set,
+                                            expected_scenes=expected_scenes)
+        self.gen_timestep = int(gen_timestep)
+        self.prediction_frame = prediction_frame
+        self.require_generation_timestep = bool(require_generation_timestep)
+        self.export_dir = Path(export_dir) if export_dir else None
+        if self.export_dir:
+            self.export_dir.mkdir(parents=True, exist_ok=True)
+        self.reset()
 
-    #gt_collision_rate,gt_collision = collision_rate_from_state1(gt_samples)
+    def reset(self) -> None:
+        self.generated = DistributionAccumulator()
+        self.real = DistributionAccumulator()
+        self.seen: set[str] = set()
+        self.unverified_frame_count = 0
 
+    def update(self, data, tokenized_agent, out) -> None:
+        batch = as_numpy(tokenized_agent["batch"]).astype(np.int64)
+        types = as_numpy(tokenized_agent["type"]).reshape(-1)
+        if batch.ndim != 1 or len(batch) != len(types):
+            raise ValueError("Generated batch/type arrays must align with generated agents.")
+        if len(batch) != as_numpy(out["traj"]).shape[0] or len(batch) == 0:
+            raise ValueError("Generated row count does not match tokenized_agent['batch']")
+        count = int(batch.max()) + 1
+        if not np.array_equal(np.unique(batch), np.arange(count)):
+            raise ValueError("Generated batch IDs must be contiguous 0..B-1")
+        pos, head, size, vel = _generated_arrays(out)
+        prepared_out = {"traj": pos, "head": head, "size": size, "vel": vel}
+        if out.get("initial_valid") is not None:
+            prepared_out["initial_valid"] = as_numpy(out["initial_valid"])
+        records = _scene_records(data, count)
+        for b, record in enumerate(records):
+            filename = field_of(record, "scenario_dreamer_cache_file")
+            if filename is None:
+                raise KeyError("Dataset must retain scenario_dreamer_cache_file for every sample.")
+            if isinstance(filename, (list, tuple)) and len(filename) == 1:
+                filename = filename[0]
+            name = Path(str(filename)).name
+            if name in self.seen:
+                raise ValueError(f"Duplicate evaluation sample in this epoch: {name}")
+            cache, gt = self.store.get(name) #'scenario_dreamer_cache_file'
+            ref_t = scalar(cache["scene_timestep"], "official scene_timestep")
+            sample_t = field_of(record, "scene_timestep")
+            if sample_t is None or scalar(sample_t, "scene_timestep") != ref_t:
+                raise ValueError(f"Input reference timestep does not match official cache: {name}, expected {ref_t}")
+            # This field is a contract supplied by the generation input pipeline,
+            # not a guess from the trajectory slot or the ego pose.
+            generation_t = field_of(record, "generation_scene_timestep")
+            if generation_t is None:
+                if self.require_generation_timestep:
+                    raise ValueError(
+                        f"Missing generation_scene_timestep for {name}. Confirm the model's generated "
+                        f"initial snapshot is conditioned at raw frame {ref_t}, then record that frame. "
+                        "sd_gen_timestep is an output-array index, NOT a raw Waymo timestep."
+                    )
+                self.unverified_frame_count += 1
+            elif scalar(generation_t, "generation_scene_timestep") != ref_t:
+                raise ValueError(f"Model/reference frame mismatch for {name}: generated frame {generation_t}, GT frame {ref_t}")
+            info = field_of(record, "scenario_dreamer")
+            if info is not None and "scene_timestep" in info:
+                if scalar(info["scene_timestep"], "scene_info timestep") != ref_t:
+                    raise ValueError(f"Saved coordinate transform comes from another timestep: {name}")
+            gen, states, gen_types = make_generated_scene(
+                prepared_out, batch, types, b, self.gen_timestep, record, gt,
+                prediction_frame=self.prediction_frame,
+            )
+            self.generated.update(gen, self.store.official, collision=True)
+            self.real.update(gt, self.store.official)
+            self.seen.add(name)
+            if self.export_dir:
+                # Use official cached map + connections, and our generated agents.
+                # This is directly readable by the official Waymo conversion path.
+                output = {k: copy.deepcopy(cache[k]) for k in (
+                    "lg_type", "num_lanes", "road_points", "road_connection_types"
+                )}
+                output.update(agent_states=states,
+                              agent_types=np.eye(3)[gen_types.astype(np.int64)],
+                              num_agents=len(states))
+                path = self.export_dir / f"{self.store.index[name]:05d}.pkl"
+                with path.open("wb") as handle:
+                    pickle.dump(output, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    #collision_jsd = jsd(collision.astype(np.float32), gt_collision.astype(np.float32), clip_min=-0.5, clip_max=2, bin_size=1) * 100
+    def compute(self) -> dict[str, float]:
+        # if self.store.expected_scenes:
+        #     missing = set(self.store.files) - self.seen
+        #     if missing or len(self.seen) != self.store.expected_scenes:
+        #         example = sorted(missing)[:3]
+        #         raise ValueError(
+        #             f"Incomplete official evaluation: {len(self.seen)}/{self.store.expected_scenes}; "
+        #             f"missing examples={example}. Check limit_val_batches, drop_last and the sampler."
+        #         )
+        return finalize_metrics(self.generated, self.real)
 
-    jsds, gt_dist = compute_jsd_metrics(samples, gt_samples,gt_dist,vis)
-
-    nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd=jsds
-
-    collision_rate,collision = compute_collision_rate(samples)
-
-    metrics = {
-        "nearest_dist_jsd": nearest_dist_jsd,
-        "lat_dev_jsd": lat_dev_jsd,
-        "ang_dev_jsd": ang_dev_jsd,
-        "length_jsd": length_jsd,
-        "width_jsd": width_jsd,
-        "speed_jsd": speed_jsd,
-        "collision_rate": collision_rate * 100,
-    }
-
-
-    # MMD needs paired generated-vs-real scenes, so gt_samples must be available.
-    if gt_samples[0]['select_agents'] is not None:
-        mmd_metrics = compute_mmd_metrics(samples, gt_samples)
-        metrics.update(mmd_metrics)
-        # all_mmd_metrics = compute_mmd_metrics(samples, gt_samples,"all_")
-        # metrics.update(all_mmd_metrics)
-
-    return metrics,gt_dist
+    def report(self) -> dict[str, Any]:
+        return {
+            "metric_scope": "Scenario Dreamer initial-scene vehicle metrics",
+            "generation_task": "map-conditioned; generated agents on official reference maps",
+            "num_samples": self.generated.num_scenes,
+            "num_gt_samples": self.real.num_scenes,
+            "num_generated_vehicles": self.generated.num_vehicles,
+            "num_gt_vehicles": self.real.num_vehicles,
+            "num_colliding_vehicles": self.generated.num_colliding,
+            "feature_counts_generated": self.generated.totals.tolist(),
+            "feature_counts_gt": self.real.totals.tolist(),
+            "unverified_generation_timestep_count": self.unverified_frame_count,
+            "full_membership": self.seen == set(self.store.files),
+            "eval_set_sha256": hashlib.sha256(self.store.eval_set.read_bytes()).hexdigest(),
+            "official_source_sha256": self.store.official.source_sha256,
+        }

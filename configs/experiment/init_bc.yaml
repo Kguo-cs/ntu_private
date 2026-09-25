@@ -23,15 +23,15 @@ task_name: xflow1024_l1_v1_matchraw_sep #seploadv #_all #_sep  #_prePlr10 #_all6
 trainer:
 
   #check_val_every_n_epoch: 2
- # val_check_interval: 0.0000002
+  val_check_interval: 0.0000002
   max_epochs: 16
 
 data:
   train_batch_size: 80
   val_batch_size: 64
-  train_raw_dir: ${paths.cache_root}/training_map2_init5v #init0_light #init0_light  #init10_inter
+  #train_raw_dir: ${paths.cache_root}/training_map2_init5v #init0_light #init0_light  #init10_inter
   #train_raw_dir: ${paths.cache_root}/training_mapall_init5v #init0_light #init0_light  #init10_inter
-  #val_raw_dir: ${paths.cache_root}/validation_mapall #44097
+  val_raw_dir: /home/ke/code/sim/src/waymo_data/scenario_dreamer/test #44097
 
   # num_workers: 1
 
