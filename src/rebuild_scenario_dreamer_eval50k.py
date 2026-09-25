@@ -353,7 +353,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--eval-set", type=Path, default='/home/ke/code/scenario-dreamer/metadata/waymo_eval_set.pkl',
                         help="Official scenario-dreamer metadata/waymo_eval_set.pkl")
-    parser.add_argument("--waymo-root", type=Path,default=Path("/home/ke/code/sim/src/waymo_data/waymo110"),
+    parser.add_argument("--waymo-root", type=Path,default=Path("./waymo_data/waymo110"),
                         help="WOMD v1.1.0 root containing training/ validation/ testing/")
     parser.add_argument("--output-dir", type=Path,default=Path("./waymo_data/full/scenario_dreamer_val"),
                         help="Directory for rebuilt ego-last/global SMART .pt samples")
