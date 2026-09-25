@@ -2,17 +2,13 @@
 
 kefu321
 
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_matchraw_l1_v1-epoch=27-step=53284-valmeta=0.6499.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #full/
+rsync -avz /home/ke/code/sim/src/waymo_data/waymo_eval_set.pkl ke@10.87.114.128:~/keguo/sim/src/waymo_data/ 
 
 rsync -avz -e "ssh -p 32884" ./waymo_data/xflow512_matchraw_l1_v1-epoch=27-step=53284-valmeta=0.6499.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/ #full/
-
-rsync -avz /home/ke/code/sim/src/waymo_data/xflow512_match_l1_v1-epoch=63-step=60928-valmeta=0.6509.ckpt ke@10.87.225.106:~/code/sim/src/waymo_data/ #full/
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_mapall_init5v ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/all32_res002std01_std01_r10_shape/2026-09-17_15-29-52/bc/kd4w1o4w/checkpoints/all32_res002std01_std01_r10_shape-epoch=4-step=228282-valmeta=0.6518.ckpt ./
-
-rsync -avz ke@10.87.225.106:~/code/sim/src/logs/all32_d58_std005_token10_pre_sq/2026-08-15_21-39-04/bc/iwgs04wt/checkpoints/all32_d58_std005_token10_pre_sq-epoch=3-step=159798-valmeta=0.6539.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all32_res002std01_std01_shape/2026-09-16_15-09-45/bc/dqjo1hqp/checkpoints/all32_res002std01_std01_shape-epoch=3-step=159798-valmeta=0.6526.ckpt ./
 

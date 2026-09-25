@@ -351,7 +351,7 @@ def summarize(requests: list[EvalRequest]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--eval-set", type=Path, default='/home/ke/code/scenario-dreamer/metadata/waymo_eval_set.pkl',
+    parser.add_argument("--eval-set", type=Path, default='./waymo_data/waymo_eval_set.pkl',
                         help="Official scenario-dreamer metadata/waymo_eval_set.pkl")
     parser.add_argument("--waymo-root", type=Path,default=Path("./waymo_data/waymo110"),
                         help="WOMD v1.1.0 root containing training/ validation/ testing/")
