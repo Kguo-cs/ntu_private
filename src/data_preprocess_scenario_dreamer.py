@@ -33,293 +33,22 @@ import torch
 from tqdm import tqdm
 from functools import partial
 import multiprocessing
+from data_preprocess import decode_dynamic_map_states_from_proto,decode_tracks_from_proto,decode_map_features_from_proto,process_dynamic_map,get_map_features
 
 from scenario_dreamer_filter import (
     get_agent_features,
     get_get_agent_features,
     decode_tracks_from_proto,
 )
+import sys
 
-_polygon_types = ["lane", "road_edge", "road_line", "crosswalk"]
-_polygon_light_type = [
-    "NO_LANE_STATE",
-    "LANE_STATE_UNKNOWN",
-    "LANE_STATE_STOP",
-    "LANE_STATE_GO",
-    "LANE_STATE_CAUTION",
-]
-
-
-
-def get_map_features(map_infos, tf_current_light,dim=2, remove_last=False):
-    polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]
-    num_polygons = len(polygon_ids)
-
-    # initialization
-    polygon_type = torch.zeros(num_polygons, dtype=torch.uint8)
-    polygon_light_type = torch.zeros(num_polygons, dtype=torch.uint8)
-    point_position: List[Optional[torch.Tensor]] = [None] * num_polygons
-    # point_orientation: List[Optional[torch.Tensor]] = [None] * num_polygons
-    point_type: List[Optional[torch.Tensor]] = [None] * num_polygons
-
-    for _key in _polygon_types:
-        for _seg in map_infos[_key]:
-            _idx = polygon_ids.index(_seg["id"])
-            centerline = map_infos["all_polylines"][
-                _seg["polyline_index"][0] : _seg["polyline_index"][1]
-            ]
-            centerline = torch.from_numpy(centerline).float()
-            polygon_type[_idx] = _polygon_types.index(_key)
-
-            if remove_last:
-                point_position[_idx] = centerline[:-1, :dim]
-                centerline = centerline[1:] - centerline[:-1]
-            else:
-                point_position[_idx] = centerline[:, :dim]
-            # point_orientation[_idx] = torch.cat(
-            #     [torch.atan2(center_vectors[:, 1], center_vectors[:, 0])], dim=0
-            # )
-            point_type[_idx] = torch.full(
-                (len(centerline),), _seg["type"], dtype=torch.uint8
-            )
-
-            if _key == "lane" and len(tf_current_light):
-                res = tf_current_light[tf_current_light["lane_id"] == _seg["id"]]
-                if len(res) != 0:
-                    polygon_light_type[_idx] = _polygon_light_type.index(
-                        res["state"].item()
-                    )
-
-    num_points = torch.tensor(
-        [point.size(0) for point in point_position], dtype=torch.long
-    )
-    point_to_polygon_edge_index = torch.stack(
-        [
-            torch.arange(num_points.sum(), dtype=torch.long),
-            torch.arange(num_polygons, dtype=torch.long).repeat_interleave(num_points),
-        ],
-        dim=0,
-    )
-
-    map_data = {
-        "map_polygon": {},
-        "map_point": {},
-        ("map_point", "to", "map_polygon"): {},
-    }
-    map_data["map_polygon"]["num_nodes"] = num_polygons
-    map_data["map_polygon"]["type"] = polygon_type
-    map_data["map_polygon"]["light_type"] = polygon_light_type
-    if len(num_points) == 0:
-        map_data["map_point"]["num_nodes"] = 0
-        map_data["map_point"]["position"] = torch.tensor([], dtype=torch.float)
-        # map_data["map_point"]["orientation"] = torch.tensor([], dtype=torch.float)
-        map_data["map_point"]["type"] = torch.tensor([], dtype=torch.uint8)
-    else:
-        map_data["map_point"]["num_nodes"] = num_points.sum().item()
-        map_data["map_point"]["position"] = torch.cat(point_position, dim=0)
-        # map_data["map_point"]["orientation"] = wrap_angle(
-        #     torch.cat(point_orientation, dim=0)
-        # )
-        map_data["map_point"]["type"] = torch.cat(point_type, dim=0)
-    map_data["map_point", "to", "map_polygon"][
-        "edge_index"
-    ] = point_to_polygon_edge_index
-    return map_data
-
-
-def process_dynamic_map(dynamic_map_infos):
-    lane_ids = dynamic_map_infos["lane_id"]
-    tf_lights = []
-    for t in range(len(lane_ids)):
-        lane_id = lane_ids[t]
-        time = np.ones_like(lane_id) * t
-        state = dynamic_map_infos["state"][t]
-        tf_light = np.concatenate([lane_id, time, state], axis=0)
-        tf_lights.append(tf_light)
-    tf_lights = np.concatenate(tf_lights, axis=1).transpose(1, 0)
-    tf_lights = pd.DataFrame(data=tf_lights, columns=["lane_id", "time_step", "state"])
-    tf_lights["time_step"] = tf_lights["time_step"].astype("int")
-    tf_lights["lane_id"] = tf_lights["lane_id"].astype("int")
-    tf_lights["state"] = tf_lights["state"].astype("str")
-    tf_lights.loc[tf_lights["state"].str.contains("STOP"), ["state"]] = (
-        "LANE_STATE_STOP"
-    )
-    tf_lights.loc[tf_lights["state"].str.contains("GO"), ["state"]] = "LANE_STATE_GO"
-    tf_lights.loc[tf_lights["state"].str.contains("CAUTION"), ["state"]] = (
-        "LANE_STATE_CAUTION"
-    )
-    tf_lights.loc[tf_lights["state"].str.contains("UNKNOWN"), ["state"]] = (
-        "LANE_STATE_UNKNOWN"
-    )
-    return tf_lights
-
-
-def decode_map_features_from_proto(map_features,remove_mapid=[]):
-    from src.smart.utils.preprocess import get_polylines_from_polygon
-    map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
-    polylines = []
-    point_cnt = 0
-    for mf in map_features:
-        feature_data_type = mf.WhichOneof("feature_data")
-        # pip install waymo-open-dataset-tf-2-6-0==1.4.9, not updated, should be driveway
-        if feature_data_type is None:
-            continue
-
-        if mf.id in remove_mapid:
-            continue
-
-        feature = getattr(mf, feature_data_type)
-        if feature_data_type == "lane":
-            if len(feature.polyline) > 1:
-                cur_info = {"id": mf.id}
-                if feature.type == 0:  # UNDEFINED
-                    cur_info["type"] = 1
-                elif feature.type == 1:  # FREEWAY
-                    cur_info["type"] = 0
-                elif feature.type == 2:  # SURFACE_STREET
-                    cur_info["type"] = 1
-                elif feature.type == 3:  # BIKE_LANE
-                    cur_info["type"] = 3
-
-                cur_polyline = np.stack(
-                    [
-                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
-                        for p in feature.polyline
-                    ],
-                    axis=0,
-                )
-
-                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-                map_infos["lane"].append(cur_info)
-                polylines.append(cur_polyline)
-                point_cnt += len(cur_polyline)
-
-        elif feature_data_type == "road_edge":
-            if len(feature.polyline) > 1:
-                cur_info = {"id": mf.id}
-                # assert feature.type > 0
-                cur_info["type"] = feature.type + 3
-
-                cur_polyline = np.stack(
-                    [
-                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
-                        for p in feature.polyline
-                    ],
-                    axis=0,
-                )
-
-                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-                map_infos["road_edge"].append(cur_info)
-                polylines.append(cur_polyline)
-                point_cnt += len(cur_polyline)
-
-        elif feature_data_type == "road_line":
-            if len(feature.polyline) > 1:
-                cur_info = {"id": mf.id}
-                # there is no UNKNOWN = 0
-                # BROKEN_SINGLE_WHITE = 1
-                # SOLID_SINGLE_WHITE = 2
-                # SOLID_DOUBLE_WHITE = 3
-                # BROKEN_SINGLE_YELLOW = 4
-                # BROKEN_DOUBLE_YELLOW = 5
-                # SOLID_SINGLE_YELLOW = 6
-                # SOLID_DOUBLE_YELLOW = 7
-                # PASSING_DOUBLE_YELLOW = 8
-                # assert feature.type > 0  # no UNKNOWN = 0
-                if feature.type in [1, 4, 5]:
-                    cur_info["type"] = 6  # BROKEN
-                elif feature.type in [2, 6]:
-                    cur_info["type"] = 7  # SOLID_SINGLE
-                else:
-                    cur_info["type"] = 8  # DOUBLE
-
-                cur_polyline = np.stack(
-                    [
-                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
-                        for p in feature.polyline
-                    ],
-                    axis=0,
-                )
-
-                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-                map_infos["road_line"].append(cur_info)
-                polylines.append(cur_polyline)
-                point_cnt += len(cur_polyline)
-
-        elif feature_data_type in ["speed_bump", "driveway", "crosswalk"]:
-            xyz = np.array([[p.x, p.y, p.z] for p in feature.polygon])
-            polygon_idx = np.linspace(0, xyz.shape[0], 4, endpoint=False, dtype=int)
-            pl_polygon = get_polylines_from_polygon(xyz[polygon_idx])
-            cur_info = {"id": mf.id, "type": 9}
-
-            cur_polyline = np.stack(
-                [
-                    np.array([p[0], p[1], p[2], cur_info["type"], cur_info["id"]])
-                    for p in pl_polygon
-                ],
-                axis=0,
-            )
-
-            cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-            map_infos["crosswalk"].append(cur_info)
-            polylines.append(cur_polyline)
-            point_cnt += len(cur_polyline)
-
-    for mf in map_features:
-        feature_data_type = mf.WhichOneof("feature_data")
-        if feature_data_type == "stop_sign":
-            feature = mf.stop_sign
-            for l_id in feature.lane:
-                # override FREEWAY/SURFACE_STREET with stop sign lane
-                # BIKE_LANE remains unchanged
-                is_found = False
-                for _i in range(len(map_infos["lane"])):
-                    if map_infos["lane"][_i]["id"] == l_id:
-                        is_found = True
-                        if map_infos["lane"][_i]["type"] < 2:
-                            map_infos["lane"][_i]["type"] = 2
-                # not necessary found, some stop sign lanes are for lane with length 1
-                # assert is_found
-    #map_infos["all_polylines_list"] = polylines
-    #map_infos["road_edge_list"]=road_edge_list
-
-    try:
-        polylines = np.concatenate(polylines, axis=0).astype(np.float32)
-    except:
-        polylines = np.zeros((0, 8), dtype=np.float32)
-        print("Empty polylines.")
-    map_infos["all_polylines"] = polylines
-    return map_infos
-
-
-def decode_dynamic_map_states_from_proto(dynamic_map_states):
-    signal_state = {
-        0: "LANE_STATE_UNKNOWN",
-        #  States for traffic signals with arrows.
-        1: "LANE_STATE_ARROW_STOP",
-        2: "LANE_STATE_ARROW_CAUTION",
-        3: "LANE_STATE_ARROW_GO",
-        #  Standard round traffic signals.
-        4: "LANE_STATE_STOP",
-        5: "LANE_STATE_CAUTION",
-        6: "LANE_STATE_GO",
-        #  Flashing light signals.
-        7: "LANE_STATE_FLASHING_STOP",
-        8: "LANE_STATE_FLASHING_CAUTION",
-    }
-
-    dynamic_map_infos = {"lane_id": [], "state": []}
-    for cur_data in dynamic_map_states:  # (num_timestamp)
-        lane_id, state = [], []
-        for cur_signal in cur_data.lane_states:  # (num_observed_signals)
-            lane_id.append(cur_signal.lane)
-            state.append(signal_state[cur_signal.state])
-
-        dynamic_map_infos["lane_id"].append(np.array([lane_id]))
-        dynamic_map_infos["state"].append(np.array([state]))
-
-    return dynamic_map_infos
-
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
+sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+sys.path.append('/home/zs/code/sim')
+sys.path.append('/mnt/d/code/sim')
+sys.path.append('/home/ke/keguo/sim')
+sys.path.append('/home/guoke/sim')
 
 def _parse_frame(value):
     if value in (None, "random"):
@@ -372,7 +101,7 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted,
             save_scene_info=False, manifest_writer=None, written_names=None):
     import tensorflow as tf
     from waymo_open_dataset.protos import scenario_pb2
-   # from src.smart.utils.preprocess import preprocess_map
+    from src.smart.utils.preprocess import preprocess_map
 
     output_dir = Path(output_dir)
     seen = set()
@@ -390,12 +119,12 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted,
             "scene_timestep": scene_timestep, "lg_type": 0,
         }]
         track_infos = decode_tracks_from_proto(scenario)
-        #map_infos = decode_map_features_from_proto(scenario.map_features)
-        #dynamic = decode_dynamic_map_states_from_proto(scenario.dynamic_map_states)
-        # if len(dynamic["lane_id"]):
-        #     lights = process_dynamic_map(dynamic)
-        # else:
-        #     lights = pd.DataFrame(columns=["lane_id", "time_step", "state"])
+        map_infos = decode_map_features_from_proto(scenario.map_features)
+        dynamic = decode_dynamic_map_states_from_proto(scenario.dynamic_map_states)
+        if len(dynamic["lane_id"]):
+            lights = process_dynamic_map(dynamic)
+        else:
+            lights = pd.DataFrame(columns=["lane_id", "time_step", "state"])
 
         wrote_scenario = False
         for request in requests:
@@ -410,39 +139,38 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted,
                 if frame_manifest is not None:
                     raise ValueError(f"Requested reference sample {sid}: {scene['reason']}")
                 continue
-            #t = scene["scene_timestep"]
-            #lg_type = request["lg_type"]
-            #graph = scene["graphs"]["regular" if lg_type == 0 else "partitioned"]
-            #scene["lg_type"] = lg_type
-            #scene["road_points"] = graph["road_points"]
-            #scene["num_lanes"] = graph["num_lanes"]
-            name = request.get("sample_name", f"{sid}.pt")
+            t = scene["scene_timestep"]
+            lg_type = request["lg_type"]
+            graph = scene["graphs"]["regular" if lg_type == 0 else "partitioned"]
+            scene["lg_type"] = lg_type
+            scene["road_points"] = graph["road_points"]
+            scene["num_lanes"] = graph["num_lanes"]
+            name = request.get("sample_name", f"{sid}_{lg_type}_{t}.pt")
             if written_names is not None:
                 if name in written_names:
                     raise ValueError(f"Duplicate output sample {name}; use an explicit, unique manifest")
                 written_names.add(name)
 
-            #current_lights = lights.loc[lights["time_step"] == t]
-            #data = preprocess_map(get_map_features(map_infos, current_lights))
-            data={}
+            current_lights = lights.loc[lights["time_step"] == t]
+            data = preprocess_map(get_map_features(map_infos, current_lights))
             data["agent"] = agents
             data["scenario_id"] = sid
             # Always keep the physical reference time, even without scene_info.
-          #  data["scene_timestep"] = t
-            #data["agent_source_index"] = scene["source_index"]
-            # if save_scene_info:
-            #     data["scenario_dreamer"] = scene
+            data["scene_timestep"] = t
+            data["agent_source_index"] = scene["source_index"]
+            if save_scene_info:
+                data["scenario_dreamer"] = scene
             torch.save(data, output_dir / name)
             count += 1
             wrote_scenario = True
-            # if manifest_writer is not None:
-            #     record = {
-            #         "scenario_id": sid, "scene_timestep": t, "lg_type": lg_type,
-            #         "sample_name": name, "source_tfrecord": Path(file_path).name,
-            #         "selected_track_ids": agents["id"].tolist(),
-            #     }
-            #     manifest_writer.write(json.dumps(record) + "\n")
-            #     manifest_writer.flush()
+            if manifest_writer is not None:
+                record = {
+                    "scenario_id": sid, "scene_timestep": t, "lg_type": lg_type,
+                    "sample_name": name, "source_tfrecord": Path(file_path).name,
+                    "selected_track_ids": agents["id"].tolist(),
+                }
+                manifest_writer.write(json.dumps(record) + "\n")
+                manifest_writer.flush()
         if wrote_scenario and output_dir_tfrecords_splitted is not None:
             out_record = Path(output_dir_tfrecords_splitted) / f"{sid}.tfrecords"
             with tf.io.TFRecordWriter(str(out_record)) as writer:
@@ -473,31 +201,16 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
     # Do not overwrite the very manifest being replayed.
     if frame_manifest is not None and Path(frame_manifest).resolve() == log_path.resolve():
         log_path = target / "sample_manifest_replayed.jsonl"
-    # with log_path.open("w", encoding="utf-8") as writer:
-    #     for path in tqdm(packages):
-    #         found, count = wm2argo(
-    #             str(path), split, target, record_dir, rng=generator,
-    #             scene_timestep=scene_timestep, frame_manifest=replay,
-    #             save_scene_info=save_scene_info, manifest_writer=writer,
-    #             written_names=written,
-    #         )
-    #         seen.update(found)
-    #         total += count
-    print(len(packages))
-    for file_path in tqdm(packages):
-        wm2argo(file_path, split, target, None)
-
-    # func = partial(
-    #     wm2argo,
-    #     split=split,
-    #     output_dir=target,
-    #     output_dir_tfrecords_splitted=None,
-    # )
-
-    # with multiprocessing.Pool(num_workers) as p:
-    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
-    #
-
+    with log_path.open("w", encoding="utf-8") as writer:
+        for path in tqdm(packages):
+            found, count = wm2argo(
+                str(path), split, target, record_dir, rng=generator,
+                scene_timestep=scene_timestep, frame_manifest=replay,
+                save_scene_info=save_scene_info, manifest_writer=writer,
+                written_names=written,
+            )
+            seen.update(found)
+            total += count
     if replay is not None:
         missing = set(replay) - seen
         if missing:
@@ -507,8 +220,8 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
 
 if __name__ == "__main__":
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--input_dir", default='/home/ke/code/sim/src/waymo_data/waymo131', help="Directory containing training/validation/testing")
-    parser.add_argument("--output_dir", default='./waymo_data/scenario_dreamer_data')
+    parser.add_argument("--input_dir", default='./waymo_data/waymo110', help="Directory containing training/validation/testing")
+    parser.add_argument("--output_dir", default='./waymo_data/full/training_sd')
     parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
     parser.add_argument("--num_workers", type=int, default=16)
     parser.add_argument("--seed", type=int, default=10)
