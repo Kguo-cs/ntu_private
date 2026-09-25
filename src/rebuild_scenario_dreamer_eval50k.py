@@ -351,7 +351,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--eval-set", type=Path, default='/home/ke/code/scenario-dreamer/metadata/waymo_eval_set.pkl',
                         help="Official scenario-dreamer metadata/waymo_eval_set.pkl")
-    parser.add_argument("--waymo-root", type=Path,default=Path("/home/ke/code/sim/src/waymo_data/waymo131"),
+    parser.add_argument("--waymo-root", type=Path,default=Path("/home/ke/code/sim/src/waymo_data/waymo110"),
                         help="WOMD v1.1.0 root containing training/ validation/ testing/")
     parser.add_argument("--output-dir", type=Path,default=Path("./waymo_data/scenario_dreamer/test"),
                         help="Directory for rebuilt ego-last/global SMART .pt samples")
@@ -362,7 +362,7 @@ def main() -> None:
                         help="Expected eval-set size; use 0 to disable")
     parser.add_argument("--manifest-only", action="store_true",
                         help="Only decode cache filenames; do not read Waymo TFRecords")
-    parser.add_argument("--save-scene-info", action="store_true",
+    parser.add_argument("--save-scene-info", action="store_true",default=True,
                         help="Also save exact Scenario Dreamer local features/map graph in each .pt")
     args = parser.parse_args()
 

@@ -483,17 +483,20 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
     #         )
     #         seen.update(found)
     #         total += count
+    print(len(packages))
+    for file_path in tqdm(packages):
+        wm2argo(file_path, split, target, None)
 
-    func = partial(
-        wm2argo,
-        split=split,
-        output_dir=output_dir,
-        output_dir_tfrecords_splitted=None,
-    )
+    # func = partial(
+    #     wm2argo,
+    #     split=split,
+    #     output_dir=target,
+    #     output_dir_tfrecords_splitted=None,
+    # )
 
-    with multiprocessing.Pool(num_workers) as p:
-        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
-
+    # with multiprocessing.Pool(num_workers) as p:
+    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+    #
 
     if replay is not None:
         missing = set(replay) - seen
@@ -504,7 +507,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
 
 if __name__ == "__main__":
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--input_dir", default='/home/ke/keguo/waymo', help="Directory containing training/validation/testing")
+    parser.add_argument("--input_dir", default='/home/ke/code/sim/src/waymo_data/waymo131', help="Directory containing training/validation/testing")
     parser.add_argument("--output_dir", default='./waymo_data/scenario_dreamer_data')
     parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
     parser.add_argument("--num_workers", type=int, default=16)

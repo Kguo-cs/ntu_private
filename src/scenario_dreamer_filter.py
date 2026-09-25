@@ -28,6 +28,142 @@ from sd_reference import (
     modify_agent_states,
 )
 
+def decode_map_features_from_proto(map_features,remove_mapid=[]):
+    from src.smart.utils.preprocess import get_polylines_from_polygon
+    map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
+    polylines = []
+    point_cnt = 0
+    for mf in map_features:
+        feature_data_type = mf.WhichOneof("feature_data")
+        # pip install waymo-open-dataset-tf-2-6-0==1.4.9, not updated, should be driveway
+        if feature_data_type is None:
+            continue
+
+        if mf.id in remove_mapid:
+            continue
+
+        feature = getattr(mf, feature_data_type)
+        if feature_data_type == "lane":
+            if len(feature.polyline) > 1:
+                cur_info = {"id": mf.id}
+                if feature.type == 0:  # UNDEFINED
+                    cur_info["type"] = 1
+                elif feature.type == 1:  # FREEWAY
+                    cur_info["type"] = 0
+                elif feature.type == 2:  # SURFACE_STREET
+                    cur_info["type"] = 1
+                elif feature.type == 3:  # BIKE_LANE
+                    cur_info["type"] = 3
+
+                cur_polyline = np.stack(
+                    [
+                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
+                        for p in feature.polyline
+                    ],
+                    axis=0,
+                )
+
+                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+                map_infos["lane"].append(cur_info)
+                polylines.append(cur_polyline)
+                point_cnt += len(cur_polyline)
+
+        elif feature_data_type == "road_edge":
+            if len(feature.polyline) > 1:
+                cur_info = {"id": mf.id}
+                # assert feature.type > 0
+                cur_info["type"] = feature.type + 3
+
+                cur_polyline = np.stack(
+                    [
+                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
+                        for p in feature.polyline
+                    ],
+                    axis=0,
+                )
+
+                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+                map_infos["road_edge"].append(cur_info)
+                polylines.append(cur_polyline)
+                point_cnt += len(cur_polyline)
+
+        elif feature_data_type == "road_line":
+            if len(feature.polyline) > 1:
+                cur_info = {"id": mf.id}
+                # there is no UNKNOWN = 0
+                # BROKEN_SINGLE_WHITE = 1
+                # SOLID_SINGLE_WHITE = 2
+                # SOLID_DOUBLE_WHITE = 3
+                # BROKEN_SINGLE_YELLOW = 4
+                # BROKEN_DOUBLE_YELLOW = 5
+                # SOLID_SINGLE_YELLOW = 6
+                # SOLID_DOUBLE_YELLOW = 7
+                # PASSING_DOUBLE_YELLOW = 8
+                # assert feature.type > 0  # no UNKNOWN = 0
+                if feature.type in [1, 4, 5]:
+                    cur_info["type"] = 6  # BROKEN
+                elif feature.type in [2, 6]:
+                    cur_info["type"] = 7  # SOLID_SINGLE
+                else:
+                    cur_info["type"] = 8  # DOUBLE
+
+                cur_polyline = np.stack(
+                    [
+                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
+                        for p in feature.polyline
+                    ],
+                    axis=0,
+                )
+
+                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+                map_infos["road_line"].append(cur_info)
+                polylines.append(cur_polyline)
+                point_cnt += len(cur_polyline)
+
+        elif feature_data_type in ["speed_bump", "driveway", "crosswalk"]:
+            xyz = np.array([[p.x, p.y, p.z] for p in feature.polygon])
+            polygon_idx = np.linspace(0, xyz.shape[0], 4, endpoint=False, dtype=int)
+            pl_polygon = get_polylines_from_polygon(xyz[polygon_idx])
+            cur_info = {"id": mf.id, "type": 9}
+
+            cur_polyline = np.stack(
+                [
+                    np.array([p[0], p[1], p[2], cur_info["type"], cur_info["id"]])
+                    for p in pl_polygon
+                ],
+                axis=0,
+            )
+
+            cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+            map_infos["crosswalk"].append(cur_info)
+            polylines.append(cur_polyline)
+            point_cnt += len(cur_polyline)
+
+    for mf in map_features:
+        feature_data_type = mf.WhichOneof("feature_data")
+        if feature_data_type == "stop_sign":
+            feature = mf.stop_sign
+            for l_id in feature.lane:
+                # override FREEWAY/SURFACE_STREET with stop sign lane
+                # BIKE_LANE remains unchanged
+                is_found = False
+                for _i in range(len(map_infos["lane"])):
+                    if map_infos["lane"][_i]["id"] == l_id:
+                        is_found = True
+                        if map_infos["lane"][_i]["type"] < 2:
+                            map_infos["lane"][_i]["type"] = 2
+                # not necessary found, some stop sign lanes are for lane with length 1
+                # assert is_found
+    #map_infos["all_polylines_list"] = polylines
+    #map_infos["road_edge_list"]=road_edge_list
+
+    try:
+        polylines = np.concatenate(polylines, axis=0).astype(np.float32)
+    except:
+        polylines = np.zeros((0, 8), dtype=np.float32)
+        print("Empty polylines.")
+    map_infos["all_polylines"] = polylines
+    return map_infos
 
 @dataclass(frozen=True)
 class SceneConfig:
@@ -108,10 +244,13 @@ def scenario_to_raw_data(scenario) -> tuple[dict, np.ndarray]:
     # get_lane_pairs operates on ALL >=2-point lanes before lane-type removal.
     # IMPORTANT: do not initialise empty entries, sort IDs, or clean excluded
     # references here: those changes alter the subsequent compact graph order.
+    if "mapFeatures" not in data:
+        print('no lane')
     lane_info = {}
-    for feature in data["mapFeatures"]:
-        if "lane" in feature:
-            lane_info[feature["id"]] = feature["lane"]
+    if "mapFeatures"  in data:
+        for feature in data["mapFeatures"]:
+            if "lane" in feature:
+                lane_info[feature["id"]] = feature["lane"]
     engaged = {key: lane for key, lane in lane_info.items() if len(lane["polyline"]) >= 2}
     relations = {name: {} for name in ("pre_pairs", "suc_pairs", "left_pairs", "right_pairs")}
     for lane_id, lane in engaged.items():
