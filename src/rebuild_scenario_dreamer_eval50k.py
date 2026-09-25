@@ -54,6 +54,15 @@ from data_preprocess_scenario_dreamer import (
     get_map_features,
     process_dynamic_map,
 )
+import sys
+
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
+sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+sys.path.append('/home/zs/code/sim')
+sys.path.append('/mnt/d/code/sim')
+sys.path.append('/home/ke/keguo/sim')
+sys.path.append('/home/guoke/sim')
 
 
 # Official raw extraction creates, e.g.:
