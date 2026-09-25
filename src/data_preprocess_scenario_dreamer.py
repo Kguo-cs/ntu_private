@@ -33,13 +33,6 @@ import torch
 from tqdm import tqdm
 from functools import partial
 import multiprocessing
-from data_preprocess import decode_dynamic_map_states_from_proto,decode_tracks_from_proto,decode_map_features_from_proto,process_dynamic_map,get_map_features
-
-from scenario_dreamer_filter import (
-    get_agent_features,
-    get_get_agent_features,
-    decode_tracks_from_proto,
-)
 import sys
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
@@ -49,6 +42,14 @@ sys.path.append('/home/zs/code/sim')
 sys.path.append('/mnt/d/code/sim')
 sys.path.append('/home/ke/keguo/sim')
 sys.path.append('/home/guoke/sim')
+
+from data_preprocess import decode_dynamic_map_states_from_proto,decode_tracks_from_proto,decode_map_features_from_proto,process_dynamic_map,get_map_features
+
+from scenario_dreamer_filter import (
+    get_agent_features,
+    get_get_agent_features,
+    decode_tracks_from_proto,
+)
 
 def _parse_frame(value):
     if value in (None, "random"):
