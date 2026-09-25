@@ -327,7 +327,7 @@ class SMART_GAIL(SMART):
             interaction_loss = _weighted_bce_with_logits(
                 logits=interaction_logits,
                 target=target,
-                weight=interaction_weight*2,#/5
+                weight=interaction_weight*10,#/5
             )
             combined_logits.append(interaction_logits.reshape(-1))
             self._log_train(
