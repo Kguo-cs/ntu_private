@@ -175,17 +175,18 @@ class SMART(LightningModule):
             self.n_rollout_closed_val = int(_cfg(model_config, "submission_rollouts", 32))
 
         self.video_dir = self._video_dir()
-        self.sd_evaluator = None
-        self.sd_metric_settings = {
-            "official_repo": _cfg(model_config, "sd_repo", '/home/ke/code/scenario-dreamer'),
-            "cache_root": _cfg(model_config, "sd_gt_cache_root", '/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
-            "eval_set": _cfg(model_config, "sd_eval_set", '/home/ke/code/scenario-dreamer/metadata/waymo_eval_set.pkl'),
-            "expected_scenes": int(_cfg(model_config, "sd_expected_scenes", 50_000)),
-            "gen_timestep": int(_cfg(model_config, "sd_gen_timestep", 5)),
-            "prediction_frame": _cfg(model_config, "sd_prediction_frame", "world"),
-            "require_generation_timestep": bool(_cfg(model_config, "sd_require_generation_timestep", False)),
-            "export_dir": _cfg(model_config, "sd_export_dir", None),
-        }
+        if self.scenario_dreamer_eval:
+            self.sd_evaluator = None
+            self.sd_metric_settings = {
+                "official_repo": _cfg(model_config, "sd_repo", '/home/ke/code/scenario-dreamer'),
+                "cache_root": _cfg(model_config, "sd_gt_cache_root", '/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
+                "eval_set": _cfg(model_config, "sd_eval_set", '/home/ke/code/scenario-dreamer/metadata/waymo_eval_set.pkl'),
+                "expected_scenes": int(_cfg(model_config, "sd_expected_scenes", 50_000)),
+                "gen_timestep": int(_cfg(model_config, "sd_gen_timestep", 5)),
+                "prediction_frame": _cfg(model_config, "sd_prediction_frame", "world"),
+                "require_generation_timestep": bool(_cfg(model_config, "sd_require_generation_timestep", False)),
+                "export_dir": _cfg(model_config, "sd_export_dir", None),
+            }
 
        # self.wosac_submission.save_sub_file()
 
@@ -220,20 +221,8 @@ class SMART(LightningModule):
         return trainer is None or bool(trainer.is_global_zero)
 
     def on_validation_epoch_start(self) -> None:
-        if not self.val_closed_loop or not self.scenario_gen or self.wosac_submission.is_active:
+        if not self.val_closed_loop or not self.scenario_dreamer_eval or self.wosac_submission.is_active:
             return
-        trainer = getattr(self, "_trainer", None)
-        if trainer is not None and getattr(trainer, "sanity_checking", False):
-            return
-        # A rank-zero-only evaluator cannot see all samples under a distributed
-        # validation sampler. Fail explicitly rather than report partial 50k metrics.
-        if trainer is not None and getattr(trainer, "world_size", 1) != 1:
-            raise RuntimeError("Use one device for strict Scenario Dreamer 50k validation.")
-        for key in ("official_repo", "cache_root", "eval_set"):
-            if not self.sd_metric_settings[key]:
-                raise ValueError(f"Missing Scenario Dreamer setting: {key}")
-        if self.compute_mmd:
-            raise ValueError("Set compute_mmd=False: TrafficGen MMD is not a Scenario Dreamer agent metric.")
         if self.sd_evaluator is None:
             self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
         else:
