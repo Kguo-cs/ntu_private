@@ -327,7 +327,7 @@ class SMART_GAIL(SMART):
             interaction_loss = _weighted_bce_with_logits(
                 logits=interaction_logits,
                 target=target,
-                weight=interaction_weight*4,#/5
+                weight=interaction_weight,#/5
             )
             combined_logits.append(interaction_logits.reshape(-1))
             self._log_train(
@@ -357,6 +357,7 @@ class SMART_GAIL(SMART):
         self._log_train("train/global_return_mean", self.global_return_meanstd.mean)
         self._log_train("train/global_return_var", self.global_return_meanstd.var)
 
+        ego_rewards=0.2*scene_reward+0.8*interaction_reward
         ego_reward_grid = _reshape_valid_rewards(ego_rewards, mask_t, "ego_rewards")
 
 
