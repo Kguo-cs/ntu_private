@@ -284,7 +284,7 @@ def rebuild(
 
     resolved: dict[int, dict] = {}
     for (split, tfrecord_name), group in tqdm(
-        sorted(grouped.items()), desc="TFRecord files"
+        sorted(grouped.items())[64:], desc="TFRecord files"
     ):
         source_path = waymo_root / split / tfrecord_name
         if not source_path.exists():

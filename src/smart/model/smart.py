@@ -252,24 +252,22 @@ class SMART(LightningModule):
         out = self._rollouts(tokenized_map, agent,data)
 
         if self.scenario_dreamer_init:
-            if not self.wosac_submission.is_active:
-                if self.sd_evaluator is None:
-                    raise RuntimeError("Scenario Dreamer evaluator was not initialized at epoch start.")
-                self.sd_evaluator.update(data, agent, out)
-                # SD initial-scene metrics are not WOSAC trajectory metrics.
-                # Keep SIM_AGENTS and submission paths below unchanged.
-                return
-        else:
-            if not self.scenario_gen:
-                self.minADE.update(
-                    pred=out["traj"],
-                    target=data["agent"]["position"][
-                        :, self.num_historical_steps :, : out["traj"].shape[-1]
-                    ],
-                    target_valid=data["agent"]["valid_mask"][
-                        :, self.num_historical_steps :
-                    ],
-                )
+            self.sd_evaluator.update(data, agent, out)
+            # SD initial-scene metrics are not WOSAC trajectory metrics.
+            # Keep SIM_AGENTS and submission paths below unchanged.
+            return
+
+
+        if not self.scenario_gen:
+            self.minADE.update(
+                pred=out["traj"],
+                target=data["agent"]["position"][
+                    :, self.num_historical_steps :, : out["traj"].shape[-1]
+                ],
+                target_valid=data["agent"]["valid_mask"][
+                    :, self.num_historical_steps :
+                ],
+            )
 
         if self.wosac_submission.is_active:
             scenarios = self._submission_update(data, out, batch_idx)
@@ -282,12 +280,8 @@ class SMART(LightningModule):
     @torch.no_grad()
     def _rollouts(self, tokenized_map, agent,data) -> dict[str, Any]:
         if getattr(self.encoder, "sep_map", False):
-            if "map_save1" in data.keys():
-                tokenized_map1= self.token_processor.tokenize_map1(data)
-            else:
-                tokenized_map1 = tokenized_map
             agent["initial_map_feature"] = self.encoder.init_map_encoder(
-                tokenized_map1, tokenized_agent=agent
+                tokenized_map, tokenized_agent=agent
             )
         map_feature = self.encoder.map_encoder(tokenized_map)
         agent["map_feature"] = map_feature

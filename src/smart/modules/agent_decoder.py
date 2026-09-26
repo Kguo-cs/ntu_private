@@ -238,10 +238,6 @@ class SMARTAgentDecoder(nn.Module):
         max_step,
     ):
         """Append ``max_step`` autoregressive token states."""
-        gt_pos = tokenized_agent["sampled_pos"]
-        gt_head = tokenized_agent["sampled_heading"]
-        gt_valid = tokenized_agent["valid_mask"]
-        gt_idx = tokenized_agent["sampled_idx"]
 
         current_step =int(current_step)
 
@@ -266,6 +262,10 @@ class SMARTAgentDecoder(nn.Module):
             )
             token_mask = valid_mask.clone()
         else:
+            gt_pos = tokenized_agent["sampled_pos"]
+            gt_head = tokenized_agent["sampled_heading"]
+            gt_valid = tokenized_agent["valid_mask"]
+            gt_idx = tokenized_agent["sampled_idx"]
 
             pos_a = gt_pos[:, :current_step]
             head_a = gt_head[:, :current_step]
@@ -281,6 +281,9 @@ class SMARTAgentDecoder(nn.Module):
             num_steps = max(total_steps - current_step, 0)
         else:
             num_steps = max(gt_valid.shape[1] - current_step, 0)
+
+        if self.token_processor.scenario_dreamer_init:
+            num_steps=0
 
         # Agents valid at the rollout boundary remain active for the rollout.
         active_mask = valid_mask[:, -1].clone()

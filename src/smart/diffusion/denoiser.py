@@ -102,8 +102,9 @@ class InitDenoiser(nn.Module):
         # Ego-context embedding. The input is:
         #   local ego poses relative to the generated agent + per-scene type count.
         # For the current tokenization, ego pose part is 9 and type-count part is 3.
-        self.ego_dim = 9
-        self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
+        if not self.token_processor.scenario_dreamer_init:
+            self.ego_dim = 9
+            self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
 
         self.edge_encoder = EdgeEncoder(
             hidden_dim=hidden_dim,
@@ -340,13 +341,6 @@ class InitDenoiser(nn.Module):
         theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
         pos_s = m_delta[:, :2]
 
-        ego_embedding = self._ego_context_embedding(
-            pos_s=pos_s,
-            theta=theta,
-            batch=batch,
-            tokenized_agent=tokenized_agent,
-        )
-
         if self.label_drop_prob > 0:
             if self.training and mode == 1:
                 drop = torch.rand(agent_type.shape[0], device=agent_type.device) < self.label_drop_prob
@@ -369,7 +363,15 @@ class InitDenoiser(nn.Module):
             agent_type_embed=agent_type_embed,
         )
 
-        feat_a = feat_a + ego_embedding
+        if not self.token_processor.scenario_dreamer_init:
+            ego_embedding = self._ego_context_embedding(
+                pos_s=pos_s,
+                theta=theta,
+                batch=batch,
+                tokenized_agent=tokenized_agent,
+            )
+
+            feat_a = feat_a + ego_embedding
 
         return feat_a, pos_s, theta
 

@@ -109,23 +109,7 @@ class TokenProcessor(torch.nn.Module):
     def forward(
         self, data: HeteroData
     ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-      #  if self.training:
         tokenized_map, tokenized_agent = self.process_data(data)
-        # else:
-        #
-        #     tokenized_map = self.tokenize_map(data)
-        #     tokenized_agent = self.tokenize_agent(data)
-        #     if self.pred_init:
-        #         self.get_init(tokenized_agent)
-        # if "sampled_pos" in tokenized_agent:
-        #     prev_pos, prev_heading = infer_prev_pose(
-        #         tokenized_agent["sampled_pos"][:, :1],
-        #         tokenized_agent["sampled_heading"][:, :1],
-        #         tokenized_agent["sampled_idx"][:, :1],
-        #         tokenized_agent["token_traj_all"],
-        #     )
-        #
-        #     tokenized_agent["sampled_pos"]=torch.cat([prev_pos+1e-2*torch.randn_like(prev_pos), tokenized_agent["sampled_pos"]], 1)#
 
         if "type" in tokenized_agent:
             tokenized_agent["type"] = tokenized_agent["type"].long()
@@ -162,7 +146,30 @@ class TokenProcessor(torch.nn.Module):
             raise ValueError(f"Expected {ndim - 1}D or {ndim}D, got {value.shape}")
         return value
 
-    def get_init(self, agent: Dict[str, Tensor]) -> None:
+    def get_init(self, agent: Dict[str, Tensor],data) -> None:
+
+        if self.scenario_dreamer_init:
+            raw = data["agent"]
+            batch=raw["batch"]
+            scene_timestep=data["scene_timestep"][batch]
+
+            agent["initial_pos"] = raw["position"][torch.arange(len(scene_timestep)),scene_timestep, :2]
+            agent["initial_heading"] = raw["heading"][torch.arange(len(scene_timestep)),scene_timestep]
+
+            velocity=raw["velocity"][torch.arange(len(scene_timestep)),scene_timestep]
+
+            agent["local_vel"] = rotate_to_local(velocity, agent["initial_heading"])
+            agent["shape"]=raw["shape"]
+            agent["batch"]=raw["batch"]
+            agent["type"]=raw["type"].long()
+            shapes, all_tokens, final_tokens = self._get_agent_tokens(agent["type"])
+            agent["token_traj"]=final_tokens
+            agent["token_traj_all"]=all_tokens
+            if not self.training:
+                agent["gt_z_raw"] = raw["position"][:, 10, 2]
+
+            return
+
         if "ego_mask" not in agent:
             agent["ego_mask"] = self._make_ego_mask(agent["batch"])
 
@@ -199,7 +206,6 @@ class TokenProcessor(torch.nn.Module):
 
         row = torch.arange(len(velocity_idx), device=velocity_idx.device)
         selected_token = agent["token_traj_all"][row, velocity_idx]
-        # agent["local_vel"] = selected[:, -1].mean(-2) / 0.5
         token_end_contour = selected_token[:, -1]
 
         token_dt = self.shift * 0.1
@@ -259,31 +265,6 @@ class TokenProcessor(torch.nn.Module):
                 persistent=False,
             )
 
-    def tokenize_map1(self, data: HeteroData) -> Dict[str, Tensor]:
-        pos = data["map_save1"]["traj_pos"]
-        heading = data["map_save1"]["traj_theta"]
-        local_pos, _ = transform_to_local(
-            pos_global=pos,
-            head_global=None,
-            pos_now=pos[:, 0],
-            head_now=heading,
-        )
-        distance = (
-            self.map_token_sample_pt - local_pos.unsqueeze(1)
-        ).square().sum((-2, -1))
-
-        result = {
-            "position": pos[:, 0].contiguous(),
-            "orientation": heading,
-            "token_idx": distance.argmin(-1),
-            "traj_pos_local": local_pos[:, 1:],
-            "type": data["pt_token1"]["type"],
-        }
-        for key in ("batch", "light_type"):
-            if key in data["pt_token1"]:
-                result[key] = data["pt_token1"][key]
-        return result
-
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
         pos = data["map_save"]["traj_pos"]
         heading = data["map_save"]["traj_theta"]
@@ -312,9 +293,7 @@ class TokenProcessor(torch.nn.Module):
     def tokenize_agent(
         self,
         data: HeteroData,
-        tokenized_map: Optional[Dict[str, Tensor]] = None,
     ) -> Dict[str, Tensor]:
-        del tokenized_map
         raw = data["agent"]
         agent_type = raw["type"].long()
         agent_shape, all_tokens, final_tokens = self._get_agent_tokens(agent_type)
@@ -419,99 +398,6 @@ class TokenProcessor(torch.nn.Module):
 
         return {key: torch.stack(value, 1) for key, value in output.items()}
 
-    def _match_agent_token_reverse(
-        self,
-        valid: Tensor,
-        pos: Tensor,
-        heading: Tensor,
-        agent_shape: Tensor,
-        token_traj: Tensor,
-        shift: int = 5,
-        error_dist: float = 0.3,
-    ) -> Dict[str, Tensor]:
-        num_agents, num_steps = valid.shape
-        if not self.training:
-            num_steps = min(num_steps, 11)
-
-        last_step = num_steps - 1
-        row = torch.arange(num_agents, device=valid.device)
-        current_pos = pos[:, last_step].clone()
-        current_heading = heading[:, last_step].clone()
-        sampled_pos = [current_pos]
-        sampled_heading = [current_heading]
-        sampled_idx, valid_mask, token_mask = [], [], []
-
-        for step in range(last_step - shift, -1, -shift):
-            next_step = step + shift
-            segment_valid = valid[:, step] & valid[:, next_step]
-            current_contour = cal_polygon_contour(
-                current_pos, current_heading, agent_shape
-            ).unsqueeze(1)
-            world_tokens = transform_to_global(
-                pos_local=token_traj.flatten(1, 2),
-                head_local=None,
-                pos_now=pos[:, step],
-                head_now=heading[:, step],
-            )[0].reshape_as(token_traj)
-
-            distance = torch.linalg.vector_norm(
-                world_tokens - current_contour, dim=-1
-            ).sum(-1)
-            min_distance, token_idx = distance.min(-1)
-            matched = segment_valid & (min_distance < error_dist)
-
-            local_token = token_traj[row, token_idx]
-            local_pos = local_token.mean(1)
-            direction = local_token[:, 0] - local_token[:, 3]
-            local_heading = torch.atan2(direction[:, 1], direction[:, 0])
-            recovered_heading = wrap_angle(current_heading - local_heading)
-
-            cos_h, sin_h = recovered_heading.cos(), recovered_heading.sin()
-            global_delta = torch.stack(
-                [
-                    cos_h * local_pos[:, 0] - sin_h * local_pos[:, 1],
-                    sin_h * local_pos[:, 0] + cos_h * local_pos[:, 1],
-                ],
-                -1,
-            )
-            recovered_pos = current_pos - global_delta
-
-            current_pos = pos[:, step].clone()
-            current_heading = heading[:, step].clone()
-            current_pos[matched] = recovered_pos[matched]
-            current_heading[matched] = recovered_heading[matched]
-
-            frame_valid = valid[:, step]
-            sampled_idx.append(token_idx)
-            valid_mask.append(frame_valid)
-            token_mask.append(matched)
-            sampled_pos.append(current_pos.masked_fill(~frame_valid[:, None], 0))
-            sampled_heading.append(current_heading.masked_fill(~frame_valid, 0))
-
-        result = {
-            "sampled_pos": torch.stack(sampled_pos, 1).flip(1),
-            "sampled_heading": torch.stack(sampled_heading, 1).flip(1),
-        }
-        if sampled_idx:
-            result.update(
-                {
-                    "sampled_idx": torch.stack(sampled_idx, 1).flip(1),
-                    "valid_mask": torch.stack(valid_mask, 1).flip(1),
-                    "token_mask": torch.stack(token_mask, 1).flip(1),
-                }
-            )
-        else:
-            result.update(
-                {
-                    "sampled_idx": torch.empty(
-                        num_agents, 0, device=valid.device, dtype=torch.long
-                    ),
-                    "valid_mask": valid.new_empty((num_agents, 0)),
-                    "token_mask": valid.new_empty((num_agents, 0)),
-                }
-            )
-        return result
-
     @staticmethod
     def _clean_heading(valid: Tensor, heading: Tensor) -> Tensor:
         valid_pair = valid[:, :-1] & valid[:, 1:]
@@ -522,25 +408,6 @@ class TokenProcessor(torch.nn.Module):
             replace = valid_pair[:, step] & (difference > 1.5)
             heading[replace, step + 1] = heading[replace, step]
         return heading
-
-    def _extrapolate_agent_to_first_step(
-        self,
-        valid: Tensor,
-        pos: Tensor,
-        heading: Tensor,
-        vel: Tensor,
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        has_valid = valid.any(1)
-        first_valid = valid.long().argmax(1).tolist()
-        for agent, first_step in enumerate(first_valid):
-            if not has_valid[agent] or first_step == 0:
-                continue
-            valid[agent, :first_step] = True
-            heading[agent, :first_step] = heading[agent, first_step]
-            vel[agent, :first_step] = vel[agent, first_step]
-            for step in range(first_step - 1, -1, -1):
-                pos[agent, step] = pos[agent, step + 1] - vel[agent, first_step] * 0.1
-        return valid, pos, heading, vel
 
     def _extrapolate_to_token_boundary(
         self,
@@ -574,9 +441,6 @@ class TokenProcessor(torch.nn.Module):
                 pos[agent, step] = pos[agent, step + 1] - vel[agent, first_step] * 0.1
         return valid, pos, heading, vel
 
-    # Backward-compatible name.
-    _extrapolate_agent_to_prev_token_step = _extrapolate_to_token_boundary
-
     def _get_agent_tokens(
         self, agent_type: Tensor
     ) -> Tuple[Tensor, Tensor, Tensor]:
@@ -596,9 +460,6 @@ class TokenProcessor(torch.nn.Module):
         self.token_traj_all = all_tokens.flatten(2)
         return shapes, all_tokens, all_tokens[:, :, -1].contiguous()
 
-    # Backward-compatible name.
-    _get_agent_shape_and_token_traj = _get_agent_tokens
-
     def process_data(
         self, data: HeteroData
     ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -606,16 +467,19 @@ class TokenProcessor(torch.nn.Module):
         cached_agent = data["tokenized_agent"]
 
         if len(cached_agent) == 0:
-            agent = self.tokenize_agent(data)
+            if self.scenario_dreamer_init:
+                agent={}
+            else:
+                agent = self.tokenize_agent(data)
             if self.pred_init:
-                self.get_init(agent)
+                self.get_init(agent,data)
 
         elif "initial_pos" in cached_agent:
             agent = self._load_cached_initial_agent(cached_agent)
         else:
             agent = self._load_cached_token_agent(cached_agent)
             if self.pred_init:
-                self.get_init(agent)
+                self.get_init(agent,data)
 
         agent.setdefault("num_graphs", data.num_graphs)
         self._attach_token_libraries(agent)
@@ -625,21 +489,9 @@ class TokenProcessor(torch.nn.Module):
         cached = data["tokenized_map"]
         if len(cached) == 0:
             return self.tokenize_map(data)
-
         result = {}
-        if "token_idx" in cached:
-            result["token_idx"] = cached["token_idx"]
-        else:
-            distance = (
-                self.map_token_sample_pt[:, :, 1:]
-                - cached["traj_pos_local"].unsqueeze(1)
-            ).square().sum((-2, -1))
-            result["token_idx"] = distance.argmin(-1)
-            result["traj_pos_local"] = cached["traj_pos_local"]
-
-        for key in ("position", "orientation", "batch", "type", "light_type"):
-            if key in cached:
-                result[key] = cached[key]
+        for key in ("position", "orientation", "batch", "type", "light_type","token_idx"):
+            result[key] = cached[key]
         return result
 
     def _load_cached_initial_agent(
@@ -647,34 +499,16 @@ class TokenProcessor(torch.nn.Module):
     ) -> Dict[str, Tensor]:
         result = {
             key: cached[key]
-            for key in ("initial_heading", "initial_pos", "initial_shape", "batch", "type")
+            for key in ("initial_heading", "initial_pos", "batch", "type")
         }
-        result["type"] = result["type"].long()
-        result["shape"] = result["initial_shape"]
+        result["type"] = cached["type"].long()
+        result["shape"] = cached["initial_shape"]
+        result["local_vel"] = cached["local_vel"]
+        ego_mask = self._make_ego_mask(result["batch"])
+        for key in ("ego_pos2", "ego_heading2"):
+            value = cached[key]
+            result[key] = value[ego_mask] if len(value) == len(ego_mask) else value
 
-        if "initial_vel" in cached:
-            result["initial_vel"] = cached["initial_vel"]
-        else:
-            result["local_vel"] = cached["local_vel"]
-            ego_mask = self._make_ego_mask(result["batch"])
-            for key in ("ego_pos2", "ego_heading2"):
-                value = cached[key]
-                result[key] = value[ego_mask] if len(value) == len(ego_mask) else value
-
-        if "sampled_pos" not in cached:
-            return result
-
-        result["token_mask"] = (
-            self._as_time_tensor(cached["token_mask"], 2)
-            if "token_mask" in cached
-            else torch.ones_like(result["sampled_idx"], dtype=torch.bool)
-        )
-
-        shapes, all_tokens, final_tokens = self._get_agent_tokens(result["type"])
-        result["token_agent_shape"] = shapes
-        result["token_traj_all"] = all_tokens
-        result["token_traj"] = final_tokens
-        self.get_init(result)
         return result
 
     def _load_cached_token_agent(

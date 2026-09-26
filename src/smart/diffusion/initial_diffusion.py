@@ -103,7 +103,7 @@ class InitDiffusion(nn.Module):
         scene_pos, scene_heading, batch, num_graphs = (
             self._scene_ego_pose(agent)
         )
-        if "ego_feat" not in agent:
+        if "ego_feat" not in agent and "ego_pos2" in agent:
             local_pos, local_heading = transform_to_local(
                 self._require(agent, "ego_pos2"),
                 self._require(agent, "ego_heading2"),
