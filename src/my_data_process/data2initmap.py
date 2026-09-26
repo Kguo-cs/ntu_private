@@ -78,7 +78,8 @@ def process_file(filename):
 
 
 # if __name__ == "__main__":
-files = os.listdir(agent_data_directory)
+files = os.listdir(agent_data_directory)[192058:]
 
 for file in tqdm(files):
+    print(file)
     process_file(file)
