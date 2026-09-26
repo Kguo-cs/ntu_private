@@ -29,8 +29,8 @@ trainer:
 data:
   train_batch_size: 80
   val_batch_size: 64
-  #train_raw_dir: ${paths.cache_root}/training_map2_init5v #init0_light #init0_light  #init10_inter
-  #train_raw_dir: ${paths.cache_root}/training_mapall_init5v #init0_light #init0_light  #init10_inter
+ # train_raw_dir: ${paths.cache_root}/training_map2_init5v #init0_light #init0_light  #init10_inter
+  train_raw_dir: ${paths.cache_root}/training_map2_sd #init0_light #init0_light  #init10_inter
   val_raw_dir: ${paths.cache_root}/scenario_dreamer_val #44097
 
   # num_workers: 1
