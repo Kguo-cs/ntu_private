@@ -239,7 +239,7 @@ if __name__ == "__main__":
     parser.add_argument("--input_dir", default='./waymo_data/waymo110', help="Directory containing training/validation/testing")
     parser.add_argument("--output_dir", default='./waymo_data/full/training_sd')
     parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
-    parser.add_argument("--num_workers", type=int, default=16)
+    parser.add_argument("--num_workers", type=int, default=12)
     parser.add_argument("--seed", type=int, default=10)
     parser.add_argument("--scene_timestep", default="random", help="random, current, or raw-frame integer")
     parser.add_argument("--frame_manifest", help="JSONL with explicit scenario_id / scene_timestep entries")
