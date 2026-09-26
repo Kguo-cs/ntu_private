@@ -60,6 +60,10 @@ class TokenProcessor(torch.nn.Module):
         self.use_gradient_penalty = False
         self.use_refiner=True
         self.use_noise=True
+        self.scenario_dreamer_init=True
+
+        if self.scenario_dreamer_init:
+            self.use_refiner=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))

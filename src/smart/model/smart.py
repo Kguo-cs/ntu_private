@@ -144,7 +144,7 @@ class SMART(LightningModule):
 
         scenario_gen = bool(self.token_processor.pred_init)
 
-        self.scenario_dreamer_eval=False
+        self.scenario_dreamer_init=self.token_processor.scenario_dreamer_init
 
         self.scenario_gen=scenario_gen
         self.challenge_type = (
@@ -152,7 +152,7 @@ class SMART(LightningModule):
         )
         self.n_rollout_closed_val = 2 if scenario_gen else 8
 
-        if self.scenario_dreamer_eval:
+        if self.scenario_dreamer_init:
             self.n_rollout_closed_val=1
 
         self.metric_chunk_size = int(
@@ -175,12 +175,12 @@ class SMART(LightningModule):
             self.n_rollout_closed_val = int(_cfg(model_config, "submission_rollouts", 32))
 
         self.video_dir = self._video_dir()
-        if self.scenario_dreamer_eval:
+        if self.scenario_dreamer_init:
             self.sd_evaluator = None
             self.sd_metric_settings = {
-                "official_repo": _cfg(model_config, "sd_repo", '/home/ke/code/scenario-dreamer'),
-                "cache_root": _cfg(model_config, "sd_gt_cache_root", '/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
-                "eval_set": _cfg(model_config, "sd_eval_set", '/home/ke/code/scenario-dreamer/metadata/waymo_eval_set.pkl'),
+                "official_repo": _cfg(model_config, "sd_repo", '../../scenario-dreamer'),
+                "cache_root": _cfg(model_config, "sd_gt_cache_root", './waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
+                "eval_set": _cfg(model_config, "sd_eval_set", './waymo_data/waymo_eval_set.pkl'),
                 "expected_scenes": int(_cfg(model_config, "sd_expected_scenes", 50_000)),
                 "gen_timestep": int(_cfg(model_config, "sd_gen_timestep", 5)),
                 "prediction_frame": _cfg(model_config, "sd_prediction_frame", "world"),
@@ -221,7 +221,7 @@ class SMART(LightningModule):
         return trainer is None or bool(trainer.is_global_zero)
 
     def on_validation_epoch_start(self) -> None:
-        if not self.val_closed_loop or not self.scenario_dreamer_eval or self.wosac_submission.is_active:
+        if not self.val_closed_loop or not self.scenario_dreamer_init or self.wosac_submission.is_active:
             return
         if self.sd_evaluator is None:
             self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
@@ -251,7 +251,7 @@ class SMART(LightningModule):
     def _validate_closed_loop(self, data, tokenized_map, agent, batch_idx: int) -> None:
         out = self._rollouts(tokenized_map, agent,data)
 
-        if self.scenario_dreamer_eval:
+        if self.scenario_dreamer_init:
             if not self.wosac_submission.is_active:
                 if self.sd_evaluator is None:
                     raise RuntimeError("Scenario Dreamer evaluator was not initialized at epoch start.")
@@ -423,7 +423,7 @@ class SMART(LightningModule):
         if not self._global_zero:
             return
 
-        if self.scenario_dreamer_eval:
+        if self.scenario_dreamer_init:
             if self.sd_evaluator is None:
                 raise RuntimeError("No Scenario Dreamer evaluator exists.")
             metrics = self.sd_evaluator.compute()

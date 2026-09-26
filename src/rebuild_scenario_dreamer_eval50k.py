@@ -373,7 +373,7 @@ def main() -> None:
                         help="Expected eval-set size; use 0 to disable")
     parser.add_argument("--manifest-only", action="store_true",
                         help="Only decode cache filenames; do not read Waymo TFRecords")
-    parser.add_argument("--save-scene-info", action="store_true",default=False,
+    parser.add_argument("--save-scene-info", action="store_true",default=True,
                         help="Also save exact Scenario Dreamer local features/map graph in each .pt")
     args = parser.parse_args()
 
