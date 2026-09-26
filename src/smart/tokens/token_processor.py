@@ -499,11 +499,10 @@ class TokenProcessor(torch.nn.Module):
     ) -> Dict[str, Tensor]:
         result = {
             key: cached[key]
-            for key in ("initial_heading", "initial_pos", "batch", "type")
+            for key in ("initial_heading", "initial_pos", "batch","local_vel")
         }
         result["type"] = cached["type"].long()
         result["shape"] = cached["initial_shape"]
-        result["local_vel"] = cached["local_vel"]
         ego_mask = self._make_ego_mask(result["batch"])
         for key in ("ego_pos2", "ego_heading2"):
             value = cached[key]

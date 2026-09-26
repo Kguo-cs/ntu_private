@@ -29,14 +29,14 @@ token_processor = TokenProcessor(
     map_token_file="map_traj_token5.pkl",
     agent_token_file="agent_vocab_555_s2.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
-    agent_token_sampling={"num_k": 1, "temp": 1.0}
+    agent_token_sampling={"num_k": 1, "temp": 1.0},
+    pred_init=True
 ).cuda()
 token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./waymo_data/full/training_sd"
-map_data_directory  = "./waymo_data/full/training_map2_init5"
+agent_data_directory = "./waymo_data/full/training_sd/training"
 ouput_data_directory = "./waymo_data/full/training_map2_sd"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
@@ -49,28 +49,27 @@ def process_file(filename):
     data= HeteroData(data).cuda()
 
     data.num_graphs=1
-    data["agent"]["batch"]=torch.zeros_like(data["agent"]["type"])
+    data["agent"]["batch"]=torch.zeros_like(data["agent"]["type"]).long()
+    data["scene_timestep"]=torch.IntTensor([data["scene_timestep"]]).cuda()
 
-    tokenized_agent = token_processor.tokenize_agent(data)
+    tokenized_map, tokenized_agent = token_processor.process_data(data)
 
-    tokenized_agent["sampled_idx"]=tokenized_agent["sampled_idx"].long()
+    for key in tokenized_map.keys():
+        tokenized_map[key] = tokenized_map[key].cpu()
 
-    shapes, all_tokens, final_tokens = token_processor._get_agent_tokens(tokenized_agent["type"])
-    tokenized_agent["token_agent_shape"] = shapes
-    tokenized_agent["token_traj_all"] = all_tokens
-    tokenized_agent["token_traj"] = final_tokens
+    tokenized_map["num_nodes"]=len(tokenized_map["position"])
 
-    token_processor.get_init(tokenized_agent)
+    tokenized_agent1={}
 
-    map_path = os.path.join(map_data_directory, filename)
+    for key in ["initial_heading", "initial_pos","local_vel","shape","type"]:
+        tokenized_agent1[key] = tokenized_agent[key].cpu()
 
-    data2=torch.load(map_path)
+    tokenized_agent1["num_nodes"]=len(data["agent"]["type"])
 
 
-    for key in data2["tokenized_agent"].keys():
-        if key != "num_nodes":
-           # print(torch.all(data2["tokenized_agent"][key]==tokenized_agent[key].cpu()),key)
-            data2["tokenized_agent"][key]=tokenized_agent[key].cpu()
+    data2={}
+    data2["tokenized_agent"]=tokenized_agent1
+    data2["tokenized_map"]=tokenized_map
 
     output_path = os.path.join(ouput_data_directory, filename)
 
