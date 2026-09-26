@@ -502,11 +502,15 @@ class TokenProcessor(torch.nn.Module):
             for key in ("initial_heading", "initial_pos", "batch","local_vel")
         }
         result["type"] = cached["type"].long()
-        result["shape"] = cached["initial_shape"]
-        ego_mask = self._make_ego_mask(result["batch"])
-        for key in ("ego_pos2", "ego_heading2"):
-            value = cached[key]
-            result[key] = value[ego_mask] if len(value) == len(ego_mask) else value
+        if "initial_shape" in cached:
+            result["shape"] = cached["initial_shape"]
+        else:
+            result["shape"] = cached["shape"]
+        if "ego_mask" in cached:
+            ego_mask = self._make_ego_mask(result["batch"])
+            for key in ("ego_pos2", "ego_heading2"):
+                value = cached[key]
+                result[key] = value[ego_mask] if len(value) == len(ego_mask) else value
 
         return result
 

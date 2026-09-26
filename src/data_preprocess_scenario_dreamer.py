@@ -192,7 +192,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
     record_dir = root / "validation_tfrecords_splitted" if split == "validation" else None
     if record_dir is not None:
         record_dir.mkdir(parents=True, exist_ok=True)
-    packages = sorted(p for p in input_dir.iterdir() if p.is_file() and "tfrecord" in p.name)
+    packages = sorted(p for p in input_dir.iterdir() if p.is_file() and "tfrecord" in p.name)[470:475]
     if not packages:
         raise FileNotFoundError(f"No TFRecord files under {input_dir}")
     replay = load_frame_manifest(frame_manifest)
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--input_dir", default='./waymo_data/waymo110', help="Directory containing training/validation/testing")
     parser.add_argument("--output_dir", default='./waymo_data/full/training_sd')
-    parser.add_argument("--split", default="validation", choices=["training", "validation", "testing"])
+    parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
     parser.add_argument("--num_workers", type=int, default=3)
     parser.add_argument("--seed", type=int, default=10)
     parser.add_argument("--scene_timestep", default="random", help="random, current, or raw-frame integer")
