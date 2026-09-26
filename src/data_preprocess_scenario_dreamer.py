@@ -192,7 +192,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
     record_dir = root / "validation_tfrecords_splitted" if split == "validation" else None
     if record_dir is not None:
         record_dir.mkdir(parents=True, exist_ok=True)
-    packages = sorted(p for p in input_dir.iterdir() if p.is_file() and "tfrecord" in p.name)
+    packages = sorted(p for p in input_dir.iterdir() if p.is_file() and "tfrecord" in p.name)[474:]
     if not packages:
         raise FileNotFoundError(f"No TFRecord files under {input_dir}")
     replay = load_frame_manifest(frame_manifest)
@@ -202,16 +202,31 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
     # Do not overwrite the very manifest being replayed.
     if frame_manifest is not None and Path(frame_manifest).resolve() == log_path.resolve():
         log_path = target / "sample_manifest_replayed.jsonl"
-    with log_path.open("w", encoding="utf-8") as writer:
-        for path in tqdm(packages):
-            found, count = wm2argo(
-                str(path), split, target, record_dir, rng=generator,
-                scene_timestep=scene_timestep, frame_manifest=replay,
-                save_scene_info=save_scene_info, manifest_writer=writer,
-                written_names=written,
-            )
-            seen.update(found)
-            total += count
+    # with log_path.open("w", encoding="utf-8") as writer:
+    #     for path in tqdm(packages):
+    #         found, count = wm2argo(
+    #             str(path), split, target, record_dir, rng=generator,
+    #             scene_timestep=scene_timestep, frame_manifest=replay,
+    #             save_scene_info=save_scene_info, manifest_writer=writer,
+    #             written_names=written,
+    #         )
+    #         seen.update(found)
+    #         total += count
+    # print(len(packages))
+    # for file_path in tqdm(packages):
+    #     wm2argo(file_path, split, target, None)
+
+    func = partial(
+        wm2argo,
+        split=split,
+        output_dir=target,
+        output_dir_tfrecords_splitted=None,
+    )
+
+    with multiprocessing.Pool(num_workers) as p:
+        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+
+
     if replay is not None:
         missing = set(replay) - seen
         if missing:
@@ -224,7 +239,7 @@ if __name__ == "__main__":
     parser.add_argument("--input_dir", default='./waymo_data/waymo110', help="Directory containing training/validation/testing")
     parser.add_argument("--output_dir", default='./waymo_data/full/training_sd')
     parser.add_argument("--split", default="training", choices=["training", "validation", "testing"])
-    parser.add_argument("--num_workers", type=int, default=16)
+    parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=10)
     parser.add_argument("--scene_timestep", default="random", help="random, current, or raw-frame integer")
     parser.add_argument("--frame_manifest", help="JSONL with explicit scenario_id / scene_timestep entries")
