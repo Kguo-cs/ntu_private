@@ -164,14 +164,14 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted,
             torch.save(data, output_dir / name)
             count += 1
             wrote_scenario = True
-            if manifest_writer is not None:
-                record = {
-                    "scenario_id": sid, "scene_timestep": t, "lg_type": lg_type,
-                    "sample_name": name, "source_tfrecord": Path(file_path).name,
-                    "selected_track_ids": agents["id"].tolist(),
-                }
-                manifest_writer.write(json.dumps(record) + "\n")
-                manifest_writer.flush()
+            # if manifest_writer is not None:
+            #     record = {
+            #         "scenario_id": sid, "scene_timestep": t, "lg_type": lg_type,
+            #         "sample_name": name, "source_tfrecord": Path(file_path).name,
+            #         "selected_track_ids": agents["id"].tolist(),
+            #     }
+            #     manifest_writer.write(json.dumps(record) + "\n")
+            #     manifest_writer.flush()
         if wrote_scenario and output_dir_tfrecords_splitted is not None:
             out_record = Path(output_dir_tfrecords_splitted) / f"{sid}.tfrecords"
             with tf.io.TFRecordWriter(str(out_record)) as writer:
@@ -198,10 +198,10 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers=1,
     replay = load_frame_manifest(frame_manifest)
     generator = random.Random(seed)
     written, seen, total = set(), set(), 0
-    log_path = target / "sample_manifest.jsonl"
+    log_path = root / "sample_manifest.jsonl"
     # Do not overwrite the very manifest being replayed.
     if frame_manifest is not None and Path(frame_manifest).resolve() == log_path.resolve():
-        log_path = target / "sample_manifest_replayed.jsonl"
+        log_path = root / "sample_manifest_replayed.jsonl"
     # with log_path.open("w", encoding="utf-8") as writer:
     #     for path in tqdm(packages):
     #         found, count = wm2argo(
