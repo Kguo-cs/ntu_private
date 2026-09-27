@@ -60,7 +60,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_gradient_penalty = False
         self.use_refiner=True
         self.use_noise=True
-        self.scenario_dreamer_init=False
+        self.scenario_dreamer_init=True
 
         if self.scenario_dreamer_init:
             self.use_refiner=False
@@ -152,6 +152,7 @@ class TokenProcessor(torch.nn.Module):
             raw = data["agent"]
             batch=raw["batch"]
             scene_timestep=data["scene_timestep"][batch]
+            agent["valid_mask"] =raw["valid_mask"]
 
             agent["initial_pos"] = raw["position"][torch.arange(len(scene_timestep)),scene_timestep, :2]
             agent["initial_heading"] = raw["heading"][torch.arange(len(scene_timestep)),scene_timestep]

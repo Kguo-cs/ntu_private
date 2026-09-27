@@ -243,6 +243,7 @@ class SMARTAgentDecoder(nn.Module):
 
         pred_traj_10hz, pred_head_10hz = [], []
         initial_local_vel = None
+        gt_valid = tokenized_agent["valid_mask"]
 
         if self.token_processor.pred_init :
             pos_a, head_a, sampled_idx, shape, initial_local_vel = (
@@ -264,7 +265,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             gt_pos = tokenized_agent["sampled_pos"]
             gt_head = tokenized_agent["sampled_heading"]
-            gt_valid = tokenized_agent["valid_mask"]
             gt_idx = tokenized_agent["sampled_idx"]
 
             pos_a = gt_pos[:, :current_step]
