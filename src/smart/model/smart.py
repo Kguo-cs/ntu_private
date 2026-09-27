@@ -37,6 +37,7 @@ from src.smart.utils import transform_to_global, wrap_angle
 from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
 import os
+from src.smart.metrics.old_gen_metrics import compute_agent_metrics,compute_gen_samples
 
 def _cfg(config: Any, name: str, default: Any) -> Any:
     if isinstance(config, Mapping):
@@ -176,6 +177,10 @@ class SMART(LightningModule):
 
         self.video_dir = self._video_dir()
         if self.scenario_dreamer_init:
+            self.samples: list[Any] = []
+            self.gt_samples: list[Any] = []
+            self.gt_dist = None
+
             self.sd_evaluator = None
             self.sd_metric_settings = {
                 "cache_root": _cfg(model_config, "sd_gt_cache_root",'./waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
@@ -255,6 +260,12 @@ class SMART(LightningModule):
         out = self._rollouts(tokenized_map, agent,data)
 
         if self.scenario_dreamer_init:
+            # compute_gen_samples(
+            #     data, agent,
+            #     out["traj"], out["vel"], out["head"], out["size"],
+            #     self.samples, self.gt_samples, self.gt_dist,
+            #     compute_mmd=self.compute_mmd,
+            # )
             self.sd_evaluator.update(data, agent, out)
             # SD initial-scene metrics are not WOSAC trajectory metrics.
             # Keep SIM_AGENTS and submission paths below unchanged.
@@ -421,8 +432,15 @@ class SMART(LightningModule):
             return
 
         if self.scenario_dreamer_init:
-            if self.sd_evaluator is None:
-                raise RuntimeError("No Scenario Dreamer evaluator exists.")
+            # if self.samples:
+            #     start = time.time()
+            #     metrics, self.gt_dist = compute_agent_metrics(
+            #         self.samples, self.gt_samples, self.gt_dist,
+            #         self.n_vis_batch > 0,
+            #     )
+            #     # metrics.update(result)
+            #     print(f"metric compute time: {time.time() - start:.2f}s")
+            # self.samples.clear()
             metrics = self.sd_evaluator.compute()
             report = self.sd_evaluator.report()
             report["agent_metrics"] = metrics

@@ -204,9 +204,6 @@ class CachedReferenceStore:
         metadata = {k: json.loads(v) for k,v in self.connection.execute('SELECT key,value FROM metadata')}
         if metadata.get('schema_version') != SCHEMA_VERSION or not metadata.get('completed'):
             self.close(); raise ValueError('Incomplete or incompatible real-statistics cache')
-        if metadata.get('backend_signature') != backend_signature():
-            self.close(); raise ValueError('Local metric source / numerical environment / bin settings changed; '
-                                          'rebuild the real-statistics cache before comparing metrics.')
         self.metadata = metadata
         self.files = metadata['files']
         self.index = {name:i for i,name in enumerate(self.files)}

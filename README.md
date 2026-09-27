@@ -1,5 +1,5 @@
 
-rsync -avz /home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test ke@10.87.114.128:~/keguo/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/ 
+rsync -avz /home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #scenario_dreamer_ae_preprocess_waymo/ 
 
 rsync -avz -e "ssh -p 32884" ./waymo_data/waymo_eval_set.pkl guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/  #full/
 
