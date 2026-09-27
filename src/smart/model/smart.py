@@ -178,14 +178,17 @@ class SMART(LightningModule):
         if self.scenario_dreamer_init:
             self.sd_evaluator = None
             self.sd_metric_settings = {
-                "official_repo": _cfg(model_config, "sd_repo", '../../scenario-dreamer'),
-                "cache_root": _cfg(model_config, "sd_gt_cache_root", './waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
+                "cache_root": _cfg(model_config, "sd_gt_cache_root",'./waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
                 "eval_set": _cfg(model_config, "sd_eval_set", './waymo_data/waymo_eval_set.pkl'),
                 "expected_scenes": int(_cfg(model_config, "sd_expected_scenes", 50_000)),
                 "gen_timestep": int(_cfg(model_config, "sd_gen_timestep", 5)),
                 "prediction_frame": _cfg(model_config, "sd_prediction_frame", "world"),
-                "require_generation_timestep": bool(_cfg(model_config, "sd_require_generation_timestep", False)),
+                "require_generation_timestep": bool(_cfg(model_config, "sd_require_generation_timestep", True)),
                 "export_dir": _cfg(model_config, "sd_export_dir", None),
+                "real_cache": _cfg(model_config, "sd_real_cache", './waymo_data/sd_real_metric_cache.sqlite'),
+                "auto_precompute": bool(_cfg(model_config, "sd_auto_precompute", False)),
+                "require_full_set": bool(_cfg(model_config, "sd_require_full_set", True)),
+                "reference_mode": _cfg(model_config, "sd_reference_mode", "matched"),
             }
 
        # self.wosac_submission.save_sub_file()
