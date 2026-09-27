@@ -60,7 +60,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_gradient_penalty = False
         self.use_refiner=True
         self.use_noise=True
-        self.scenario_dreamer_init=True
+        self.scenario_dreamer_init=False
 
         if self.scenario_dreamer_init:
             self.use_refiner=False
