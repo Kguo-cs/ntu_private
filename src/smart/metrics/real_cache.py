@@ -245,6 +245,10 @@ class CachedReferenceStore:
         if row is None or hashlib.sha256(row[0]).hexdigest() != row[1]:
             raise ValueError(f'Missing or corrupt prepared scene: {name}')
         entry = pickle.loads(zlib.decompress(row[0]))
+
+        with open('/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test/'+filename, "rb") as handle:
+            data = pickle.load(handle)
+
         if self.lru_size:
             self.cache[name] = entry
             if len(self.cache) > self.lru_size:

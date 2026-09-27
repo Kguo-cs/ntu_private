@@ -183,7 +183,7 @@ class SMART(LightningModule):
 
             self.sd_evaluator = None
             self.sd_metric_settings = {
-                "cache_root": _cfg(model_config, "sd_gt_cache_root",'./waymo_data/scenario_dreamer_ae_preprocess_waymo/test'),
+                "cache_root": _cfg(model_config, "sd_gt_cache_root",None),#'./waymo_data/scenario_dreamer_ae_preprocess_waymo/test'
                 "eval_set": _cfg(model_config, "sd_eval_set", './waymo_data/waymo_eval_set.pkl'),
                 "expected_scenes": int(_cfg(model_config, "sd_expected_scenes", 50_000)),
                 "gen_timestep": int(_cfg(model_config, "sd_gen_timestep", 5)),

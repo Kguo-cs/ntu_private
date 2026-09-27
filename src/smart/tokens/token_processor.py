@@ -154,6 +154,8 @@ class TokenProcessor(torch.nn.Module):
             scene_timestep=data["scene_timestep"][batch]
             agent["valid_mask"] =raw["valid_mask"]
 
+
+
             agent["initial_pos"] = raw["position"][torch.arange(len(scene_timestep)),scene_timestep, :2]
             agent["initial_heading"] = raw["heading"][torch.arange(len(scene_timestep)),scene_timestep]
 
@@ -168,6 +170,8 @@ class TokenProcessor(torch.nn.Module):
             agent["token_traj_all"]=all_tokens
             if not self.training:
                 agent["gt_z_raw"] = raw["position"][:, 10, 2]
+                #sd_center_world=data["sd_center_world"]
+                #sd_rotation_angle=data["sd_rotation_angle"]
 
             return
 
