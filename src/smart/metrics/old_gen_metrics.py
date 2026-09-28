@@ -23,6 +23,333 @@ REAL_VEL = slice(7, 9)
 REAL_HEADING = 9
 MODEL_EGO_INDEX = -1  # This codebase stores the ego as the last local agent.
 
+def plot_scene(
+    lanes,
+    vehicles_gen,
+    vehicles_real=None,
+    title="Scene",
+    onroad_tol=1.5,
+    show=True,
+    save_path=None,
+    axis_limit=None,
+):
+    """
+    Plot Scenario Dreamer metric scene.
+
+    Args:
+        lanes:
+            [L, P, 2] lane centerlines, normally 100-point metric lanes.
+
+        vehicles_gen:
+            [N, >=7]
+            [x, y, speed, cos(h), sin(h), length, width, ...]
+
+        vehicles_real:
+            optional [M, >=7], plotted for comparison.
+
+        onroad_tol:
+            Same threshold as Scenario Dreamer metric, default 1.5 m.
+
+        axis_limit:
+            None or float.
+            If float, use [-axis_limit, axis_limit] for x/y.
+
+        save_path:
+            optional figure output path.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon
+
+    lanes = np.asarray(lanes)
+    vehicles_gen = np.asarray(vehicles_gen)
+
+    if lanes.ndim != 3 or lanes.shape[-1] != 2:
+        raise ValueError(
+            f"lanes must be [L,P,2], got {lanes.shape}"
+        )
+
+    if vehicles_gen.ndim != 2 or vehicles_gen.shape[1] < 7:
+        raise ValueError(
+            "vehicles_gen must be [N,>=7] with "
+            "[x,y,speed,cos_h,sin_h,length,width]"
+        )
+
+    if vehicles_real is not None:
+        vehicles_real = np.asarray(vehicles_real)
+        if vehicles_real.ndim != 2 or vehicles_real.shape[1] < 7:
+            raise ValueError(
+                "vehicles_real must be [N,>=7]"
+            )
+
+    fig, ax = plt.subplots(figsize=(9, 9))
+
+    # ================================================================
+    # Lane centerlines
+    # ================================================================
+    for lane in lanes:
+        lane = np.asarray(lane)
+
+        valid = np.isfinite(lane).all(axis=-1)
+        lane = lane[valid]
+
+        if len(lane) == 0:
+            continue
+
+        ax.plot(
+            lane[:, 0],
+            lane[:, 1],
+            linewidth=1.0,
+            alpha=0.65,
+            zorder=1,
+        )
+
+        # 显示 Scenario Dreamer 实际用于 metric 的离散 lane points
+        ax.scatter(
+            lane[:, 0],
+            lane[:, 1],
+            s=4,
+            alpha=0.25,
+            zorder=1,
+        )
+
+    lane_points = lanes.reshape(-1, 2)
+    lane_points = lane_points[
+        np.isfinite(lane_points).all(axis=1)
+    ]
+
+    # ================================================================
+    # Helper: vehicle rectangle
+    # ================================================================
+    def vehicle_polygon(vehicle):
+        x = float(vehicle[0])
+        y = float(vehicle[1])
+
+        cos_h = float(vehicle[3])
+        sin_h = float(vehicle[4])
+
+        length = float(vehicle[5])
+        width = float(vehicle[6])
+
+        heading = np.arctan2(sin_h, cos_h)
+
+        # vehicle forward / lateral directions
+        forward = np.array(
+            [np.cos(heading), np.sin(heading)]
+        )
+        lateral = np.array(
+            [-np.sin(heading), np.cos(heading)]
+        )
+
+        center = np.array([x, y])
+
+        half_l = max(length, 0.05) / 2.0
+        half_w = max(width, 0.05) / 2.0
+
+        corners = np.stack(
+            [
+                center + half_l * forward + half_w * lateral,
+                center + half_l * forward - half_w * lateral,
+                center - half_l * forward - half_w * lateral,
+                center - half_l * forward + half_w * lateral,
+            ],
+            axis=0,
+        )
+
+        return corners, heading
+
+    def lane_distance(vehicle):
+        if len(lane_points) == 0:
+            return np.inf
+
+        xy = vehicle[:2]
+
+        return float(
+            np.linalg.norm(
+                lane_points - xy[None],
+                axis=-1,
+            ).min()
+        )
+
+    # ================================================================
+    # Optional real vehicles
+    # ================================================================
+    if vehicles_real is not None:
+        for vehicle in vehicles_real:
+            corners, heading = vehicle_polygon(vehicle)
+
+            patch = Polygon(
+                corners,
+                closed=True,
+                fill=False,
+                linewidth=1.2,
+                linestyle="--",
+                alpha=0.6,
+                zorder=3,
+            )
+            ax.add_patch(patch)
+
+            ax.scatter(
+                vehicle[0],
+                vehicle[1],
+                marker="x",
+                s=25,
+                zorder=4,
+            )
+
+    # ================================================================
+    # Generated vehicles
+    # ================================================================
+    num_onroad = 0
+    distances = []
+
+    for idx, vehicle in enumerate(vehicles_gen):
+        dist = lane_distance(vehicle)
+        distances.append(dist)
+
+        is_onroad = dist <= onroad_tol
+
+        if is_onroad:
+            num_onroad += 1
+
+        corners, heading = vehicle_polygon(vehicle)
+
+        # on-road: solid
+        # off-road: dashed + thicker
+        patch = Polygon(
+            corners,
+            closed=True,
+            fill=False,
+            linewidth=1.5 if is_onroad else 2.2,
+            linestyle="-" if is_onroad else "--",
+            zorder=5,
+        )
+        ax.add_patch(patch)
+
+        x, y = vehicle[:2]
+
+        ax.scatter(
+            x,
+            y,
+            s=18,
+            zorder=6,
+        )
+
+        # heading arrow
+        arrow_len = max(float(vehicle[5]) * 0.6, 1.0)
+
+        ax.arrow(
+            x,
+            y,
+            np.cos(heading) * arrow_len,
+            np.sin(heading) * arrow_len,
+            width=0.025,
+            head_width=0.25,
+            head_length=0.35,
+            length_includes_head=True,
+            alpha=0.8,
+            zorder=6,
+        )
+
+        # agent id + lateral distance
+        ax.text(
+            x,
+            y,
+            f"{idx}\n{dist:.2f}",
+            fontsize=7,
+            ha="center",
+            va="bottom",
+            zorder=7,
+        )
+
+    # ================================================================
+    # Statistics
+    # ================================================================
+    distances = np.asarray(distances)
+
+    if len(distances):
+        mean_dist = distances.mean()
+        max_dist = distances.max()
+        onroad_rate = num_onroad / len(distances)
+    else:
+        mean_dist = np.nan
+        max_dist = np.nan
+        onroad_rate = np.nan
+
+    ax.set_title(
+        f"{title}\n"
+        f"N={len(vehicles_gen)}, "
+        f"on-road={num_onroad}/{len(vehicles_gen)} "
+        f"({onroad_rate:.1%}), "
+        f"mean lane dist={mean_dist:.2f} m, "
+        f"max={max_dist:.2f} m"
+    )
+
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("y [m]")
+
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, alpha=0.25)
+
+    if axis_limit is not None:
+        ax.set_xlim(-axis_limit, axis_limit)
+        ax.set_ylim(-axis_limit, axis_limit)
+
+    else:
+        # fit lanes + generated agents automatically
+        xy_all = []
+
+        if len(lane_points):
+            xy_all.append(lane_points)
+
+        if len(vehicles_gen):
+            xy_all.append(vehicles_gen[:, :2])
+
+        if vehicles_real is not None and len(vehicles_real):
+            xy_all.append(vehicles_real[:, :2])
+
+        if xy_all:
+            xy_all = np.concatenate(xy_all, axis=0)
+
+            finite = np.isfinite(xy_all).all(axis=1)
+            xy_all = xy_all[finite]
+
+            if len(xy_all):
+                xmin, ymin = xy_all.min(axis=0)
+                xmax, ymax = xy_all.max(axis=0)
+
+                margin = max(
+                    3.0,
+                    0.05 * max(
+                        xmax - xmin,
+                        ymax - ymin,
+                    ),
+                )
+
+                ax.set_xlim(xmin - margin, xmax + margin)
+                ax.set_ylim(ymin - margin, ymax + margin)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        fig.savefig(
+            save_path,
+            dpi=180,
+            bbox_inches="tight",
+        )
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return {
+        "lane_distances": distances,
+        "onroad_mask": distances <= onroad_tol,
+        "onroad_rate": onroad_rate,
+        "mean_lane_distance": mean_dist,
+        "max_lane_distance": max_dist,
+    }
 
 def resample_polyline(points: np.ndarray, num_points: int = 20) -> np.ndarray:
     """Resample a polyline at uniformly spaced arc-length positions."""
@@ -156,6 +483,11 @@ def compute_gen_samples(
     init_timestep = 5
     batch = tokenized_agent["batch"]
     agent_type = tokenized_agent["type"]
+    #initial_pos=tokenized_agent["initial_pos"]
+    #initial_heading=tokenized_agent["initial_heading"]
+
+    #pred_traj[:,0,-1]=initial_pos
+   # pred_head[:,0,-1]=initial_heading
 
     if store is not None:
         center_value = data["sd_center_world"][batch].to(torch.float32)
@@ -170,6 +502,7 @@ def compute_gen_samples(
 
         pred_traj=pred_traj[:,None]
         pred_head=pred_head[:,None]
+
 
     generated_state = _build_generated_state(
         pred_traj=pred_traj,
@@ -579,13 +912,13 @@ def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
             width_gen_all.append(get_widths(vehicles_gen))
             speed_gen_all.append(get_speeds(vehicles_gen))
 
-            if vis:
-                plot_scene(
-                    lanes_real,
-                    vehicles_real,
-                    vehicles_gen,
-                    title=f"Frame_{i}, Sample_{j}"
-                )
+            #if vis:
+            # plot_scene(
+            #     lanes_real,
+            #     vehicles_gen,
+            #     title=f"Frame_{i}, Sample_{j}"
+            # )
+    # vehicles_real,
 
     nearest_dist_gen_all = np.concatenate(nearest_dist_gen_all, axis=0)
     lat_dev_gen_all = np.concatenate(lat_dev_gen_all, axis=0)

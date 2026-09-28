@@ -5,7 +5,7 @@ rsync -avz -e "ssh -p 32884" ./waymo_data/sd_real_metric_cache.sqlite guoke@sprl
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_sd ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/all32_res002std01_std01_r10_shape/2026-09-17_15-29-52/bc/kd4w1o4w/checkpoints/all32_res002std01_std01_r10_shape-epoch=4-step=228282-valmeta=0.6518.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_l1_v1_matchraw_nocol/2026-09-27_19-27-14/bc/qaxyqp6m/checkpoints/last.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all32_res002std01_std01_shape/2026-09-16_15-09-45/bc/dqjo1hqp/checkpoints/all32_res002std01_std01_shape-epoch=3-step=159798-valmeta=0.6526.ckpt ./
 
