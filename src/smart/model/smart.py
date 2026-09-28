@@ -480,7 +480,7 @@ class SMART(LightningModule):
             )
             #     # metrics.update(result)
             #     print(f"metric compute time: {time.time() - start:.2f}s")
-            # self.samples.clear()
+            self.samples.clear()
             # metrics = self.sd_evaluator.compute()
             # report = self.sd_evaluator.report()
             # report["agent_metrics"] = metrics

@@ -165,7 +165,7 @@ def compute_gen_samples(
             pred_traj[:,0],
             pred_head[:,0],
             center_value,
-            angle_value
+            -angle_value
         )
 
         pred_traj=pred_traj[:,None]
