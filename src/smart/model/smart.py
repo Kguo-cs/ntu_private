@@ -235,10 +235,10 @@ class SMART(LightningModule):
     def on_validation_epoch_start(self) -> None:
         if not self.val_closed_loop or not self.scenario_dreamer_init or self.wosac_submission.is_active:
             return
-        # if self.sd_evaluator is None:
-        #     self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
-        # else:
-        #     self.sd_evaluator.reset()
+        if self.sd_evaluator is None:
+            self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
+        else:
+            self.sd_evaluator.reset()
 
 
     def validation_step(self, data, batch_idx):
@@ -265,15 +265,15 @@ class SMART(LightningModule):
         out = self._rollouts(tokenized_map, agent,data)
 
         if self.scenario_dreamer_init:
-           # self.sd_evaluator.update(data, agent, out)
+            self.sd_evaluator.update(data, agent, out)
 
-            compute_gen_samples(
-                data, agent,
-                out["traj"], out["vel"], out["head"], out["size"],
-                self.samples, self.gt_samples, self.gt_dist,
-                self.compute_mmd,
-                self.store
-            )
+            # compute_gen_samples(
+            #     data, agent,
+            #     out["traj"], out["vel"], out["head"], out["size"],
+            #     self.samples, self.gt_samples, self.gt_dist,
+            #     self.compute_mmd,
+            #     self.store
+            # )
             # SD initial-scene metrics are not WOSAC trajectory metrics.
             # Keep SIM_AGENTS and submission paths below unchanged.
             return
@@ -472,16 +472,16 @@ class SMART(LightningModule):
 
                 return tuple(gt_dist)
 
-            self.gt_dist = get_gt_dist_from_store(self.store)
-
-            metrics, self.gt_dist = compute_agent_metrics(
-                self.samples, self.gt_samples, self.gt_dist,
-                self.n_vis_batch > 0,
-            )
-            #     # metrics.update(result)
-            #     print(f"metric compute time: {time.time() - start:.2f}s")
-            self.samples.clear()
-            # metrics = self.sd_evaluator.compute()
+            # self.gt_dist = get_gt_dist_from_store(self.store)
+            #
+            # metrics, self.gt_dist = compute_agent_metrics(
+            #     self.samples, self.gt_samples, self.gt_dist,
+            #     self.n_vis_batch > 0,
+            # )
+            # #     # metrics.update(result)
+            # #     print(f"metric compute time: {time.time() - start:.2f}s")
+            # self.samples.clear()
+            metrics = self.sd_evaluator.compute()
             # report = self.sd_evaluator.report()
             # report["agent_metrics"] = metrics
             # with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as f:
