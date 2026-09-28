@@ -147,14 +147,14 @@ class TokenProcessor(torch.nn.Module):
         return value
 
     def get_init(self, agent: Dict[str, Tensor],data) -> None:
+        if "ego_mask" not in agent:
+            agent["ego_mask"] = self._make_ego_mask(data["agent"]["batch"])
 
         if self.scenario_dreamer_init:
             raw = data["agent"]
             batch=raw["batch"]
             scene_timestep=data["scene_timestep"][batch]
             agent["valid_mask"] =raw["valid_mask"]
-
-
 
             agent["initial_pos"] = raw["position"][torch.arange(len(scene_timestep)),scene_timestep, :2]
             agent["initial_heading"] = raw["heading"][torch.arange(len(scene_timestep)),scene_timestep]
@@ -168,6 +168,11 @@ class TokenProcessor(torch.nn.Module):
             shapes, all_tokens, final_tokens = self._get_agent_tokens(agent["type"])
             agent["token_traj"]=final_tokens
             agent["token_traj_all"]=all_tokens
+
+            agent["ego_pos2"] =agent["initial_pos"][agent["ego_mask"]][:,None].repeat(1,3,1)
+
+            agent["ego_heading2"]=agent["initial_heading"][agent["ego_mask"]][:,None].repeat(1,3)
+
             if not self.training:
                 agent["gt_z_raw"] = raw["position"][:, 10, 2]
                 #sd_center_world=data["sd_center_world"]
@@ -175,8 +180,6 @@ class TokenProcessor(torch.nn.Module):
 
             return
 
-        if "ego_mask" not in agent:
-            agent["ego_mask"] = self._make_ego_mask(agent["batch"])
 
         agent["initial_pos"] = agent["sampled_pos"][:, 0]
         agent["initial_heading"] = agent["sampled_heading"][:, 0]
@@ -511,11 +514,15 @@ class TokenProcessor(torch.nn.Module):
             result["shape"] = cached["initial_shape"]
         else:
             result["shape"] = cached["shape"]
-        if "ego_mask" in cached:
-            ego_mask = self._make_ego_mask(result["batch"])
+        ego_mask = self._make_ego_mask(result["batch"])
+
+        if "ego_pos2" in cached:
             for key in ("ego_pos2", "ego_heading2"):
                 value = cached[key]
                 result[key] = value[ego_mask] if len(value) == len(ego_mask) else value
+        else:
+            result["ego_pos2"] = cached["initial_pos"][ego_mask][:,None].repeat(1, 3,1)
+            result["ego_heading2"] = cached["initial_heading"][ego_mask][:,None].repeat(1, 3)
 
         return result
 
