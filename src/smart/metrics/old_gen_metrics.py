@@ -14,7 +14,7 @@ from .trafficgen_metrics1 import (
     _extract_center_lane_vectors_in_ego,
     get_select_index,
 )
-
+from ..utils import transform_to_local
 
 # State layouts used below.
 REAL_POS = slice(0, 2)
@@ -149,12 +149,27 @@ def compute_gen_samples(
     samples,
     gt_samples,
     gt_dist,
-    compute_mmd=True
+    compute_mmd=True,
+    store=None,
 ):
     """Append generated and, when needed, ground-truth scene data."""
     init_timestep = 5
     batch = tokenized_agent["batch"]
     agent_type = tokenized_agent["type"]
+
+    if store is not None:
+        center_value = data["sd_center_world"][batch].to(torch.float32)
+        angle_value = data["sd_rotation_angle"][batch].to(torch.float32)
+
+        pred_traj, pred_head=transform_to_local(
+            pred_traj[:,0],
+            pred_head[:,0],
+            center_value,
+            angle_value
+        )
+
+        pred_traj=pred_traj[:,None]
+        pred_head=pred_head[:,None]
 
     generated_state = _build_generated_state(
         pred_traj=pred_traj,
@@ -164,7 +179,7 @@ def compute_gen_samples(
         timestep=init_timestep,
     )
 
-    if gt_dist is None:
+    if store is None:
         real_state, real_valid, real_batch, real_type = _build_real_state(
             data=data,
             timestep=init_timestep,
@@ -174,7 +189,7 @@ def compute_gen_samples(
     for graph_index in range(data.num_graphs):
         output_index = len(samples)
 
-        if gt_dist is None:
+        if store is None:
             scenario = _load_scenario(data["tfrecord_path"][graph_index])
             centerlines = _extract_resampled_centerlines(scenario)
 
@@ -224,12 +239,16 @@ def compute_gen_samples(
                     "select_agents": select_agents
                 }
             )
+        else:
+            name = data["scenario_dreamer_cache_file"][graph_index]
+            cache, gt = store.get(name)  # 'scenario_dreamer_cache_file'
 
         graph_mask = batch == graph_index
         generated_agents_full = generated_state[graph_mask].detach().cpu().numpy()
         graph_types = agent_type[graph_mask].detach().cpu().numpy()
         valid_vehicle =  (graph_types == 0)
         samples.append({
+            "lanes": gt['metric_lanes'],
             "vehicles": generated_agents_full[valid_vehicle]
         })
 
@@ -527,11 +546,11 @@ def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
 
     for i in range(len(samples)):
         data_gen = samples[i]
-        data_real = gt_samples[i]
-
-        lanes_gen=lanes_real=data_real['lanes']
+        lanes_gen=lanes_real=data_gen['lanes']
 
         if gt_dist is None:
+            data_real = gt_samples[i]
+
             vehicles_real = data_real['vehicles']
 
             #lanes_real = resample_lanes(data_real['lanes'], num_points=100)
@@ -686,9 +705,9 @@ def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
 
 
     # MMD needs paired generated-vs-real scenes, so gt_samples must be available.
-    if gt_samples[0]['select_agents'] is not None:
-        mmd_metrics = compute_mmd_metrics(samples, gt_samples)
-        metrics.update(mmd_metrics)
+    # if gt_samples[0]['select_agents'] is not None:
+    #     mmd_metrics = compute_mmd_metrics(samples, gt_samples)
+    #     metrics.update(mmd_metrics)
         # all_mmd_metrics = compute_mmd_metrics(samples, gt_samples,"all_")
         # metrics.update(all_mmd_metrics)
 

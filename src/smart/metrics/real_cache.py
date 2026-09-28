@@ -246,8 +246,8 @@ class CachedReferenceStore:
             raise ValueError(f'Missing or corrupt prepared scene: {name}')
         entry = pickle.loads(zlib.decompress(row[0]))
 
-        with open('/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test/'+filename, "rb") as handle:
-            data = pickle.load(handle)
+        # with open('/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test/'+filename, "rb") as handle:
+        #     data = pickle.load(handle)
 
         if self.lru_size:
             self.cache[name] = entry

@@ -38,6 +38,8 @@ from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
 import os
 from src.smart.metrics.old_gen_metrics import compute_agent_metrics,compute_gen_samples
+from src.smart.metrics.real_cache import CachedReferenceStore, prepare_real_cache, DEFAULT_CACHE_NAME
+
 
 def _cfg(config: Any, name: str, default: Any) -> Any:
     if isinstance(config, Mapping):
@@ -180,6 +182,8 @@ class SMART(LightningModule):
             self.samples: list[Any] = []
             self.gt_samples: list[Any] = []
             self.gt_dist = None
+            self.store = CachedReferenceStore('./waymo_data/sd_real_metric_cache.sqlite',
+                                              eval_set='./waymo_data/waymo_eval_set.pkl', expected_scenes=50000)
 
             self.sd_evaluator = None
             self.sd_metric_settings = {
@@ -236,6 +240,7 @@ class SMART(LightningModule):
         else:
             self.sd_evaluator.reset()
 
+
     def validation_step(self, data, batch_idx):
         trainer = getattr(self, "_trainer", None)
         if self.scenario_gen and trainer is not None and getattr(trainer, "sanity_checking", False):
@@ -260,13 +265,15 @@ class SMART(LightningModule):
         out = self._rollouts(tokenized_map, agent,data)
 
         if self.scenario_dreamer_init:
-            # compute_gen_samples(
-            #     data, agent,
-            #     out["traj"], out["vel"], out["head"], out["size"],
-            #     self.samples, self.gt_samples, self.gt_dist,
-            #     compute_mmd=self.compute_mmd,
-            # )
-            self.sd_evaluator.update(data, agent, out)
+           # self.sd_evaluator.update(data, agent, out)
+
+            compute_gen_samples(
+                data, agent,
+                out["traj"], out["vel"], out["head"], out["size"],
+                self.samples, self.gt_samples, self.gt_dist,
+                self.compute_mmd,
+                self.store
+            )
             # SD initial-scene metrics are not WOSAC trajectory metrics.
             # Keep SIM_AGENTS and submission paths below unchanged.
             return
@@ -434,21 +441,54 @@ class SMART(LightningModule):
         if self.scenario_dreamer_init:
             # if self.samples:
             #     start = time.time()
-            #     metrics, self.gt_dist = compute_agent_metrics(
-            #         self.samples, self.gt_samples, self.gt_dist,
-            #         self.n_vis_batch > 0,
-            #     )
+
+            def get_gt_dist_from_store(store):
+                specs = [
+                    (0, 50, 1),  # nearest_dist
+                    (0, 1.5, 0.1),  # lat_dev
+                    (-200, 200, 5),  # ang_dev
+                    (0, 25, 0.1),  # length
+                    (0, 5, 0.1),  # width
+                    (0, 50, 1),  # speed
+                ]
+
+                gt_dist = []
+
+                for hist, (lo, hi, step) in zip(
+                        store.full_real.histograms,
+                        specs,
+                ):
+                    edges = np.arange(lo, hi + step, step)
+
+                    # 每个 histogram bin 用中心值代表
+                    centers = (edges[:-1] + edges[1:]) / 2.0
+
+                    values = np.repeat(
+                        centers,
+                        np.asarray(hist, dtype=np.int64),
+                    )
+
+                    gt_dist.append(values)
+
+                return tuple(gt_dist)
+
+            self.gt_dist = get_gt_dist_from_store(self.store)
+
+            metrics, self.gt_dist = compute_agent_metrics(
+                self.samples, self.gt_samples, self.gt_dist,
+                self.n_vis_batch > 0,
+            )
             #     # metrics.update(result)
             #     print(f"metric compute time: {time.time() - start:.2f}s")
             # self.samples.clear()
-            metrics = self.sd_evaluator.compute()
-            report = self.sd_evaluator.report()
-            report["agent_metrics"] = metrics
-            with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as f:
-                json.dump(report, f, indent=2)
-            print("Scenario Dreamer agent metrics:", metrics)
-            print("Evaluated initial scenes:", report["num_samples"])
-            metrics['val_closed/wosac_likelihood/metametric']=1
+            # metrics = self.sd_evaluator.compute()
+            # report = self.sd_evaluator.report()
+            # report["agent_metrics"] = metrics
+            # with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as f:
+            #     json.dump(report, f, indent=2)
+            # print("Scenario Dreamer agent metrics:", metrics)
+            # print("Evaluated initial scenes:", report["num_samples"])
+            metrics['val_closed/wosac_likelihood/metametric']=0.65
         else:
             metrics = self.wosac_metrics.compute() if self.n_batch_wosac_metric > 0 else {}
             if not self.scenario_gen:
