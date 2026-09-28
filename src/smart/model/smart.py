@@ -235,10 +235,10 @@ class SMART(LightningModule):
     def on_validation_epoch_start(self) -> None:
         if not self.val_closed_loop or not self.scenario_dreamer_init or self.wosac_submission.is_active:
             return
-        if self.sd_evaluator is None:
-            self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
-        else:
-            self.sd_evaluator.reset()
+        # if self.sd_evaluator is None:
+        #     self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
+        # else:
+        #     self.sd_evaluator.reset()
 
 
     def validation_step(self, data, batch_idx):
