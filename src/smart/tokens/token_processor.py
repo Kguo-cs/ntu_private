@@ -29,7 +29,344 @@ from src.smart.utils import (
     wrap_angle,
     rotate_to_local
 )
+def plot_tokenized_scene(
+    tokenized_map,
+    tokenized_agent,
+    token_processor=None,
+    graph_index=0,
+    title="Tokenized Scenario",
+    axis_limit=None,
+    show_map_tokens=True,
+    show_agent_box=True,
+    show_agent_id=False,
+    save_path=None,
+):
+    """
+    Visualize tokenized_map + tokenized_agent for
+    scenario_dreamer_init=True.
 
+    Coordinate frame:
+        world / Waymo global frame.
+
+    tokenized_agent:
+        initial_pos      [N, 2]
+        initial_heading  [N]
+        shape            [N, 3]   -> length, width, height
+        type             [N]
+        batch            [N]
+
+    tokenized_map:
+        position         [M, 2]
+        orientation      [M]
+        token_idx        [M]
+        batch            [M] (if batched)
+
+    If token_processor is provided, reconstruct the selected
+    map token geometry instead of only plotting map anchors.
+    """
+    import numpy as np
+    import torch
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon
+
+    def to_np(x):
+        if torch.is_tensor(x):
+            return x.detach().cpu().numpy()
+        return np.asarray(x)
+
+    # ==========================================================
+    # Agent data
+    # ==========================================================
+    agent_pos = to_np(tokenized_agent["initial_pos"])
+    agent_heading = to_np(tokenized_agent["initial_heading"]).reshape(-1)
+    agent_shape = to_np(tokenized_agent["shape"])
+    agent_type = to_np(tokenized_agent["type"]).reshape(-1)
+
+    if "batch" in tokenized_agent:
+        agent_batch = to_np(tokenized_agent["batch"]).reshape(-1)
+    else:
+        agent_batch = np.zeros(len(agent_pos), dtype=np.int64)
+
+    agent_mask = agent_batch == graph_index
+
+    agent_pos = agent_pos[agent_mask]
+    agent_heading = agent_heading[agent_mask]
+    agent_shape = agent_shape[agent_mask]
+    agent_type = agent_type[agent_mask]
+
+    # ==========================================================
+    # Map data
+    # ==========================================================
+    map_pos = to_np(tokenized_map["position"])
+    map_heading = to_np(tokenized_map["orientation"]).reshape(-1)
+    map_token_idx = to_np(tokenized_map["token_idx"]).reshape(-1)
+
+    if "batch" in tokenized_map:
+        map_batch = to_np(tokenized_map["batch"]).reshape(-1)
+    else:
+        map_batch = np.zeros(len(map_pos), dtype=np.int64)
+
+    map_mask = map_batch == graph_index
+
+    map_pos = map_pos[map_mask]
+    map_heading = map_heading[map_mask]
+    map_token_idx = map_token_idx[map_mask]
+
+    # ==========================================================
+    # Plot
+    # ==========================================================
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    # ----------------------------------------------------------
+    # Reconstruct selected map-token polylines
+    # ----------------------------------------------------------
+    if (
+        show_map_tokens
+        and token_processor is not None
+        and hasattr(token_processor, "map_token_traj_src")
+    ):
+        token_library = (
+            token_processor.map_token_traj_src
+            .detach()
+            .cpu()
+            .numpy()
+        )
+
+        # map_token_traj_src was flattened in TokenProcessor:
+        # [N_token, P*2]
+        token_library = token_library.reshape(
+            token_library.shape[0],
+            -1,
+            2,
+        )
+
+        selected_local = token_library[
+            map_token_idx.astype(np.int64)
+        ]
+
+        for i in range(len(selected_local)):
+            local = selected_local[i]
+            theta = map_heading[i]
+
+            c = np.cos(theta)
+            s = np.sin(theta)
+
+            # local -> global
+            x = (
+                c * local[:, 0]
+                - s * local[:, 1]
+                + map_pos[i, 0]
+            )
+            y = (
+                s * local[:, 0]
+                + c * local[:, 1]
+                + map_pos[i, 1]
+            )
+
+            ax.plot(
+                x,
+                y,
+                linewidth=1.2,
+                alpha=0.65,
+                zorder=1,
+            )
+
+            # anchor point
+            ax.scatter(
+                map_pos[i, 0],
+                map_pos[i, 1],
+                s=5,
+                alpha=0.4,
+                zorder=2,
+            )
+
+    else:
+        # Only map anchors
+        ax.scatter(
+            map_pos[:, 0],
+            map_pos[:, 1],
+            s=8,
+            alpha=0.5,
+            label="Map token anchor",
+            zorder=1,
+        )
+
+        # orientation arrows
+        arrow_len = 2.0
+
+        ax.quiver(
+            map_pos[:, 0],
+            map_pos[:, 1],
+            np.cos(map_heading),
+            np.sin(map_heading),
+            angles="xy",
+            scale_units="xy",
+            scale=1.0 / arrow_len,
+            width=0.002,
+            alpha=0.4,
+            zorder=2,
+        )
+
+    # ==========================================================
+    # Agent boxes
+    # ==========================================================
+    def rectangle_corners(x, y, heading, length, width):
+        forward = np.array([
+            np.cos(heading),
+            np.sin(heading),
+        ])
+
+        lateral = np.array([
+            -np.sin(heading),
+            np.cos(heading),
+        ])
+
+        center = np.array([x, y])
+
+        return np.stack([
+            center + forward * length / 2 + lateral * width / 2,
+            center + forward * length / 2 - lateral * width / 2,
+            center - forward * length / 2 - lateral * width / 2,
+            center - forward * length / 2 + lateral * width / 2,
+        ])
+
+    for i in range(len(agent_pos)):
+
+        x, y = agent_pos[i]
+        heading = agent_heading[i]
+
+        # IMPORTANT:
+        # scenario_dreamer_filter saves
+        # shape = [length, width, height]
+        length = float(agent_shape[i, 0])
+        width = float(agent_shape[i, 1])
+
+        if show_agent_box:
+            corners = rectangle_corners(
+                x,
+                y,
+                heading,
+                length,
+                width,
+            )
+
+            patch = Polygon(
+                corners,
+                closed=True,
+                fill=False,
+                linewidth=1.6,
+                zorder=5,
+            )
+
+            ax.add_patch(patch)
+
+        # Center
+        ax.scatter(
+            x,
+            y,
+            s=25,
+            zorder=6,
+        )
+
+        # heading
+        arrow_length = max(1.5, length * 0.6)
+
+        ax.arrow(
+            x,
+            y,
+            np.cos(heading) * arrow_length,
+            np.sin(heading) * arrow_length,
+            width=0.025,
+            head_width=0.25,
+            head_length=0.35,
+            length_includes_head=True,
+            zorder=7,
+        )
+
+        if show_agent_id:
+            ax.text(
+                x,
+                y,
+                f"{i}\nt={int(agent_type[i])}",
+                fontsize=7,
+                ha="center",
+                va="bottom",
+                zorder=8,
+            )
+
+    # ==========================================================
+    # Ego
+    #
+    # SMART convention: last agent of each graph is ego.
+    # ==========================================================
+    if len(agent_pos):
+        ego_idx = len(agent_pos) - 1
+
+        ax.scatter(
+            agent_pos[ego_idx, 0],
+            agent_pos[ego_idx, 1],
+            s=100,
+            marker="*",
+            label="Ego",
+            zorder=10,
+        )
+
+    # ==========================================================
+    # Figure formatting
+    # ==========================================================
+    ax.set_title(
+        f"{title}\n"
+        f"graph={graph_index}, "
+        f"agents={len(agent_pos)}, "
+        f"map tokens={len(map_pos)}"
+    )
+
+    ax.set_xlabel("World x [m]")
+    ax.set_ylabel("World y [m]")
+
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, alpha=0.25)
+
+    if axis_limit is not None and len(agent_pos):
+        # Center view on ego
+        center = agent_pos[-1]
+
+        ax.set_xlim(
+            center[0] - axis_limit,
+            center[0] + axis_limit,
+        )
+
+        ax.set_ylim(
+            center[1] - axis_limit,
+            center[1] + axis_limit,
+        )
+
+    elif len(agent_pos):
+        # Automatically crop around all agents
+        xmin = agent_pos[:, 0].min()
+        xmax = agent_pos[:, 0].max()
+
+        ymin = agent_pos[:, 1].min()
+        ymax = agent_pos[:, 1].max()
+
+        margin = 15.0
+
+        ax.set_xlim(xmin - margin, xmax + margin)
+        ax.set_ylim(ymin - margin, ymax + margin)
+
+    ax.legend()
+    plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(
+            save_path,
+            dpi=180,
+            bbox_inches="tight",
+        )
+
+    plt.show()
+
+    return fig, ax
 
 class TokenProcessor(torch.nn.Module):
     AGENT_NAMES = ("veh", "ped", "cyc")
@@ -110,6 +447,16 @@ class TokenProcessor(torch.nn.Module):
         self, data: HeteroData
     ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         tokenized_map, tokenized_agent = self.process_data(data)
+
+        plot_tokenized_scene(
+        tokenized_map = tokenized_map,
+        tokenized_agent = tokenized_agent,
+        token_processor = self,
+        graph_index = 0,
+        title = f" t=1",
+        axis_limit = 60,
+
+         )
 
         if "type" in tokenized_agent:
             tokenized_agent["type"] = tokenized_agent["type"].long()

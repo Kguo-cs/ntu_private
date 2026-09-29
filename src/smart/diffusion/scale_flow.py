@@ -172,14 +172,14 @@ class Flow(nn.Module):
         ].bool()
         noise[ego_mask] = x[ego_mask]
 
-        matched_index = get_closest_sum_idx_fast(
-            noise,
-            x,
-            tokenized_agent,
-            all_state=True,
-        )
+        # matched_index = get_closest_sum_idx_fast(
+        #     noise,
+        #     x,
+        #     tokenized_agent,
+        #     all_state=True,
+        # )
 
-        return noise[matched_index]
+        return noise#[matched_index]
 
         # return self.model.denormalize(
         #     noise[matched_index]

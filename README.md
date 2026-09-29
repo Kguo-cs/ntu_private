@@ -7,7 +7,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_sd ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_l1_v1_matchraw_nocol/2026-09-27_19-27-14/bc/qaxyqp6m/checkpoints/last.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/all32_res002std01_std01_shape/2026-09-16_15-09-45/bc/dqjo1hqp/checkpoints/all32_res002std01_std01_shape-epoch=3-step=159798-valmeta=0.6526.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/xflow512_l1_v1_matchraw_nocol32ego/2026-09-28_15-07-57/bc/t94c306j/checkpoints/last.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo

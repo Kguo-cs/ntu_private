@@ -1,0 +1,38 @@
+{
+  "captured_at": "2026-09-29T14:20:02.139718",
+  "sha256": {
+    "configs/experiment/init_bc.yaml": "bcf2e313d1fa119b942548e726f98c7ebe8fab67e818daa1ad9973699b5185c3",
+    "configs/model/smart.yaml": "a245a8ba6fe82af9efec61c00db18fd641037a794aaf80187bb0e8e9e170f244",
+    "src/data_preprocess_scenario_dreamer.py": "c2b9dde36ac3d7e441dc998fa3d058db63b71c0f50deae11c4241002473734af",
+    "src/scenario_dreamer_filter.py": "44956d3fed7987acef145d79b5140be7a658be1d4a27fbf246c501e24d9f2d2c",
+    "src/smart/tokens/token_processor.py": "be8743e98aa0bbebfe5a7a8002289b3c0223c148f8b350f333f812ba7e5c58d3",
+    "src/smart/diffusion/scale_flow.py": "82c5069ca77509bb63fdf1ede2d041926ae42998ddee67906f2b805e914c2294",
+    "src/smart/diffusion/diffusion_utils.py": "cdbf95a2ee7ea25dbe5a5ed2fe56287b0130e9f4cb42796e5ef4a5b161b81fab",
+    "src/smart/diffusion/denoiser.py": "3768de61f05667798889567809d604b9baddf0790e1688fe2e3a29a90ee73d63",
+    "src/smart/model/smart.py": "816e9706266c2952795f9b422722eec73fce2932d32553fcdee7fa288cbdac4d",
+    "src/smart/model/smart_gail.py": "0375f5ddef46e9ab327301e07fd3e4a33cdc502dd8760e4e7fd36dc9d9de99b1",
+    "src/smart/datasets/scalable_dataset.py": "7e6f86815819dd8acf661a5214186e0805c965f97c2e487f57a773d758a0e6e1",
+    "src/run.py": "d7fcbda57fee2a64b33d8fe944dd315567b2be7095f56a9cff180aa10d8587ca"
+  },
+  "last_checkpoint": {
+    "epoch": 87,
+    "global_step": 84832,
+    "init_decoder_tensor_count": 255,
+    "optimizer_lr": 2.5e-05
+  },
+  "historical_bad_run": {
+    "path": "src/logs/xflow512_l1_v1_matchraw_nocol_20/2026-09-27_18-41-43",
+    "checkpoint": "AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "init_decoder_tensor_count": 0,
+    "tensorboard_steps": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "epoch": 0,
+    "collision_rate": 30.774559837045175
+  },
+  "note": "Source reflects a live working tree. init_bc learning rate changed from 1e-40 to 1e-4 during the audit; audit did not edit it."
+}
