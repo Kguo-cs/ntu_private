@@ -581,7 +581,7 @@ def compute_gen_samples(
         graph_types = agent_type[graph_mask].detach().cpu().numpy()
         valid_vehicle =  (graph_types == 0)
         samples.append({
-            "lanes": gt['metric_lanes'],
+           # "lanes": gt['metric_lanes'],
             "vehicles": generated_agents_full[valid_vehicle]
         })
 
@@ -889,10 +889,10 @@ def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
 
     for i in range(len(samples)):
         data_gen = samples[i]
-        lanes_gen=lanes_real=data_gen['lanes']
 
         if gt_dist is None:
             data_real = gt_samples[i]
+            lanes_gen=lanes_real=data_real['lanes']
 
             vehicles_real = data_real['vehicles']
 

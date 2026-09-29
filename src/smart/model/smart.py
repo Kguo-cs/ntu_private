@@ -178,10 +178,11 @@ class SMART(LightningModule):
             self.n_rollout_closed_val = int(_cfg(model_config, "submission_rollouts", 32))
 
         self.video_dir = self._video_dir()
+        self.samples: list[Any] = []
+        self.gt_samples: list[Any] = []
+        self.gt_dist = None
+
         if self.scenario_dreamer_init:
-            self.samples: list[Any] = []
-            self.gt_samples: list[Any] = []
-            self.gt_dist = None
             self.store = CachedReferenceStore('./waymo_data/sd_real_metric_cache.sqlite',
                                               eval_set='./waymo_data/waymo_eval_set.pkl', expected_scenes=50000)
 
@@ -199,6 +200,8 @@ class SMART(LightningModule):
                 "require_full_set": bool(_cfg(model_config, "sd_require_full_set", True)),
                 "reference_mode": _cfg(model_config, "sd_reference_mode", "matched"),
             }
+        else:
+            self.store = None
 
        # self.wosac_submission.save_sub_file()
 
@@ -264,16 +267,17 @@ class SMART(LightningModule):
     def _validate_closed_loop(self, data, tokenized_map, agent, batch_idx: int) -> None:
         out = self._rollouts(tokenized_map, agent,data)
 
+        compute_gen_samples(
+            data, agent,
+            out["traj"], out["vel"], out["head"], out["size"],
+            self.samples, self.gt_samples, self.gt_dist,
+            self.compute_mmd,
+            self.store
+        )
+
         if self.scenario_dreamer_init:
            # self.sd_evaluator.update(data, agent, out)
 
-            compute_gen_samples(
-                data, agent,
-                out["traj"], out["vel"], out["head"], out["size"],
-                self.samples, self.gt_samples, self.gt_dist,
-                self.compute_mmd,
-                self.store
-            )
             # SD initial-scene metrics are not WOSAC trajectory metrics.
             # Keep SIM_AGENTS and submission paths below unchanged.
             return
@@ -472,7 +476,8 @@ class SMART(LightningModule):
 
                 return tuple(gt_dist)
 
-            self.gt_dist = get_gt_dist_from_store(self.store)
+            if self.store is not None:
+                self.gt_dist = get_gt_dist_from_store(self.store)
 
             metrics, self.gt_dist = compute_agent_metrics(
                 self.samples, self.gt_samples, self.gt_dist,
