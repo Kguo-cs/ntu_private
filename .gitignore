@@ -42,4 +42,4 @@ sd/metadata/simulation_environment_datasets/scenario_dreamer_waymo_55m_jsons/
 sd/metadata/simulation_environment_datasets/scenario_dreamer_waymo_100m_jsons/
 sd/metadata/simulation_environment_datasets/waymo_sim_test_pickles/
 sd/metadata/simulation_environment_datasets/waymo_sim_test_jsons/
-
+diagnostics/

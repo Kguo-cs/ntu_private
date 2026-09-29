@@ -172,14 +172,22 @@ class Flow(nn.Module):
         ].bool()
         noise[ego_mask] = x[ego_mask]
 
-        # matched_index = get_closest_sum_idx_fast(
-        #     noise,
-        #     x,
-        #     tokenized_agent,
-        #     all_state=True,
-        # )
+        # Conditioned ego states must not become another agent's noise source.
+        # Match only the non-ego sources and targets within each scene/type.
+        non_ego = ~ego_mask
+        non_ego_noise = noise[non_ego]
+        matched_index = get_closest_sum_idx_fast(
+            non_ego_noise,
+            x[non_ego],
+            {
+                "batch": tokenized_agent["batch"][non_ego],
+                "type": tokenized_agent["type"][non_ego],
+            },
+            all_state=True,
+        )
+        noise[non_ego] = non_ego_noise[matched_index]
 
-        return noise#[matched_index]
+        return noise
 
         # return self.model.denormalize(
         #     noise[matched_index]
