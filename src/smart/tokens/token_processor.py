@@ -393,7 +393,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_bird = False
         self.use_token = True
         self.use_goal = False
-        self.init_map_range = 100
+        self.init_map_range = 32
         self.use_gradient_penalty = False
         self.use_refiner=True
         self.use_noise=True
@@ -448,16 +448,16 @@ class TokenProcessor(torch.nn.Module):
     ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         tokenized_map, tokenized_agent = self.process_data(data)
 
-        plot_tokenized_scene(
-        tokenized_map = tokenized_map,
-        tokenized_agent = tokenized_agent,
-        token_processor = self,
-        graph_index = 0,
-        title = f" t=1",
-        axis_limit = 60,
-
-         )
-
+        # plot_tokenized_scene(
+        # tokenized_map = tokenized_map,
+        # tokenized_agent = tokenized_agent,
+        # token_processor = self,
+        # graph_index = 0,
+        # title = f" t=1",
+        # axis_limit = 60,
+        #
+        #  )
+        #
         if "type" in tokenized_agent:
             tokenized_agent["type"] = tokenized_agent["type"].long()
 

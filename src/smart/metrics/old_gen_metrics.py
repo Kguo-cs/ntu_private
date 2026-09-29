@@ -585,15 +585,15 @@ def compute_gen_samples(
             "vehicles": generated_agents_full[valid_vehicle]
         })
 
-        lanes_real=gt['metric_lanes']
-        vehicles_gen=generated_agents_full[valid_vehicle]
+        # lanes_real=gt['metric_lanes']
+        # vehicles_gen=generated_agents_full[valid_vehicle]
 
-        if graph_index==0:
-            plot_scene(
-                lanes_real,
-                vehicles_gen[:,0],
-                title=f"Frame_0, Sample_{graph_index}"
-            )
+        # if graph_index==0:
+        #     plot_scene(
+        #         lanes_real,
+        #         vehicles_gen[:,0],
+        #         title=f"Frame_0, Sample_{graph_index}"
+        #     )
 
         # if compute_mmd:
         #
