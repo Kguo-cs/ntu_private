@@ -774,18 +774,28 @@ class SMART_GAIL(SMART):
                 _trainable_parameters(self.encoder),
                 lr=self.lr,
             )
-            scheduler = LambdaLR(
-                optimizer,
-                lr_lambda=self._lr_multiplier,
-            )
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": {
-                    "scheduler": scheduler,
-                    "interval": "step",
-                    "frequency": 1,
-                },
-            }
+
+            def lr_lambda(current_step):
+                current_step = self.current_epoch + 1
+                if current_step < self.lr_warmup_steps:
+                    return (
+                            self.lr_min_ratio
+                            + (1 - self.lr_min_ratio) * current_step / self.lr_warmup_steps
+                    )
+                return self.lr_min_ratio + 0.5 * (1 - self.lr_min_ratio) * (
+                        1.0
+                        + math.cos(
+                    math.pi
+                    * min(
+                        1.0,
+                        (current_step - self.lr_warmup_steps)
+                        / (self.lr_total_steps - self.lr_warmup_steps),
+                    )
+                )
+                )
+
+            lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+            return [optimizer], [lr_scheduler]
 
         if self.gail:
             discriminator_optimizer = torch.optim.AdamW(

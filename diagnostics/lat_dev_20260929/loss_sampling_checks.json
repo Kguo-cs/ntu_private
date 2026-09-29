@@ -1,0 +1,62 @@
+{
+  "output_coordinate_gradients_at_t_0_5": [
+    0.019999999552965164,
+    0.019999999552965164,
+    0.10000000149011612,
+    0.10000000149011612,
+    0.03999999910593033,
+    0.03999999910593033,
+    0.20000000298023224,
+    0.20000000298023224
+  ],
+  "velocity_to_position_output_gradient_ratio": 10.000000372529039,
+  "loss_scale_1": 0.7200000286102295,
+  "loss_scale_100": 0.7200000286102295,
+  "time_output_gradient_weight_fractions_below_cutoff": {
+    "0.05": 0.25026701779259936,
+    "0.1": 0.42373889556268524,
+    "0.2": 0.5972107733327712,
+    "0.5": 0.8265281222299142
+  },
+  "time_weight_caveat": "These are output-gradient weights for equally active L1 residuals, not measured parameter-gradient or loss fractions.",
+  "current_euler_endpoint_formula": [
+    {
+      "steps": 10,
+      "last_model_time": 0.1,
+      "final_pred_x0_fraction": 1.0,
+      "final_previous_latent_fraction": 0.0
+    },
+    {
+      "steps": 20,
+      "last_model_time": 0.05,
+      "final_pred_x0_fraction": 1.0,
+      "final_previous_latent_fraction": 0.0
+    },
+    {
+      "steps": 40,
+      "last_model_time": 0.025,
+      "final_pred_x0_fraction": 0.5,
+      "final_previous_latent_fraction": 0.5
+    },
+    {
+      "steps": 64,
+      "last_model_time": 0.015625,
+      "final_pred_x0_fraction": 0.3125,
+      "final_previous_latent_fraction": 0.6875
+    }
+  ],
+  "coordinate_roundtrip_max_position_error": 4.76837158203125e-07,
+  "coordinate_roundtrip_max_angle_error": 5.960464477539062e-07,
+  "analytic_mixture_target_positive_fraction": 0.2,
+  "analytic_mixture_results": {
+    "L2_conditional_mean": {
+      "positive_mode_fraction": 0.1998,
+      "mean_distance_to_nearest_mode": 0.0
+    },
+    "L1_conditional_median": {
+      "positive_mode_fraction": 0.0479,
+      "mean_distance_to_nearest_mode": 0.0
+    }
+  },
+  "analytic_mixture_caveat": "Toy distribution only. Demonstrates lack of distributional correctness for L1 flow; does not prove the cause of this model lateral-deviation plateau."
+}
