@@ -393,7 +393,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_bird = False
         self.use_token = True
         self.use_goal = False
-        self.init_map_range = 32
+        self.init_map_range = 50
         self.use_gradient_penalty = False
         self.use_refiner=False
         self.use_noise=True
