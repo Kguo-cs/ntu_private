@@ -29,6 +29,8 @@ model_config:
     num_k: -1 # for k nearest neighbors, set to -1 to turn-off closed-loop training
     temp: 1.0
   decoder:
+    init_decoder: flow
+    scenario_dreamer: null
     hidden_dim: 128
     num_freq_bands: 64
     num_heads: 8

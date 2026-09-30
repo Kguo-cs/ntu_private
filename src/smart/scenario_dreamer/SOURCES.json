@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/princeton-computational-imaging/scenario-dreamer",
+  "commit": "675423469766bf2fd8a6b569ef1869a6f1e76993",
+  "adaptation": "Relative imports; only weight_init retained from train_helpers; constants inlined. No upstream trainer or external repository needed.",
+  "upstream_sha256": {
+    "nn_modules/autoencoder.py": "4428ad8d2484b1e3ce523681964c497c6b2000450a65fad4e65b682903d6cefa",
+    "nn_modules/dit.py": "75caad0eefd04621f14e2f5aa7ac23b49edd53c3b369a924d6d51c76c3e47e84",
+    "nn_modules/ldm.py": "a5fc283fa62b38be669b79ea3f99ae040a3e798423d9289f376506ff804c5444",
+    "utils/layers.py": "9c32bda2bb93fb688580fceea6d36200b72cc94f0b993c65c16ea52be37bce13",
+    "utils/dit_layers.py": "027557b1dc7935f455ed06419684d49b8b8adf01d1e503fe32b69977f380a1c7",
+    "utils/pyg_helpers.py": "f344b7403ae8236ecc2c916fa2eaea96a4723eb1cda373708da9b64dcd61e106",
+    "utils/losses.py": "a17e4b2ffef2c269e54de34225430f0180f447325e716e16def9891a79b4af5a",
+    "utils/diffusion_helpers.py": "e6d74e91a7fb83ea9c10253e952bb0729fbd5246b21b17da374ac009e3d03461",
+    "utils/data_container.py": "2b8c7799f332412cdfd3bf493167285e04eac361c05206de8f48d5d402af9bc8",
+    "utils/data_helpers.py": "548d2ee1d4de1b500d235496e2ae63ad448d02da943dac6e369efc655fbcd58e",
+    "utils/train_helpers.py": "e6512498c1d56d63531b5d8e63fe0c9545d8a66a13c9f4ebb18ff6b5f1c41c02"
+  }
+}

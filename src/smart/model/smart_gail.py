@@ -203,6 +203,10 @@ class SMART_GAIL(SMART):
             return _zero(reference)
 
         init_decoder = self.encoder.init_decoder
+        if getattr(init_decoder, "loss_kind", None) == "scenario_dreamer":
+            for name, value in result.items():
+                self._log_train(f"train/scenario_dreamer/{name}", value)
+            return result["loss"]
         if init_decoder.use_gan:
             return init_decoder.D.gan_update(
                 self.log,

@@ -8,7 +8,7 @@ from waymo_open_dataset.protos import (
     sim_agents_submission_pb2,
 )
 
-from data_preprocess import decode_map_features_from_proto
+from src.data_preprocess import decode_map_features_from_proto
 from .mmd_metric import compute_mmd_metrics
 from .trafficgen_metrics1 import (
     _extract_center_lane_vectors_in_ego,

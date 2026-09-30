@@ -56,6 +56,8 @@ class SMARTDecoder(nn.Module):
         reward_decay: float,
         token_processor=None,
         finetune: bool = False,
+        init_decoder: str = "flow",
+        scenario_dreamer: Optional[dict] = None,
     ) -> None:
         super().__init__()
 
@@ -64,6 +66,12 @@ class SMARTDecoder(nn.Module):
 
 
         self.gail = dis_a2a_radius > 0
+        self.init_decoder_name = init_decoder
+        self.scenario_dreamer_config = dict(scenario_dreamer or {})
+        if init_decoder not in ("flow", "scenario_dreamer"):
+            raise ValueError(f"Unknown init_decoder: {init_decoder}")
+        if init_decoder == "scenario_dreamer" and self.gail:
+            raise ValueError("Scenario Dreamer supports supervised initialization; GAIL requires its own policy loss")
         self.use_lcf = reward_weight != 0
         self.use_kl_penalty = False
         self.alpha = 0.1
@@ -187,6 +195,10 @@ class SMARTDecoder(nn.Module):
         head_dim: int,
         pt2pt_neighbor: int,
     ) -> None:
+        if self.init_decoder_name == "scenario_dreamer":
+            from src.smart.scenario_dreamer.decoder import ScenarioDreamerInitDecoder
+            self.init_decoder = ScenarioDreamerInitDecoder(self.token_processor, **self.scenario_dreamer_config)
+            return
         self.init_decoder = InitDiffusion(
             hidden_dim,
             num_heads,
@@ -312,6 +324,9 @@ class SMARTDecoder(nn.Module):
         tokenized_map: TensorDict,
         tokenized_agent: TensorDict,
     ) -> TensorDict:
+        if self.init_decoder_name == "scenario_dreamer" and self.token_processor.learn_init:
+            tokenized_agent["tokenized_map"] = tokenized_map
+            return {"initial_logit": self.init_decoder(tokenized_agent)}
         if  self.sep_map and self.token_processor.learn_init and not self.gail:
             map_feature = None
         else:
@@ -346,6 +361,12 @@ class SMARTDecoder(nn.Module):
         n_step_future_10hz: Optional[int] = None,
     ) -> TensorDict:
 
+        if self.init_decoder_name == "scenario_dreamer" and tokenized_agent.get("initial_scene_only", False):
+            pos, heading, indices, shape, velocity = self.init_decoder(tokenized_agent)
+            # Official AE data contains one 2D snapshot, with no GT trajectory/z.
+            return {"pred_traj_10hz": pos, "pred_head_10hz": heading,
+                    "pred_z_10hz": pos.new_zeros(pos.shape[:2]),
+                    "shape": shape, "initial_local_vel": velocity, "sampled_idx": indices}
         return self.agent_encoder.inference(
             self.init_decoder,
             tokenized_agent,

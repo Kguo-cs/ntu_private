@@ -39,8 +39,23 @@ class MultiDataset(Dataset):
         raw_dir: str,
         transform: Callable,
         tfrecord_dir: Optional[str] = None,
+        scenario_dreamer_preprocessed: bool = False,
+        sample_list: Optional[str] = None,
     ) -> None:
-        self._raw_paths = [p.as_posix() for p in sorted(Path(raw_dir).glob("*"))]
+        root = Path(raw_dir)
+        self.scenario_dreamer_preprocessed = scenario_dreamer_preprocessed
+        if sample_list is not None:
+            with Path(sample_list).open("rb") as handle:
+                names = pickle.load(handle)["files"]
+            if not names or len(set(names)) != len(names) or any(Path(name).name != name for name in names):
+                raise ValueError("sample_list must contain unique cache basenames")
+            paths = [root / name for name in names]
+            missing = [p for p in paths if not p.is_file()]
+            if missing:
+                raise FileNotFoundError(f"Missing {len(missing)} selected scenes in {root}: {missing[:3]}")
+        else:
+            paths = sorted(p for p in root.iterdir() if p.is_file() and p.suffix in (".pt", ".pkl"))
+        self._raw_paths = [p.as_posix() for p in paths]
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
         self._num_samples = len(self._raw_paths)
 
@@ -58,13 +73,17 @@ class MultiDataset(Dataset):
 
     def get(self, idx: int):
 
-        idx = idx // num_gpus
+        # DataLoader/DistributedSampler owns indexing; never duplicate rows per GPU.
 
         if '.pkl' in self.raw_paths[idx]:
             with open(self.raw_paths[idx], "rb") as handle:
                 data = pickle.load(handle)
         else:
             data =torch.load(self.raw_paths[idx],map_location="cpu",weights_only=False)
+
+        if self.scenario_dreamer_preprocessed:
+            from src.smart.scenario_dreamer.preprocessed import adapt_preprocessed_scene
+            return adapt_preprocessed_scene(data, self.raw_paths[idx])
 
         # ============================================================
         # Scenario Dreamer metric metadata
@@ -77,6 +96,8 @@ class MultiDataset(Dataset):
             # 只有当模型实际以这个 raw Waymo timestep 作为 initial scene
             # 时，才能这样设置。
             actual_generation_raw_t = int(data["scene_timestep"])
+            from src.smart.scenario_dreamer.data import attach_model_map
+            attach_model_map(data, data["scenario_dreamer"])
 
             data = attach_sd_metric_metadata(
                 data,

@@ -381,6 +381,7 @@ class TokenProcessor(torch.nn.Module):
         pred_init: bool = False,
         learn_init: bool = False,
         learn_autoencoder: bool = False,
+        scenario_dreamer_init: bool = False,
     ) -> None:
         super().__init__()
         self.map_token_sampling = map_token_sampling
@@ -397,7 +398,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_gradient_penalty = False
         self.use_refiner=False
         self.use_noise=True
-        self.scenario_dreamer_init=False
+        self.scenario_dreamer_init = bool(scenario_dreamer_init)
 
         if self.scenario_dreamer_init:
             self.use_refiner=False
@@ -819,26 +820,39 @@ class TokenProcessor(torch.nn.Module):
     def process_data(
         self, data: HeteroData
     ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        tokenized_map = self._load_map(data)
-        cached_agent = data["tokenized_agent"]
-
-        if len(cached_agent) == 0:
-            if self.scenario_dreamer_init:
-                agent={}
-            else:
-                agent = self.tokenize_agent(data)
-            if self.pred_init:
-                self.get_init(agent,data)
-
-        elif "initial_pos" in cached_agent:
-            agent = self._load_cached_initial_agent(cached_agent)
+        if "sd_agent" in data.node_types:
+            from src.smart.scenario_dreamer.preprocessed import tokenize_preprocessed_agents
+            tokenized_map = {}
+            agent = tokenize_preprocessed_agents(data, self)
         else:
-            agent = self._load_cached_token_agent(cached_agent)
-            if self.pred_init:
-                self.get_init(agent,data)
+            tokenized_map = self._load_map(data)
+            cached_agent = data["tokenized_agent"]
+
+            if len(cached_agent) == 0:
+                if self.scenario_dreamer_init:
+                    agent={}
+                else:
+                    agent = self.tokenize_agent(data)
+                if self.pred_init:
+                    self.get_init(agent,data)
+
+            elif "initial_pos" in cached_agent:
+                agent = self._load_cached_initial_agent(cached_agent)
+            else:
+                agent = self._load_cached_token_agent(cached_agent)
+                if self.pred_init:
+                    self.get_init(agent,data)
 
         agent.setdefault("num_graphs", data.num_graphs)
         self._attach_token_libraries(agent)
+        if "sd_lane" in data.node_types:
+            edge = data["sd_lane", "to", "sd_lane"]
+            agent["sd_map"] = {
+                "lanes": data["sd_lane"].x, "batch": data["sd_lane"].batch,
+                "edges": edge.edge_index, "types": edge.type,
+                "center": data["sd_center_world"], "angle": data["sd_rotation_angle"],
+                "lg_type": data["sd_lg_type"],
+            }
         return tokenized_map, agent
 
     def _load_map(self, data: HeteroData) -> Dict[str, Tensor]:
@@ -848,6 +862,8 @@ class TokenProcessor(torch.nn.Module):
         result = {}
         for key in ("position", "orientation", "batch", "type", "light_type","token_idx"):
             result[key] = cached[key]
+        if "traj_pos_local" in cached:
+            result["traj_pos_local"] = cached["traj_pos_local"]
         return result
 
     def _load_cached_initial_agent(

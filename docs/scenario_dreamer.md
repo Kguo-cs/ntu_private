@@ -1,0 +1,139 @@
+# Scenario Dreamer init_decoder
+
+Scenario Dreamer 是 `SMARTDecoder` 的一种初始状态 decoder。使用现有 `sim` conda 环境、`src.run`、`MultiDataModule`、`SMART_GAIL` 的监督训练分支和项目已有的 `ScenarioDreamerEvaluator`。运行时的模型和指标代码都在本仓库中，无需外部 checkout，也不使用上游 Trainer。
+
+## 运行
+
+在 sim 项目根目录执行：
+
+```bash
+conda activate sim
+
+# 加载官方权重，完整验证 50,000 个场景
+python -m src.run experiment=scenario_dreamer
+
+# 使用现有训练入口继续训练 LDM
+python -m src.run experiment=scenario_dreamer action=fit
+
+# 使用现有测试入口
+python -m src.run experiment=scenario_dreamer action=test
+```
+
+[实验配置](../configs/experiment/scenario_dreamer.yaml)设置数据目录、初始状态任务和评价器。实际模型选择是：
+
+```yaml
+model:
+  model_config:
+    token_processor:
+      pred_init: true
+      learn_init: true
+      scenario_dreamer_init: true
+    decoder:
+      init_decoder: scenario_dreamer  # 默认 flow
+      scenario_dreamer:
+        ae_checkpoint: src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
+        ldm_checkpoint: src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt
+        map_source: exact
+        map_id: 0
+        use_ema: true
+```
+
+`scenario_dreamer_init` 让 token processor 使用官方保存的初始场景状态，关闭原 Flow 的 refinement，并按初始状态评价。`decoder.init_decoder` 的默认值仍为 `flow`。Scenario Dreamer 当前支持监督训练，不支持现有 Flow/GAIL 的策略损失。
+
+先做小规模验证：
+
+```bash
+python -m src.run experiment=scenario_dreamer \
+  trainer.limit_val_batches=1 data.val_batch_size=2 \
+  model.model_config.sd_require_full_set=false
+
+python -m src.run experiment=scenario_dreamer action=test \
+  trainer.limit_test_batches=1 data.test_batch_size=2 \
+  model.model_config.sd_require_full_set=false
+
+# 单步反向传播和优化器检查；不写入大型训练 checkpoint
+python -m src.run experiment=scenario_dreamer action=fit \
+  trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
+  +trainer.max_steps=1 callbacks.model_checkpoint=null \
+  +trainer.enable_checkpointing=false
+```
+
+小样本验证必须显式关闭 `sd_require_full_set`，否则评价器会拒绝将部分样本当作完整评估。默认仍对照完整 50k 参考分布。正式评估使用单 GPU；当前缓存评价器不聚合多卡结果。主配置默认训练 batch size 为 1，验证/测试为 4；当前默认的 `experiment=sd` 继承该配置，并保留训练 batch size 为 2。
+
+## 权重和训练
+
+默认两份官方 Waymo checkpoint 已放在上述路径。模型结构、100 步 diffusion schedule、归一化参数与 guidance 等均从 checkpoint 配置恢复。AE、LDM 和 LDM 内嵌 AE 都使用严格参数加载；推理默认使用官方 EMA。
+
+| 权重 | SHA-256 |
+| --- | --- |
+| Waymo AE | `3c3033a107de727ca1c2399a8e0df107e5eb1a84bce3d7e18cc2e01698ccf6ac` |
+| Waymo LDM Large | `06a1a65e9949f55c3398aeadacde388b03a6705f2661bc273cf43e7319de4cd5` |
+
+这些哈希已核对；默认加载不会每次重新读取整个 13 GB LDM 文件计算哈希。源码固定为 [官方提交 6754234](https://github.com/princeton-computational-imaging/scenario-dreamer/tree/675423469766bf2fd8a6b569ef1869a6f1e76993)，文件来源和改动记录在 [SOURCES.json](../src/smart/scenario_dreamer/SOURCES.json)。
+
+训练时冻结 AE，采样 AE 后验得到 latent，用官方 LDM 的联合 agent/lane 噪声预测损失训练 diffusion；记录 `train/scenario_dreamer/loss`、`agent_loss`、`lane_loss`。优化器和学习率计划继续使用 SMART。每次优化器更新后更新 EMA，EMA 也随普通 SMART checkpoint 保存和恢复。
+
+`ckpt_path` 用于恢复本项目保存的 **SMART checkpoint**，与上面两个官方 checkpoint 路径不同：
+
+```bash
+python -m src.run experiment=scenario_dreamer action=fit \
+  ckpt_path=/absolute/path/to/smart-checkpoint.ckpt
+```
+
+首次构造 decoder 仍会读取配置中的官方权重，随后 Trainer 恢复 SMART 状态及优化器。
+
+## 数据与输入适配
+
+训练和测试直接读取 `/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo` 中的官方 `.pkl`，不需要重建 SMART `.pt` 或地图 token 缓存。
+
+| 用途 | 路径 | 样本选择 |
+| --- | --- | --- |
+| 训练 | `${paths.cache_root}/train` | 全部 973,984 个 pickle，包含普通图和分区图 |
+| 验证与测试 | `${paths.cache_root}/test` | `waymo_eval_set.pkl` 中的 50,000 个文件，保持清单顺序 |
+
+`paths.cache_root` 默认解析为项目内 `src/waymo_data/scenario_dreamer_ae_preprocess_waymo`。目录中还有 `val` 划分；当前为延续官方 50k 指标口径，训练期间的验证和最终测试都读取上述 test 子集。直接把验证目录换为 `val` 会与现有清单及 SQLite 参考统计不匹配，需要一起更换清单和参考统计。
+
+```yaml
+data:
+  scenario_dreamer_preprocessed: true
+  scenario_dreamer_eval_set: ${model.model_config.sd_eval_set}
+  train_raw_dir: ${paths.cache_root}/train
+  val_raw_dir: ${paths.cache_root}/test
+  test_raw_dir: ${paths.cache_root}/test
+```
+
+`MultiDataset` 保留 pickle 中的 `agent_states`、`agent_types`、`road_points` 和显式 `edge_index_lane_to_lane / road_connection_types`；`TokenProcessor` 将初始状态接入现有 decoder。没有额外裁剪地图、重采样车道或估计车道拓扑。官方 ego-first 排列转换成 SMART ego-last，进入模型时再按上游递归排序。
+
+数据已在官方 ego-+Y 局部坐标中，不能再按世界坐标做一次平移旋转。默认 `sd_prediction_frame=sd_local`、`sd_gen_timestep=0`，推理返回一个真实生成的初始快照，不构造 GT 历史轨迹。现有输出接口中的 z 为 0 占位值，初始场景指标只使用二维位置。
+
+训练支持 `lg_type=0/1`：分区图的 AE 注意力只连接同侧节点，LDM 保留分区前节点作为无噪声条件。验证/测试使用官方清单中的非分区场景。容量限制仍为最多 30 个 agent、1–100 条车道，与加载的 checkpoint 配置一致。
+
+默认 `map_source=exact`。此前的 SMART 重建数据和 token 地图适配仍可显式选择：重建数据需保留 SD 地图，旧 token 缓存可设置 `map_source=auto/tokens`。这些不是当前实验的数据来源。
+
+官方 AE pickle 没有 LDM latent 缓存中的 Nocturne compatibility 标签，因此默认固定 `map_id=0`；可设置为 1。标签选择会影响采样。
+
+## 指标口径和输出
+
+推理调用官方 LDM 的 `lane_conditioned` 模式：给定地图及场景 agent 数量，生成初始 agent 状态。复用本项目已有的 SQLite GT 统计和本地官方指标实现，输出：
+
+`nearest_dist_jsd`、`lat_dev_jsd`、`ang_dev_jsd`、`length_jsd`、`width_jsd`、`speed_jsd`、`collision_rate`。
+
+JSD 保留已有官方实现的缩放；collision rate 为百分数。记录名为 `val_closed/sd/*`，test 也沿用此命名以兼容现有监控配置。完整配置检查 50,000 个参考文件的唯一覆盖和原始生成时刻，不重复计算 GT 特征。
+
+每次验证/测试在 Hydra 输出目录生成 `sd_agent_metrics.json`，包含指标、实际样本数、参考样本数、完整清单覆盖标志、数据与指标来源摘要，以及 decoder 的 EMA、步数、地图和条件设置。配置和运行日志同样保存在该目录。
+
+这个 init_decoder 不生成新地图，因而没有 8 项 lane-generation 指标。固定地图/数量的条件生成与论文联合地图生成的任务不同；即使采用相同 agent 指标定义，也不能声称数值逐项复现论文表格。完整 50k 分数需要实际执行完整命令后获得。
+
+## 验证记录
+
+在本机 `sim` 环境（Python 3.11、PyTorch 2.7.0+cu128、Lightning 2.4.0、RTX 4090）完成官方权重的严格加载。改用官方 pickle 后，`experiment=sd` 已完成 2 个真实训练 batch 的优化及随后的验证，`experiment=scenario_dreamer action=test` 已完成真实 test 数据的冒烟检查。
+
+运行新增回归测试：
+
+```bash
+python -m unittest discover -s tests -p test_scenario_dreamer_init_decoder.py -v
+```
+
+12 项测试通过，覆盖真实小型 AE/LDM 的反向传播、冻结 AE、EMA 保存恢复、批量图、车道关系方向/优先级、官方 pickle 字段与清单顺序、分区训练掩码、单帧推理、输出顺序/速度坐标和固定地图 latent 不依赖 GT agent 几何/类型。另抽查 32 个真实场景的 21,678 条车道关系，全部与官方缓存一致，车道坐标的 float32 转换误差小于 1e-6 m。完整 50k 评估尚未执行。
+
+全仓回归中的 5 项既有失败分别位于 `test_denoiser_heading_magnitude.py`（3 项）和 `test_initial_velocity_frame.py`（2 项）；用 Git HEAD 原实现复测得到相同失败。

@@ -148,6 +148,7 @@ class SMART(LightningModule):
         scenario_gen = bool(self.token_processor.pred_init)
 
         self.scenario_dreamer_init=self.token_processor.scenario_dreamer_init
+        self.use_sd_evaluator = bool(_cfg(model_config, "sd_use_cached_evaluator", False))
 
         self.scenario_gen=scenario_gen
         self.challenge_type = (
@@ -183,8 +184,9 @@ class SMART(LightningModule):
         self.gt_dist = None
 
         if self.scenario_dreamer_init:
-            self.store = CachedReferenceStore('./waymo_data/sd_real_metric_cache.sqlite',
-                                              eval_set='./waymo_data/waymo_eval_set.pkl', expected_scenes=50000)
+            self.store = None if self.use_sd_evaluator else CachedReferenceStore(
+                _cfg(model_config, 'sd_real_cache', './waymo_data/sd_real_metric_cache.sqlite'),
+                eval_set=_cfg(model_config, 'sd_eval_set', './waymo_data/waymo_eval_set.pkl'), expected_scenes=50000)
 
             self.sd_evaluator = None
             self.sd_metric_settings = {
@@ -238,6 +240,13 @@ class SMART(LightningModule):
     def on_validation_epoch_start(self) -> None:
         if not self.val_closed_loop or not self.scenario_dreamer_init or self.wosac_submission.is_active:
             return
+        if self.use_sd_evaluator and getattr(getattr(self, "_trainer", None), "world_size", 1) != 1:
+            raise ValueError("Cached Scenario Dreamer evaluation requires trainer.devices=1")
+        if self.use_sd_evaluator and self._global_zero:
+            if self.sd_evaluator is None:
+                self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
+            else:
+                self.sd_evaluator.reset()
         # if self.sd_evaluator is None:
         #     self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
         # else:
@@ -266,6 +275,12 @@ class SMART(LightningModule):
 
     def _validate_closed_loop(self, data, tokenized_map, agent, batch_idx: int) -> None:
         out = self._rollouts(tokenized_map, agent,data)
+        if self.scenario_dreamer_init and self.use_sd_evaluator:
+            metric_agent = dict(agent)
+            if "generated_type" in out:
+                metric_agent["type"] = out["generated_type"][:, 0]
+            self.sd_evaluator.update(data, metric_agent, out)
+            return
 
         compute_gen_samples(
             data, agent,
@@ -308,13 +323,18 @@ class SMART(LightningModule):
             agent["initial_map_feature"] = self.encoder.init_map_encoder(
                 tokenized_map, tokenized_agent=agent
             )
-        map_feature = self.encoder.map_encoder(tokenized_map)
+        sd_decoder = self.encoder.init_decoder_name == "scenario_dreamer"
+        map_feature = {} if sd_decoder and self.scenario_dreamer_init else self.encoder.map_encoder(tokenized_map)
         agent["map_feature"] = map_feature
+        if sd_decoder:
+            agent["tokenized_map"] = tokenized_map
 
         traj, z, head, size, vel, z_list = [], [], [], [], [], []
+        generated_types = []
         for _ in range(self.n_rollout_closed_val):
             rollout_agent = _clone_rollout_input(agent)
             pred = self.encoder.inference(rollout_agent)
+            generated_types.append(rollout_agent["type"].clone())
             trajectory = pred["pred_traj_10hz"]
             traj.append(trajectory.clone())
             head.append(pred["pred_head_10hz"].clone())
@@ -340,6 +360,7 @@ class SMART(LightningModule):
             "size": torch.stack(size, 1),#.clamp_min(0.1),
             "vel": torch.stack(vel, 1) if vel else None,
             "z_list": torch.stack(z_list, 1) if z_list else None,
+            "generated_type": torch.stack(generated_types, 1),
         }
 
         if self.challenge_type == ChallengeType.SIM_AGENTS:
@@ -442,6 +463,25 @@ class SMART(LightningModule):
         if not self._global_zero:
             return
 
+        if self.scenario_dreamer_init and self.use_sd_evaluator:
+            metrics = self.sd_evaluator.compute()
+            report = self.sd_evaluator.report()
+            report["agent_metrics"] = metrics
+            initial_decoder = self.encoder.init_decoder
+            if self.encoder.init_decoder_name == "scenario_dreamer":
+                report["decoder"] = {
+                    "name": "scenario_dreamer", "mode": "lane_conditioned",
+                    "checkpoint_step": initial_decoder.checkpoint_step,
+                    "use_ema": initial_decoder.use_ema,
+                    "map_source": initial_decoder.map_source, "map_id": initial_decoder.map_id,
+                    "diffusion_steps": initial_decoder.diff_model.n_timesteps,
+                }
+            with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
+                json.dump(report, handle, indent=2)
+            for name, value in metrics.items():
+                self.log(f"val_closed/sd/{name}", _scalar(value, name), on_step=False,
+                         on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
+            return
         if self.scenario_dreamer_init:
             # if self.samples:
             #     start = time.time()
@@ -508,6 +548,15 @@ class SMART(LightningModule):
         self.minADE.reset()
 
 
+    def optimizer_step(self, *args, **kwargs):
+        super().optimizer_step(*args, **kwargs)
+        update = getattr(self.encoder.init_decoder, "update_ema", None)
+        if update is not None:
+            update()
+
+    def on_test_epoch_start(self):
+        self.on_validation_epoch_start()
+
     @staticmethod
     def _average(metrics: dict, output: str, keys: Sequence[str]) -> None:
         if all(key in metrics for key in keys):
@@ -540,6 +589,8 @@ class SMART(LightningModule):
         }
 
     def test_step(self, data, batch_idx):
+        if self.scenario_dreamer_init and self.use_sd_evaluator:
+            return self.validation_step(data, batch_idx)
         # if batch_idx<73:
         #     return None
         #
@@ -590,5 +641,7 @@ class SMART(LightningModule):
         return flat.reshape(shape)
 
     def on_test_epoch_end(self) -> None:
+        if self.scenario_dreamer_init and self.use_sd_evaluator:
+            return self.on_validation_epoch_end()
         if self._global_zero:
             self.wosac_submission.save_sub_file()

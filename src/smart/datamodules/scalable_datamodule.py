@@ -37,8 +37,12 @@ class MultiDataModule(LightningDataModule):
         pin_memory: bool,
         persistent_workers: bool,
         train_max_num: int,
+        scenario_dreamer_preprocessed: bool = False,
+        scenario_dreamer_eval_set: Optional[str] = None,
     ) -> None:
         super(MultiDataModule, self).__init__()
+        self.dataset_options = {"scenario_dreamer_preprocessed": scenario_dreamer_preprocessed}
+        self.eval_dataset_options = dict(self.dataset_options, sample_list=scenario_dreamer_eval_set)
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.test_batch_size = test_batch_size
@@ -57,26 +61,28 @@ class MultiDataModule(LightningDataModule):
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage == "fit" or stage is None:
-            self.train_dataset = MultiDataset(self.train_raw_dir, self.train_transform)
+            self.train_dataset = MultiDataset(self.train_raw_dir, self.train_transform, **self.dataset_options)
             self.val_dataset = MultiDataset(
                 self.val_raw_dir,
                 self.val_transform,
                 tfrecord_dir=self.val_tfrecords_splitted,
+                **self.eval_dataset_options,
             )
         elif stage == "validate":
             self.val_dataset = MultiDataset(
                 self.val_raw_dir,
                 self.val_transform,
                 tfrecord_dir=self.val_tfrecords_splitted,
+                **self.eval_dataset_options,
 
             )
         elif stage == "test":
-            self.test_dataset = MultiDataset(self.test_raw_dir, self.test_transform)
+            self.test_dataset = MultiDataset(self.test_raw_dir, self.test_transform, **self.eval_dataset_options)
         else:
             raise ValueError(f"{stage} should be one of [fit, validate, test]")
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        if self.num_workers==1:
+        if self.num_workers<=1:
             return DataLoader(
                 self.train_dataset,
                 batch_size=self.train_batch_size,
