@@ -280,11 +280,25 @@ def _within_batch_pairs(batch: Tensor):
 def multi_circle_collision_loss_mem_efficient(
     fake_state: Tensor,
     batch: Tensor,
+    reference_state: Tensor | None = None,
 ):
-    """Collision penalty for all unordered pairs in the same scene."""
+    """Penalize overlap, optionally allowing the same pair's GT overlap.
+
+    The reference must use the same agent order and physical units as the
+    prediction. Omitting it preserves absolute collision detection for metrics
+    and rewards; supervised training only penalizes added penetration.
+    """
+    if reference_state is not None and len(reference_state) != len(fake_state):
+        raise ValueError("reference_state must match the predicted agent count")
 
     start_idx, end_idx = _within_batch_pairs(batch.to(fake_state.device))
     penetration = compute_penetration(fake_state, start_idx, end_idx)
+    if reference_state is not None:
+        with torch.no_grad():
+            allowed_penetration = compute_penetration(
+                reference_state, start_idx, end_idx
+            ).clamp_min(0)
+        penetration = penetration - allowed_penetration
     loss = torch.expm1(penetration.relu())
 
     # Preserve the original output order.
@@ -439,7 +453,7 @@ def get_diff_loss(
     max_loss_weight: float | None = None,
     use_l1: bool = True,
 ):
-    """State reconstruction loss plus optional symmetric collision loss."""
+    """State reconstruction plus collision loss beyond each GT pair's overlap."""
     num_states = len(fake_state)
     batch = tokenized_agent["batch"][-num_states:].to(fake_state.device)
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
@@ -460,9 +474,16 @@ def get_diff_loss(
     collision_loss = fake_state.new_zeros(())
     if use_col and x_pred:
         edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
-            fake_state, batch
+            fake_state, batch, reference_state=real_state
         )
-        collision_loss = (edge_loss * weight[start_idx]).mean()
+        if edge_loss.numel():
+            # A fixed ego has zero time weight. Use the movable endpoint's
+            # weight regardless of where ego appears in the agent ordering.
+            pair_weight = torch.maximum(weight[start_idx], weight[end_idx])
+            collision_loss = (edge_loss * pair_weight).mean()
+        else:
+            # Valid batches of single-agent scenes have no collision pairs.
+            collision_loss = fake_state[:, :2].sum() * 0.0
 
     # w_pos=w_heading=w_shape=w_vel=1
     # real_state=real_state/scale
