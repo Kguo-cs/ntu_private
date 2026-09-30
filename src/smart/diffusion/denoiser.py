@@ -109,7 +109,9 @@ class InitDenoiser(nn.Module):
         )
 
         if self.x_pred:
-            self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
+            # Geometry consumes the heading angle; retain its noisy magnitude
+            # alongside shape and velocity so the complete pair is observable.
+            self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 3, hidden_dim)
         else:
             self.proj_in_m_delta = nn.Linear(self.m_delta_dim, hidden_dim)
 
@@ -159,6 +161,34 @@ class InitDenoiser(nn.Module):
         self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
 
         self.apply(weight_init)
+
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        # Legacy x0 predictors projected only shape and velocity. Append a zero
+        # column so loading preserves that projection; finetuning learns how to
+        # use heading magnitude. Old optimizer moments must be reinitialized.
+        weight_key = prefix + "proj_in_m_delta.weight"
+        weight = state_dict.get(weight_key)
+        if (
+            self.x_pred
+            and weight is not None
+            and weight.shape == (self.hidden_dim, self.m_delta_dim - 4)
+        ):
+            state_dict[weight_key] = torch.cat(
+                [weight, weight.new_zeros((weight.shape[0], 1))], dim=1
+            )
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs,
+        )
 
     # ---------------------------------------------------------------------
     # Normalization
@@ -329,17 +359,18 @@ class InitDenoiser(nn.Module):
         beta: torch.Tensor,
         agent_type_embed: torch.Tensor,
     ) -> torch.Tensor:
-        """Original InitDenoiser embedding style.
+        """Embed state, time and type, retaining the noisy heading magnitude.
 
-        This follows the old implementation:
-            feat_a = Linear(m_delta[:, 4:])
-            feat_a = feat_a + time_embedding(beta) + type_embedding(type)
-
-        It does not inject shape via ``FourierEmbedding``. Shape is part of
-        the projected continuous state ``m_delta[:, 4:]``.
+        The x0 predictor encodes position and heading angle through geometric
+        relations. Its continuous state projection also needs heading magnitude:
+        unlike a clean heading, the linearly noised pair need not have unit norm.
         """
         if self.x_pred:
-            feat_a = self.proj_in_m_delta(m_delta[:, 4:])
+            heading_norm = torch.linalg.vector_norm(
+                m_delta[:, 2:4], dim=-1, keepdim=True
+            )
+            state_features = torch.cat([m_delta[:, 4:], heading_norm], dim=-1)
+            feat_a = self.proj_in_m_delta(state_features)
         else:
             feat_a = self.proj_in_m_delta(m_delta)
         feat_a = feat_a + self._embed_time(beta, m_delta.shape[0])
