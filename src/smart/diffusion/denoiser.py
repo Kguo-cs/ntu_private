@@ -93,6 +93,20 @@ class InitDenoiser(nn.Module):
         #
         self.type_a_emb = nn.Embedding(self.num_classes + 1, hidden_dim)
         self.noise_embedding = MLPLayer(self.m_delta_dim, hidden_dim, hidden_dim)
+        # Nonlinear time features survive the MLP's initial LayerNorm. For
+        # shared scalar time, these are sin/cos pairs at frequencies pi*2**k;
+        # the first pair distinguishes the two endpoints of [0, 1]. Keep the
+        # MLP parameter layout, but legacy generator weights need finetuning
+        # with this new input representation.
+        time_dims = torch.arange(self.m_delta_dim)
+        self.register_buffer(
+            "_time_frequencies",
+            math.pi * 2.0 ** (time_dims // 2),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_time_cos_mask", time_dims.remainder(2).bool(), persistent=False
+        )
 
         if self.x_pred:
             self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
@@ -262,6 +276,13 @@ class InitDenoiser(nn.Module):
 
         return beta
 
+    def _embed_time(self, beta: torch.Tensor, n_agent: int) -> torch.Tensor:
+        """Embed flow time (possibly expanded over state dimensions)."""
+        time = self._format_beta(1.0 - beta, n_agent)
+        phase = time * self._time_frequencies.to(time)
+        features = torch.where(self._time_cos_mask, phase.cos(), phase.sin())
+        return self.noise_embedding(features)
+
     def _ego_context_embedding(
         self,
         pos_s: torch.Tensor,
@@ -312,18 +333,16 @@ class InitDenoiser(nn.Module):
 
         This follows the old implementation:
             feat_a = Linear(m_delta[:, 4:])
-            feat_a = feat_a + noise_embedding(beta) + type_embedding(type)
+            feat_a = feat_a + time_embedding(beta) + type_embedding(type)
 
         It does not inject shape via ``FourierEmbedding``. Shape is part of
         the projected continuous state ``m_delta[:, 4:]``.
         """
-        beta = self._format_beta(1-beta, m_delta.shape[0])
-
         if self.x_pred:
             feat_a = self.proj_in_m_delta(m_delta[:, 4:])
         else:
             feat_a = self.proj_in_m_delta(m_delta)
-        feat_a = feat_a + self.noise_embedding(beta)
+        feat_a = feat_a + self._embed_time(beta, m_delta.shape[0])
         feat_a = feat_a + agent_type_embed
         return feat_a
 
