@@ -512,7 +512,7 @@ def compute_gen_samples(
         timestep=init_timestep,
     )
 
-    if store is None and gt_samples is None:
+    if store is None and gt_dist is None:
         real_state, real_valid, real_batch, real_type = _build_real_state(
             data=data,
             timestep=init_timestep,
@@ -520,9 +520,7 @@ def compute_gen_samples(
         )
 
     for graph_index in range(data.num_graphs):
-        output_index = len(samples)
-
-        if store is None and gt_samples is None:
+        if store is None and gt_dist is None:
             scenario = _load_scenario(data["tfrecord_path"][graph_index])
             centerlines = _extract_resampled_centerlines(scenario)
 
@@ -572,7 +570,7 @@ def compute_gen_samples(
                     "select_agents": select_agents
                 }
             )
-        else:
+        elif store is not None:
             name = data["scenario_dreamer_cache_file"][graph_index]
             cache, gt = store.get(name)  # 'scenario_dreamer_cache_file'
 
