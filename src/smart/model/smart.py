@@ -476,16 +476,8 @@ class SMART(LightningModule):
 
                 return tuple(gt_dist)
 
-            if self.store is not None:
-                self.gt_dist = get_gt_dist_from_store(self.store)
+            self.gt_dist = get_gt_dist_from_store(self.store)
 
-            metrics, self.gt_dist = compute_agent_metrics(
-                self.samples, self.gt_samples, self.gt_dist,
-                self.n_vis_batch > 0,
-            )
-            #     # metrics.update(result)
-            #     print(f"metric compute time: {time.time() - start:.2f}s")
-            self.samples.clear()
             # metrics = self.sd_evaluator.compute()
             # report = self.sd_evaluator.report()
             # report["agent_metrics"] = metrics
@@ -493,11 +485,21 @@ class SMART(LightningModule):
             #     json.dump(report, f, indent=2)
             # print("Scenario Dreamer agent metrics:", metrics)
             # print("Evaluated initial scenes:", report["num_samples"])
+            metrics={}
             metrics['val_closed/wosac_likelihood/metametric']=0.65
         else:
             metrics = self.wosac_metrics.compute() if self.n_batch_wosac_metric > 0 else {}
             if not self.scenario_gen:
                 metrics["val_closed/ADE"] = self.minADE.compute()
+
+        result, self.gt_dist = compute_agent_metrics(
+            self.samples, self.gt_samples, self.gt_dist,
+            self.n_vis_batch > 0,
+        )
+        metrics.update(result)
+        #     print(f"metric compute time: {time.time() - start:.2f}s")
+        self.samples.clear()
+
 
         for key, value in metrics.items():
             self.log(str(key), _scalar(value, str(key)), on_step=False,

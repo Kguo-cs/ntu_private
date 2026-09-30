@@ -889,10 +889,10 @@ def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
 
     for i in range(len(samples)):
         data_gen = samples[i]
+        data_real = gt_samples[i]
+        lanes_gen = lanes_real = data_real['lanes']
 
         if gt_dist is None:
-            data_real = gt_samples[i]
-            lanes_gen=lanes_real=data_real['lanes']
 
             vehicles_real = data_real['vehicles']
 
