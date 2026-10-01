@@ -1,0 +1,15 @@
+# @package _global_
+defaults:
+  - scenario_dreamer
+  - _self_
+
+action: cache_latents
+task_name: scenario_dreamer_cache
+
+latent_cache:
+  split: train  # train, val or test; validation/test honor the existing eval manifest.
+  output_dir: ${paths.root_dir}/src/waymo_data/scenario_dreamer_latents_waymo/${latent_cache.split}
+  batch_size: 16
+  device: cuda
+  max_scenes: null  # Set a small limit for a smoke test; null processes the whole split.
+  overwrite: false  # Validate and reuse completed records when restarting.

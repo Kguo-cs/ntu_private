@@ -130,6 +130,48 @@ AE 的 `ae_checkpoint=null` 使用仓库内[官方 Waymo AE 结构](../src/smart
 
 保存的 SMART checkpoint 包含 AE 参数和结构配置，`ae_checkpoint` 可以直接读取它，无需手动导出。`ckpt_path` 恢复同一阶段的完整训练状态；切换 AE → LDM 时使用 `ae_checkpoint`，并保持 `ckpt_path=null`。如果更改过 AE 结构，恢复训练时需保持相同的 `ae_config`。LDM 的 latent 标准化默认沿用官方统计量，自训 AE 的统计量可通过 `ldm_config.dataset` 中的 `agent_latents_mean/std`、`lane_latents_mean/std` 更新。
 
+## Latent 预缓存
+
+[缓存实验](../configs/experiment/scenario_dreamer_cache.yaml)使用 `src.run action=cache_latents`，复用现有数据集、token processor、图适配和 AE。输出是原始 pickle 旁路的独立缓存目录，原始数据保持可直接用于 AE 训练及生成评估。
+
+```bash
+# 默认：官方 AE，缓存全部 train 数据，支持中断后重跑
+python -m src.run experiment=scenario_dreamer_cache
+
+# 用自己训练的 AE 缓存；每份 AE 使用自己的输出目录
+python -m src.run experiment=scenario_dreamer_cache \
+  model.model_config.decoder.scenario_dreamer.ae_checkpoint=/absolute/path/to/smart-ae.ckpt \
+  latent_cache.output_dir=/absolute/path/to/my-ae-latents/train
+
+# LDM 训练读取官方 AE 的缓存
+python -m src.run experiment=scenario_dreamer action=fit \
+  data.scenario_dreamer_train_latent_cache=src/waymo_data/scenario_dreamer_latents_waymo/train
+
+# 若使用自训 AE，其权重与缓存必须配套
+python -m src.run experiment=scenario_dreamer action=fit \
+  model.model_config.decoder.scenario_dreamer.ae_checkpoint=/absolute/path/to/smart-ae.ckpt \
+  data.scenario_dreamer_train_latent_cache=/absolute/path/to/my-ae-latents/train
+```
+
+每个场景保存 float32 的 `agent_mu`、`agent_log_var`、`lane_mu`、`lane_log_var`，保持原始 pickle 的 ego-first agent 顺序与原始 lane 顺序。读取时重新对齐 SMART 的 ego-last 和官方递归排序。LDM 训练跳过 AE encoder，仍逐次采样 `mu + exp(0.5 * log_var) * noise` 并使用当前 LDM 配置进行标准化；缓存保留未标准化的后验，而非一次固定采样。分区 mask、条件节点及生成评价流程保持一致。AE decoder 仍用于生成结果，训练配置仍需要 `ae_checkpoint`。
+
+默认 `latent_cache.split=train`，`max_scenes=null` 表示处理完整划分，`batch_size=16`、`device=cuda`；worker 数量使用 `data.num_workers`。`split=val/test` 按现有评价清单选取场景。训练、验证、测试可分别配置：
+
+```yaml
+data:
+  scenario_dreamer_train_latent_cache: /path/to/latents/train
+  scenario_dreamer_val_latent_cache: null
+  scenario_dreamer_test_latent_cache: null
+```
+
+联合生成的验证/测试不需要 GT latent，通常保持后两个选项为 `null` 即可；给定车道模式可缓存对应的验证/测试数据。AE 阶段应将所有 latent cache 选项设为 `null`。
+
+缓存包含实际 AE 权重及编码配置的 SHA-256 标识、源 pickle 内容的 SHA-256、格式版本和维度信息。训练拒绝不匹配、缺失、损坏或源数据已变化的记录，不会静默切回在线编码。加载 SMART checkpoint 后会重新验证实际恢复的 AE；加载官方 LDM 时，其内嵌 AE 也必须与缓存匹配。更换 AE 或编码配置时使用新的缓存目录。
+
+记录按文件名哈希分到 256 个子目录，逐条原子写入。默认重跑会校验并复用已有记录、补全缺失记录；`latent_cache.overwrite=true` 可以重新编码同一份 AE 的记录。`manifest.json` 保存来源和格式，`summary.json` 保存本次处理数量、是否为部分数据、复用数量及 posterior population mean/std，可用于设置 LDM 的 latent 标准化参数。这些统计不会自动覆盖训练配置。
+
+小规模检查可指定 `latent_cache.max_scenes=8` 和单独的 `output_dir`。这只缓存前 8 个样本；使用该部分缓存跑训练冒烟时应设置 `data.shuffle=false`、限制 batch 数。完整训练需要完整缓存。
+
 ## 数据与输入适配
 
 训练和测试直接读取 `/home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo` 中的官方 `.pkl`，不需要重建 SMART `.pt` 或地图 token 缓存。
@@ -203,6 +245,8 @@ python -m src.run experiment=scenario_dreamer action=test \
 无 LDM checkpoint 训练验证：25 项 Scenario Dreamer 测试通过，新增覆盖仅加载 AE、全新 EMA、随机 LDM 反向传播及参数更新、普通 SMART 模块状态保存/恢复，以及显式 checkpoint 的完整权重加载。另在 `sim` 环境使用默认 Waymo Large 结构、真实预处理 train 数据和现有 `src.run action=fit` 完成 1 个 GPU 优化步骤（batch size 1、关闭验证及 checkpoint 写入）。此检查没有进行完整训练。
 
 AE 阶段验证：32 项 Scenario Dreamer 测试通过，覆盖 AE 的无 checkpoint 初始化、普通/分区图损失、encoder/decoder/分区数量头的梯度、SMART train/validation/test 路由、AE 保存恢复和 AE → LDM 权重衔接。真实预处理数据上完成了从零训练及 2 场景验证、checkpoint 保存、step 1 → 2 断点续训，以及加载该 AE 后的一步 LDM 训练。保存的 AE checkpoint 位于 `logs/scenario_dreamer_ae_smoke/2026-10-01_15-53-48/lightning_logs/version_0/checkpoints/scenario_dreamer-ae-0-1.ckpt`，仅用于冒烟验证，并非收敛后的模型。本次全仓测试为 62/67 通过，剩余仍为下述 5 项既有失败。
+
+Latent 缓存验证：39 项 Scenario Dreamer 测试通过，新增覆盖不同 batch size 下的 agent/lane 排序、分区 mask、缓存/在线后验与损失一致性、逐次随机采样、LDM 反向传播、断点补全、源文件变动/缺失/损坏检测、AE 恢复后的标识更新和各数据划分的独立配置。真实 GPU 检查缓存了 train 的前 8 个场景（`logs/scenario_dreamer_latent_smoke/cache/train`），并在禁止调用 AE encoder 的情况下通过现有入口完成一次 batch size 2 的 LDM 优化，输出目录为 `logs/scenario_dreamer_cached_training_smoke/2026-10-01_16-15-47`。全仓测试为 69/74 通过，仍为原有 5 项失败；未运行全量 973,984 场景缓存。
 
 运行新增回归测试：
 

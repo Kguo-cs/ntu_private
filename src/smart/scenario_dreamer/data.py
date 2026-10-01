@@ -81,6 +81,9 @@ def build_graph(agent, tokens, cfg, *, map_source="auto"):
     if map_source not in ("auto", "exact", "tokens"):
         raise ValueError("map_source must be auto, exact or tokens")
     use_exact = exact is not None and map_source != "tokens"
+    cached = agent.get("sd_cached_posterior")
+    if cached is not None and not use_exact:
+        raise ValueError("Cached AE posteriors require the exact preprocessed map")
     graphs, row_ids, centers, angles = [], [], [], []
     for b in range(num_graphs):
         rows = torch.where(batch == b)[0]
@@ -141,6 +144,12 @@ def build_graph(agent, tokens, cfg, *, map_source="auto"):
         d["agent"].x = state[ai].float()
         d["agent"].type = torch.nn.functional.one_hot(agent["type"][rows[ai]].long(), 3)
         d["lane"].x = normalized_lanes[li].float()
+        if use_exact:
+            d["lane"].source_row = lane_rows[li]
+        if cached is not None:
+            for stat in ("mu", "log_var"):
+                d["agent"][f"posterior_{stat}"] = cached[f"agent_{stat}"][rows[ai]]
+                d["lane"][f"posterior_{stat}"] = cached[f"lane_{stat}"][lane_rows[li]]
         partitions = {
             "agent": torch.as_tensor(agent_partition, device=device, dtype=torch.bool),
             "lane": torch.as_tensor(lane_partition, device=device, dtype=torch.bool),

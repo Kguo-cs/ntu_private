@@ -47,6 +47,9 @@ model:
 
 data:
   scenario_dreamer_preprocessed: true
+  scenario_dreamer_train_latent_cache: null  # Directory produced by action=cache_latents.
+  scenario_dreamer_val_latent_cache: null
+  scenario_dreamer_test_latent_cache: null
   scenario_dreamer_eval_set: ${model.model_config.sd_eval_set}
   val_tfrecords_splitted: null
   train_raw_dir: ${paths.cache_root}/train

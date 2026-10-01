@@ -51,7 +51,7 @@ def tokenize_preprocessed_agents(data, processor):
     ego = processor._make_ego_mask(raw.batch)
     agent_type = raw.type.long()
     shapes, all_tokens, final_tokens = processor._get_agent_tokens(agent_type)
-    return {
+    agent = {
         "batch": raw.batch, "type": agent_type, "ego_mask": ego,
         "initial_pos": state[:, :2], "initial_heading": heading,
         "local_vel": torch.stack((state[:, 2], torch.zeros_like(state[:, 2])), -1),
@@ -61,3 +61,11 @@ def tokenize_preprocessed_agents(data, processor):
         "token_agent_shape": shapes, "token_traj": final_tokens, "token_traj_all": all_tokens,
         "initial_scene_only": True,
     }
+    if "posterior_mu" in raw:
+        agent["sd_cached_posterior"] = {
+            "encoder_fingerprint": data["sd_latent_cache_fingerprint"],
+            "agent_mu": raw.posterior_mu, "agent_log_var": raw.posterior_log_var,
+            "lane_mu": data["sd_lane"].posterior_mu,
+            "lane_log_var": data["sd_lane"].posterior_log_var,
+        }
+    return agent

@@ -41,9 +41,18 @@ class MultiDataset(Dataset):
         tfrecord_dir: Optional[str] = None,
         scenario_dreamer_preprocessed: bool = False,
         sample_list: Optional[str] = None,
+        scenario_dreamer_latent_cache: Optional[str] = None,
+        record_latent_source: bool = False,
     ) -> None:
         root = Path(raw_dir)
         self.scenario_dreamer_preprocessed = scenario_dreamer_preprocessed
+        self.latent_cache_dir = Path(scenario_dreamer_latent_cache) if scenario_dreamer_latent_cache else None
+        self.record_latent_source = record_latent_source
+        if (self.latent_cache_dir is not None or record_latent_source) and not scenario_dreamer_preprocessed:
+            raise ValueError("Latent caching requires scenario_dreamer_preprocessed=true")
+        if self.latent_cache_dir is not None:
+            from src.smart.scenario_dreamer.latent_cache import read_manifest
+            self.latent_cache_manifest = read_manifest(self.latent_cache_dir)
         if sample_list is not None:
             with Path(sample_list).open("rb") as handle:
                 names = pickle.load(handle)["files"]
@@ -75,15 +84,36 @@ class MultiDataset(Dataset):
 
         # DataLoader/DistributedSampler owns indexing; never duplicate rows per GPU.
 
-        if '.pkl' in self.raw_paths[idx]:
+        source_hash = None
+        if self.record_latent_source or self.latent_cache_dir is not None:
+            import hashlib
+            import io
+            raw = Path(self.raw_paths[idx]).read_bytes()
+            source_hash = hashlib.sha256(raw).hexdigest()
+            data = (pickle.loads(raw) if Path(self.raw_paths[idx]).suffix == ".pkl" else
+                    torch.load(io.BytesIO(raw), map_location="cpu", weights_only=False))
+        elif '.pkl' in self.raw_paths[idx]:
             with open(self.raw_paths[idx], "rb") as handle:
                 data = pickle.load(handle)
         else:
-            data =torch.load(self.raw_paths[idx],map_location="cpu",weights_only=False)
+            data = torch.load(self.raw_paths[idx], map_location="cpu", weights_only=False)
 
         if self.scenario_dreamer_preprocessed:
             from src.smart.scenario_dreamer.preprocessed import adapt_preprocessed_scene
-            return adapt_preprocessed_scene(data, self.raw_paths[idx])
+            result = adapt_preprocessed_scene(data, self.raw_paths[idx])
+            if source_hash is not None:
+                result["sd_source_sha256"] = source_hash
+            if self.latent_cache_dir is not None:
+                from src.smart.scenario_dreamer.latent_cache import load_record
+                n, l = result["sd_agent"]["num_nodes"], result["sd_lane"]["num_nodes"]
+                record = load_record(self.latent_cache_dir, Path(self.raw_paths[idx]).name,
+                                     source_hash, self.latent_cache_manifest, n, l)
+                order = torch.cat((torch.arange(1, n), torch.zeros(1, dtype=torch.long)))
+                for stat in ("mu", "log_var"):
+                    result["sd_agent"][f"posterior_{stat}"] = record[f"agent_{stat}"][order]
+                    result["sd_lane"][f"posterior_{stat}"] = record[f"lane_{stat}"]
+                result["sd_latent_cache_fingerprint"] = record["encoder_fingerprint"]
+            return result
 
         # ============================================================
         # Scenario Dreamer metric metadata

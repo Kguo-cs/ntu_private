@@ -78,6 +78,11 @@ def run(cfg: DictConfig) -> None:
     if cfg.get("seed") is not None:
         L.seed_everything(cfg.seed, workers=True)
 
+    if cfg.action == "cache_latents":
+        from src.smart.scenario_dreamer.latent_cache import run_precache
+        run_precache(cfg)
+        return
+
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
 

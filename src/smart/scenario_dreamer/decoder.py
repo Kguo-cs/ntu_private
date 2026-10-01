@@ -112,6 +112,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
             train_cfg = {key: saved.train[key] for key in ("loss_type", "lane_weight", "guidance_scale", "ema_decay")}
             self.cfg = OmegaConf.create(dict(model=model_cfg, dataset=dataset_cfg, train=train_cfg, dataset_name="waymo"))
         self.autoencoder = AutoEncoder(self.ae_config)
+        self._latent_cache_fingerprint = None
+        self.autoencoder.register_load_state_dict_post_hook(self._invalidate_latent_cache_fingerprint)
         if ae_weights is not None:
             self.autoencoder.load_state_dict(ae_weights, strict=True)
         self.checkpoint_step = int(ae.get("global_step", 0)) if ae is not None else 0
@@ -154,6 +156,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
                 "ae_config": OmegaConf.to_container(self.ae_config, resolve=True)}
 
     def set_extra_state(self, state):
+        self._latent_cache_fingerprint = None
         if state.get("training_stage", "ldm") != self.training_stage:
             raise ValueError("Resume requires the same training_stage; pass an AE checkpoint via ae_checkpoint for LDM training")
         if self.ema is not None:
@@ -174,10 +177,28 @@ class ScenarioDreamerInitDecoder(nn.Module):
             map_source=self.map_source,
         )
 
+    def _invalidate_latent_cache_fingerprint(self, module, incompatible_keys):
+        self._latent_cache_fingerprint = None
+
+    def _check_cached_encoder(self, agent):
+        from .latent_cache import encoder_fingerprint
+        if self._latent_cache_fingerprint is None:
+            self._latent_cache_fingerprint = encoder_fingerprint(self.autoencoder, self.ae_config, self.cfg.dataset)
+        identities = agent["sd_cached_posterior"]["encoder_fingerprint"]
+        if isinstance(identities, str):
+            identities = [identities]
+        if len(identities) != int(agent["num_graphs"]) or any(value != self._latent_cache_fingerprint for value in identities):
+            raise ValueError("Latent cache does not match the current AE weights/preprocessing; regenerate with this AE")
+
     def _encode(self, agent):
         data, rows, centers, angles = self._build_graph(agent)
         with torch.no_grad():
-            am, lm, av, lv = self.autoencoder.forward_encoder(data, return_stats=True)
+            if "sd_cached_posterior" in agent:
+                self._check_cached_encoder(agent)
+                am, av = data["agent"].posterior_mu, data["agent"].posterior_log_var
+                lm, lv = data["lane"].posterior_mu, data["lane"].posterior_log_var
+            else:
+                am, lm, av, lv = self.autoencoder.forward_encoder(data, return_stats=True)
             stats = self.cfg.dataset
             if self.training:
                 a = am + (av * 0.5).exp() * torch.randn_like(am)
@@ -192,6 +213,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
         return data, rows, centers, angles
 
     def autoencoder_loss(self, tokenized_agent):
+        if "sd_cached_posterior" in tokenized_agent:
+            raise ValueError("AE training/validation requires raw scenes; disable latent caches for the AE stage")
         data, _, _, _ = self._build_graph(tokenized_agent)
         return self.autoencoder.loss(data)
 
