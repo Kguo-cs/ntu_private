@@ -9,14 +9,17 @@ Scenario Dreamer 是 `SMARTDecoder` 的一种初始状态 decoder。使用现有
 ```bash
 conda activate sim
 
-# 加载官方权重，完整验证 50,000 个场景
-python -m src.run experiment=scenario_dreamer
-
-# 使用现有训练入口继续训练 LDM
+# 默认只加载 AE，随机初始化 LDM 训练
 python -m src.run experiment=scenario_dreamer action=fit
 
-# 使用现有测试入口
-python -m src.run experiment=scenario_dreamer action=test
+# 从官方 LDM 权重继续训练
+python -m src.run experiment=scenario_dreamer action=fit \
+  model.model_config.decoder.scenario_dreamer.ldm_checkpoint=src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt
+
+# 加载官方 LDM，完整验证 50,000 个场景
+python -m src.run experiment=scenario_dreamer action=validate \
+  model.model_config.decoder.scenario_dreamer.ldm_checkpoint=src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt \
+  trainer.limit_val_batches=1.0 model.model_config.sd_require_full_set=true
 ```
 
 [实验配置](../configs/experiment/scenario_dreamer.yaml)设置数据目录、初始状态任务和评价器。实际模型选择是：
@@ -32,7 +35,8 @@ model:
       init_decoder: scenario_dreamer  # 默认 flow
       scenario_dreamer:
         ae_checkpoint: src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
-        ldm_checkpoint: src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt
+        ldm_checkpoint: null  # 无需 LDM 权重文件，从头训练
+        ldm_config: null  # 可选的 model/dataset/train 配置覆盖，仅用于从头训练
         generation_mode: initial_scene  # Joint lane + agent generation
         map_source: exact
         map_id: 0
@@ -44,16 +48,19 @@ model:
 先做小规模验证：
 
 ```bash
-python -m src.run experiment=scenario_dreamer \
+python -m src.run experiment=scenario_dreamer action=validate \
+  model.model_config.decoder.scenario_dreamer.ldm_checkpoint=src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt \
   trainer.limit_val_batches=1 data.val_batch_size=2 \
   model.model_config.sd_require_full_set=false
 
 python -m src.run experiment=scenario_dreamer action=test \
+  model.model_config.decoder.scenario_dreamer.ldm_checkpoint=src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt \
   trainer.limit_test_batches=1 data.test_batch_size=2 \
   model.model_config.sd_require_full_set=false
 
 # 单步反向传播和优化器检查；不写入大型训练 checkpoint
 python -m src.run experiment=scenario_dreamer action=fit \
+  data.train_batch_size=1 data.num_workers=0 \
   trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
   +trainer.max_steps=1 callbacks.model_checkpoint=null \
   +trainer.enable_checkpointing=false
@@ -63,14 +70,18 @@ python -m src.run experiment=scenario_dreamer action=fit \
 
 ## 权重和训练
 
-默认两份官方 Waymo checkpoint 已放在上述路径。模型结构、100 步 diffusion schedule、归一化参数与 guidance 等均从 checkpoint 配置恢复。AE、LDM 和 LDM 内嵌 AE 都使用严格参数加载；推理默认使用官方 EMA。
+`ldm_checkpoint: null`（默认）表示从头训练 LDM，不打开任何 LDM checkpoint，也不从中读取配置或内嵌 AE。模型结构、100 步 diffusion schedule、归一化参数、guidance 和 EMA decay 使用仓库内的 [Waymo Large 配置](../src/smart/scenario_dreamer/waymo_ldm_large.yaml)，数值取自官方发布的 checkpoint。AE 仍严格加载 `ae_checkpoint` 并冻结；EMA 从新建 LDM 参数初始化，`checkpoint_step=0`。保持 `ckpt_path=null` 即可开始全新训练。
+
+需要修改从头训练的结构或采样设置时，可用 `ldm_config` 的 `model`、`dataset`、`train` 子项覆盖默认配置；agent/lane latent 维度必须与 AE 一致。指定 `ldm_checkpoint` 时使用 checkpoint 自带配置，不能同时传入 `ldm_config` 覆盖。
+
+给 `ldm_checkpoint` 设置官方文件路径即可加载预训练模型。AE、LDM 和 LDM 内嵌 AE 都使用严格参数加载，恢复官方 EMA 和 checkpoint 步数；推理默认使用 EMA。路径拼错会报错，不会退回随机初始化。两份官方 Waymo checkpoint 已放在上述路径：
 
 | 权重 | SHA-256 |
 | --- | --- |
 | Waymo AE | `3c3033a107de727ca1c2399a8e0df107e5eb1a84bce3d7e18cc2e01698ccf6ac` |
 | Waymo LDM Large | `06a1a65e9949f55c3398aeadacde388b03a6705f2661bc273cf43e7319de4cd5` |
 
-这些哈希已核对；默认加载不会每次重新读取整个 13 GB LDM 文件计算哈希。源码固定为 [官方提交 6754234](https://github.com/princeton-computational-imaging/scenario-dreamer/tree/675423469766bf2fd8a6b569ef1869a6f1e76993)，文件来源和改动记录在 [SOURCES.json](../src/smart/scenario_dreamer/SOURCES.json)。
+这些哈希已核对；指定 LDM 路径时不会每次重新读取整个 13 GB 文件计算哈希。源码固定为 [官方提交 6754234](https://github.com/princeton-computational-imaging/scenario-dreamer/tree/675423469766bf2fd8a6b569ef1869a6f1e76993)，文件来源和改动记录在 [SOURCES.json](../src/smart/scenario_dreamer/SOURCES.json)。
 
 训练时冻结 AE，采样 AE 后验得到 latent，用官方 LDM 的联合 agent/lane 噪声预测损失训练 diffusion；记录 `train/scenario_dreamer/loss`、`agent_loss`、`lane_loss`。优化器和学习率计划继续使用 SMART。每次优化器更新后更新 EMA，EMA 也随普通 SMART checkpoint 保存和恢复。
 
@@ -81,7 +92,7 @@ python -m src.run experiment=scenario_dreamer action=fit \
   ckpt_path=/absolute/path/to/smart-checkpoint.ckpt
 ```
 
-首次构造 decoder 仍会读取配置中的官方权重，随后 Trainer 恢复 SMART 状态及优化器。
+首次构造 decoder 会加载 AE；仅在 `ldm_checkpoint` 非空时加载官方 LDM。随后 Trainer 恢复 SMART 中的模型参数、EMA 和优化器。从头训练的 SMART checkpoint 可以保持 `ldm_checkpoint=null` 恢复，不需要官方 LDM 文件；构造时的 `ldm_config` 必须与保存时一致。
 
 ## 数据与输入适配
 
@@ -133,6 +144,7 @@ JSD 保留已有官方实现的缩放；collision rate 为百分数。记录名�
 
 ```bash
 python -m src.run experiment=scenario_dreamer action=test \
+  model.model_config.decoder.scenario_dreamer.ldm_checkpoint=src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt \
   model.model_config.decoder.scenario_dreamer.generation_mode=lane_conditioned
 ```
 
@@ -140,6 +152,7 @@ python -m src.run experiment=scenario_dreamer action=test \
 
 ```bash
 python -m src.run experiment=scenario_dreamer action=test \
+  model.model_config.decoder.scenario_dreamer.ldm_checkpoint=src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt \
   '+model.model_config.sd_export_dir=${paths.output_dir}/generated_scenes'
 ```
 
@@ -150,6 +163,8 @@ python -m src.run experiment=scenario_dreamer action=test \
 在本机 `sim` 环境（Python 3.11、PyTorch 2.7.0+cu128、Lightning 2.4.0、RTX 4090）完成官方权重的严格加载。改用官方 pickle 后，`experiment=sd` 已完成 2 个真实训练 batch 的优化及随后的验证，`experiment=scenario_dreamer action=test` 已完成真实 test 数据的冒烟检查。
 
 2026-10-01 联合模式验证：`sim` 环境中通过 8 个真实测试场景的 lane/agent 联合生成与指标计算，以及训练一步后的 8 场景验证。测试报告位于 `logs/scenario_dreamer/2026-10-01_10-40-23/sd_agent_metrics.json`；同目录 `generated_scenes` 保存了参与评价的生成样本。8 张生成地图均与 GT 不同；从这些导出样本独立重算的全部 7 项指标与报告一致（绝对误差小于 1e-12）。20 项 Scenario Dreamer 相关测试通过。
+
+无 LDM checkpoint 训练验证：25 项 Scenario Dreamer 测试通过，新增覆盖仅加载 AE、全新 EMA、随机 LDM 反向传播及参数更新、普通 SMART 模块状态保存/恢复，以及显式 checkpoint 的完整权重加载。另在 `sim` 环境使用默认 Waymo Large 结构、真实预处理 train 数据和现有 `src.run action=fit` 完成 1 个 GPU 优化步骤（batch size 1、关闭验证及 checkpoint 写入）。此检查没有进行完整训练。
 
 运行新增回归测试：
 

@@ -1,0 +1,49 @@
+# Official Waymo LDM Large configuration, independent of pretrained weights.
+# Extracted from checkpoint SHA-256:
+# 06a1a65e9949f55c3398aeadacde388b03a6705f2661bc273cf43e7319de4cd5
+model:
+  hidden_dim: 2048
+  num_heads: 16
+  agent_hidden_dim: 512
+  agent_num_heads: 8
+  num_factorized_dit_blocks: 2
+  lane_latent_dim: 24
+  agent_latent_dim: 8
+  dropout: 0
+  label_dropout: 0.1
+  num_l2l_blocks: 3
+  n_diffusion_timesteps: 100
+  lane_sampling_temperature: 0.75
+  diffusion_clip: 5
+dataset:
+  max_num_agents: 30
+  max_num_lanes: 100
+  upsample_lane_num_points: 1000
+  remove_offroad_agents: true
+  offroad_threshold: 1.5
+  fov: 64
+  num_points_per_lane: 20
+  num_agent_types: 3
+  num_lane_connection_types: 6
+  min_speed: 0
+  max_speed: 114.088
+  min_length: -0.098
+  max_length: 22.929
+  min_width: 0.096
+  max_width: 12.527
+  min_lane_x: -32
+  max_lane_x: 32
+  min_lane_y: -32
+  max_lane_y: 32
+  agent_latents_mean: 0.0138
+  agent_latents_std: 1.0088
+  lane_latents_mean: 0.0123
+  lane_latents_std: 1.0487
+  num_map_ids: 2
+  num_lane_types: 0
+train:
+  loss_type: l2
+  lane_weight: 10
+  guidance_scale: 4.0
+  ema_decay: 0.9999
+dataset_name: waymo

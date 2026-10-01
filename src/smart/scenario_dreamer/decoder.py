@@ -14,6 +14,7 @@ from .data import build_graph, rotate
 
 ROOT = Path(__file__).resolve().parents[3]
 WEIGHTS = ROOT / "src/waymo_data/scenario_dreamer/checkpoints"
+DEFAULT_LDM_CONFIG = Path(__file__).with_name("waymo_ldm_large.yaml")
 
 
 def _checkpoint(path):
@@ -34,13 +35,14 @@ class ScenarioDreamerInitDecoder(nn.Module):
     Inference supports joint lane/agent generation or lane conditioning, with fixed scene counts.
     Official checkpoint parameter names and EMA order are retained in the core.
     AE parameters remain frozen; SMART's optimizer trains the LDM.
+    With ldm_checkpoint=None, initialize a fresh LDM without reading LDM weights.
     """
     use_gan = False
     learn_autoencoder = False
     use_rl = False
     loss_kind = "scenario_dreamer"
 
-    def __init__(self, token_processor, *, ae_checkpoint=None, ldm_checkpoint=None,
+    def __init__(self, token_processor, *, ae_checkpoint=None, ldm_checkpoint=None, ldm_config=None,
                  map_source="auto", map_id=0, use_ema=True, generation_mode="initial_scene"):
         super().__init__()
         self.token_processor = token_processor
@@ -52,35 +54,48 @@ class ScenarioDreamerInitDecoder(nn.Module):
             raise ValueError("generation_mode must be initial_scene or lane_conditioned")
         if self.map_source not in ("auto", "exact", "tokens") or self.map_id not in (0, 1):
             raise ValueError("Use map_source=auto/exact/tokens and Waymo map_id=0/1")
+        if ldm_checkpoint is not None and ldm_config is not None:
+            raise ValueError("ldm_config overrides require ldm_checkpoint=null; pretrained models use their saved config")
         ae = _checkpoint(ae_checkpoint or WEIGHTS / "scenario_dreamer_autoencoder_waymo/last.ckpt")
-        ldm = _checkpoint(ldm_checkpoint or WEIGHTS / "scenario_dreamer_ldm_large_waymo/last.ckpt")
-        if "ema_state_dict" not in ldm:
-            raise ValueError("The official LDM checkpoint must include ema_state_dict")
         ae_cfg = ae["hyper_parameters"]["cfg"]
         self.ae_config = OmegaConf.create(OmegaConf.to_container(ae_cfg.model, resolve=True))
-        saved = ldm["hyper_parameters"]["cfg"]
-        model_cfg = {key: saved.model[key] for key in saved.model
-                     if key not in ("autoencoder_run_name", "autoencoder_path")}
-        dataset_cfg = {key: value for key, value in OmegaConf.to_container(saved.dataset, resolve=False).items()
-                       if isinstance(value, (int, float, bool))}
-        dataset_cfg.update(num_map_ids=2, num_agent_types=3, num_lane_types=0)
-        train_cfg = {key: saved.train[key] for key in ("loss_type", "lane_weight", "guidance_scale", "ema_decay")}
-        self.cfg = OmegaConf.create(dict(model=model_cfg, dataset=dataset_cfg, train=train_cfg, dataset_name="waymo"))
-        # The full checkpoint embeds AE tensors as well as LDM tensors.
+        ldm = None
+        if ldm_checkpoint is None:
+            # This path must not read the large LDM checkpoint, even for configuration.
+            self.cfg = OmegaConf.merge(OmegaConf.load(DEFAULT_LDM_CONFIG), ldm_config or {})
+        else:
+            ldm = _checkpoint(ldm_checkpoint)
+            if "ema_state_dict" not in ldm:
+                raise ValueError("The official LDM checkpoint must include ema_state_dict")
+            saved = ldm["hyper_parameters"]["cfg"]
+            model_cfg = {key: saved.model[key] for key in saved.model
+                         if key not in ("autoencoder_run_name", "autoencoder_path")}
+            dataset_cfg = {key: value for key, value in OmegaConf.to_container(saved.dataset, resolve=False).items()
+                           if isinstance(value, (int, float, bool))}
+            dataset_cfg.update(num_map_ids=2, num_agent_types=3, num_lane_types=0)
+            train_cfg = {key: saved.train[key] for key in ("loss_type", "lane_weight", "guidance_scale", "ema_decay")}
+            self.cfg = OmegaConf.create(dict(model=model_cfg, dataset=dataset_cfg, train=train_cfg, dataset_name="waymo"))
+        for key in ("agent_latent_dim", "lane_latent_dim"):
+            if self.cfg.model[key] != self.ae_config[key]:
+                raise ValueError(f"LDM {key} must match the AE checkpoint ({self.ae_config[key]})")
         self.diff_model = LDM(self.cfg)
         self.autoencoder = AutoEncoder(self.ae_config)
         self.autoencoder.load_state_dict({key.removeprefix("model."): value
                                          for key, value in ae["state_dict"].items()}, strict=True)
-        # self.diff_model.load_state_dict({key.removeprefix("diff_model."): value
-        #                                 for key, value in ldm["state_dict"].items()
-        #                                 if key.startswith("diff_model.")}, strict=True)
-        embedded = {key.removeprefix("autoencoder.model."): value for key, value in ldm["state_dict"].items()
-                    if key.startswith("autoencoder.model.")}
-        self.autoencoder.load_state_dict(embedded, strict=True)
+        if ldm is not None:
+            self.diff_model.load_state_dict({key.removeprefix("diff_model."): value
+                                             for key, value in ldm["state_dict"].items()
+                                             if key.startswith("diff_model.")}, strict=True)
+            # Pretrained LDM latents correspond to its embedded AE weights.
+            embedded = {key.removeprefix("autoencoder.model."): value for key, value in ldm["state_dict"].items()
+                        if key.startswith("autoencoder.model.")}
+            self.autoencoder.load_state_dict(embedded, strict=True)
         self.autoencoder.requires_grad_(False).eval()
         self.ema = ExponentialMovingAverage(self.diff_model.parameters(), decay=self.cfg.train.ema_decay)
-        # self.ema.load_state_dict(ldm["ema_state_dict"])
-        # self.checkpoint_step = int(ldm.get("global_step", 0))
+        self.checkpoint_step = 0
+        if ldm is not None:
+            self.ema.load_state_dict(ldm["ema_state_dict"])
+            self.checkpoint_step = int(ldm.get("global_step", 0))
 
     def train(self, mode=True):
         super().train(mode)

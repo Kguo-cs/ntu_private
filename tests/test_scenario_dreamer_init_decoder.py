@@ -13,7 +13,7 @@ from torch_geometric.data import Batch, HeteroData
 from src.smart.scenario_dreamer.core.autoencoder import AutoEncoder
 from src.smart.scenario_dreamer.core.ldm import LDM
 from src.smart.scenario_dreamer.data import attach_model_map, build_graph
-from src.smart.scenario_dreamer.decoder import ScenarioDreamerInitDecoder
+from src.smart.scenario_dreamer.decoder import ScenarioDreamerInitDecoder, _checkpoint
 from src.smart.scenario_dreamer.preprocessed import adapt_preprocessed_scene
 from src.smart.scenario_dreamer.core.data_helpers import normalize_scene
 from src.smart.tokens.token_processor import TokenProcessor
@@ -89,6 +89,7 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
         torch.set_num_threads(1)
         cls.temp = tempfile.TemporaryDirectory()
         cls.ae, cls.ldm = make_checkpoints(Path(cls.temp.name))
+        cls.scratch_config = torch.load(cls.ldm, weights_only=False)["hyper_parameters"]["cfg"]
         cls.processor = TokenProcessor("map_traj_token5.pkl", "agent_vocab_555_s2.pkl",
                                        OmegaConf.create(dict(num_k=1, temp=1.)),
                                        OmegaConf.create(dict(num_k=1, temp=1.)),
@@ -100,8 +101,86 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
         torch.set_num_threads(cls.threads)
 
     def decoder(self, **options):
+        options.setdefault("ldm_checkpoint", self.ldm)
         return ScenarioDreamerInitDecoder(self.processor, ae_checkpoint=self.ae,
-                                          ldm_checkpoint=self.ldm, map_source="exact", **options)
+                                          map_source="exact", **options)
+
+    def scratch_decoder(self):
+        # Override only architecture, leaving all other settings to the bundled preset.
+        return self.decoder(ldm_checkpoint=None, ldm_config={"model": self.scratch_config.model})
+
+    def test_scratch_loads_only_ae_and_initializes_fresh_ema(self):
+        with patch("src.smart.scenario_dreamer.decoder._checkpoint", wraps=_checkpoint) as load:
+            model = self.scratch_decoder()
+        load.assert_called_once_with(self.ae)
+        self.assertEqual(model.checkpoint_step, 0)
+        self.assertEqual(model.ema.num_updates, 0)
+        self.assertEqual(model.ema.decay, model.cfg.train.ema_decay)
+        for shadow, parameter in zip(model.ema.shadow_params, model.diff_model.parameters()):
+            torch.testing.assert_close(shadow, parameter)
+        ae_state = torch.load(self.ae, weights_only=False)["state_dict"]
+        for key, value in model.autoencoder.state_dict().items():
+            torch.testing.assert_close(value, ae_state["model." + key])
+        self.assertFalse(any(p.requires_grad for p in model.autoencoder.parameters()))
+        pretrained = torch.load(self.ldm, weights_only=False)["state_dict"]
+        self.assertTrue(any(not torch.equal(p, pretrained["diff_model." + key])
+                            for key, p in model.diff_model.named_parameters()))
+
+    def test_scratch_training_and_smart_state_resume_without_ldm_checkpoint(self):
+        model = self.scratch_decoder().train()
+        before = [p.detach().clone() for p in model.diff_model.parameters()]
+        loss = model(inputs())["loss"]
+        self.assertTrue(torch.isfinite(loss))
+        loss.backward()
+        self.assertTrue(all(p.grad is None for p in model.autoencoder.parameters()))
+        self.assertFalse(model.autoencoder.training)
+        torch.optim.SGD(model.diff_model.parameters(), lr=.01).step()
+        model.update_ema()
+        self.assertEqual(model.ema.num_updates, 1)
+        self.assertTrue(any(not torch.equal(a, b) for a, b in zip(before, model.diff_model.parameters())))
+        path = Path(self.temp.name) / "scratch_resume.pt"
+        torch.save(model.state_dict(), path)
+        restored = self.scratch_decoder()
+        restored.load_state_dict(torch.load(path, weights_only=False), strict=True)
+        self.assertEqual(restored.checkpoint_step, 0)
+        self.assertEqual(restored.ema.num_updates, model.ema.num_updates)
+        for a, b in zip(restored.diff_model.parameters(), model.diff_model.parameters()):
+            torch.testing.assert_close(a, b)
+        for a, b in zip(restored.ema.shadow_params, model.ema.shadow_params):
+            torch.testing.assert_close(a, b)
+        torch.manual_seed(123)
+        expected = model.eval()(inputs())
+        torch.manual_seed(123)
+        actual = restored.eval()(inputs())
+        for a, b in zip(expected, actual):
+            torch.testing.assert_close(a, b)
+
+    def test_explicit_checkpoint_restores_ldm_embedded_ae_and_ema(self):
+        saved = torch.load(self.ldm, weights_only=False)
+        # Distinguish the saved EMA and embedded AE from freshly initialized values.
+        saved["ema_state_dict"]["shadow_params"][0].add_(2)
+        ae_key = next(k for k in saved["state_dict"] if k.startswith("autoencoder.model."))
+        saved["state_dict"][ae_key].add_(1)
+        path = Path(self.temp.name) / "distinct_pretrained.ckpt"
+        torch.save(saved, path)
+        model = self.decoder(ldm_checkpoint=path)
+        self.assertEqual(model.checkpoint_step, 19)
+        for key, value in model.diff_model.state_dict().items():
+            torch.testing.assert_close(value, saved["state_dict"]["diff_model." + key])
+        for key, value in model.autoencoder.state_dict().items():
+            torch.testing.assert_close(value, saved["state_dict"]["autoencoder.model." + key])
+        for actual, expected in zip(model.ema.shadow_params, saved["ema_state_dict"]["shadow_params"]):
+            torch.testing.assert_close(actual, expected)
+
+    def test_explicit_missing_ldm_checkpoint_does_not_fall_back_to_scratch(self):
+        with self.assertRaisesRegex(FileNotFoundError, "Missing Scenario Dreamer checkpoint"):
+            self.decoder(ldm_checkpoint=Path(self.temp.name) / "missing.ckpt")
+
+    def test_invalid_scratch_config_fails_before_building_ldm(self):
+        with self.assertRaisesRegex(ValueError, "ldm_checkpoint=null"):
+            self.decoder(ldm_config={"model": {"hidden_dim": 64}})
+        with self.assertRaisesRegex(ValueError, "agent_latent_dim must match the AE"):
+            self.decoder(ldm_checkpoint=None, ldm_config={"model": {"agent_latent_dim": 16}})
 
     def test_real_core_training_backward_and_frozen_ae(self):
         model = self.decoder().train()
