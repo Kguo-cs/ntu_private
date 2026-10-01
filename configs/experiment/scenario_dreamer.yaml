@@ -64,7 +64,7 @@ trainer:
 
 callbacks:
   model_checkpoint:
-    monitor: val_closed/sd/collision_rate
+    monitor: collision_rate
     mode: min
     filename: scenario_dreamer-{epoch}-{step}
   model_summary:

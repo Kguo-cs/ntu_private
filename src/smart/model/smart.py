@@ -487,7 +487,7 @@ class SMART(LightningModule):
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
                 json.dump(report, handle, indent=2)
             for name, value in metrics.items():
-                self.log(f"val_closed/sd/{name}", _scalar(value, name), on_step=False,
+                self.log(f"{name}", _scalar(value, name), on_step=False,
                          on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
             return
         if self.scenario_dreamer_init:
