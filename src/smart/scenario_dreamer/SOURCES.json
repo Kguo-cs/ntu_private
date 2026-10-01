@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/princeton-computational-imaging/scenario-dreamer",
   "commit": "675423469766bf2fd8a6b569ef1869a6f1e76993",
-  "adaptation": "Relative imports; only weight_init retained from train_helpers; constants inlined. No upstream trainer or external repository needed.",
+  "adaptation": "Relative imports; only weight_init retained from train_helpers; constants inlined. No upstream trainer or external repository needed. AutoEncoder conditional-count report metrics return zero for batches without partitioned scenes; the loss objective is unchanged.",
   "upstream_sha256": {
     "nn_modules/autoencoder.py": "4428ad8d2484b1e3ce523681964c497c6b2000450a65fad4e65b682903d6cefa",
     "nn_modules/dit.py": "75caad0eefd04621f14e2f5aa7ac23b49edd53c3b369a924d6d51c76c3e47e84",

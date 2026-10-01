@@ -183,7 +183,7 @@ class SMART(LightningModule):
         self.gt_samples: list[Any] = []
         self.gt_dist = None
 
-        if self.scenario_dreamer_init:
+        if self.scenario_dreamer_init and not self._is_scenario_dreamer_ae:
             self.store = None if self.use_sd_evaluator else CachedReferenceStore(
                 _cfg(model_config, 'sd_real_cache', './waymo_data/sd_real_metric_cache.sqlite'),
                 eval_set=_cfg(model_config, 'sd_eval_set', './waymo_data/waymo_eval_set.pkl'), expected_scenes=50000)
@@ -238,7 +238,23 @@ class SMART(LightningModule):
         trainer = getattr(self, "_trainer", None)
         return trainer is None or bool(trainer.is_global_zero)
 
+    @property
+    def _is_scenario_dreamer_ae(self) -> bool:
+        return getattr(self.encoder.init_decoder, "training_stage", None) == "autoencoder"
+
+    def _validate_scenario_dreamer_ae(self, data, prefix):
+        tokenized_map, agent = self.token_processor(data)
+        agent["tokenized_map"] = tokenized_map
+        losses = self.encoder.init_decoder.autoencoder_loss(agent)
+        for name, value in losses.items():
+            self.log(f"{prefix}/scenario_dreamer/autoencoder/{name}", value,
+                     on_step=False, on_epoch=True, batch_size=int(agent["num_graphs"]),
+                     prog_bar=name == "loss", sync_dist=True)
+        return losses["loss"]
+
     def on_validation_epoch_start(self) -> None:
+        if self._is_scenario_dreamer_ae:
+            return
         if not self.val_closed_loop or not self.scenario_dreamer_init or self.wosac_submission.is_active:
             return
         if self.use_sd_evaluator and getattr(getattr(self, "_trainer", None), "world_size", 1) != 1:
@@ -255,6 +271,8 @@ class SMART(LightningModule):
 
 
     def validation_step(self, data, batch_idx):
+        if self._is_scenario_dreamer_ae:
+            return self._validate_scenario_dreamer_ae(data, "val")
         trainer = getattr(self, "_trainer", None)
         if self.scenario_gen and trainer is not None and getattr(trainer, "sanity_checking", False):
             return
@@ -458,6 +476,8 @@ class SMART(LightningModule):
             )
 
     def on_validation_epoch_end(self) -> None:
+        if self._is_scenario_dreamer_ae:
+            return
         trainer = getattr(self, "_trainer", None)
         if trainer is not None and getattr(trainer, "sanity_checking", False):
             return
@@ -597,6 +617,8 @@ class SMART(LightningModule):
         }
 
     def test_step(self, data, batch_idx):
+        if self._is_scenario_dreamer_ae:
+            return self._validate_scenario_dreamer_ae(data, "test")
         if self.scenario_dreamer_init and self.use_sd_evaluator:
             return self.validation_step(data, batch_idx)
         # if batch_idx<73:
@@ -649,6 +671,8 @@ class SMART(LightningModule):
         return flat.reshape(shape)
 
     def on_test_epoch_end(self) -> None:
+        if self._is_scenario_dreamer_ae:
+            return
         if self.scenario_dreamer_init and self.use_sd_evaluator:
             return self.on_validation_epoch_end()
         if self._global_zero:

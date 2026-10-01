@@ -15,6 +15,8 @@ from .data import build_graph, rotate
 ROOT = Path(__file__).resolve().parents[3]
 WEIGHTS = ROOT / "src/waymo_data/scenario_dreamer/checkpoints"
 DEFAULT_LDM_CONFIG = Path(__file__).with_name("waymo_ldm_large.yaml")
+DEFAULT_AE_CONFIG = Path(__file__).with_name("waymo_autoencoder.yaml")
+DEFAULT_AE_CHECKPOINT = WEIGHTS / "scenario_dreamer_autoencoder_waymo/last.ckpt"
 
 
 def _checkpoint(path):
@@ -24,17 +26,37 @@ def _checkpoint(path):
     if not path.is_file():
         raise FileNotFoundError(f"Missing Scenario Dreamer checkpoint: {path}")
     checkpoint = torch.load(str(path), map_location="cpu", weights_only=False, mmap=True)
-    if "state_dict" not in checkpoint or "cfg" not in checkpoint.get("hyper_parameters", {}):
-        raise ValueError(f"Expected an official Scenario Dreamer Lightning checkpoint: {path}")
+    if "state_dict" not in checkpoint:
+        raise ValueError(f"Expected a Scenario Dreamer Lightning checkpoint with state_dict: {path}")
     return checkpoint
 
 
-class ScenarioDreamerInitDecoder(nn.Module):
-    """Train with the existing initial_logit loss; infer the existing 5-tuple.
+def _autoencoder_weights(checkpoint):
+    """Read either an official AE checkpoint or an AE trained by SMART."""
+    state = checkpoint["state_dict"]
+    if "cfg" in checkpoint.get("hyper_parameters", {}):
+        saved = OmegaConf.create(checkpoint["hyper_parameters"]["cfg"])
+        config = OmegaConf.create(OmegaConf.to_container(saved.model, resolve=True))
+        prefix = "model."
+    else:
+        extra = state.get("encoder.init_decoder._extra_state", {})
+        if "ae_config" not in extra:
+            raise ValueError("SMART AE checkpoint must contain encoder.init_decoder._extra_state.ae_config")
+        config = OmegaConf.create(extra["ae_config"])
+        prefix = "encoder.init_decoder.autoencoder."
+    weights = {key.removeprefix(prefix): value for key, value in state.items() if key.startswith(prefix)}
+    if not weights:
+        raise ValueError(f"AE checkpoint contains no weights with prefix {prefix}")
+    return config, weights
 
-    Inference supports joint lane/agent generation or lane conditioning, with fixed scene counts.
+
+class ScenarioDreamerInitDecoder(nn.Module):
+    """Train AE reconstruction or LDM loss through SMART's initial_logit API.
+
+    LDM inference returns the existing 5-tuple, supporting joint lane/agent generation
+    or lane conditioning, with fixed scene counts.
     Official checkpoint parameter names and EMA order are retained in the core.
-    AE parameters remain frozen; SMART's optimizer trains the LDM.
+    training_stage selects AE reconstruction or LDM training with a frozen AE.
     With ldm_checkpoint=None, initialize a fresh LDM without reading LDM weights.
     """
     use_gan = False
@@ -42,13 +64,18 @@ class ScenarioDreamerInitDecoder(nn.Module):
     use_rl = False
     loss_kind = "scenario_dreamer"
 
-    def __init__(self, token_processor, *, ae_checkpoint=None, ldm_checkpoint=None, ldm_config=None,
+    def __init__(self, token_processor, *, ae_checkpoint=DEFAULT_AE_CHECKPOINT, ae_config=None,
+                 ldm_checkpoint=None, ldm_config=None, training_stage="ldm",
                  map_source="auto", map_id=0, use_ema=True, generation_mode="initial_scene"):
         super().__init__()
         self.token_processor = token_processor
+        if training_stage not in ("ldm", "autoencoder"):
+            raise ValueError("training_stage must be ldm or autoencoder")
+        self.training_stage = training_stage
+        self.learn_autoencoder = training_stage == "autoencoder"
         self.map_source = map_source
         self.map_id = int(map_id)
-        self.use_ema = bool(use_ema)
+        self.use_ema = bool(use_ema) and not self.learn_autoencoder
         self.generation_mode = generation_mode
         if generation_mode not in ("initial_scene", "lane_conditioned"):
             raise ValueError("generation_mode must be initial_scene or lane_conditioned")
@@ -56,17 +83,26 @@ class ScenarioDreamerInitDecoder(nn.Module):
             raise ValueError("Use map_source=auto/exact/tokens and Waymo map_id=0/1")
         if ldm_checkpoint is not None and ldm_config is not None:
             raise ValueError("ldm_config overrides require ldm_checkpoint=null; pretrained models use their saved config")
-        ae = _checkpoint(ae_checkpoint or WEIGHTS / "scenario_dreamer_autoencoder_waymo/last.ckpt")
-        ae_cfg = ae["hyper_parameters"]["cfg"]
-        self.ae_config = OmegaConf.create(OmegaConf.to_container(ae_cfg.model, resolve=True))
+        if self.learn_autoencoder and (ldm_checkpoint is not None or ldm_config is not None):
+            raise ValueError("Autoencoder training requires ldm_checkpoint=null and ldm_config=null")
+        if not self.learn_autoencoder and ae_checkpoint is None:
+            raise ValueError("LDM training requires a trained ae_checkpoint; use training_stage=autoencoder to train an AE")
+        if ae_checkpoint is not None and ae_config is not None:
+            raise ValueError("ae_config overrides require ae_checkpoint=null")
+        ae = _checkpoint(ae_checkpoint) if ae_checkpoint is not None else None
+        ae_weights = None
+        if ae is None:
+            self.ae_config = OmegaConf.merge(OmegaConf.load(DEFAULT_AE_CONFIG), ae_config or {})
+        else:
+            self.ae_config, ae_weights = _autoencoder_weights(ae)
         ldm = None
         if ldm_checkpoint is None:
             # This path must not read the large LDM checkpoint, even for configuration.
             self.cfg = OmegaConf.merge(OmegaConf.load(DEFAULT_LDM_CONFIG), ldm_config or {})
         else:
             ldm = _checkpoint(ldm_checkpoint)
-            if "ema_state_dict" not in ldm:
-                raise ValueError("The official LDM checkpoint must include ema_state_dict")
+            if "ema_state_dict" not in ldm or "cfg" not in ldm.get("hyper_parameters", {}):
+                raise ValueError("The official LDM checkpoint must include ema_state_dict and hyper_parameters.cfg")
             saved = ldm["hyper_parameters"]["cfg"]
             model_cfg = {key: saved.model[key] for key in saved.model
                          if key not in ("autoencoder_run_name", "autoencoder_path")}
@@ -75,13 +111,21 @@ class ScenarioDreamerInitDecoder(nn.Module):
             dataset_cfg.update(num_map_ids=2, num_agent_types=3, num_lane_types=0)
             train_cfg = {key: saved.train[key] for key in ("loss_type", "lane_weight", "guidance_scale", "ema_decay")}
             self.cfg = OmegaConf.create(dict(model=model_cfg, dataset=dataset_cfg, train=train_cfg, dataset_name="waymo"))
+        self.autoencoder = AutoEncoder(self.ae_config)
+        if ae_weights is not None:
+            self.autoencoder.load_state_dict(ae_weights, strict=True)
+        self.checkpoint_step = int(ae.get("global_step", 0)) if ae is not None else 0
+        self.diff_model = None
+        self.ema = None
+        if self.learn_autoencoder:
+            # AE training needs no diffusion model, checkpoint or EMA allocation.
+            self.cfg.dataset.num_points_per_lane = self.ae_config.num_points_per_lane
+            self.cfg.dataset.max_num_lanes = self.ae_config.max_num_lanes
+            return
         for key in ("agent_latent_dim", "lane_latent_dim"):
             if self.cfg.model[key] != self.ae_config[key]:
                 raise ValueError(f"LDM {key} must match the AE checkpoint ({self.ae_config[key]})")
         self.diff_model = LDM(self.cfg)
-        self.autoencoder = AutoEncoder(self.ae_config)
-        self.autoencoder.load_state_dict({key.removeprefix("model."): value
-                                         for key, value in ae["state_dict"].items()}, strict=True)
         if ldm is not None:
             self.diff_model.load_state_dict({key.removeprefix("diff_model."): value
                                              for key, value in ldm["state_dict"].items()
@@ -99,19 +143,27 @@ class ScenarioDreamerInitDecoder(nn.Module):
 
     def train(self, mode=True):
         super().train(mode)
-        self.autoencoder.eval()
+        if not self.learn_autoencoder:
+            self.autoencoder.eval()
         return self
 
     def get_extra_state(self):
         # nn.Module state_dict makes EMA part of ordinary SMART checkpoints.
-        return {"ema": self.ema.state_dict(), "checkpoint_step": self.checkpoint_step}
+        return {"ema": self.ema.state_dict() if self.ema is not None else None,
+                "checkpoint_step": self.checkpoint_step, "training_stage": self.training_stage,
+                "ae_config": OmegaConf.to_container(self.ae_config, resolve=True)}
 
     def set_extra_state(self, state):
-        self.ema.load_state_dict(state["ema"])
+        if state.get("training_stage", "ldm") != self.training_stage:
+            raise ValueError("Resume requires the same training_stage; pass an AE checkpoint via ae_checkpoint for LDM training")
+        if self.ema is not None:
+            self.ema.load_state_dict(state["ema"])
         self.checkpoint_step = state.get("checkpoint_step", 0)
 
     @torch.no_grad()
     def update_ema(self):
+        if self.ema is None:
+            return
         self.ema.to(next(self.diff_model.parameters()).device)
         self.ema.update()
 
@@ -139,8 +191,14 @@ class ScenarioDreamerInitDecoder(nn.Module):
             data["lane"].x = data["lane"].latents
         return data, rows, centers, angles
 
+    def autoencoder_loss(self, tokenized_agent):
+        data, _, _, _ = self._build_graph(tokenized_agent)
+        return self.autoencoder.loss(data)
+
     def forward(self, tokenized_agent):
         tokenized_agent.pop("generated_map", None)
+        if self.learn_autoencoder:
+            return self.autoencoder_loss(tokenized_agent)
         if not self.training and self.generation_mode == "initial_scene":
             # Joint generation uses counts and graph structure, never GT AE latents.
             data, rows, centers, angles = self._build_graph(tokenized_agent)

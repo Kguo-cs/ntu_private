@@ -1,0 +1,25 @@
+# Official Waymo AE architecture, independent of pretrained weights.
+# Checkpoint SHA-256: 3c3033a107de727ca1c2399a8e0df107e5eb1a84bce3d7e18cc2e01698ccf6ac
+hidden_dim: 512
+num_encoder_blocks: 2
+num_decoder_blocks: 2
+lane_attr: 2
+num_heads: 4
+dropout: 0
+dim_f: 2048
+state_dim: 7
+num_agent_types: 3
+lane_conn_attr: 6
+num_lane_types: 0
+agent_hidden_dim: 256
+agent_num_heads: 4
+agent_dim_f: 1024
+lane_conn_hidden_dim: 64
+lane_latent_dim: 24
+agent_latent_dim: 8
+kl_weight: 0.01
+lane_weight: 10
+lane_conn_weight: 10
+cond_dis_weight: 0.1
+num_points_per_lane: 20
+max_num_lanes: 100

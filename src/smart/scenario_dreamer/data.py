@@ -157,6 +157,8 @@ def build_graph(agent, tokens, cfg, *, map_source="auto"):
         edge = d["lane", "to", "lane"].edge_index
         labels = relations[li][:, li][edge[0], edge[1]]
         d["lane", "to", "lane"].type = torch.nn.functional.one_hot(labels, 6)
+        # Conditional lane-count target is defined only for partitioned scenes.
+        d.num_lanes_after_origin = int((~partitions["lane"]).sum()) if kind == 1 else 0
         d["lane"].partition_mask = partitions["lane"]
         d["agent"].partition_mask = partitions["agent"]
         graphs.append(d)

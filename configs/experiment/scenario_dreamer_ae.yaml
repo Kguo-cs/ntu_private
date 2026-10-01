@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - scenario_dreamer
+  - _self_
+
+action: fit
+task_name: scenario_dreamer_ae
+ckpt_path: null
+
+model:
+  model_config:
+    lr: 0.0001  # Official AE base LR; optimizer/schedule remain SMART's.
+    decoder:
+      scenario_dreamer:
+        training_stage: autoencoder
+        ae_checkpoint: null  # Set an official AE or SMART AE checkpoint to fine-tune.
+        ae_config: null  # Optional architecture/loss overrides when training from scratch.
+        ldm_checkpoint: null
+        ldm_config: null
+
+callbacks:
+  model_checkpoint:
+    monitor: val/scenario_dreamer/autoencoder/loss
+    mode: min
+    filename: scenario_dreamer-ae-{epoch}-{step}

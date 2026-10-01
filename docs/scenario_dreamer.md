@@ -34,6 +34,8 @@ model:
     decoder:
       init_decoder: scenario_dreamer  # 默认 flow
       scenario_dreamer:
+        training_stage: ldm
+        ae_config: null
         ae_checkpoint: src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
         ldm_checkpoint: null  # 无需 LDM 权重文件，从头训练
         ldm_config: null  # 可选的 model/dataset/train 配置覆盖，仅用于从头训练
@@ -83,7 +85,7 @@ python -m src.run experiment=scenario_dreamer action=fit \
 
 这些哈希已核对；指定 LDM 路径时不会每次重新读取整个 13 GB 文件计算哈希。源码固定为 [官方提交 6754234](https://github.com/princeton-computational-imaging/scenario-dreamer/tree/675423469766bf2fd8a6b569ef1869a6f1e76993)，文件来源和改动记录在 [SOURCES.json](../src/smart/scenario_dreamer/SOURCES.json)。
 
-训练时冻结 AE，采样 AE 后验得到 latent，用官方 LDM 的联合 agent/lane 噪声预测损失训练 diffusion；记录 `train/scenario_dreamer/loss`、`agent_loss`、`lane_loss`。优化器和学习率计划继续使用 SMART。每次优化器更新后更新 EMA，EMA 也随普通 SMART checkpoint 保存和恢复。
+LDM 阶段冻结 AE，采样 AE 后验得到 latent，用官方 LDM 的联合 agent/lane 噪声预测损失训练 diffusion；记录 `train/scenario_dreamer/loss`、`agent_loss`、`lane_loss`。优化器和学习率计划继续使用 SMART。每次优化器更新后更新 EMA，EMA 也随普通 SMART checkpoint 保存和恢复。
 
 `ckpt_path` 用于恢复本项目保存的 **SMART checkpoint**，与上面两个官方 checkpoint 路径不同：
 
@@ -93,6 +95,40 @@ python -m src.run experiment=scenario_dreamer action=fit \
 ```
 
 首次构造 decoder 会加载 AE；仅在 `ldm_checkpoint` 非空时加载官方 LDM。随后 Trainer 恢复 SMART 中的模型参数、EMA 和优化器。从头训练的 SMART checkpoint 可以保持 `ldm_checkpoint=null` 恢复，不需要官方 LDM 文件；构造时的 `ldm_config` 必须与保存时一致。
+
+## AE 训练
+
+[AE 实验配置](../configs/experiment/scenario_dreamer_ae.yaml)复用同一个 `init_decoder=scenario_dreamer`、数据集、SMART 优化器和 Trainer。`training_stage=autoencoder` 训练 AE，`training_stage=ldm` 训练 LDM；两个阶段分别训练。AE 实验使用官方 AE 的基础学习率 `1e-4`，优化器和学习率调度继续使用 SMART。
+
+```bash
+# 从零训练 AE：不加载 AE/LDM 权重，不创建 LDM 或 EMA
+python -m src.run experiment=scenario_dreamer_ae action=fit
+
+# 加载官方 AE 继续训练
+python -m src.run experiment=scenario_dreamer_ae action=fit \
+  model.model_config.decoder.scenario_dreamer.ae_checkpoint=src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
+
+# 恢复本项目保存的 AE 训练状态，包括优化器
+python -m src.run experiment=scenario_dreamer_ae action=fit \
+  ckpt_path=/absolute/path/to/smart-ae.ckpt
+
+# 评价 AE 重建损失
+python -m src.run experiment=scenario_dreamer_ae action=test \
+  ckpt_path=/absolute/path/to/smart-ae.ckpt
+
+# 将训练好的 AE 直接用于下一阶段的 LDM 训练
+python -m src.run experiment=scenario_dreamer action=fit \
+  model.model_config.decoder.scenario_dreamer.ae_checkpoint=/absolute/path/to/smart-ae.ckpt \
+  model.model_config.decoder.scenario_dreamer.ldm_checkpoint=null
+```
+
+AE 的 `ae_checkpoint=null` 使用仓库内[官方 Waymo AE 结构](../src/smart/scenario_dreamer/waymo_autoencoder.yaml)随机初始化。`ae_config` 可覆盖从头训练的结构和损失权重；指定 AE checkpoint 时使用其中的结构。AE 阶段必须保持 `ldm_checkpoint=null` 和 `ldm_config=null`。LDM 阶段需要已训练的 AE。
+
+训练使用官方联合 agent/lane 重建、agent 类型、lane 连接、KL 和分区车道数量预测损失。图适配补充 `num_lanes_after_origin` 标签；分区车道数由官方递归排序后的 partition mask 计算。没有分区样本时，条件数量损失和准确率的报告值为 0，避免空均值 NaN；总损失公式不变。
+
+训练记录 `train/scenario_dreamer/autoencoder/*`，验证和测试分别记录 `val/scenario_dreamer/autoencoder/*`、`test/scenario_dreamer/autoencoder/*`。AE checkpoint 按 `val/scenario_dreamer/autoencoder/loss` 最小值保存。AE 验证/测试评价重建损失；后续 LDM 阶段进行 lane/agent 联合生成及 agent metrics 评价。
+
+保存的 SMART checkpoint 包含 AE 参数和结构配置，`ae_checkpoint` 可以直接读取它，无需手动导出。`ckpt_path` 恢复同一阶段的完整训练状态；切换 AE → LDM 时使用 `ae_checkpoint`，并保持 `ckpt_path=null`。如果更改过 AE 结构，恢复训练时需保持相同的 `ae_config`。LDM 的 latent 标准化默认沿用官方统计量，自训 AE 的统计量可通过 `ldm_config.dataset` 中的 `agent_latents_mean/std`、`lane_latents_mean/std` 更新。
 
 ## 数据与输入适配
 
@@ -165,6 +201,8 @@ python -m src.run experiment=scenario_dreamer action=test \
 2026-10-01 联合模式验证：`sim` 环境中通过 8 个真实测试场景的 lane/agent 联合生成与指标计算，以及训练一步后的 8 场景验证。测试报告位于 `logs/scenario_dreamer/2026-10-01_10-40-23/sd_agent_metrics.json`；同目录 `generated_scenes` 保存了参与评价的生成样本。8 张生成地图均与 GT 不同；从这些导出样本独立重算的全部 7 项指标与报告一致（绝对误差小于 1e-12）。20 项 Scenario Dreamer 相关测试通过。
 
 无 LDM checkpoint 训练验证：25 项 Scenario Dreamer 测试通过，新增覆盖仅加载 AE、全新 EMA、随机 LDM 反向传播及参数更新、普通 SMART 模块状态保存/恢复，以及显式 checkpoint 的完整权重加载。另在 `sim` 环境使用默认 Waymo Large 结构、真实预处理 train 数据和现有 `src.run action=fit` 完成 1 个 GPU 优化步骤（batch size 1、关闭验证及 checkpoint 写入）。此检查没有进行完整训练。
+
+AE 阶段验证：32 项 Scenario Dreamer 测试通过，覆盖 AE 的无 checkpoint 初始化、普通/分区图损失、encoder/decoder/分区数量头的梯度、SMART train/validation/test 路由、AE 保存恢复和 AE → LDM 权重衔接。真实预处理数据上完成了从零训练及 2 场景验证、checkpoint 保存、step 1 → 2 断点续训，以及加载该 AE 后的一步 LDM 训练。保存的 AE checkpoint 位于 `logs/scenario_dreamer_ae_smoke/2026-10-01_15-53-48/lightning_logs/version_0/checkpoints/scenario_dreamer-ae-0-1.ckpt`，仅用于冒烟验证，并非收敛后的模型。本次全仓测试为 62/67 通过，剩余仍为下述 5 项既有失败。
 
 运行新增回归测试：
 

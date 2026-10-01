@@ -1,5 +1,5 @@
 # Adapted from Scenario Dreamer, commit 675423469766bf2fd8a6b569ef1869a6f1e76993.
-# See ../SOURCES.json for provenance; only package imports changed.
+# See ../SOURCES.json for provenance; package imports and empty-partition metric handling adapted.
 import torch
 import torch.nn as nn
 import numpy as np
@@ -382,12 +382,16 @@ class AutoEncoder(nn.Module):
         lane_conn_loss = lane_conn_loss.mean().detach()
         
         loss = loss + self.cfg.cond_dis_weight * lane_cond_dis_loss
-        lane_cond_dis_loss = lane_cond_dis_loss[~partition_mask].mean().detach()
-    
-        # compute accuracy of lane conditional distribution predictor
-        lane_cond_dis_pred_filtered = torch.argmax(lane_cond_dis_prob[~partition_mask], dim=-1)
-        lane_cond_dis_acc = (torch.abs(lane_cond_dis_pred_filtered - lane_cond_dis[~partition_mask]) <= 3).float().mean()
-        
+        # Non-partitioned validation batches have no conditional-count labels.
+        # Keep the original training objective, but avoid mean(empty) in reports.
+        if (~partition_mask).any():
+            lane_cond_dis_loss = lane_cond_dis_loss[~partition_mask].mean().detach()
+            lane_cond_dis_pred_filtered = torch.argmax(lane_cond_dis_prob[~partition_mask], dim=-1)
+            lane_cond_dis_acc = (torch.abs(lane_cond_dis_pred_filtered - lane_cond_dis[~partition_mask]) <= 3).float().mean()
+        else:
+            lane_cond_dis_loss = loss.new_zeros(())
+            lane_cond_dis_acc = loss.new_zeros(())
+
         loss_dict = {
             'loss': loss.mean(),
             'agent_loss': agent_loss.mean().detach(),

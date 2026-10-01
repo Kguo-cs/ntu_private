@@ -90,6 +90,7 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory()
         cls.ae, cls.ldm = make_checkpoints(Path(cls.temp.name))
         cls.scratch_config = torch.load(cls.ldm, weights_only=False)["hyper_parameters"]["cfg"]
+        cls.ae_scratch_config = torch.load(cls.ae, weights_only=False)["hyper_parameters"]["cfg"].model
         cls.processor = TokenProcessor("map_traj_token5.pkl", "agent_vocab_555_s2.pkl",
                                        OmegaConf.create(dict(num_k=1, temp=1.)),
                                        OmegaConf.create(dict(num_k=1, temp=1.)),
@@ -102,12 +103,128 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
 
     def decoder(self, **options):
         options.setdefault("ldm_checkpoint", self.ldm)
-        return ScenarioDreamerInitDecoder(self.processor, ae_checkpoint=self.ae,
-                                          map_source="exact", **options)
+        options.setdefault("ae_checkpoint", self.ae)
+        return ScenarioDreamerInitDecoder(self.processor, map_source="exact", **options)
 
     def scratch_decoder(self):
         # Override only architecture, leaving all other settings to the bundled preset.
         return self.decoder(ldm_checkpoint=None, ldm_config={"model": self.scratch_config.model})
+
+    def ae_decoder(self):
+        return self.decoder(training_stage="autoencoder", ldm_checkpoint=None,
+                            ae_checkpoint=None, ae_config=self.ae_scratch_config)
+
+    def test_ae_scratch_requires_no_checkpoint_or_ldm_allocation(self):
+        with patch("src.smart.scenario_dreamer.decoder._checkpoint", side_effect=AssertionError("no weights")), \
+             patch("src.smart.scenario_dreamer.decoder.LDM", side_effect=AssertionError("no LDM")):
+            model = self.ae_decoder()
+        self.assertIsNone(model.diff_model)
+        self.assertIsNone(model.ema)
+        self.assertEqual(model.checkpoint_step, 0)
+        self.assertFalse(model.use_ema)
+        self.assertTrue(all(p.requires_grad for p in model.autoencoder.parameters()))
+        model.update_ema()  # SMART's optimizer hook is also valid for AE-only training.
+        self.assertFalse(model.eval().autoencoder.training)
+        self.assertTrue(model.train().autoencoder.training)
+
+    def test_ae_training_updates_encoder_decoder_and_partition_count_head(self):
+        model = self.ae_decoder().train()
+        _, agent = self.official_inputs((0, 1))
+        graph, _, _, _ = model._build_graph(agent)
+        self.assertEqual(graph.num_lanes_after_origin.tolist(), [0, 1])
+        before = [p.detach().clone() for p in model.autoencoder.parameters()]
+        losses = model(agent)
+        self.assertTrue(all(torch.isfinite(v) for v in losses.values()))
+        self.assertGreater(losses["lane_cond_dis_loss"].item(), 0)
+        losses["loss"].backward()
+        for module in (model.autoencoder.encoder, model.autoencoder.decoder,
+                       model.autoencoder.encoder.pred_lane_cond_dis,
+                       model.autoencoder.decoder.pred_lane_conn):
+            self.assertTrue(any(p.grad is not None and p.grad.abs().sum() > 0 for p in module.parameters()))
+        torch.optim.AdamW(model.autoencoder.parameters(), lr=1e-3).step()
+        self.assertTrue(any(not torch.equal(a, b) for a, b in zip(before, model.autoencoder.parameters())))
+
+    def test_ae_nonpartitioned_validation_losses_are_finite(self):
+        model = self.ae_decoder().eval()
+        with torch.no_grad():
+            losses = model(inputs())
+        self.assertTrue(all(torch.isfinite(v) for v in losses.values()))
+        self.assertEqual(losses["lane_cond_dis_loss"].item(), 0)
+        self.assertEqual(losses["lane_cond_dis_acc"].item(), 0)
+        self.assertIn("kl_loss", losses)
+        self.assertIn("lane_conn_loss", losses)
+
+    def test_ae_finetuning_loads_official_weights_without_freezing(self):
+        with patch("src.smart.scenario_dreamer.decoder._checkpoint", wraps=_checkpoint) as load:
+            model = self.decoder(training_stage="autoencoder", ldm_checkpoint=None)
+        load.assert_called_once_with(self.ae)
+        saved = torch.load(self.ae, weights_only=False)["state_dict"]
+        for key, value in model.autoencoder.state_dict().items():
+            torch.testing.assert_close(value, saved["model." + key])
+        self.assertTrue(all(p.requires_grad for p in model.autoencoder.parameters()))
+
+    def test_ae_resume_and_transfer_to_frozen_ldm_encoder(self):
+        model = self.ae_decoder()
+        model(inputs())["loss"].backward()
+        torch.optim.SGD(model.autoencoder.parameters(), lr=.01).step()
+        path = Path(self.temp.name) / "smart_ae.ckpt"
+        torch.save({"state_dict": {"encoder.init_decoder." + k: v for k, v in model.state_dict().items()},
+                    "hyper_parameters": {"model_config": {}}, "global_step": 3}, path)
+        restored = self.ae_decoder()
+        restored.load_state_dict(model.state_dict(), strict=True)
+        self.assertIsNone(restored.ema)
+        from_smart = self.decoder(training_stage="autoencoder", ldm_checkpoint=None, ae_checkpoint=path)
+        ldm = self.decoder(ldm_checkpoint=None, ldm_config={"model": self.scratch_config.model},
+                           ae_checkpoint=path)
+        self.assertEqual(from_smart.checkpoint_step, 3)
+        self.assertEqual(ldm.checkpoint_step, 0)
+        self.assertFalse(any(p.requires_grad for p in ldm.autoencoder.parameters()))
+        for other in (restored, from_smart, ldm):
+            for key, value in model.autoencoder.state_dict().items():
+                torch.testing.assert_close(other.autoencoder.state_dict()[key], value)
+        with self.assertRaisesRegex(ValueError, "same training_stage"):
+            ldm.set_extra_state(model.get_extra_state())
+        self.assertTrue(torch.isfinite(ldm(inputs())["loss"]))
+
+    def test_ae_validation_test_and_training_use_existing_smart_loss_hooks(self):
+        from src.smart.model.smart_gail import SMART_GAIL
+        from lightning import LightningModule
+        wrapper = SMART_GAIL.__new__(SMART_GAIL)
+        LightningModule.__init__(wrapper)
+        wrapper.encoder = torch.nn.Module()
+        wrapper.encoder.init_decoder = self.ae_decoder().eval()
+        wrapper.token_processor = self.processor
+        batch, agent = self.official_inputs((0, 0))
+        with patch.object(wrapper, "log") as log, \
+             patch.object(wrapper, "_rollouts", side_effect=AssertionError("AE must not generate diffusion samples")):
+            wrapper.on_validation_epoch_start()
+            val_loss = wrapper.validation_step(batch, 0)
+            wrapper.on_validation_epoch_end()
+            wrapper.on_test_epoch_start()
+            test_loss = wrapper.test_step(batch, 0)
+            wrapper.on_test_epoch_end()
+        self.assertTrue(torch.isfinite(val_loss))
+        self.assertTrue(torch.isfinite(test_loss))
+        names = [call.args[0] for call in log.call_args_list]
+        self.assertIn("val/scenario_dreamer/autoencoder/loss", names)
+        self.assertIn("test/scenario_dreamer/autoencoder/loss", names)
+        model = wrapper.encoder.init_decoder.train()
+        losses = model(agent)
+        with patch.object(wrapper, "_log_train") as log_train:
+            actual = wrapper._initial_prediction_loss({"initial_logit": losses}, agent, losses["loss"])
+        self.assertIs(actual, losses["loss"])
+        self.assertIn("train/scenario_dreamer/autoencoder/loss", [call.args[0] for call in log_train.call_args_list])
+
+    def test_ae_stage_rejects_incompatible_configuration(self):
+        for options, message in (
+            ({"training_stage": "joint"}, "training_stage must be"),
+            ({"training_stage": "autoencoder"}, "Autoencoder training requires"),
+            ({"training_stage": "autoencoder", "ldm_checkpoint": None,
+              "ldm_config": {"model": {"hidden_dim": 64}}}, "Autoencoder training requires"),
+            ({"ldm_checkpoint": None, "ae_checkpoint": None}, "trained ae_checkpoint"),
+        ):
+            with self.subTest(options=options), self.assertRaisesRegex(ValueError, message):
+                self.decoder(**options)
 
     def test_scratch_loads_only_ae_and_initializes_fresh_ema(self):
         with patch("src.smart.scenario_dreamer.decoder._checkpoint", wraps=_checkpoint) as load:
