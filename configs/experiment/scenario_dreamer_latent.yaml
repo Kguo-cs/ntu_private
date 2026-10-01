@@ -1,0 +1,19 @@
+# @package _global_
+# Train the LDM from cached AE posteriors; raw scenes retain graph metadata.
+defaults:
+  - scenario_dreamer
+  - _self_
+
+action: fit
+task_name: scenario_dreamer_latent
+
+model:
+  model_config:
+    decoder:
+      scenario_dreamer:
+        training_stage: ldm
+
+data:
+  scenario_dreamer_train_latent_cache: ${paths.root_dir}/src/waymo_data/scenario_dreamer_latents_waymo/train
+  scenario_dreamer_val_latent_cache: null
+  scenario_dreamer_test_latent_cache: null

@@ -143,15 +143,20 @@ python -m src.run experiment=scenario_dreamer_cache \
   model.model_config.decoder.scenario_dreamer.ae_checkpoint=/absolute/path/to/smart-ae.ckpt \
   latent_cache.output_dir=/absolute/path/to/my-ae-latents/train
 
-# LDM 训练读取官方 AE 的缓存
-python -m src.run experiment=scenario_dreamer action=fit \
-  data.scenario_dreamer_train_latent_cache=src/waymo_data/scenario_dreamer_latents_waymo/train
+# LDM 训练读取现有官方 AE 缓存；原始场景仍提供地图、排序和分区信息
+python -m src.run experiment=scenario_dreamer_latent
+
+# 自定义缓存目录（原始数据目录不变）
+python -m src.run experiment=scenario_dreamer_latent \
+  data.scenario_dreamer_train_latent_cache=/absolute/path/to/latents/train
 
 # 若使用自训 AE，其权重与缓存必须配套
 python -m src.run experiment=scenario_dreamer action=fit \
   model.model_config.decoder.scenario_dreamer.ae_checkpoint=/absolute/path/to/smart-ae.ckpt \
   data.scenario_dreamer_train_latent_cache=/absolute/path/to/my-ae-latents/train
 ```
+
+[缓存输入实验](../configs/experiment/scenario_dreamer_latent.yaml)选择 LDM 训练，并默认读取项目内 `src/waymo_data/scenario_dreamer_latents_waymo/train`。它沿用原始 `train_raw_dir`，只用缓存替代 AE encoder 的前向计算；验证和测试仍读取原始场景。此配置不用于 `scenario_dreamer_ae`：AE 训练需要实时编码原始场景以更新 encoder。缓存缺失、源场景变化或 AE 指纹不匹配时会明确报错。
 
 每个场景保存 float32 的 `agent_mu`、`agent_log_var`、`lane_mu`、`lane_log_var`，保持原始 pickle 的 ego-first agent 顺序与原始 lane 顺序。读取时重新对齐 SMART 的 ego-last 和官方递归排序。LDM 训练跳过 AE encoder，仍逐次采样 `mu + exp(0.5 * log_var) * noise` 并使用当前 LDM 配置进行标准化；缓存保留未标准化的后验，而非一次固定采样。分区 mask、条件节点及生成评价流程保持一致。AE decoder 仍用于生成结果，训练配置仍需要 `ae_checkpoint`。
 
