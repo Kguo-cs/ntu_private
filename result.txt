@@ -1132,6 +1132,42 @@ my
 scenariodreamer 只处理部分agent，
 
 
+
+lane_conditioned
+
+
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│   val_closed/sd/ang_dev_jsd    │      0.025729861110448837      │   0.07
+│  val_closed/sd/collision_rate  │       4.655781269073486        │   4.8
+│   val_closed/sd/lat_dev_jsd    │      0.10066068172454834       │   0.05
+│    val_closed/sd/length_jsd    │       0.4419920742511749       │   0.42
+│ val_closed/sd/nearest_dist_jsd │      0.06308203190565109       │   0.06
+│    val_closed/sd/speed_jsd     │      0.15262115001678467       │   0.38
+│    val_closed/sd/width_jsd     │       0.2948606312274933       │   0.25
+└────────────────────────────────┴────────────────────────────────┘
+
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│   val_closed/sd/ang_dev_jsd    │      0.03173399344086647       │
+│  val_closed/sd/collision_rate  │       4.684128284454346        │
+│   val_closed/sd/lat_dev_jsd    │      0.10008126497268677       │
+│    val_closed/sd/length_jsd    │      0.44302108883857727       │
+│ val_closed/sd/nearest_dist_jsd │      0.06344957649707794       │
+│    val_closed/sd/speed_jsd     │      0.14968574047088623       │
+│    val_closed/sd/width_jsd     │       0.2950633466243744       │
+└────────────────────────────────┴────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
 gt
 
 Lane metrics:  ['route_length_mean: 38.85', 'route_length_std: 13.91', 'endpoint_dist_mean: 0.21', 'endpoint_dist_std: 0.81', 'frechet_connectivity: 0.12', 'frechet_density: 0.21', 'frechet_reach: 0.37', 'frechet_convenience: 2.19']

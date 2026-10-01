@@ -33,6 +33,7 @@ model:
       scenario_dreamer:
         ae_checkpoint: src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
         ldm_checkpoint: src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt
+        generation_mode: initial_scene  # Joint lane + agent generation
         map_source: exact
         map_id: 0
         use_ema: true
@@ -58,7 +59,7 @@ python -m src.run experiment=scenario_dreamer action=fit \
   +trainer.enable_checkpointing=false
 ```
 
-小样本验证必须显式关闭 `sd_require_full_set`，否则评价器会拒绝将部分样本当作完整评估。默认仍对照完整 50k 参考分布。正式评估使用单 GPU；当前缓存评价器不聚合多卡结果。主配置默认训练 batch size 为 1，验证/测试为 4；当前默认的 `experiment=sd` 继承该配置，并保留训练 batch size 为 2。
+小样本验证必须显式关闭 `sd_require_full_set`，否则评价器会拒绝将部分样本当作完整评估。默认仍对照完整 50k 参考分布。正式评估使用单 GPU；当前缓存评价器不聚合多卡结果。batch size 采用各实验 YAML 当前设置；显存不足时通过 `data.val_batch_size` / `data.test_batch_size` 调整。
 
 ## 权重和训练
 
@@ -108,13 +109,17 @@ data:
 
 训练支持 `lg_type=0/1`：分区图的 AE 注意力只连接同侧节点，LDM 保留分区前节点作为无噪声条件。验证/测试使用官方清单中的非分区场景。容量限制仍为最多 30 个 agent、1–100 条车道，与加载的 checkpoint 配置一致。
 
-默认 `map_source=exact`。此前的 SMART 重建数据和 token 地图适配仍可显式选择：重建数据需保留 SD 地图，旧 token 缓存可设置 `map_source=auto/tokens`。这些不是当前实验的数据来源。
+默认 `map_source=exact` 用于读取精确的训练输入。联合推理不会编码 GT 地图或 agent latent，仅沿用输入场景的节点数量、场景类别和输出坐标参考。此前的 SMART 重建数据和 token 地图适配仍可显式选择：重建数据需保留 SD 地图，旧 token 缓存可设置 `map_source=auto/tokens`。这些不是当前实验的数据来源。
 
 官方 AE pickle 没有 LDM latent 缓存中的 Nocturne compatibility 标签，因此默认固定 `map_id=0`；可设置为 1。标签选择会影响采样。
 
 ## 指标口径和输出
 
-推理调用官方 LDM 的 `lane_conditioned` 模式：给定地图及场景 agent 数量，生成初始 agent 状态。复用本项目已有的 SQLite GT 统计和本地官方指标实现，输出：
+默认 `generation_mode=initial_scene`：官方 LDM 从噪声联合生成 lane 与 agent latent，再由 AE 解码 agent 状态/类型、车道点和六类车道连接。
+
+生成的车道图经预测的 predecessor 边进行官方 compaction，再重采样用于 on-road 筛选、横向偏差和朝向偏差。最近车辆距离、尺寸、速度和碰撞率使用生成车辆。GT SQLite 缓存只用于真实参考分布，生成侧不会读取其中的车道几何、拓扑或 `metric_lanes`。联合模式若没有收到生成地图会报错。
+
+复用现有评价器输出：
 
 `nearest_dist_jsd`、`lat_dev_jsd`、`ang_dev_jsd`、`length_jsd`、`width_jsd`、`speed_jsd`、`collision_rate`。
 
@@ -122,18 +127,36 @@ JSD 保留已有官方实现的缩放；collision rate 为百分数。记录名�
 
 每次验证/测试在 Hydra 输出目录生成 `sd_agent_metrics.json`，包含指标、实际样本数、参考样本数、完整清单覆盖标志、数据与指标来源摘要，以及 decoder 的 EMA、步数、地图和条件设置。配置和运行日志同样保存在该目录。
 
-这个 init_decoder 不生成新地图，因而没有 8 项 lane-generation 指标。固定地图/数量的条件生成与论文联合地图生成的任务不同；即使采用相同 agent 指标定义，也不能声称数值逐项复现论文表格。完整 50k 分数需要实际执行完整命令后获得。
+保持原有五元组返回值，新增地图通过 `generated_map` 传递。它包含 SD 局部物理坐标的 `road_points`、预测的 `road_connection_types`、批量边索引和所属场景；评价器按场景恢复局部边索引。报告中 `map_source=generated`、`decoder.mode=initial_scene`，可选导出也保存实际参与指标计算的生成车道。
+
+若需要原来的给定地图基线，可显式切换；评价器会同步使用参考地图：
+
+```bash
+python -m src.run experiment=scenario_dreamer action=test \
+  model.model_config.decoder.scenario_dreamer.generation_mode=lane_conditioned
+```
+
+可把联合生成结果保存为官方格式 pickle：
+
+```bash
+python -m src.run experiment=scenario_dreamer action=test \
+  '+model.model_config.sd_export_dir=${paths.output_dir}/generated_scenes'
+```
+
+当前仍沿用输入场景的 lane/agent 数量和固定 `map_id`，没有按官方初始概率矩阵重新采样数量；这与完整官方生成协议有差异。本次只输出所需的 7 项 agent metrics，不额外计算 lane metrics。完整 50k 分数需要实际执行完整命令后获得。
 
 ## 验证记录
 
 在本机 `sim` 环境（Python 3.11、PyTorch 2.7.0+cu128、Lightning 2.4.0、RTX 4090）完成官方权重的严格加载。改用官方 pickle 后，`experiment=sd` 已完成 2 个真实训练 batch 的优化及随后的验证，`experiment=scenario_dreamer action=test` 已完成真实 test 数据的冒烟检查。
 
+2026-10-01 联合模式验证：`sim` 环境中通过 8 个真实测试场景的 lane/agent 联合生成与指标计算，以及训练一步后的 8 场景验证。测试报告位于 `logs/scenario_dreamer/2026-10-01_10-40-23/sd_agent_metrics.json`；同目录 `generated_scenes` 保存了参与评价的生成样本。8 张生成地图均与 GT 不同；从这些导出样本独立重算的全部 7 项指标与报告一致（绝对误差小于 1e-12）。20 项 Scenario Dreamer 相关测试通过。
+
 运行新增回归测试：
 
 ```bash
-python -m unittest discover -s tests -p test_scenario_dreamer_init_decoder.py -v
+python -m unittest discover -s tests -p 'test_scenario_dreamer*.py' -v
 ```
 
-12 项测试通过，覆盖真实小型 AE/LDM 的反向传播、冻结 AE、EMA 保存恢复、批量图、车道关系方向/优先级、官方 pickle 字段与清单顺序、分区训练掩码、单帧推理、输出顺序/速度坐标和固定地图 latent 不依赖 GT agent 几何/类型。另抽查 32 个真实场景的 21,678 条车道关系，全部与官方缓存一致，车道坐标的 float32 转换误差小于 1e-6 m。完整 50k 评估尚未执行。
+联合模式新增测试覆盖 GT latent 隔离、生成地图替换、拓扑合并、跨场景边检查、导出及与官方数值实现的一致性。原有测试继续覆盖真实小型 AE/LDM 的反向传播、冻结 AE、EMA 保存恢复、批量图、车道关系方向/优先级、官方 pickle 字段与清单顺序、分区训练掩码、单帧推理、输出顺序/速度坐标和固定地图 latent 不依赖 GT agent 几何/类型。另抽查 32 个真实场景的 21,678 条车道关系，全部与官方缓存一致，车道坐标的 float32 转换误差小于 1e-6 m。完整 50k 评估尚未执行。
 
 全仓回归中的 5 项既有失败分别位于 `test_denoiser_heading_magnitude.py`（3 项）和 `test_initial_velocity_frame.py`（2 项）；用 Git HEAD 原实现复测得到相同失败。

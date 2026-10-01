@@ -364,9 +364,12 @@ class SMARTDecoder(nn.Module):
         if self.init_decoder_name == "scenario_dreamer" and tokenized_agent.get("initial_scene_only", False):
             pos, heading, indices, shape, velocity = self.init_decoder(tokenized_agent)
             # Official AE data contains one 2D snapshot, with no GT trajectory/z.
-            return {"pred_traj_10hz": pos, "pred_head_10hz": heading,
-                    "pred_z_10hz": pos.new_zeros(pos.shape[:2]),
-                    "shape": shape, "initial_local_vel": velocity, "sampled_idx": indices}
+            result = {"pred_traj_10hz": pos, "pred_head_10hz": heading,
+                      "pred_z_10hz": pos.new_zeros(pos.shape[:2]),
+                      "shape": shape, "initial_local_vel": velocity, "sampled_idx": indices}
+            if "generated_map" in tokenized_agent:
+                result["generated_map"] = tokenized_agent["generated_map"]
+            return result
         return self.agent_encoder.inference(
             self.init_decoder,
             tokenized_agent,

@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import pickle
 import unittest
+from unittest.mock import patch
 
 import torch
 from omegaconf import OmegaConf
@@ -98,9 +99,9 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
         cls.temp.cleanup()
         torch.set_num_threads(cls.threads)
 
-    def decoder(self):
+    def decoder(self, **options):
         return ScenarioDreamerInitDecoder(self.processor, ae_checkpoint=self.ae,
-                                          ldm_checkpoint=self.ldm, map_source="exact")
+                                          ldm_checkpoint=self.ldm, map_source="exact", **options)
 
     def test_real_core_training_backward_and_frozen_ae(self):
         model = self.decoder().train()
@@ -226,8 +227,8 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
         self.assertTrue(torch.isfinite(loss))
         loss.backward()
         model.eval()
-        with self.assertRaisesRegex(ValueError, "partitioned scenes are supported for training"):
-            model(agent)
+        model(agent)
+        self.assertEqual(agent["generated_map"]["lg_type"].tolist(), [0, 1])
 
     def test_official_inference_returns_one_snapshot_without_ar_history(self):
         from src.smart.modules.smart_decoder import SMARTDecoder
@@ -241,6 +242,8 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
         self.assertEqual(out["pred_head_10hz"].shape, (6, 1))
         self.assertEqual(out["initial_local_vel"].shape, (6, 2))
         self.assertTrue(torch.isfinite(out["pred_traj_10hz"]).all())
+        self.assertEqual(out["generated_map"]["road_points"].shape, (4, 20, 2))
+        self.assertEqual(out["generated_map"]["road_connection_types"].shape, (8, 6))
 
     def test_official_dataset_uses_manifest_order_and_rejects_missing_files(self):
         from src.smart.datasets.scalable_dataset import MultiDataset
@@ -262,6 +265,36 @@ class ScenarioDreamerInitDecoderTest(unittest.TestCase):
                 pickle.dump({"files": ["missing.pkl"]}, handle)
             with self.assertRaisesRegex(FileNotFoundError, "Missing 1"):
                 MultiDataset(str(root), WaymoTargetBuilderVal(), sample_list=str(manifest))
+
+    def test_joint_generation_ignores_gt_latents_and_keeps_batched_lane_graph(self):
+        model = self.decoder().eval()
+        a, b = inputs(), inputs()
+        b["sd_map"]["lanes"] *= -2
+        b["sd_map"]["types"].fill_(0)
+        b["initial_pos"] += 7
+        b["type"].fill_(1)
+        with patch.object(model.autoencoder, "forward_encoder", side_effect=AssertionError("GT must not be encoded")):
+            torch.manual_seed(71)
+            out_a = model(a)
+            torch.manual_seed(71)
+            out_b = model(b)
+        for left, right in zip(out_a, out_b):
+            torch.testing.assert_close(left, right)
+        for key in ("road_points", "road_connection_types", "edge_index_lane_to_lane", "batch"):
+            torch.testing.assert_close(a["generated_map"][key], b["generated_map"][key])
+        graph = a["generated_map"]
+        self.assertEqual(graph["coordinate_frame"], "sd_local")
+        edges = graph["edge_index_lane_to_lane"]
+        torch.testing.assert_close(graph["batch"][edges[0]], graph["batch"][edges[1]])
+        self.assertTrue(torch.all(graph["road_connection_types"].sum(-1) == 1))
+
+    def test_lane_conditioned_mode_preserves_reference_map_contract(self):
+        model = self.decoder(generation_mode="lane_conditioned").eval()
+        agent = inputs()
+        agent["generated_map"] = {"stale": True}
+        result = model(agent)
+        self.assertEqual(len(result), 5)
+        self.assertNotIn("generated_map", agent)
 
     def test_exact_map_and_count_requirements(self):
         model = self.decoder()

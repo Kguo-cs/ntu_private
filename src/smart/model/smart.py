@@ -201,6 +201,7 @@ class SMART(LightningModule):
                 "auto_precompute": bool(_cfg(model_config, "sd_auto_precompute", False)),
                 "require_full_set": bool(_cfg(model_config, "sd_require_full_set", True)),
                 "reference_mode": _cfg(model_config, "sd_reference_mode", "matched"),
+                "map_source": "generated" if getattr(self.encoder.init_decoder, "generation_mode", None) == "initial_scene" else "reference",
             }
         else:
             self.store = None
@@ -330,11 +331,13 @@ class SMART(LightningModule):
             agent["tokenized_map"] = tokenized_map
 
         traj, z, head, size, vel, z_list = [], [], [], [], [], []
-        generated_types = []
+        generated_types, generated_maps = [], []
         for _ in range(self.n_rollout_closed_val):
             rollout_agent = _clone_rollout_input(agent)
             pred = self.encoder.inference(rollout_agent)
             generated_types.append(rollout_agent["type"].clone())
+            if "generated_map" in rollout_agent:
+                generated_maps.append(rollout_agent["generated_map"])
             trajectory = pred["pred_traj_10hz"]
             traj.append(trajectory.clone())
             head.append(pred["pred_head_10hz"].clone())
@@ -363,6 +366,10 @@ class SMART(LightningModule):
             "generated_type": torch.stack(generated_types, 1),
         }
 
+        if generated_maps:
+            if len(generated_maps) != 1 or self.n_rollout_closed_val != 1:
+                raise ValueError("Generated-map evaluation requires exactly one initial-scene rollout")
+            out["generated_map"] = generated_maps[0]
         if self.challenge_type == ChallengeType.SIM_AGENTS:
             steps = min(80, out["traj"].shape[2])
             for key in ("traj", "z", "head", "size"):
@@ -470,7 +477,8 @@ class SMART(LightningModule):
             initial_decoder = self.encoder.init_decoder
             if self.encoder.init_decoder_name == "scenario_dreamer":
                 report["decoder"] = {
-                    "name": "scenario_dreamer", "mode": "lane_conditioned",
+                    "name": "scenario_dreamer", "mode": initial_decoder.generation_mode,
+                    "scene_counts": "from input scenes",
                     "checkpoint_step": initial_decoder.checkpoint_step,
                     "use_ema": initial_decoder.use_ema,
                     "map_source": initial_decoder.map_source, "map_id": initial_decoder.map_id,

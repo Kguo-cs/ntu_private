@@ -15,10 +15,12 @@ import torch
 
 if __package__:
     from .official_backend import load_official_backend
+    from .generated_map import split_generated_maps
     from .metric_core import SPECS, DistributionAccumulator, finalize_metrics, validate_unified
     from .real_cache import CachedReferenceStore, prepare_real_cache, DEFAULT_CACHE_NAME
 else:
     from official_backend import load_official_backend
+    from generated_map import split_generated_maps
     from metric_core import SPECS, DistributionAccumulator, finalize_metrics, validate_unified
     from real_cache import CachedReferenceStore, prepare_real_cache, DEFAULT_CACHE_NAME
 
@@ -177,7 +179,7 @@ def _generated_arrays(out: Mapping[str, Any]) -> tuple[np.ndarray, ...]:
     return pos, head, size, vel
 
 def make_generated_scene(out, batch, types, graph_index, timestep, record, gt,
-                         *, prediction_frame="world") -> tuple[dict, np.ndarray, np.ndarray]:
+                         *, prediction_frame="world", generated_map=None, official=None) -> tuple[dict, np.ndarray, np.ndarray]:
     pos, head, size, vel = _generated_arrays(out)
     if pos.shape[1] != 1:
         raise ValueError("Use exactly one rollout per official entry: n_rollout_closed_val=1.")
@@ -228,9 +230,17 @@ def make_generated_scene(out, batch, types, graph_index, timestep, record, gt,
         states, local_types = states[keep], local_types[keep]
     if not np.isin(local_types, (0, 1, 2)).all():
         raise ValueError("Generated types must use SMART encoding vehicle=0, pedestrian=1, cyclist=2.")
-    scene = {"vehicles": states[local_types == 0], "lanes": gt["lanes"], "G": gt["G"]}
-    if "metric_lanes" in gt:
-        scene["metric_lanes"] = gt["metric_lanes"]
+    if generated_map is not None:
+        # Compact the generated graph using its own predicted predecessor edges.
+        # Never carry over reference geometry or its cached metric_lanes.
+        payload = dict(generated_map, agent_states=states,
+                       agent_types=np.eye(3)[local_types.astype(np.int64)])
+        backend = official if official is not None else load_official_backend()
+        scene = backend.convert_data_to_unified_format(payload, dataset_name="waymo")
+    else:
+        scene = {"vehicles": states[local_types == 0], "lanes": gt["lanes"], "G": gt["G"]}
+        if "metric_lanes" in gt:
+            scene["metric_lanes"] = gt["metric_lanes"]
     validate_unified(scene)
     return scene, states, local_types
 
@@ -289,9 +299,12 @@ class ScenarioDreamerEvaluator:
     def __init__(self, official_repo=None, cache_root=None, eval_set=None, *, expected_scenes=50_000,
                  gen_timestep=5, prediction_frame="world", require_generation_timestep=True,
                  export_dir=None, real_cache=None, auto_precompute=False,
-                 require_full_set=False, reference_mode="matched"):
+                 require_full_set=False, reference_mode="matched", map_source="reference"):
         if reference_mode not in ("matched", "full"):
             raise ValueError("reference_mode must be matched or full")
+        if map_source not in ("reference", "generated"):
+            raise ValueError("map_source must be reference or generated")
+        self.map_source = map_source
         self.store = OfficialReferenceStore(official_repo, cache_root, eval_set,
             expected_scenes=expected_scenes, real_cache=real_cache, auto_precompute=auto_precompute)
         self.gen_timestep = int(gen_timestep)
@@ -320,6 +333,14 @@ class ScenarioDreamerEvaluator:
         count = int(batch.max()) + 1
         if not np.array_equal(np.unique(batch), np.arange(count)):
             raise ValueError("Generated batch IDs must be contiguous 0..B-1")
+        if self.map_source == "generated":
+            if out.get("generated_map") is None:
+                raise ValueError("Joint generation requires generated_map; refusing to evaluate against GT lanes")
+            generated_maps = split_generated_maps(out["generated_map"], count)
+        else:
+            if out.get("generated_map") is not None:
+                raise ValueError("Generated lanes were supplied to a reference-map evaluator; set map_source=generated")
+            generated_maps = [None] * count
         pos, head, size, vel = _generated_arrays(out)
         prepared_out = {"traj": pos, "head": head, "size": size, "vel": vel}
         if out.get("initial_valid") is not None:
@@ -358,18 +379,19 @@ class ScenarioDreamerEvaluator:
                     raise ValueError(f"Saved coordinate transform comes from another timestep: {name}")
             gen, states, gen_types = make_generated_scene(
                 prepared_out, batch, types, b, self.gen_timestep, record, gt,
-                prediction_frame=self.prediction_frame,
+                prediction_frame=self.prediction_frame, generated_map=generated_maps[b],
+                official=self.store.official,
             )
             self.generated.update(gen, self.store.official, collision=True)
             if self.reference_mode == "matched":
                 self.store.add_real(self.real, name)
             self.seen.add(name)
             if self.export_dir:
-                # Use official cached map + connections, and our generated agents.
-                # This is directly readable by the official Waymo conversion path.
-                output = {k: copy.deepcopy(cache[k]) for k in (
+                # Export the same map source used to compute this scene's metrics.
+                source_map = generated_maps[b] if generated_maps[b] is not None else cache
+                output = {k: copy.deepcopy(source_map[k]) for k in (
                     "lg_type", "num_lanes", "road_points", "road_connection_types", "edge_index_lane_to_lane"
-                ) if k in cache}
+                ) if k in source_map}
                 output.update(agent_states=states,
                               agent_types=np.eye(3)[gen_types.astype(np.int64)],
                               num_agents=len(states))
@@ -391,7 +413,10 @@ class ScenarioDreamerEvaluator:
         real = self.store.full_real if self.reference_mode == "full" else self.real
         return {
             "metric_scope": "Scenario Dreamer initial-scene vehicle metrics",
-            "generation_task": "map-conditioned; generated agents on official reference maps",
+            "generation_task": ("joint lane-agent generation; agent metrics on generated lane graphs"
+                                if self.map_source == "generated" else
+                                "map-conditioned; generated agents on official reference maps"),
+            "map_source": self.map_source,
             "num_samples": self.generated.num_scenes, "num_gt_samples": real.num_scenes,
             "num_generated_vehicles": self.generated.num_vehicles, "num_gt_vehicles": real.num_vehicles,
             "num_colliding_vehicles": self.generated.num_colliding,

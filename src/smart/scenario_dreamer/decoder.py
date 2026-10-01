@@ -31,7 +31,7 @@ def _checkpoint(path):
 class ScenarioDreamerInitDecoder(nn.Module):
     """Train with the existing initial_logit loss; infer the existing 5-tuple.
 
-    Inference is official lane-conditioned diffusion, with fixed scene counts.
+    Inference supports joint lane/agent generation or lane conditioning, with fixed scene counts.
     Official checkpoint parameter names and EMA order are retained in the core.
     AE parameters remain frozen; SMART's optimizer trains the LDM.
     """
@@ -41,12 +41,15 @@ class ScenarioDreamerInitDecoder(nn.Module):
     loss_kind = "scenario_dreamer"
 
     def __init__(self, token_processor, *, ae_checkpoint=None, ldm_checkpoint=None,
-                 map_source="auto", map_id=0, use_ema=True):
+                 map_source="auto", map_id=0, use_ema=True, generation_mode="initial_scene"):
         super().__init__()
         self.token_processor = token_processor
         self.map_source = map_source
         self.map_id = int(map_id)
         self.use_ema = bool(use_ema)
+        self.generation_mode = generation_mode
+        if generation_mode not in ("initial_scene", "lane_conditioned"):
+            raise ValueError("generation_mode must be initial_scene or lane_conditioned")
         if self.map_source not in ("auto", "exact", "tokens") or self.map_id not in (0, 1):
             raise ValueError("Use map_source=auto/exact/tokens and Waymo map_id=0/1")
         ae = _checkpoint(ae_checkpoint or WEIGHTS / "scenario_dreamer_autoencoder_waymo/last.ckpt")
@@ -97,12 +100,15 @@ class ScenarioDreamerInitDecoder(nn.Module):
         self.ema.to(next(self.diff_model.parameters()).device)
         self.ema.update()
 
-    def _encode(self, agent):
+    def _build_graph(self, agent):
         agent["sd_map_id"] = self.map_id
-        data, rows, centers, angles = build_graph(
+        return build_graph(
             agent, agent["tokenized_map"], self.cfg.dataset,
             map_source=self.map_source,
         )
+
+    def _encode(self, agent):
+        data, rows, centers, angles = self._build_graph(agent)
         with torch.no_grad():
             am, lm, av, lv = self.autoencoder.forward_encoder(data, return_stats=True)
             stats = self.cfg.dataset
@@ -119,23 +125,38 @@ class ScenarioDreamerInitDecoder(nn.Module):
         return data, rows, centers, angles
 
     def forward(self, tokenized_agent):
-        data, rows, centers, angles = self._encode(tokenized_agent)
+        tokenized_agent.pop("generated_map", None)
+        if not self.training and self.generation_mode == "initial_scene":
+            # Joint generation uses counts and graph structure, never GT AE latents.
+            data, rows, centers, angles = self._build_graph(tokenized_agent)
+            for kind in ("agent", "lane"):
+                width = self.cfg.model[f"{kind}_latent_dim"]
+                data[kind].x = data[kind].x.new_zeros((data[kind].num_nodes, width))
+        else:
+            data, rows, centers, angles = self._encode(tokenized_agent)
         if self.training:
             # The same official joint latent-noise objective used by the release.
             return self.diff_model.loss(data)
-        # if (data.lg_type != 0).any():
-        #     raise ValueError("Lane-conditioned evaluation requires lg_type=0; partitioned scenes are supported for training")
         from contextlib import nullcontext
         self.ema.to(next(self.diff_model.parameters()).device)
         with torch.no_grad(), self.ema.average_parameters() if self.use_ema else nullcontext():
-            a, l = self.diff_model(data, mode="lane_conditioned")
+            a, l = self.diff_model(data, mode=self.generation_mode)
             stats = self.cfg.dataset
             a = a * stats.agent_latents_std + stats.agent_latents_mean
             l = l * stats.lane_latents_std + stats.lane_latents_mean
-            states, lanes, types, _, _ = self.autoencoder.forward_decoder(a, l, data)
+            states, lanes, types, _, connections = self.autoencoder.forward_decoder(a, l, data)
             keys = ("fov", "min_speed", "max_speed", "min_length", "max_length", "min_width", "max_width",
                     "min_lane_x", "max_lane_x", "min_lane_y", "max_lane_y")
-            states, _ = unnormalize_scene(states, lanes, **{key: stats[key] for key in keys})
+            states, lanes = unnormalize_scene(states, lanes, **{key: stats[key] for key in keys})
+            if self.generation_mode == "initial_scene":
+                # Keep the five-tuple API; carry the generated graph alongside agents.
+                # These are physical SD-local coordinates, before SMART's frame transform.
+                tokenized_agent["generated_map"] = {
+                    "coordinate_frame": "sd_local", "road_points": lanes,
+                    "road_connection_types": connections,
+                    "edge_index_lane_to_lane": data["lane", "to", "lane"].edge_index,
+                    "batch": data["lane"].batch, "lg_type": data.lg_type,
+                }
             return self._smart_output(states, types, rows, data["agent"].batch, centers, angles, tokenized_agent)
 
     def _smart_output(self, states, types, rows, sd_batch, centers, angles, agent):
