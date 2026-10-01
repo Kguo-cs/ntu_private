@@ -37,13 +37,13 @@ wandb.require("service")  # forces the new service backend
 settings = wandb.Settings(start_method="thread")
 os.environ["WANDB__SERVICE_WAIT"] = "3000"
 
-sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
-sys.path.append('/home/ke/code/sim')
-sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
-sys.path.append('/home/zs/code/sim')
-sys.path.append('/mnt/d/code/sim')
-sys.path.append('/home/ke/keguo/sim')
-sys.path.append('/home/guoke/sim')
+from omegaconf import DictConfig, OmegaConf
+from pathlib import Path
+
+
+# Resolve paths consistently for both `python -m src.run` and `cd src; python -m run`.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+OmegaConf.register_new_resolver("sim_root", lambda: str(Path(__file__).resolve().parents[1]), replace=True)
 working_dir=os.getcwd()
 
 print('keguo' in working_dir or "guoke" in working_dir)
