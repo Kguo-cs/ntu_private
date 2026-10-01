@@ -71,16 +71,16 @@ class ScenarioDreamerInitDecoder(nn.Module):
         self.autoencoder = AutoEncoder(self.ae_config)
         self.autoencoder.load_state_dict({key.removeprefix("model."): value
                                          for key, value in ae["state_dict"].items()}, strict=True)
-        self.diff_model.load_state_dict({key.removeprefix("diff_model."): value
-                                        for key, value in ldm["state_dict"].items()
-                                        if key.startswith("diff_model.")}, strict=True)
+        # self.diff_model.load_state_dict({key.removeprefix("diff_model."): value
+        #                                 for key, value in ldm["state_dict"].items()
+        #                                 if key.startswith("diff_model.")}, strict=True)
         embedded = {key.removeprefix("autoencoder.model."): value for key, value in ldm["state_dict"].items()
                     if key.startswith("autoencoder.model.")}
         self.autoencoder.load_state_dict(embedded, strict=True)
         self.autoencoder.requires_grad_(False).eval()
         self.ema = ExponentialMovingAverage(self.diff_model.parameters(), decay=self.cfg.train.ema_decay)
-        self.ema.load_state_dict(ldm["ema_state_dict"])
-        self.checkpoint_step = int(ldm.get("global_step", 0))
+        # self.ema.load_state_dict(ldm["ema_state_dict"])
+        # self.checkpoint_step = int(ldm.get("global_step", 0))
 
     def train(self, mode=True):
         super().train(mode)
