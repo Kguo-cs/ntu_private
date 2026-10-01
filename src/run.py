@@ -75,6 +75,8 @@ torch.set_float32_matmul_precision("highest")# #“highest” (default),
 
 
 def run(cfg: DictConfig) -> None:
+    # Keep existing experiments at highest; the public SD evaluator uses medium.
+    torch.set_float32_matmul_precision(cfg.get("float32_matmul_precision", "highest"))
     if cfg.get("seed") is not None:
         L.seed_everything(cfg.seed, workers=True)
 

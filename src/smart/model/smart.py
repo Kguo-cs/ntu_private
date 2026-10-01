@@ -260,6 +260,9 @@ class SMART(LightningModule):
         if self.use_sd_evaluator and getattr(getattr(self, "_trainer", None), "world_size", 1) != 1:
             raise ValueError("Cached Scenario Dreamer evaluation requires trainer.devices=1")
         if self.use_sd_evaluator and self._global_zero:
+            reset_sampling = getattr(self.encoder.init_decoder, "reset_sampling", None)
+            if reset_sampling is not None:
+                reset_sampling()
             if self.sd_evaluator is None:
                 self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
             else:
@@ -298,6 +301,8 @@ class SMART(LightningModule):
             metric_agent = dict(agent)
             if "generated_type" in out:
                 metric_agent["type"] = out["generated_type"][:, 0]
+            if "generated_batch" in out:
+                metric_agent["batch"] = out["generated_batch"]
             self.sd_evaluator.update(data, metric_agent, out)
             return
 
@@ -349,11 +354,14 @@ class SMART(LightningModule):
             agent["tokenized_map"] = tokenized_map
 
         traj, z, head, size, vel, z_list = [], [], [], [], [], []
-        generated_types, generated_maps = [], []
+        generated_types, generated_maps, generated_batches = [], [], []
         for _ in range(self.n_rollout_closed_val):
             rollout_agent = _clone_rollout_input(agent)
             pred = self.encoder.inference(rollout_agent)
             generated_types.append(rollout_agent["type"].clone())
+            generated_batches.append(rollout_agent["batch"].clone())
+            if not torch.equal(generated_batches[0], generated_batches[-1]):
+                raise ValueError("Variable-count generation requires exactly one rollout")
             if "generated_map" in rollout_agent:
                 generated_maps.append(rollout_agent["generated_map"])
             trajectory = pred["pred_traj_10hz"]
@@ -382,6 +390,7 @@ class SMART(LightningModule):
             "vel": torch.stack(vel, 1) if vel else None,
             "z_list": torch.stack(z_list, 1) if z_list else None,
             "generated_type": torch.stack(generated_types, 1),
+            "generated_batch": generated_batches[0],
         }
 
         if generated_maps:
@@ -494,16 +503,29 @@ class SMART(LightningModule):
             metrics = self.sd_evaluator.compute()
             report = self.sd_evaluator.report()
             report["agent_metrics"] = metrics
+            report["runtime"] = {
+                "torch_version": str(torch.__version__),
+                "cuda_version": torch.version.cuda,
+                "float32_matmul_precision": torch.get_float32_matmul_precision(),
+                "torch_initial_seed": torch.initial_seed(),
+                "trainer_precision": getattr(trainer, "precision", None),
+            }
             initial_decoder = self.encoder.init_decoder
             if self.encoder.init_decoder_name == "scenario_dreamer":
                 report["decoder"] = {
                     "name": "scenario_dreamer", "mode": initial_decoder.generation_mode,
-                    "scene_counts": "from input scenes",
+                    "scene_counts": getattr(initial_decoder, "scene_count_source", "input"),
                     "checkpoint_step": initial_decoder.checkpoint_step,
                     "use_ema": initial_decoder.use_ema,
-                    "map_source": initial_decoder.map_source, "map_id": initial_decoder.map_id,
+                    "map_source": initial_decoder.map_source,
+                    "map_id": "sampled" if getattr(initial_decoder, "scene_count_source", "input") == "official_prior" else initial_decoder.map_id,
                     "diffusion_steps": initial_decoder.diff_model.n_timesteps,
+                    "lane_sampling_temperature": initial_decoder.diff_model.lane_sampling_temperature,
+                    "guidance_scale": float(initial_decoder.cfg.train.guidance_scale),
                 }
+                sampling_report = getattr(initial_decoder, "sampling_report", None)
+                if sampling_report is not None:
+                    report["decoder"]["sampling"] = sampling_report()
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
                 json.dump(report, handle, indent=2)
             for name, value in metrics.items():

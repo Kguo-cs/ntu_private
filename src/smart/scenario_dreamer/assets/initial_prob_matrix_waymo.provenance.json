@@ -1,0 +1,47 @@
+{
+  "source_repository": "https://github.com/princeton-computational-imaging/scenario-dreamer",
+  "source_commit": "675423469766bf2fd8a6b569ef1869a6f1e76993",
+  "source_path": "metadata/initial_prob_matrix_waymo.pt",
+  "source_url": "https://raw.githubusercontent.com/princeton-computational-imaging/scenario-dreamer/675423469766bf2fd8a6b569ef1869a6f1e76993/metadata/initial_prob_matrix_waymo.pt",
+  "source_sha256": "0f21da9b5fad47f6f9c48d52e4037970bae27e19f60cb86c5d1a1c5f213ef77f",
+  "source_size_bytes": 26264,
+  "asset_path": "initial_prob_matrix_waymo.npz",
+  "asset_sha256": "cc4da04d9956113e0011dd04969300ae34287dd95cbadde8b113fdf42257c50d",
+  "format": "NumPy NPZ; load with allow_pickle=False; key probabilities",
+  "conversion": "torch.load(map_location=cpu, weights_only=True); tensor values and dtype preserved",
+  "shape": [
+    2,
+    101,
+    31
+  ],
+  "dtype": "float32",
+  "axes": [
+    "map_id",
+    "num_lanes",
+    "num_agents"
+  ],
+  "map_id_probabilities": [
+    0.62,
+    0.38
+  ],
+  "map_id_semantics": {
+    "0": "not Nocturne-compatible",
+    "1": "Nocturne-compatible"
+  },
+  "sampling": {
+    "seed": 0,
+    "sample_order": [
+      "map_id",
+      "flattened_count_index"
+    ],
+    "flatten_order": "C",
+    "num_lanes": "flattened_count_index // 31",
+    "num_agents": "flattened_count_index % 31",
+    "count_offset": 0,
+    "note": "Axis index already equals the count; index 0 reserves zero lanes/agents and has zero mass. Do not add 1."
+  },
+  "sampler_source": "https://github.com/princeton-computational-imaging/scenario-dreamer/blob/675423469766bf2fd8a6b569ef1869a6f1e76993/models/scenario_dreamer_ldm.py#L316-L346",
+  "map_id_source": "https://github.com/princeton-computational-imaging/scenario-dreamer/blob/675423469766bf2fd8a6b569ef1869a6f1e76993/cfgs/config.py#L40-L42",
+  "count_prior_description": "The paper states the joint lane/agent count distribution is approximated from training-set statistics; the public repository contains the resulting matrix, not its construction script.",
+  "paper_source": "https://arxiv.org/html/2503.22496v1#S3.SS2.SSS3"
+}

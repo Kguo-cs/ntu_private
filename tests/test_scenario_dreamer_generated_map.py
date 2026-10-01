@@ -38,6 +38,57 @@ class GeneratedMapTest(unittest.TestCase):
     def setUp(self):
         self.backend = load_official_backend()
 
+    def test_smart_rollout_and_evaluator_use_generated_agent_counts(self):
+        from types import SimpleNamespace
+        import torch
+        from src.smart.model.smart import SMART
+
+        expected = outputs()
+        expected = {k: ({mk: torch.as_tensor(mv) if not isinstance(mv, str) else mv
+                         for mk, mv in value.items()} if isinstance(value, dict)
+                        else torch.as_tensor(value)) for k, value in expected.items()}
+        original_agent = {"batch": torch.tensor([0, 1]), "type": torch.zeros(2, dtype=torch.long)}
+        generated_batch = torch.tensor([0, 0, 1, 1])
+
+        def inference(agent):
+            agent["batch"] = generated_batch.clone()
+            agent["type"] = torch.zeros(4, dtype=torch.long)
+            agent["generated_map"] = expected["generated_map"]
+            return {"pred_traj_10hz": expected["traj"][:, 0],
+                    "pred_head_10hz": expected["head"][:, 0],
+                    "pred_z_10hz": torch.zeros(4, 1),
+                    "shape": expected["size"][:, 0, 0],
+                    "initial_local_vel": expected["vel"][:, 0]}
+
+        model = SimpleNamespace(encoder=SimpleNamespace(init_decoder_name="scenario_dreamer", inference=inference),
+                                scenario_dreamer_init=True, n_rollout_closed_val=1,
+                                n_vis_batch=0, challenge_type=None, use_sd_evaluator=True)
+        out = SMART._rollouts(model, {}, original_agent, None)
+        torch.testing.assert_close(out["generated_batch"], generated_batch)
+        torch.testing.assert_close(original_agent["batch"], torch.tensor([0, 1]))
+        self.assertEqual(out["traj"].shape[0], 4)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            files = ["a.pkl", "b.pkl"]
+            for name in files:
+                with (root / name).open("wb") as handle:
+                    pickle.dump(raw_scene(), handle)
+            manifest = root / "eval.pkl"
+            with manifest.open("wb") as handle:
+                pickle.dump({"files": files}, handle)
+            database = root / "real.sqlite"
+            prepare_real_cache(root, manifest, database, expected_scenes=2, progress=False)
+            model.sd_evaluator = ScenarioDreamerEvaluator(
+                real_cache=database, eval_set=manifest, expected_scenes=2, gen_timestep=0,
+                prediction_frame="sd_local", require_full_set=True,
+                reference_mode="full", map_source="generated")
+            model._rollouts = lambda *args: out
+            records = [dict(scenario_dreamer_cache_file=name, scene_timestep=37,
+                            generation_scene_timestep=37) for name in files]
+            SMART._validate_closed_loop(model, records, {}, original_agent, 0)
+            self.assertEqual(model.sd_evaluator.report()["num_generated_vehicles"], 4)
+            self.assertEqual(len(model.sd_evaluator.compute()), 7)
+
     def test_geometry_replaces_gt_onroad_and_deviation_reference(self):
         out = outputs()
         batch, types = np.array([0, 0, 1, 1]), np.zeros(4, dtype=np.int64)

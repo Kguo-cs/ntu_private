@@ -1,0 +1,45 @@
+# @package _global_
+# Evaluate the released Waymo Large weights with the official scene-count prior.
+defaults:
+  - scenario_dreamer
+  - _self_
+
+action: test
+task_name: scenario_dreamer_release
+seed: 0
+float32_matmul_precision: medium  # Official eval.py setting; model parameters remain float32.
+ckpt_path: null
+logger: null
+callbacks: null
+
+model:
+  model_config:
+    sd_require_full_set: true
+    sd_reference_mode: full
+    decoder:
+      scenario_dreamer:
+        training_stage: ldm
+        ae_checkpoint: ${paths.root_dir}/src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
+        ae_config: null
+        ldm_checkpoint: ${paths.root_dir}/src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt
+        ldm_config: null
+        generation_mode: initial_scene
+        scene_count_source: official_prior
+        count_prior_path: ${paths.root_dir}/src/smart/scenario_dreamer/assets/initial_prob_matrix_waymo.npz
+        sampling_seed: 0
+        use_ema: true
+
+data:
+  scenario_dreamer_train_latent_cache: null
+  scenario_dreamer_val_latent_cache: null
+  scenario_dreamer_test_latent_cache: null
+  val_batch_size: 32
+  test_batch_size: 32
+
+trainer:
+  devices: 1
+  precision: 32-true
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  logger: false
+  enable_checkpointing: false

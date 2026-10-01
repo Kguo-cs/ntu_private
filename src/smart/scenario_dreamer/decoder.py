@@ -11,6 +11,7 @@ from .core.autoencoder import AutoEncoder
 from .core.ldm import LDM
 from .core.data_helpers import unnormalize_scene
 from .data import build_graph, rotate
+from .generation import DEFAULT_COUNT_PRIOR, SceneCountPrior, build_generation_graph
 
 ROOT = Path(__file__).resolve().parents[3]
 WEIGHTS = ROOT / "src/waymo_data/scenario_dreamer/checkpoints"
@@ -54,7 +55,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
     """Train AE reconstruction or LDM loss through SMART's initial_logit API.
 
     LDM inference returns the existing 5-tuple, supporting joint lane/agent generation
-    or lane conditioning, with fixed scene counts.
+    or lane conditioning. Initial-scene counts can come from input scenes or
+    the official joint count prior.
     Official checkpoint parameter names and EMA order are retained in the core.
     training_stage selects AE reconstruction or LDM training with a frozen AE.
     With ldm_checkpoint=None, initialize a fresh LDM without reading LDM weights.
@@ -66,7 +68,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
 
     def __init__(self, token_processor, *, ae_checkpoint=DEFAULT_AE_CHECKPOINT, ae_config=None,
                  ldm_checkpoint=None, ldm_config=None, training_stage="ldm",
-                 map_source="auto", map_id=0, use_ema=True, generation_mode="initial_scene"):
+                 map_source="auto", map_id=0, use_ema=True, generation_mode="initial_scene",
+                 scene_count_source="input", count_prior_path=None, sampling_seed=0):
         super().__init__()
         self.token_processor = token_processor
         if training_stage not in ("ldm", "autoencoder"):
@@ -77,6 +80,15 @@ class ScenarioDreamerInitDecoder(nn.Module):
         self.map_id = int(map_id)
         self.use_ema = bool(use_ema) and not self.learn_autoencoder
         self.generation_mode = generation_mode
+        self.scene_count_source = scene_count_source
+        self.sampling_seed = int(sampling_seed)
+        self.count_prior = None
+        self.ae_checkpoint_path = self._resolved_checkpoint_path(ae_checkpoint)
+        self.ldm_checkpoint_path = self._resolved_checkpoint_path(ldm_checkpoint)
+        if scene_count_source not in ("input", "official_prior"):
+            raise ValueError("scene_count_source must be input or official_prior")
+        if scene_count_source == "official_prior" and (self.learn_autoencoder or generation_mode != "initial_scene"):
+            raise ValueError("official_prior requires LDM initial_scene generation")
         if generation_mode not in ("initial_scene", "lane_conditioned"):
             raise ValueError("generation_mode must be initial_scene or lane_conditioned")
         if self.map_source not in ("auto", "exact", "tokens") or self.map_id not in (0, 1):
@@ -111,6 +123,12 @@ class ScenarioDreamerInitDecoder(nn.Module):
             dataset_cfg.update(num_map_ids=2, num_agent_types=3, num_lane_types=0)
             train_cfg = {key: saved.train[key] for key in ("loss_type", "lane_weight", "guidance_scale", "ema_decay")}
             self.cfg = OmegaConf.create(dict(model=model_cfg, dataset=dataset_cfg, train=train_cfg, dataset_name="waymo"))
+        if scene_count_source == "official_prior":
+            prior_path = Path(count_prior_path).expanduser() if count_prior_path is not None else DEFAULT_COUNT_PRIOR
+            if not prior_path.is_absolute():
+                prior_path = ROOT / prior_path
+            self.count_prior = SceneCountPrior(prior_path, max_num_agents=self.cfg.dataset.max_num_agents,
+                                              max_num_lanes=self.cfg.dataset.max_num_lanes, seed=self.sampling_seed)
         self.autoencoder = AutoEncoder(self.ae_config)
         self._latent_cache_fingerprint = None
         self.autoencoder.register_load_state_dict_post_hook(self._invalidate_latent_cache_fingerprint)
@@ -142,6 +160,32 @@ class ScenarioDreamerInitDecoder(nn.Module):
         if ldm is not None:
             self.ema.load_state_dict(ldm["ema_state_dict"])
             self.checkpoint_step = int(ldm.get("global_step", 0))
+
+    @staticmethod
+    def _resolved_checkpoint_path(path):
+        if path is None:
+            return None
+        path = Path(path).expanduser()
+        return str((path if path.is_absolute() else ROOT / path).resolve())
+
+    def reset_sampling(self):
+        """Reset count sampling and its report; diffusion uses the PyTorch RNG."""
+        if self.count_prior is not None:
+            self.count_prior.reset()
+
+    def sampling_report(self):
+        report = self.count_prior.report() if self.count_prior is not None else {"scene_count_source": "input"}
+        report.update(ae_checkpoint=self.ae_checkpoint_path, ldm_checkpoint=self.ldm_checkpoint_path,
+                      ema_num_updates=self.ema.num_updates if self.ema is not None else None)
+        return report
+
+    def _build_generation_graph(self, agent):
+        if not agent.get("initial_scene_only", False) or "sd_states" not in agent:
+            raise ValueError("official_prior requires the direct preprocessed AE initial-scene data path")
+        counts = self.count_prior.sample(int(agent["num_graphs"]))
+        return build_generation_graph(counts, agent_latent_dim=self.cfg.model.agent_latent_dim,
+                                      lane_latent_dim=self.cfg.model.lane_latent_dim,
+                                      device=agent["initial_pos"].device, dtype=agent["initial_pos"].dtype)
 
     def train(self, mode=True):
         super().train(mode)
@@ -222,7 +266,10 @@ class ScenarioDreamerInitDecoder(nn.Module):
         tokenized_agent.pop("generated_map", None)
         if self.learn_autoencoder:
             return self.autoencoder_loss(tokenized_agent)
-        if not self.training and self.generation_mode == "initial_scene":
+        independent_counts = not self.training and self.scene_count_source == "official_prior"
+        if independent_counts:
+            data, rows, centers, angles = self._build_generation_graph(tokenized_agent)
+        elif not self.training and self.generation_mode == "initial_scene":
             # Joint generation uses counts and graph structure, never GT AE latents.
             data, rows, centers, angles = self._build_graph(tokenized_agent)
             for kind in ("agent", "lane"):
@@ -253,7 +300,21 @@ class ScenarioDreamerInitDecoder(nn.Module):
                     "edge_index_lane_to_lane": data["lane", "to", "lane"].edge_index,
                     "batch": data["lane"].batch, "lg_type": data.lg_type,
                 }
-            return self._smart_output(states, types, rows, data["agent"].batch, centers, angles, tokenized_agent)
+            output = self._smart_output(states, types, rows, data["agent"].batch, centers, angles, tokenized_agent)
+            if independent_counts:
+                pos, heading, _, size, velocity = output
+                batch = data["agent"].batch[torch.argsort(rows)]
+                ego_mask = torch.zeros_like(batch, dtype=torch.bool)
+                ego_mask[data.num_agents.cumsum(0) - 1] = True
+                tokenized_agent.update(batch=batch, ego_mask=ego_mask, initial_pos=pos[:, 0],
+                                       initial_heading=heading[:, 0], shape=size,
+                                       local_vel=rotate(velocity, -heading[:, 0]))
+                # Reference tensors have different row counts; remove stale features.
+                for key in ("sd_states", "sd_cached_posterior", "sd_map"):
+                    tokenized_agent.pop(key, None)
+                tokenized_agent["ego_pos2"] = pos[ego_mask].expand(-1, 3, -1)
+                tokenized_agent["ego_heading2"] = heading[ego_mask].expand(-1, 3)
+            return output
 
     def _smart_output(self, states, types, rows, sd_batch, centers, angles, agent):
         # Restore original SMART order, preserving the exact map-reference SE(2).
