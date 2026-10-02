@@ -269,8 +269,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
             data["lane"].x = data["lane"].latents
         return data, rows, centers, angles
 
-    def _validate_lane_conditioning(self, agent):
-        """Condition only on explicitly identified, complete reference lane graphs."""
+    def _validate_lane_conditioning(self, agent, *, require_full=True):
+        """Require exact typed lane graphs; evaluation additionally requires full maps."""
         num_graphs = int(agent["num_graphs"])
         if num_graphs < 1:
             raise ValueError("lane_conditioned training/evaluation requires at least one input scene")
@@ -279,7 +279,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
         if self.map_source == "tokens" or exact is None:
             raise ValueError(
                 "lane_conditioned training/evaluation requires an exact SD map with explicit lg_type; "
-                f"token-map fallback cannot establish full lanes (batch indices {indices})"
+                f"token-map fallback cannot establish graph type (batch indices {indices})"
             )
         metadata = exact.get("lg_type")
         if metadata is None:
@@ -298,10 +298,16 @@ class ScenarioDreamerInitDecoder(nn.Module):
                 "lane_conditioned sd_map.lg_type metadata count must equal num_graphs: "
                 f"got {kinds.numel()} for {num_graphs} scenes (batch indices {indices})"
             )
-        invalid = torch.where(kinds != 0)[0].tolist()
+        unsupported = torch.where((kinds != 0) & (kinds != 1))[0].tolist()
+        if unsupported:
+            raise ValueError(
+                "lane_conditioned requires supported lg_type=0 or 1; "
+                f"invalid lg_type at batch indices {unsupported}"
+            )
+        invalid = torch.where(kinds != 0)[0].tolist() if require_full else []
         if invalid:
             raise ValueError(
-                "lane_conditioned training/evaluation requires full non-partitioned lanes (lg_type=0); "
+                "lane_conditioned evaluation requires full non-partitioned lanes (lg_type=0); "
                 f"invalid lg_type at batch indices {invalid}"
             )
 
@@ -317,7 +323,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
             return self.autoencoder_loss(tokenized_agent)
         if ((self.training and self.training_mode == "lane_conditioned")
                 or (not self.training and self.generation_mode == "lane_conditioned")):
-            self._validate_lane_conditioning(tokenized_agent)
+            self._validate_lane_conditioning(tokenized_agent, require_full=not self.training)
         independent_counts = not self.training and self.scene_count_source == "official_prior"
         if independent_counts:
             data, rows, centers, angles = self._build_generation_graph(tokenized_agent)

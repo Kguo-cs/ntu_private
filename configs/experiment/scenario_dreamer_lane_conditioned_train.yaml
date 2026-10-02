@@ -1,5 +1,5 @@
 # @package _global_
-# Train agent diffusion conditioned on full reference lane graphs (lg_type=0).
+# Train agent diffusion conditioned on lanes from full or partitioned graphs.
 defaults:
   - scenario_dreamer
   - _self_
@@ -17,7 +17,7 @@ model:
 
 data:
   scenario_dreamer_train_latent_cache: ${paths.root_dir}/src/waymo_data/scenario_dreamer_latents_waymo/train
-  scenario_dreamer_train_non_partitioned_only: true
+  scenario_dreamer_train_non_partitioned_only: false
   val_batch_size: 64
 
 callbacks:

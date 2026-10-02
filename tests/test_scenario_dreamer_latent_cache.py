@@ -113,6 +113,33 @@ class ScenarioDreamerLatentCacheTest(unittest.TestCase):
         self.ldm.update_ema()
         self.assertEqual(self.ldm.ema.num_updates, 1)
 
+    def test_cached_and_online_lane_conditioned_mixed_training_match_losses_and_gradients(self):
+        self.generate()
+        raw, cached = self.agents(False), self.agents(True)
+        self.assertEqual(set(raw["sd_map"]["lg_type"].tolist()), {0, 1})
+        self.ldm.training_mode = "lane_conditioned"
+        self.ldm.train()
+        torch.manual_seed(79)
+        expected = self.ldm(raw)
+        expected["loss"].backward()
+        expected_gradients = {name: None if parameter.grad is None else parameter.grad.clone()
+                              for name, parameter in self.ldm.diff_model.named_parameters()}
+        self.ldm.zero_grad(set_to_none=True)
+        torch.manual_seed(79)
+        with patch.object(self.ldm.autoencoder, "forward_encoder", side_effect=AssertionError("AE must be skipped")):
+            actual = self.ldm(cached)
+        actual["loss"].backward()
+        self.assertEqual(actual["lane_loss"].item(), 0)
+        for key in actual:
+            torch.testing.assert_close(actual[key], expected[key], atol=2e-5, rtol=2e-5)
+        for name, parameter in self.ldm.diff_model.named_parameters():
+            reference = expected_gradients[name]
+            if reference is None:
+                self.assertIsNone(parameter.grad, name)
+            else:
+                torch.testing.assert_close(parameter.grad, reference, atol=2e-5, rtol=2e-5, msg=name)
+        self.assertTrue(all(parameter.grad is None for parameter in self.ldm.autoencoder.parameters()))
+
     def test_cache_resume_fills_missing_scenes_and_reuses_valid_records(self):
         first = self.generate(max_scenes=2)
         self.assertTrue(first["partial"])

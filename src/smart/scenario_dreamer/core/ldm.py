@@ -237,15 +237,17 @@ class LDM(nn.Module):
         """Joint denoising, or agent denoising conditioned on clean lane latents."""
         if mode not in ("joint", "lane_conditioned"):
             raise ValueError("LDM training mode must be joint or lane_conditioned")
-        if mode == "lane_conditioned" and (data['lg_type'] != 0).any():
-            raise ValueError("lane_conditioned training requires full non-partitioned graphs (lg_type=0)")
 
         # generate noised latents for training
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
         if mode == "lane_conditioned":
-            # Match conditional inference: lanes stay clean while their timestep
-            # embedding follows the same per-scene diffusion step as agents.
+            # All lane latents stay clean. Retain the released partitioned-agent
+            # convention: before-partition agents are clean with zero noise targets.
+            # Lane timestep embeddings follow the same per-scene step as agents.
+            agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
+            x_agent_noisy[agent_mask] = x_agent[agent_mask]
+            agent_noise[agent_mask] = 0.
             agent_noise_pred, _ = self.model(x_agent_noisy, x_lane, data, t_agent, t_lane)
             assert agent_noise.shape == agent_noise_pred.shape
             agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data['agent'].batch)

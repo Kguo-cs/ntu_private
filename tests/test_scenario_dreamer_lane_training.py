@@ -1,4 +1,4 @@
-"""Agent-only denoising conditioned on complete, clean lane latents."""
+"""Agent-only denoising with clean regular/partitioned lane latents."""
 import copy
 from pathlib import Path
 import tempfile
@@ -109,9 +109,9 @@ class ScenarioDreamerLaneTrainingTest(unittest.TestCase):
         mean = (lane_mu - model.cfg.dataset.lane_latents_mean) / model.cfg.dataset.lane_latents_std
         self.assertFalse(torch.equal(encoded, mean))
 
-    def test_training_rejects_partitioned_missing_metadata_and_token_fallback_before_encoding(self):
+    def test_training_rejects_unsupported_missing_metadata_and_token_fallback_before_encoding(self):
         cases = [
-            ({}, (0, 1), None, r"batch indices \[1\]"),
+            ({}, (0, 1), lambda a: a["sd_map"].update(lg_type=torch.tensor([0, 2])), r"batch indices \[1\]"),
             ({}, (0, 0), lambda a: a["sd_map"].pop("lg_type"), "missing metadata"),
             ({}, (0, 0), lambda a: a["sd_map"].update(lg_type=torch.tensor([0])), "metadata count"),
             ({"map_source": "auto"}, (0, 0), lambda a: a.pop("sd_map"), "token-map fallback"),
@@ -133,13 +133,64 @@ class ScenarioDreamerLaneTrainingTest(unittest.TestCase):
                     encode.assert_not_called()
                     cache.assert_not_called()
 
-    def test_core_rejects_partitioned_graph_even_when_decoder_guard_is_bypassed(self):
-        model = self.model().train()
-        data = model._encode(self.inputs((0, 1)))[0]
-        with patch.object(model.diff_model, "q_sample") as noise:
-            with self.assertRaisesRegex(ValueError, "full non-partitioned"):
-                model.diff_model.loss(data, mode="lane_conditioned")
-        noise.assert_not_called()
+    def test_partitioned_agent_mask_keeps_prefix_clean_and_sets_zero_noise_targets(self):
+        for kinds in ((0, 1), (1, 1)):
+            with self.subTest(kinds=kinds):
+                model = self.model().train()
+                data = model._encode(self.inputs(kinds))[0]
+                core = model.diff_model
+                agent = data["agent"].latents.unsqueeze(1)
+                lane = data["lane"].latents.unsqueeze(1)
+                before = data["agent"].partition_mask.bool()
+                self.assertTrue(before.any())
+                self.assertTrue((~before).any())
+                noise = torch.full_like(agent, .4)
+                t_agent = torch.ones(agent.shape[0], dtype=torch.long)
+                t_lane = torch.ones(lane.shape[0], dtype=torch.long)
+                expected_noised = core.q_sample(agent, t_agent, noise)
+                original_model = core.model.forward
+                original_loss = core.agent_loss_fn.forward
+                captured = {}
+
+                def capture_model(x_agent, x_lane, *args):
+                    captured.update(agent=x_agent.clone(), lane=x_lane.clone())
+                    return original_model(x_agent, x_lane, *args)
+
+                def capture_loss(prediction, target, *args):
+                    captured["target"] = target.clone()
+                    return original_loss(prediction, target, *args)
+
+                with patch.object(core.model, "forward", side_effect=capture_model), \
+                        patch.object(core.agent_loss_fn, "forward", side_effect=capture_loss), \
+                        patch("src.smart.scenario_dreamer.core.ldm.torch.randn_like", return_value=noise.clone()):
+                    loss, agent_loss, lane_loss = core.p_losses(
+                        agent, lane, data, t_agent, t_lane, mode="lane_conditioned")
+                torch.testing.assert_close(captured["agent"][before], agent[before], atol=0, rtol=0)
+                torch.testing.assert_close(captured["agent"][~before], expected_noised[~before], atol=0, rtol=0)
+                torch.testing.assert_close(captured["lane"], lane, atol=0, rtol=0)
+                torch.testing.assert_close(captured["target"][before], torch.zeros_like(noise[before]), atol=0, rtol=0)
+                torch.testing.assert_close(captured["target"][~before], noise[~before], atol=0, rtol=0)
+                torch.testing.assert_close(loss, agent_loss, atol=0, rtol=0)
+                self.assertFalse(lane_loss.any())
+                loss.mean().backward()
+                self.assertTrue(any(p.grad is not None and p.grad.abs().sum() > 0
+                                    for p in core.model.pred_agent_noise.parameters()))
+                self.assertTrue(all(p.grad is None for p in core.model.pred_lane_noise.parameters()))
+
+    def test_mixed_and_partitioned_decoder_training_succeeds_but_evaluation_rejects_them(self):
+        for kinds in ((0, 1), (1, 1)):
+            with self.subTest(kinds=kinds):
+                model = self.model(generation_mode="lane_conditioned").train()
+                losses = model(self.inputs(kinds))
+                self.assertTrue(torch.isfinite(losses["loss"]))
+                self.assertEqual(losses["lane_loss"].item(), 0)
+                losses["loss"].backward()
+                self.assertTrue(any(p.grad is not None and p.grad.abs().sum() > 0
+                                    for p in model.diff_model.parameters()))
+                with patch.object(model, "_encode") as encode:
+                    with self.assertRaisesRegex(ValueError, "full non-partitioned"):
+                        model.eval()(self.inputs(kinds))
+                encode.assert_not_called()
 
     def test_joint_objective_remains_default_and_accepts_partitioned_training(self):
         model = self.model(training_mode="joint", generation_mode="lane_conditioned").train()

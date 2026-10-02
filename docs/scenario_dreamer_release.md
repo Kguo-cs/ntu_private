@@ -95,7 +95,7 @@
 
 数据清单仍为官方 50k 完整场景；默认检查完整集合。遇到 partitioned 场景、混合了 partitioned 的 batch
 或缺失图类型元数据时会明确报错，不静默跳过，不把 token 地图当作可验证的完整 lane 图。
-lane-conditioned 训练和推理都只接受完整图；默认 `training_mode=joint` 的 AE/LDM 训练仍可使用 partitioned 场景。
+lane-conditioned 评价只接受完整图；训练接受全部受支持的 `lg_type`（0 和 1），包括 partitioned 场景。
 
 先测试 8 个场景：
 
@@ -118,7 +118,7 @@ lane-conditioned 训练和推理都只接受完整图；默认 `training_mode=jo
 本次未运行 lane-conditioned 的完整 50k 评价。
 
 
-## 完整车道条件下的 agent 训练
+## 车道条件下的 agent 训练
 
 使用 [scenario_dreamer_lane_conditioned_train.yaml](../configs/experiment/scenario_dreamer_lane_conditioned_train.yaml)，复用现有 SMART trainer、优化器、checkpoint 和 agent metrics：
 
@@ -127,18 +127,20 @@ lane-conditioned 训练和推理都只接受完整图；默认 `training_mode=jo
 ```
 
 该配置加载本地公开 AE 并冻结，从头训练 LDM；`use_ema`、学习率和训练 batch size 继承当前 `scenario_dreamer` 训练配置。
-训练数据仍来自 `scenario_dreamer_ae_preprocess_waymo/train`，只保留实际字段 `lg_type=0` 的样本。
-首次启动扫描原始 pickle 建立 `.scenario_dreamer_graph_types.npz` 索引，后续按文件名、大小和修改时间校验并增量更新；
-不会根据文件名猜图类型。取样和 decoder 仍检查完整图条件，缺失字段或误混入 partitioned 数据会报错。
-该筛选只影响训练 split，验证和测试仍使用已有官方 50k 清单。
+训练数据仍来自 `scenario_dreamer_ae_preprocess_waymo/train`，默认使用全部 `lg_type=0/1` 样本，
+`scenario_dreamer_train_non_partitioned_only=false`，不会建立或应用完整图筛选索引。
+缺失字段、非法图类型或 token-map fallback 仍会报错。
+如需只训练完整场景，可显式设置 `data.scenario_dreamer_train_non_partitioned_only=true`；
+此时按原始字段建立并复用 `.scenario_dreamer_graph_types.npz` 索引。
+验证和测试仍使用已有官方 50k 清单，仅接受 `lg_type=0` 的完整图。
 
 训练设置与推理设置独立：
 
-- `training_mode=lane_conditioned`：lane latent 不加 diffusion 噪声，agent latent 按随机 timestep 加噪；只优化 agent 噪声预测，日志中 `loss=agent_loss`、`lane_loss=0`。
+- `training_mode=lane_conditioned`：所有 lane latent 不加 diffusion 噪声；`lg_type=0` 的全部 agent 按随机 timestep 加噪。`lg_type=1` 沿用原分区训练约定：`BEFORE_PARTITION` agent 保持干净、噪声目标置零，其他 agent 正常加噪。只优化 agent 噪声预测（零目标也参与损失），日志中 `loss=agent_loss`、`lane_loss=0`。
 - `generation_mode=lane_conditioned`：验证和测试固定 lane latent，生成 agents，在原始参考 lane 上计算 agent metrics。
 - AE posterior 沿用原训练约定，每次取样；这里的固定 lane 是指不做 diffusion 加噪，验证时使用 posterior 均值。lane 条件编码仍参与 agent 损失反向传播，AE 保持冻结。
 
-可以直接复用已有 latent cache，筛选后仍按原场景文件名加载 posterior，并执行原有 source hash 和 AE fingerprint 校验：
+当前训练配置已启用本地 latent cache，对完整和分区样本均按原场景文件名加载 posterior，并执行原有 source hash 和 AE fingerprint 校验；路径也可显式指定：
 
 ```bash
 /home/ke/miniconda3/envs/sim/bin/python -m src.run experiment=scenario_dreamer_lane_conditioned_train \
@@ -166,14 +168,15 @@ lane noise 输出 head 没有监督；多 GPU 时使用 `trainer=ddp trainer.str
 若希望在已有 `scenario_dreamer_latent` 训练配置上切换，需同时设置
 `model.model_config.decoder.scenario_dreamer.training_mode=lane_conditioned`、
 `model.model_config.decoder.scenario_dreamer.generation_mode=lane_conditioned` 和
-`data.scenario_dreamer_train_non_partitioned_only=true`。
+`data.scenario_dreamer_train_non_partitioned_only=false`。
 只改 `generation_mode` 仍表示联合训练、条件评价。
 
 
-训练支持已通过 71 项 Scenario Dreamer 回归测试及 5 项 DataLoader 配置测试。
-另使用真实数据的 2 个完整场景和 1 个 partitioned 场景验证筛选，加载公开 AE 与现有训练 latent cache，
-通过现有 `src.run` 入口在 CPU 上完成小型 LDM 的 2 个优化步骤和 2 场景条件评价。
-[训练日志](../logs/scenario_dreamer_lane_conditioned_training_smoke/console.log) 与
-[验证报告](../logs/scenario_dreamer_lane_conditioned_training_smoke/run/sd_agent_metrics.json)
-确认筛选结果为 2/3、`training_mode=lane_conditioned`、`map_source=reference`、EMA 更新次数为 2。
+全部图类型的条件训练已通过 73 项 Scenario Dreamer 回归测试，包括分区 mask、混合 batch 反向传播、
+raw/cache 损失和梯度一致性，以及评价仍拒绝 partitioned 场景。
+另使用真实数据的 2 个完整场景和 1 个 partitioned 场景组成同一个训练 batch，加载公开 AE 与现有训练 latent cache，
+通过现有 `src.run` 入口在 CPU 上完成小型 LDM 的 1 个优化步骤和 2 个完整场景的条件评价。
+[训练日志](../logs/scenario_dreamer_lane_conditioned_all_types_smoke/console.log) 与
+[验证报告](../logs/scenario_dreamer_lane_conditioned_all_types_smoke/run/sd_agent_metrics.json)
+确认训练使用全部 3 个样本、`training_mode=lane_conditioned`、`map_source=reference`、EMA 更新次数为 1。
 这次只验证训练链路，没有启动完整规模训练，冒烟指标不用于衡量模型质量。
