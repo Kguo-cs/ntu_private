@@ -88,26 +88,17 @@ class MultiDataModule(LightningDataModule):
             raise ValueError(f"{stage} should be one of [fit, validate, test]")
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        if self.num_workers<=1:
-            return DataLoader(
-                self.train_dataset,
-                batch_size=self.train_batch_size,
-                shuffle=self.shuffle,
-               # num_workers=self.num_workers,
-                pin_memory=False,  # self.pin_memory,
-                persistent_workers=False,  # self.persistent_workers,
-                drop_last=False
-            )
-        else:
-            return DataLoader(
-                self.train_dataset,
-                batch_size=self.train_batch_size,
-                shuffle=self.shuffle,
-                num_workers=self.num_workers,
-                pin_memory=True,#self.pin_memory,
-                persistent_workers=True,#self.persistent_workers,
-                drop_last=False
-            )
+        # Honor Hydra's loader options, including the explicit pin_memory=False
+        # default. Forcing pinning here starts an unwanted CUDA pin-memory thread.
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.train_batch_size,
+            shuffle=self.shuffle,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=self.persistent_workers,
+            drop_last=False,
+        )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
         return DataLoader(
