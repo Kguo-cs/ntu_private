@@ -5,7 +5,7 @@ defaults:
 action: fit
 seed: 0
 ckpt_path: null  # SMART resume checkpoint; official weights belong to init_decoder below.
-task_name: scenario_dreamer_nopre1
+task_name: scenario_dreamer_noema
 
 paths:
   root_dir: ${sim_root:}
@@ -14,11 +14,11 @@ paths:
 model:
   model_config:
     finetune: true
-    lr: 0.0001
-    n_vis_batch: 0
-    n_batch_wosac_metric: 0
-    val_open_loop: false
-    val_closed_loop: true
+#    lr: 0.0001
+#    n_vis_batch: 0
+#    n_batch_wosac_metric: 0
+#    val_open_loop: false
+#    val_closed_loop: true
     token_processor:
       pred_init: true
       learn_init: true
@@ -34,7 +34,7 @@ model:
         generation_mode: initial_scene  # Joint lane/agent sampling; metrics use the generated map.
         map_source: exact  # Exact training inputs; joint inference uses their scene counts.
         map_id: 0
-        use_ema: true
+        use_ema: false #true
     sd_use_cached_evaluator: true
     sd_eval_set: ${paths.root_dir}/src/waymo_data/waymo_eval_set.pkl
     sd_real_cache: ${paths.root_dir}/src/waymo_data/sd_real_metric_cache.sqlite
@@ -55,7 +55,7 @@ data:
   train_raw_dir: ${paths.cache_root}/train
   val_raw_dir: ${paths.cache_root}/test
   test_raw_dir: ${paths.cache_root}/test
-  train_batch_size: 64
+  train_batch_size: 40
   val_batch_size: 256
   test_batch_size: 12
   num_workers: 12
