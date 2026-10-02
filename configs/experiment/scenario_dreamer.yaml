@@ -6,19 +6,15 @@ action: fit
 seed: 0
 ckpt_path: null  # SMART resume checkpoint; official weights belong to init_decoder below.
 task_name: scenario_dreamer_noema
+float32_matmul_precision: medium  # Official eval.py setting; model parameters remain float32.
 
 paths:
-  root_dir: ${sim_root:}
-  cache_root: ${paths.root_dir}/src/waymo_data/scenario_dreamer_ae_preprocess_waymo
+  cache_root: ${paths.root_dir}/waymo_data/scenario_dreamer_ae_preprocess_waymo
 
 model:
   model_config:
     finetune: true
 #    lr: 0.0001
-#    n_vis_batch: 0
-#    n_batch_wosac_metric: 0
-#    val_open_loop: false
-#    val_closed_loop: true
     token_processor:
       pred_init: true
       learn_init: true
@@ -29,7 +25,7 @@ model:
         training_stage: ldm  # Use experiment=scenario_dreamer_ae to train the autoencoder.
         training_mode: joint  # lane_conditioned: denoise agents on fixed lane latents (all graph types).
         ae_config: null
-        ae_checkpoint: ${paths.root_dir}/src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
+        ae_checkpoint: ${paths.root_dir}/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
         ldm_checkpoint: null  # Train LDM from scratch; set a path to load official LDM + EMA weights.
         ldm_config: null  # Optional model/dataset/train overrides for scratch training.
         generation_mode: initial_scene  # Joint lane/agent sampling; metrics use the generated map.
@@ -37,8 +33,8 @@ model:
         map_id: 0
         use_ema: false #true
     sd_use_cached_evaluator: true
-    sd_eval_set: ${paths.root_dir}/src/waymo_data/waymo_eval_set.pkl
-    sd_real_cache: ${paths.root_dir}/src/waymo_data/sd_real_metric_cache.sqlite
+    sd_eval_set: ${paths.root_dir}/waymo_data/waymo_eval_set.pkl
+    sd_real_cache: ${paths.root_dir}/waymo_data/sd_real_metric_cache.sqlite
     sd_expected_scenes: 50000
     sd_gen_timestep: 0
     sd_prediction_frame: sd_local

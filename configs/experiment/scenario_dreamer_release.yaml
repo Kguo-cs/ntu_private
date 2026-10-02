@@ -41,6 +41,6 @@ trainer:
   devices: 1
   precision: 32-true
   limit_val_batches: 1.0
-  limit_test_batches: 1.0
+  limit_test_batches: 1 #.0
   logger: false
   enable_checkpointing: false

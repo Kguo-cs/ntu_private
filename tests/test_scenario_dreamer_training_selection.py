@@ -1,7 +1,6 @@
-"""Full-lane training selects actual lg_type=0 scenes for raw and cached inputs."""
+"""Filename-only full-lane selection keeps raw/cache metadata checks at get time."""
 import hashlib
 import json
-import os
 from pathlib import Path
 import pickle
 import tempfile
@@ -14,7 +13,7 @@ import torch
 from src.smart.datamodules.scalable_datamodule import MultiDataModule
 from src.smart.datamodules.target_builder import WaymoTargetBuilderVal
 from src.smart.datasets.scalable_dataset import MultiDataset
-from src.smart.scenario_dreamer.graph_type_index import DEFAULT_INDEX_NAME
+from src.smart.scenario_dreamer.graph_type_index import filename_graph_type, select_non_partitioned
 from src.smart.scenario_dreamer.latent_cache import FORMAT_VERSION, atomic_save, cache_path
 
 
@@ -35,8 +34,7 @@ class TrainingSelectionTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.raw = self.root / "raw"
         self.raw.mkdir()
-        # Deliberately contradict apparent filename categories.
-        self.files = ["a_named_partitioned_1.pkl", "b_named_full_0.pkl", "c.pkl"]
+        self.files = ["scene_0_0_37.pkl", "scene_1_1_37.pkl", "scene_2_0_37.pkl"]
         for name, kind in zip(self.files, (0, 1, np.int64(0))):
             self.write(name, scene(kind))
 
@@ -51,89 +49,77 @@ class TrainingSelectionTest(unittest.TestCase):
         settings.update(options)
         return MultiDataset(str(self.raw), WaymoTargetBuilderVal(), **settings)
 
-    def test_mixed_raw_selection_reads_fields_and_reuses_index_without_reopening(self):
-        dataset = self.dataset()
-        self.assertEqual([Path(p).name for p in dataset.raw_paths], [self.files[0], self.files[2]])
-        self.assertEqual(dataset.non_partitioned_selection["total"], 3)
-        self.assertEqual(dataset.non_partitioned_selection["inspected"], 3)
-        self.assertEqual([dataset.get(i)["sd_lg_type"] for i in range(len(dataset))], [0, 0])
-        index = self.raw / DEFAULT_INDEX_NAME
-        modified = index.stat().st_mtime_ns
-        with patch("src.smart.scenario_dreamer.graph_type_index._inspect", side_effect=AssertionError("must reuse")):
+    def test_initialization_selects_filenames_without_reading_scenes_or_writing_an_index(self):
+        with patch("pickle.load", side_effect=AssertionError("no source reads")), \
+                patch("torch.load", side_effect=AssertionError("no source reads")):
+            dataset = self.dataset()
             again = self.dataset()
-        self.assertEqual(again.non_partitioned_selection["reused"], 3)
-        self.assertEqual(again.non_partitioned_selection["inspected"], 0)
-        self.assertEqual(index.stat().st_mtime_ns, modified)
+        self.assertEqual([Path(p).name for p in dataset.raw_paths], [self.files[0], self.files[2]])
+        self.assertEqual(dataset.non_partitioned_selection,
+                         dict(total=3, selected=2, partitioned=1, selection_source="filename"))
         self.assertEqual(again.raw_paths, dataset.raw_paths)
+        self.assertEqual([dataset.get(i)["sd_lg_type"] for i in range(len(dataset))], [0, 0])
+        self.assertEqual(set(p.name for p in self.raw.iterdir()), set(self.files))
 
-    def test_changed_and_new_sources_are_reinspected_and_deleted_sources_do_not_return(self):
+    def test_parser_uses_the_type_field_and_selection_needs_no_filesystem_access(self):
+        paths = [Path("/not-a-directory/training_0_1_0.pkl"),
+                 Path("/not-a-directory/training_1_0_1.pt"),
+                 Path("/not-a-directory/training_9_0_99.pkl")]
+        with patch.object(Path, "open", side_effect=AssertionError("no file reads")), \
+                patch.object(Path, "stat", side_effect=AssertionError("no source stats")):
+            selected, report = select_non_partitioned(paths, "/not-a-directory")
+        self.assertEqual(selected, paths[1:])
+        self.assertEqual(report["selection_source"], "filename")
+        for path, expected in zip(paths, (1, 0, 0)):
+            self.assertEqual(filename_graph_type(path), expected)
+        for name in ("scene.pkl", "scene_0_2_37.pkl", "scene_0_0.5_37.pkl", "scene_0_0_bad.pkl"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Cannot determine lg_type"):
+                filename_graph_type(name)
+
+    def test_new_and_removed_files_are_selected_without_an_index(self):
         self.dataset()
-        path = self.raw / self.files[1]
-        old_time = path.stat().st_mtime_ns
-        self.write(path.name, scene(0))
-        os.utime(path, ns=(old_time + 1_000_000_000, old_time + 1_000_000_000))
-        self.write("d.pkl", scene(torch.tensor(0)))
+        self.write("scene_3_0_37.pkl", scene(torch.tensor(0)))
         (self.raw / self.files[0]).unlink()
         dataset = self.dataset()
-        self.assertEqual([Path(p).name for p in dataset.raw_paths], [self.files[1], self.files[2], "d.pkl"])
-        self.assertEqual(dataset.non_partitioned_selection["inspected"], 2)
-        self.assertEqual(dataset.non_partitioned_selection["reused"], 1)
+        self.assertEqual([Path(p).name for p in dataset.raw_paths], [self.files[2], "scene_3_0_37.pkl"])
+        self.assertEqual(dataset.non_partitioned_selection["total"], 3)
 
-    def test_explicit_sample_list_order_and_index_location_are_preserved(self):
+    def test_sample_list_order_and_legacy_index_paths_are_preserved_without_index_io(self):
         manifest = self.root / "selected.pkl"
         with manifest.open("wb") as handle:
             pickle.dump({"files": list(reversed(self.files))}, handle)
-        index = self.root / "indices" / "types.npz"
+        index = self.root / "legacy-types.npz"
+        index.write_bytes(b"legacy index is not read")
         dataset = self.dataset(sample_list=str(manifest), scenario_dreamer_graph_type_index=str(index))
         self.assertEqual([Path(p).name for p in dataset.raw_paths], [self.files[2], self.files[0]])
-        self.assertTrue(index.is_file())
-        self.assertFalse((self.raw / DEFAULT_INDEX_NAME).exists())
+        self.assertEqual(index.read_bytes(), b"legacy index is not read")
+        absent = self.root / "never-created" / "types.npz"
+        self.dataset(scenario_dreamer_graph_type_index=str(absent))
+        self.assertFalse(absent.parent.exists())
 
-    def test_get_rechecks_actual_graph_type_after_selection(self):
+    def test_get_rejects_filename_metadata_mismatch_and_invalid_actual_fields(self):
         dataset = self.dataset()
         self.write(self.files[0], scene(1))
-        with self.assertRaisesRegex(ValueError, "scene changed since selection"):
+        with self.assertRaisesRegex(ValueError, "filename disagrees with scene metadata"):
             dataset.get(0)
-        bad = scene(0)
-        del bad["lg_type"]
-        self.write(self.files[0], bad)
-        with self.assertRaisesRegex(ValueError, "Missing lg_type"):
-            dataset.get(0)
-
-    def test_missing_malformed_and_unreadable_sources_fail_without_publishing_partial_index(self):
-        cases = [(None, "Missing lg_type"), (.5, "Expected lg_type"), (2, "Expected lg_type"),
-                 (np.array([0, 1]), "must be scalar"), (float("nan"), "Expected lg_type")]
-        for kind, message in cases:
+        for kind, message in ((None, "Missing lg_type"), (.5, "Expected lg_type"),
+                              (2, "Expected lg_type"), (np.array([0, 1]), "must be scalar")):
             with self.subTest(kind=kind):
                 malformed = scene(kind)
                 if kind is None:
                     del malformed["lg_type"]
-                self.write("bad.pkl", malformed)
+                self.write(self.files[0], malformed)
                 with self.assertRaisesRegex(ValueError, message):
-                    self.dataset()
-                self.assertFalse((self.raw / DEFAULT_INDEX_NAME).exists())
-        (self.raw / "bad.pkl").write_bytes(b"not a pickle")
-        with self.assertRaisesRegex(ValueError, "Cannot inspect.*bad.pkl"):
-            self.dataset()
-        self.assertFalse((self.raw / DEFAULT_INDEX_NAME).exists())
+                    dataset.get(0)
 
-    def test_corrupt_or_wrong_root_index_and_empty_selection_are_rejected(self):
-        index = self.raw / DEFAULT_INDEX_NAME
-        index.write_bytes(b"not a numpy archive")
-        with self.assertRaisesRegex(ValueError, "Invalid graph-type index"):
-            self.dataset()
-        index.unlink()
-        self.dataset()
-        other = self.root / "other"
-        other.mkdir()
-        with self.assertRaisesRegex(ValueError, "source directory does not match"):
-            MultiDataset(str(other), None, scenario_dreamer_preprocessed=True,
-                         scenario_dreamer_non_partitioned_only=True,
-                         scenario_dreamer_graph_type_index=str(index))
-        for name in self.files:
-            self.write(name, scene(1))
-        with self.assertRaisesRegex(ValueError, "No non-partitioned lg_type=0"):
-            self.dataset()
+    def test_empty_selection_is_rejected_by_name_without_reading_partitioned_files(self):
+        full_paths = [self.raw / name for name in (self.files[0], self.files[2])]
+        for path in full_paths:
+            path.unlink()
+        (self.raw / self.files[1]).write_bytes(b"unused partitioned source")
+        with patch("pickle.load", side_effect=AssertionError("no source reads")):
+            with self.assertRaisesRegex(ValueError, "No non-partitioned lg_type=0"):
+                self.dataset()
 
     def make_cached_records(self):
         cache = self.root / "cache"
@@ -168,7 +154,7 @@ class TrainingSelectionTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Stale latent cache"):
             cached.get(0)
         self.write(self.files[0], scene(1))
-        with self.assertRaisesRegex(ValueError, "scene changed since selection"):
+        with self.assertRaisesRegex(ValueError, "filename disagrees with scene metadata"):
             cached.get(0)
 
     def test_datamodule_filters_only_training_and_supports_train_cache(self):
@@ -193,14 +179,18 @@ class TrainingSelectionTest(unittest.TestCase):
         self.assertFalse(module.test_dataset.non_partitioned_only)
 
     def test_filter_is_opt_in_and_requires_official_preprocessed_inputs(self):
+        self.write("arbitrary_filename.pkl", scene(1))
         dataset = self.dataset(scenario_dreamer_non_partitioned_only=False)
-        self.assertEqual(len(dataset), 3)
-        self.assertFalse((self.raw / DEFAULT_INDEX_NAME).exists())
+        self.assertEqual(len(dataset), 4)
+        with self.assertRaisesRegex(ValueError, "Cannot determine lg_type"):
+            self.dataset()
         with self.assertRaisesRegex(ValueError, "scenario_dreamer_preprocessed=true"):
             self.dataset(scenario_dreamer_preprocessed=False)
-        with self.assertRaisesRegex(ValueError, "requires non_partitioned_only=true"):
-            self.dataset(scenario_dreamer_non_partitioned_only=False,
-                         scenario_dreamer_graph_type_index=str(self.root / "types.npz"))
+        # Legacy index config remains loadable even when filtering is disabled.
+        dataset = self.dataset(scenario_dreamer_non_partitioned_only=False,
+                               scenario_dreamer_graph_type_index=str(self.root / "legacy.npz"))
+        self.assertEqual(len(dataset), 4)
+        self.assertFalse((self.root / "legacy.npz").exists())
 
 
 if __name__ == "__main__":

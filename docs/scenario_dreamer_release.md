@@ -127,11 +127,13 @@ lane-conditioned 评价只接受完整图；训练接受全部受支持的 `lg_t
 ```
 
 该配置加载本地公开 AE 并冻结，从头训练 LDM；`use_ema`、学习率和训练 batch size 继承当前 `scenario_dreamer` 训练配置。
-训练数据仍来自 `scenario_dreamer_ae_preprocess_waymo/train`，默认使用全部 `lg_type=0/1` 样本，
-`scenario_dreamer_train_non_partitioned_only=false`，不会建立或应用完整图筛选索引。
+训练数据仍来自 `scenario_dreamer_ae_preprocess_waymo/train`，支持全部 `lg_type=0/1` 样本；
+`data.scenario_dreamer_train_non_partitioned_only=false` 使用全部图类型，设置为 `true` 只选择完整场景。
+完整图筛选直接解析 `<prefix>_<scene_index>_<lg_type>_<timestep>.pkl`（也支持 `.pt`）中的类型字段，
+保留原清单顺序，不在初始化时读取每个 pickle，不建立或读取 `.scenario_dreamer_graph_types.npz` 索引。
+旧的 graph-type index 路径参数继续接受，但不再使用。文件名不符合约定时会报错；
+每次实际加载所选样本仍检查 `lg_type=0`，同时执行原有 latent cache source hash 和 AE fingerprint 校验。
 缺失字段、非法图类型或 token-map fallback 仍会报错。
-如需只训练完整场景，可显式设置 `data.scenario_dreamer_train_non_partitioned_only=true`；
-此时按原始字段建立并复用 `.scenario_dreamer_graph_types.npz` 索引。
 验证和测试仍使用已有官方 50k 清单，仅接受 `lg_type=0` 的完整图。
 
 训练设置与推理设置独立：

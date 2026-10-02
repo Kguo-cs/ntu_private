@@ -24,24 +24,9 @@ from pathlib import Path
 import sys
 import os
 import torch
-import numpy as np
-import random
 
-from typing import Iterable, Pattern, Union
-
-os.environ["WANDB_SILENT"] = "true"
-
-wandb.require("service")  # forces the new service backend
-# Optional: use thread start (very robust in multiprocess settings)
-settings = wandb.Settings(start_method="thread")
-os.environ["WANDB__SERVICE_WAIT"] = "3000"
-
-# Resolve paths consistently for both `python -m src.run` and `cd src; python -m run`.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 OmegaConf.register_new_resolver("sim_root", lambda: str(Path(__file__).resolve().parents[1]), replace=True)
-working_dir=os.getcwd()
-
-print('keguo' in working_dir or "guoke" in working_dir)
 
 from src.utils import (
     RankedLogger,
@@ -52,27 +37,6 @@ from src.utils import (
 )
 
 log = RankedLogger(__name__, rank_zero_only=True)
-
-torch.set_float32_matmul_precision("highest")# #“highest” (default),
-
-# seed = 42
-# random.seed(seed)
-# np.random.seed(seed)
-# torch.manual_seed(seed)
-# torch.cuda.manual_seed(seed)
-# torch.cuda.manual_seed_all(seed)
-# torch.use_deterministic_algorithms(True)
-# torch.backends.cudnn.deterministic = True
-# torch.backends.cudnn.benchmark = False
-# torch.cuda.synchronize()
-# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-# torch.backends.cuda.matmul.allow_tf32 = False
-# torch.backends.cuda.allow_tf32 = False
-# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-
-#h800 ==4090 highest
-
-
 
 def run(cfg: DictConfig) -> None:
     # Keep existing experiments at highest; the public SD evaluator uses medium.

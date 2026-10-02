@@ -54,8 +54,7 @@ class MultiDataset(Dataset):
         self.non_partitioned_selection = None
         if self.non_partitioned_only and not scenario_dreamer_preprocessed:
             raise ValueError("Full-lane filtering requires scenario_dreamer_preprocessed=true")
-        if scenario_dreamer_graph_type_index is not None and not self.non_partitioned_only:
-            raise ValueError("scenario_dreamer_graph_type_index requires non_partitioned_only=true")
+        # Legacy graph_type_index paths are accepted but no longer read or written.
         if (self.latent_cache_dir is not None or record_latent_source) and not scenario_dreamer_preprocessed:
             raise ValueError("Latent caching requires scenario_dreamer_preprocessed=true")
         if self.latent_cache_dir is not None:
@@ -115,7 +114,7 @@ class MultiDataset(Dataset):
             if self.non_partitioned_only:
                 from src.smart.scenario_dreamer.graph_type_index import scene_graph_type
                 if scene_graph_type(data, self.raw_paths[idx]) != 0:
-                    raise ValueError(f"Full-lane training requires lg_type=0; scene changed since selection: {self.raw_paths[idx]}")
+                    raise ValueError(f"Full-lane training requires lg_type=0; filename disagrees with scene metadata: {self.raw_paths[idx]}")
             from src.smart.scenario_dreamer.preprocessed import adapt_preprocessed_scene
             result = adapt_preprocessed_scene(data, self.raw_paths[idx])
             if source_hash is not None:

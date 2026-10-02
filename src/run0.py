@@ -10,7 +10,6 @@
 # disclosure or distribution of this material and related documentation
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
-
 from typing import List
 
 import hydra
@@ -20,33 +19,14 @@ import wandb
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.loggers.wandb import WandbLogger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
+from pathlib import Path
 import sys
 import os
 import torch
-import numpy as np
-import random
 
-from typing import Iterable, Pattern, Union
-
-os.environ["WANDB_SILENT"] = "true"
-
-wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
-wandb.require("service")  # forces the new service backend
-# Optional: use thread start (very robust in multiprocess settings)
-settings = wandb.Settings(start_method="thread")
-os.environ["WANDB__SERVICE_WAIT"] = "3000"
-
-from omegaconf import DictConfig, OmegaConf
-from pathlib import Path
-
-
-# Resolve paths consistently for both `python -m src.run` and `cd src; python -m run`.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 OmegaConf.register_new_resolver("sim_root", lambda: str(Path(__file__).resolve().parents[1]), replace=True)
-working_dir=os.getcwd()
-
-print('keguo' in working_dir or "guoke" in working_dir)
 
 from src.utils import (
     RankedLogger,
@@ -58,37 +38,22 @@ from src.utils import (
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-torch.set_float32_matmul_precision("highest")# #“highest” (default),
-
-# seed = 42
-# random.seed(seed)
-# np.random.seed(seed)
-# torch.manual_seed(seed)
-# torch.cuda.manual_seed(seed)
-# torch.cuda.manual_seed_all(seed)
-# torch.use_deterministic_algorithms(True)
-# torch.backends.cudnn.deterministic = True
-# torch.backends.cudnn.benchmark = False
-# torch.cuda.synchronize()
-# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-# torch.backends.cuda.matmul.allow_tf32 = False
-# torch.backends.cuda.allow_tf32 = False
-# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-
-#h800 ==4090 highest
-
-
 def run(cfg: DictConfig) -> None:
-    if cfg.get("seed"):
+    # Keep existing experiments at highest; the public SD evaluator uses medium.
+    torch.set_float32_matmul_precision(cfg.get("float32_matmul_precision", "highest"))
+    if cfg.get("seed") is not None:
         L.seed_everything(cfg.seed, workers=True)
+
+    if cfg.action == "cache_latents":
+        from src.smart.scenario_dreamer.latent_cache import run_precache
+        run_precache(cfg)
+        return
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model, _recursive_=False)
-
-    #model=torch.compile(model)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
@@ -131,7 +96,7 @@ def run(cfg: DictConfig) -> None:
                     model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
             if model.encoder.sep_map:
                 model.encoder.init_map_encoder.load_state_dict(model.encoder.map_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule)#
+        trainer.fit(model=model, datamodule=datamodule)
     elif cfg.action == "validate":
         log.info("Starting validating!")
         trainer.validate(
@@ -159,3 +124,5 @@ def main(cfg: DictConfig) -> None:
 if __name__ == "__main__":
     main()
     log.info("run.py DONE!!!")
+
+
