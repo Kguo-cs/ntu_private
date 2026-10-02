@@ -1,5 +1,5 @@
 # Adapted from Scenario Dreamer, commit 675423469766bf2fd8a6b569ef1869a6f1e76993.
-# See ../SOURCES.json for provenance; only package imports changed.
+# See ../SOURCES.json for provenance and the optional lane-conditioned training extension.
 import numpy as np
 import torch
 from torch import nn
@@ -231,13 +231,26 @@ class LDM(nn.Module):
             x_agent, 
             x_lane, 
             data, 
-            t_agent, 
-            t_lane):
-        """ Compute the loss for the diffusion model."""
-        
+            t_agent,
+            t_lane,
+            mode="joint"):
+        """Joint denoising, or agent denoising conditioned on clean lane latents."""
+        if mode not in ("joint", "lane_conditioned"):
+            raise ValueError("LDM training mode must be joint or lane_conditioned")
+        if mode == "lane_conditioned" and (data['lg_type'] != 0).any():
+            raise ValueError("lane_conditioned training requires full non-partitioned graphs (lg_type=0)")
+
         # generate noised latents for training
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
+        if mode == "lane_conditioned":
+            # Match conditional inference: lanes stay clean while their timestep
+            # embedding follows the same per-scene diffusion step as agents.
+            agent_noise_pred, _ = self.model(x_agent_noisy, x_lane, data, t_agent, t_lane)
+            assert agent_noise.shape == agent_noise_pred.shape
+            agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data['agent'].batch)
+            lane_loss = torch.zeros_like(agent_loss)
+            return agent_loss, agent_loss, lane_loss
         lane_noise = torch.randn_like(x_lane)
         x_lane_noisy = self.q_sample(x_start=x_lane, t=t_lane, noise=lane_noise)
         
@@ -266,8 +279,10 @@ class LDM(nn.Module):
         return loss, agent_loss, lane_loss
 
     
-    def loss(self, data):
-        """ Sample diffusion timesteps for training and compute the loss for the diffusion model."""
+    def loss(self, data, mode="joint"):
+        """Sample per-scene timesteps for the selected diffusion training objective."""
+        if mode not in ("joint", "lane_conditioned"):
+            raise ValueError("LDM training mode must be joint or lane_conditioned")
         # batch of agent and lane latents
         x_agent = data['agent'].latents.unsqueeze(1)
         x_lane = data['lane'].latents.unsqueeze(1)
@@ -282,7 +297,7 @@ class LDM(nn.Module):
         t_lane = t[lane_batch]
         
         
-        loss, agent_loss, lane_loss = self.p_losses(x_agent, x_lane, data, t_agent, t_lane)
+        loss, agent_loss, lane_loss = self.p_losses(x_agent, x_lane, data, t_agent, t_lane, mode=mode)
         
         loss_dict = {
             'loss': loss.mean(),

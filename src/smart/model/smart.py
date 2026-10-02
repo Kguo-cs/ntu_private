@@ -514,6 +514,7 @@ class SMART(LightningModule):
             if self.encoder.init_decoder_name == "scenario_dreamer":
                 report["decoder"] = {
                     "name": "scenario_dreamer", "mode": initial_decoder.generation_mode,
+                    "training_mode": getattr(initial_decoder, "training_mode", "joint"),
                     "scene_counts": getattr(initial_decoder, "scene_count_source", "input"),
                     "checkpoint_step": initial_decoder.checkpoint_step,
                     "use_ema": initial_decoder.use_ema,

@@ -43,11 +43,19 @@ class MultiDataset(Dataset):
         sample_list: Optional[str] = None,
         scenario_dreamer_latent_cache: Optional[str] = None,
         record_latent_source: bool = False,
+        scenario_dreamer_non_partitioned_only: bool = False,
+        scenario_dreamer_graph_type_index: Optional[str] = None,
     ) -> None:
         root = Path(raw_dir)
         self.scenario_dreamer_preprocessed = scenario_dreamer_preprocessed
         self.latent_cache_dir = Path(scenario_dreamer_latent_cache) if scenario_dreamer_latent_cache else None
         self.record_latent_source = record_latent_source
+        self.non_partitioned_only = scenario_dreamer_non_partitioned_only
+        self.non_partitioned_selection = None
+        if self.non_partitioned_only and not scenario_dreamer_preprocessed:
+            raise ValueError("Full-lane filtering requires scenario_dreamer_preprocessed=true")
+        if scenario_dreamer_graph_type_index is not None and not self.non_partitioned_only:
+            raise ValueError("scenario_dreamer_graph_type_index requires non_partitioned_only=true")
         if (self.latent_cache_dir is not None or record_latent_source) and not scenario_dreamer_preprocessed:
             raise ValueError("Latent caching requires scenario_dreamer_preprocessed=true")
         if self.latent_cache_dir is not None:
@@ -64,6 +72,11 @@ class MultiDataset(Dataset):
                 raise FileNotFoundError(f"Missing {len(missing)} selected scenes in {root}: {missing[:3]}")
         else:
             paths = sorted(p for p in root.iterdir() if p.is_file() and p.suffix in (".pt", ".pkl"))
+        if self.non_partitioned_only:
+            from src.smart.scenario_dreamer.graph_type_index import select_non_partitioned
+            paths, self.non_partitioned_selection = select_non_partitioned(
+                paths, root, scenario_dreamer_graph_type_index)
+            log.info(f"Scenario Dreamer full-lane training selection: {self.non_partitioned_selection}")
         self._raw_paths = [p.as_posix() for p in paths]
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
         self._num_samples = len(self._raw_paths)
@@ -99,6 +112,10 @@ class MultiDataset(Dataset):
             data = torch.load(self.raw_paths[idx], map_location="cpu", weights_only=False)
 
         if self.scenario_dreamer_preprocessed:
+            if self.non_partitioned_only:
+                from src.smart.scenario_dreamer.graph_type_index import scene_graph_type
+                if scene_graph_type(data, self.raw_paths[idx]) != 0:
+                    raise ValueError(f"Full-lane training requires lg_type=0; scene changed since selection: {self.raw_paths[idx]}")
             from src.smart.scenario_dreamer.preprocessed import adapt_preprocessed_scene
             result = adapt_preprocessed_scene(data, self.raw_paths[idx])
             if source_hash is not None:

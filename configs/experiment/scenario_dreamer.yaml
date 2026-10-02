@@ -27,6 +27,7 @@ model:
       init_decoder: scenario_dreamer
       scenario_dreamer:
         training_stage: ldm  # Use experiment=scenario_dreamer_ae to train the autoencoder.
+        training_mode: joint  # lane_conditioned: denoise agents on complete, fixed lane latents.
         ae_config: null
         ae_checkpoint: ${paths.root_dir}/src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
         ldm_checkpoint: null  # Train LDM from scratch; set a path to load official LDM + EMA weights.

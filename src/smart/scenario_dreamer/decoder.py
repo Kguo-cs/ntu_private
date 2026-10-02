@@ -59,6 +59,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
     the official joint count prior.
     Official checkpoint parameter names and EMA order are retained in the core.
     training_stage selects AE reconstruction or LDM training with a frozen AE.
+    training_mode independently selects the joint or lane-conditioned LDM objective.
     With ldm_checkpoint=None, initialize a fresh LDM without reading LDM weights.
     """
     use_gan = False
@@ -67,7 +68,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
     loss_kind = "scenario_dreamer"
 
     def __init__(self, token_processor, *, ae_checkpoint=DEFAULT_AE_CHECKPOINT, ae_config=None,
-                 ldm_checkpoint=None, ldm_config=None, training_stage="ldm",
+                 ldm_checkpoint=None, ldm_config=None, training_stage="ldm", training_mode="joint",
                  map_source="auto", map_id=0, use_ema=True, generation_mode="initial_scene",
                  scene_count_source="input", count_prior_path=None, sampling_seed=0):
         super().__init__()
@@ -76,6 +77,11 @@ class ScenarioDreamerInitDecoder(nn.Module):
             raise ValueError("training_stage must be ldm or autoencoder")
         self.training_stage = training_stage
         self.learn_autoencoder = training_stage == "autoencoder"
+        if training_mode not in ("joint", "lane_conditioned"):
+            raise ValueError("training_mode must be joint or lane_conditioned")
+        if self.learn_autoencoder and training_mode != "joint":
+            raise ValueError("lane_conditioned training_mode requires training_stage=ldm")
+        self.training_mode = training_mode
         self.map_source = map_source
         self.map_id = int(map_id)
         self.use_ema = bool(use_ema) and not self.learn_autoencoder
@@ -176,7 +182,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
     def sampling_report(self):
         report = self.count_prior.report() if self.count_prior is not None else {"scene_count_source": "input"}
         report.update(ae_checkpoint=self.ae_checkpoint_path, ldm_checkpoint=self.ldm_checkpoint_path,
-                      ema_num_updates=self.ema.num_updates if self.ema is not None else None)
+                      training_mode=self.training_mode, ema_num_updates=self.ema.num_updates if self.ema is not None else None)
         return report
 
     def _build_generation_graph(self, agent):
@@ -197,12 +203,19 @@ class ScenarioDreamerInitDecoder(nn.Module):
         # nn.Module state_dict makes EMA part of ordinary SMART checkpoints.
         return {"ema": self.ema.state_dict() if self.ema is not None else None,
                 "checkpoint_step": self.checkpoint_step, "training_stage": self.training_stage,
+                "training_mode": self.training_mode,
                 "ae_config": OmegaConf.to_container(self.ae_config, resolve=True)}
 
     def set_extra_state(self, state):
         self._latent_cache_fingerprint = None
         if state.get("training_stage", "ldm") != self.training_stage:
             raise ValueError("Resume requires the same training_stage; pass an AE checkpoint via ae_checkpoint for LDM training")
+        saved_mode = state.get("training_mode", "joint")
+        if saved_mode != self.training_mode:
+            raise ValueError(
+                f"Resume requires the same training_mode (checkpoint={saved_mode}, requested={self.training_mode}); "
+                "initialize with an official ldm_checkpoint when changing the training objective"
+            )
         if self.ema is not None:
             self.ema.load_state_dict(state["ema"])
         self.checkpoint_step = state.get("checkpoint_step", 0)
@@ -260,18 +273,18 @@ class ScenarioDreamerInitDecoder(nn.Module):
         """Condition only on explicitly identified, complete reference lane graphs."""
         num_graphs = int(agent["num_graphs"])
         if num_graphs < 1:
-            raise ValueError("lane_conditioned evaluation requires at least one input scene")
+            raise ValueError("lane_conditioned training/evaluation requires at least one input scene")
         indices = list(range(num_graphs))
         exact = agent.get("sd_map")
         if self.map_source == "tokens" or exact is None:
             raise ValueError(
-                "lane_conditioned evaluation requires an exact SD map with explicit lg_type; "
+                "lane_conditioned training/evaluation requires an exact SD map with explicit lg_type; "
                 f"token-map fallback cannot establish full lanes (batch indices {indices})"
             )
         metadata = exact.get("lg_type")
         if metadata is None:
             raise ValueError(
-                "lane_conditioned evaluation requires explicit sd_map.lg_type for every scene; "
+                "lane_conditioned training/evaluation requires explicit sd_map.lg_type for every scene; "
                 f"missing metadata at batch indices {indices}"
             )
         try:
@@ -288,7 +301,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
         invalid = torch.where(kinds != 0)[0].tolist()
         if invalid:
             raise ValueError(
-                "lane_conditioned evaluation requires full non-partitioned lanes (lg_type=0); "
+                "lane_conditioned training/evaluation requires full non-partitioned lanes (lg_type=0); "
                 f"invalid lg_type at batch indices {invalid}"
             )
 
@@ -302,7 +315,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
         tokenized_agent.pop("generated_map", None)
         if self.learn_autoencoder:
             return self.autoencoder_loss(tokenized_agent)
-        if not self.training and self.generation_mode == "lane_conditioned":
+        if ((self.training and self.training_mode == "lane_conditioned")
+                or (not self.training and self.generation_mode == "lane_conditioned")):
             self._validate_lane_conditioning(tokenized_agent)
         independent_counts = not self.training and self.scene_count_source == "official_prior"
         if independent_counts:
@@ -316,8 +330,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
         else:
             data, rows, centers, angles = self._encode(tokenized_agent)
         if self.training:
-            # The same official joint latent-noise objective used by the release.
-            return self.diff_model.loss(data)
+            # Joint remains the released objective; lane conditioning supervises agents only.
+            return self.diff_model.loss(data, mode=self.training_mode)
         from contextlib import nullcontext
         self.ema.to(next(self.diff_model.parameters()).device)
         with torch.no_grad(), self.ema.average_parameters() if self.use_ema else nullcontext():

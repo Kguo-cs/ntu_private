@@ -1,0 +1,25 @@
+# @package _global_
+# Train agent diffusion conditioned on full reference lane graphs (lg_type=0).
+defaults:
+  - scenario_dreamer
+  - _self_
+
+action: fit
+task_name: scenario_dreamer_lane_conditioned_train
+
+model:
+  model_config:
+    decoder:
+      scenario_dreamer:
+        training_mode: lane_conditioned
+        generation_mode: lane_conditioned
+        scene_count_source: input
+
+data:
+  scenario_dreamer_train_latent_cache: ${paths.root_dir}/src/waymo_data/scenario_dreamer_latents_waymo/train
+  scenario_dreamer_train_non_partitioned_only: true
+  val_batch_size: 64
+
+callbacks:
+  model_checkpoint:
+    filename: scenario_dreamer_lane_conditioned-{epoch}-{step}
