@@ -79,3 +79,40 @@
 官方默认生成 batch size 为 32，本次为 128；batch 划分会改变 diffusion 随机噪声的抽取与分配。
 数量采样使用独立 CPU generator，概率与 API 对齐，但随机流与官方模型初始化后的全局 RNG 不同。
 这些差异可能影响最终分数；只有一次完整运行，尚未量化剩余差异的随机波动范围。
+
+## 完整车道条件下的 agent 评价
+
+使用独立配置 [scenario_dreamer_lane_conditioned.yaml](../configs/experiment/scenario_dreamer_lane_conditioned.yaml)：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run experiment=scenario_dreamer_lane_conditioned
+```
+
+该配置继续使用本地公开 AE/LDM 权重及 EMA，只接受有明确 `lg_type=0` 元数据的完整、非分区 lane 图。
+完整图先经 AE 编码，LDM 在固定 lane latent 的条件下生成 agents；lane 和 agent 数量沿用输入场景，
+`scene_count_source=input`。评价使用相应的原始参考车道，报告应为 `mode=lane_conditioned`、
+`map_source=reference`，不会把 AE 重建车道作为新的生成地图参与评价。
+
+数据清单仍为官方 50k 完整场景；默认检查完整集合。遇到 partitioned 场景、混合了 partitioned 的 batch
+或缺失图类型元数据时会明确报错，不静默跳过，不把 token 地图当作可验证的完整 lane 图。
+限制仅针对 lane-conditioned 推理，原有包含 partitioned 场景的 AE/LDM 训练继续可用。
+
+先测试 8 个场景：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run experiment=scenario_dreamer_lane_conditioned \
+  trainer.limit_test_batches=1 data.test_batch_size=8 \
+  model.model_config.sd_require_full_set=false
+```
+
+在已有 `scenario_dreamer` / `scenario_dreamer_latent` 训练配置中，也可以设置
+`model.model_config.decoder.scenario_dreamer.generation_mode=lane_conditioned`，让验证阶段使用完整车道条件；
+训练阶段仍保持原 LDM loss。若从 `scenario_dreamer_release` 手动覆盖模式，需同时设置
+`model.model_config.decoder.scenario_dreamer.scene_count_source=input`。
+
+这是基于真实完整车道的条件生成任务，不能直接以本页联合 lane/agent 生成的公开目标表判断是否复现成功。
+
+本模式已通过 54 项 Scenario Dreamer 回归测试及 8 场景公开权重 GPU 冒烟。
+[冒烟报告](../logs/scenario_dreamer_lane_conditioned_smoke/2026-10-02_10-53-02/sd_agent_metrics.json)
+确认 `map_source=reference`；8 个导出场景的 lane 几何与拓扑均与参考图逐项一致。
+本次未运行 lane-conditioned 的完整 50k 评价。

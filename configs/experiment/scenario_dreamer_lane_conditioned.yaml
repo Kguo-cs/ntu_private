@@ -1,0 +1,16 @@
+# @package _global_
+# Generate agents conditioned on complete reference lanes (lg_type=0 only).
+defaults:
+  - scenario_dreamer_release
+  - _self_
+
+action: test
+task_name: scenario_dreamer_lane_conditioned
+
+model:
+  model_config:
+    decoder:
+      scenario_dreamer:
+        generation_mode: lane_conditioned
+        scene_count_source: input
+        count_prior_path: null

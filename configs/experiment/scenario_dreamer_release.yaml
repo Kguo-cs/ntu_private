@@ -14,7 +14,7 @@ callbacks: null
 
 model:
   model_config:
-    sd_require_full_set: true
+    sd_require_full_set: false
     sd_reference_mode: full
     decoder:
       scenario_dreamer:
@@ -34,7 +34,7 @@ data:
   scenario_dreamer_val_latent_cache: null
   scenario_dreamer_test_latent_cache: null
   val_batch_size: 32
-  test_batch_size: 128
+  test_batch_size: 256
   num_workers: 0
 
 trainer:

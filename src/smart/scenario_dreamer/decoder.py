@@ -256,6 +256,42 @@ class ScenarioDreamerInitDecoder(nn.Module):
             data["lane"].x = data["lane"].latents
         return data, rows, centers, angles
 
+    def _validate_lane_conditioning(self, agent):
+        """Condition only on explicitly identified, complete reference lane graphs."""
+        num_graphs = int(agent["num_graphs"])
+        if num_graphs < 1:
+            raise ValueError("lane_conditioned evaluation requires at least one input scene")
+        indices = list(range(num_graphs))
+        exact = agent.get("sd_map")
+        if self.map_source == "tokens" or exact is None:
+            raise ValueError(
+                "lane_conditioned evaluation requires an exact SD map with explicit lg_type; "
+                f"token-map fallback cannot establish full lanes (batch indices {indices})"
+            )
+        metadata = exact.get("lg_type")
+        if metadata is None:
+            raise ValueError(
+                "lane_conditioned evaluation requires explicit sd_map.lg_type for every scene; "
+                f"missing metadata at batch indices {indices}"
+            )
+        try:
+            kinds = torch.as_tensor(metadata).reshape(-1)
+        except (TypeError, ValueError, RuntimeError) as error:
+            raise ValueError(
+                f"Invalid lane_conditioned sd_map.lg_type metadata at batch indices {indices}"
+            ) from error
+        if kinds.numel() != num_graphs:
+            raise ValueError(
+                "lane_conditioned sd_map.lg_type metadata count must equal num_graphs: "
+                f"got {kinds.numel()} for {num_graphs} scenes (batch indices {indices})"
+            )
+        invalid = torch.where(kinds != 0)[0].tolist()
+        if invalid:
+            raise ValueError(
+                "lane_conditioned evaluation requires full non-partitioned lanes (lg_type=0); "
+                f"invalid lg_type at batch indices {invalid}"
+            )
+
     def autoencoder_loss(self, tokenized_agent):
         if "sd_cached_posterior" in tokenized_agent:
             raise ValueError("AE training/validation requires raw scenes; disable latent caches for the AE stage")
@@ -266,6 +302,8 @@ class ScenarioDreamerInitDecoder(nn.Module):
         tokenized_agent.pop("generated_map", None)
         if self.learn_autoencoder:
             return self.autoencoder_loss(tokenized_agent)
+        if not self.training and self.generation_mode == "lane_conditioned":
+            self._validate_lane_conditioning(tokenized_agent)
         independent_counts = not self.training and self.scene_count_source == "official_prior"
         if independent_counts:
             data, rows, centers, angles = self._build_generation_graph(tokenized_agent)
