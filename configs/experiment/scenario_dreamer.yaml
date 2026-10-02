@@ -31,7 +31,7 @@ model:
         generation_mode: initial_scene  # Joint lane/agent sampling; metrics use the generated map.
         map_source: exact  # Exact training inputs; joint inference uses their scene counts.
         map_id: 0
-        use_ema: true #true
+        use_ema: false #true
     sd_use_cached_evaluator: true
     sd_eval_set: ${paths.root_dir}/waymo_data/waymo_eval_set.pkl
     sd_real_cache: ${paths.root_dir}/waymo_data/sd_real_metric_cache.sqlite

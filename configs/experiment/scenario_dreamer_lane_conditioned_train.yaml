@@ -5,7 +5,7 @@ defaults:
   - _self_
 
 action: fit
-task_name: sd_lane_conditioned_medium_ema1e4
+task_name: sd_lane_conditioned_medium_1e4 #ema
 
 model:
   model_config:
