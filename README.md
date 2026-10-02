@@ -1,5 +1,5 @@
 
-rsync -avz /home/ke/code/sim/src/waymo_data/scenario_dreamer_latents_waymo ke@10.87.114.128:~/keguo/sim/src/waymo_data/ #scenario_dreamer_ae_preprocess_waymo/ 
+rsync -avz /home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/train_files.pkl ke@10.87.114.128:~/keguo/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/ 
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/train_files.pkl guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/
 
