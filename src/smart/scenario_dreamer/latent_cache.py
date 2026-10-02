@@ -222,7 +222,9 @@ def run_precache(cfg):
     dataset = MultiDataset(
         cfg.data[f"{split}_raw_dir"], WaymoTargetBuilderVal(),
         scenario_dreamer_preprocessed=True, record_latent_source=True,
-        sample_list=cfg.data.scenario_dreamer_eval_set if split != "train" else None,
+        sample_list=(cfg.data.scenario_dreamer_eval_set if split != "train"
+                     else cfg.data.get("scenario_dreamer_train_sample_list")),
+        sample_list_check_exists=split != "train",
     )
     summary = precache(decoder, dataset, options.output_dir, batch_size=options.batch_size,
                        num_workers=cfg.data.num_workers, device=options.device,

@@ -44,6 +44,7 @@ class MultiDataModule(LightningDataModule):
         scenario_dreamer_test_latent_cache: Optional[str] = None,
         scenario_dreamer_train_non_partitioned_only: bool = False,
         scenario_dreamer_train_graph_type_index: Optional[str] = None,
+        scenario_dreamer_train_sample_list: Optional[str] = None,
     ) -> None:
         super(MultiDataModule, self).__init__()
         self.dataset_options = {"scenario_dreamer_preprocessed": scenario_dreamer_preprocessed}
@@ -51,7 +52,8 @@ class MultiDataModule(LightningDataModule):
         self.train_dataset_options = dict(
             self.dataset_options, scenario_dreamer_latent_cache=scenario_dreamer_train_latent_cache,
             scenario_dreamer_non_partitioned_only=scenario_dreamer_train_non_partitioned_only,
-            scenario_dreamer_graph_type_index=scenario_dreamer_train_graph_type_index)
+            scenario_dreamer_graph_type_index=scenario_dreamer_train_graph_type_index,
+            sample_list=scenario_dreamer_train_sample_list, sample_list_check_exists=False)
         self.val_dataset_options = dict(self.eval_dataset_options, scenario_dreamer_latent_cache=scenario_dreamer_val_latent_cache)
         self.test_dataset_options = dict(self.eval_dataset_options, scenario_dreamer_latent_cache=scenario_dreamer_test_latent_cache)
         self.train_batch_size = train_batch_size

@@ -6,7 +6,7 @@ action: fit
 seed: 0
 ckpt_path: null  # SMART resume checkpoint; official weights belong to init_decoder below.
 task_name: scenario_dreamer_noema
-float32_matmul_precision: medium  # Official eval.py setting; model parameters remain float32.
+#float32_matmul_precision: medium  # Official eval.py setting; model parameters remain float32.
 
 paths:
   cache_root: ${paths.root_dir}/waymo_data/scenario_dreamer_ae_preprocess_waymo
@@ -44,6 +44,7 @@ model:
 
 data:
   scenario_dreamer_preprocessed: true
+  scenario_dreamer_train_sample_list: ${paths.cache_root}/train_files.pkl  # Pre-saved sorted scene basenames.
   scenario_dreamer_train_latent_cache: null  # Directory produced by action=cache_latents.
   scenario_dreamer_val_latent_cache: null
   scenario_dreamer_test_latent_cache: null

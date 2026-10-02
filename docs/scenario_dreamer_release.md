@@ -136,6 +136,29 @@ lane-conditioned 评价只接受完整图；训练接受全部受支持的 `lg_t
 缺失字段、非法图类型或 token-map fallback 仍会报错。
 验证和测试仍使用已有官方 50k 清单，仅接受 `lg_type=0` 的完整图。
 
+训练已启用预存文件名清单：`data.scenario_dreamer_train_sample_list=${paths.cache_root}/train_files.pkl`。
+在仓库根目录执行一次以下命令，或在数据目录增删文件后重新生成：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.smart.scenario_dreamer.file_list \
+  --raw-dir /home/ke/code/sim/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/train
+```
+
+默认输出到同级 `train_files.pkl`；也可用 `--output` 指定清单路径，并通过
+`data.scenario_dreamer_train_sample_list=/path/to/train_files.pkl` 加载。
+生成时使用 `os.scandir()` 收集并排序 basename，不读取场景内容。
+训练启动直接加载该清单，不重新扫描、排序目录，也不逐文件执行存在性检查；
+实际取样时读取文件并执行已有元数据及 latent cache 校验，缺失文件在此时报错。
+清单保留原排序及全部图类型，`scenario_dreamer_train_non_partitioned_only` 继续控制完整图筛选。
+清单记录的是生成时的文件集合，新文件会在重新生成后纳入训练。
+如需临时从目录枚举，可设置 `data.scenario_dreamer_train_sample_list=null`。
+
+已在本地生成包含 973,984 个训练 basename 的清单（46,433,748 bytes）。
+启用完整图筛选和已有 latent cache 后，数据集初始化实测约 0.95 秒，筛选得到 486,992 个场景；
+初始化没有目录扫描或逐场景 stat，首条样本的 raw/cache 校验通过。
+此前相同训练目录从目录枚举初始化约 9 秒；该计时只覆盖数据集初始化，不含模型、CUDA 和 worker 启动。
+文件清单支持加入后，80 项 Scenario Dreamer 回归测试通过。
+
 训练设置与推理设置独立：
 
 - `training_mode=lane_conditioned`：所有 lane latent 不加 diffusion 噪声；`lg_type=0` 的全部 agent 按随机 timestep 加噪。`lg_type=1` 沿用原分区训练约定：`BEFORE_PARTITION` agent 保持干净、噪声目标置零，其他 agent 正常加噪。只优化 agent 噪声预测（零目标也参与损失），日志中 `loss=agent_loss`、`lane_loss=0`。

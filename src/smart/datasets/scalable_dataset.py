@@ -45,6 +45,7 @@ class MultiDataset(Dataset):
         record_latent_source: bool = False,
         scenario_dreamer_non_partitioned_only: bool = False,
         scenario_dreamer_graph_type_index: Optional[str] = None,
+        sample_list_check_exists: bool = True,
     ) -> None:
         root = Path(raw_dir)
         self.scenario_dreamer_preprocessed = scenario_dreamer_preprocessed
@@ -63,12 +64,18 @@ class MultiDataset(Dataset):
         if sample_list is not None:
             with Path(sample_list).open("rb") as handle:
                 names = pickle.load(handle)["files"]
-            if not names or len(set(names)) != len(names) or any(Path(name).name != name for name in names):
+            if (not isinstance(names, (list, tuple)) or not names
+                    or any(not isinstance(name, str) or name in (".", "..")
+                           or os.path.basename(name) != name for name in names)
+                    or len(set(names)) != len(names)):
                 raise ValueError("sample_list must contain unique cache basenames")
-            paths = [root / name for name in names]
-            missing = [p for p in paths if not p.is_file()]
-            if missing:
-                raise FileNotFoundError(f"Missing {len(missing)} selected scenes in {root}: {missing[:3]}")
+            # Basenames make the pre-saved list portable with the raw data directory.
+            # Training defers file existence checks to get(), avoiding per-scene stat calls.
+            paths = [os.path.join(os.fspath(root), name) for name in names]
+            if sample_list_check_exists:
+                missing = [p for p in paths if not Path(p).is_file()]
+                if missing:
+                    raise FileNotFoundError(f"Missing {len(missing)} selected scenes in {root}: {missing[:3]}")
         else:
             paths = sorted(p for p in root.iterdir() if p.is_file() and p.suffix in (".pt", ".pkl"))
         if self.non_partitioned_only:
@@ -76,7 +83,7 @@ class MultiDataset(Dataset):
             paths, self.non_partitioned_selection = select_non_partitioned(
                 paths, root, scenario_dreamer_graph_type_index)
             log.info(f"Scenario Dreamer full-lane training selection: {self.non_partitioned_selection}")
-        self._raw_paths = [p.as_posix() for p in paths]
+        self._raw_paths = [os.fspath(p) for p in paths]
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
         self._num_samples = len(self._raw_paths)
 

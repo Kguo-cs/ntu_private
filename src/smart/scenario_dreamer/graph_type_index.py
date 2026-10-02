@@ -1,6 +1,6 @@
 """Select Scenario Dreamer graph types from the standard scene filename."""
 from collections.abc import Mapping
-from pathlib import Path
+import os
 import re
 
 import numpy as np
@@ -32,7 +32,7 @@ def scene_graph_type(scene, path):
 
 def filename_graph_type(path):
     """Read lg_type from <prefix>_<scene_index>_<lg_type>_<timestep>.pkl/.pt."""
-    name = Path(path).name
+    name = os.path.basename(os.fspath(path))
     match = _FILENAME.fullmatch(name)
     if match is None:
         raise ValueError(

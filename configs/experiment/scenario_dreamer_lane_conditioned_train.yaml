@@ -5,7 +5,7 @@ defaults:
   - _self_
 
 action: fit
-task_name: scenario_dreamer_lane_conditioned_medium256
+task_name: sd_lane_conditioned_256
 
 model:
   model_config:
