@@ -451,7 +451,7 @@ def get_diff_loss(
     w_shape: float = 0.2/ 5,
     w_vel: float = 1 / 5,
     max_loss_weight: float | None = None,
-    use_l1: bool = True,
+    use_l1: bool = False,
 ):
     """State reconstruction plus collision loss beyond each GT pair's overlap."""
     num_states = len(fake_state)
