@@ -28,6 +28,7 @@ from torch import Tensor
 from torch.optim.lr_scheduler import LambdaLR
 from waymo_open_dataset.utils.sim_agents.submission_specs import ChallengeType
 
+from src.smart.model.optimizers import build_scenario_dreamer_optimizer
 from src.smart.metrics import CrossEntropy, TokenCls, WOSACSubmission, minADE
 from src.smart.metrics.gen_metrics import ScenarioDreamerEvaluator
 from src.smart.metrics.wosac_metrics import WOSACMetrics
@@ -122,6 +123,9 @@ class SMART(LightningModule):
         self.lr_warmup_steps = int(model_config.lr_warmup_steps)
         self.lr_total_steps = int(model_config.lr_total_steps)
         self.lr_min_ratio = float(model_config.lr_min_ratio)
+        self.optimizer_profile = str(_cfg(model_config, "optimizer", "default"))
+        if self.optimizer_profile not in ("default", "scenario_dreamer"):
+            raise ValueError("model_config.optimizer must be default or scenario_dreamer")
 
         self.num_historical_steps = int(
             model_config.decoder.num_historical_steps
@@ -532,6 +536,9 @@ class SMART(LightningModule):
                     "name": "InitDiffusion", "mode": "lane_conditioned",
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
+                    "use_ema": initial_decoder.use_ema,
+                    "ema_decay": initial_decoder.ema_decay,
+                    "ema_num_updates": initial_decoder.ema.num_updates if initial_decoder.ema is not None else None,
                     "map_source": "SMART tokens",
                     "init_map_range_m": self.token_processor.init_map_range,
                     "conditioning": ["reference map", "GT ego state", "input agent counts", "input agent types"],
@@ -622,7 +629,18 @@ class SMART(LightningModule):
         if all(key in metrics for key in keys):
             metrics[output] = sum(metrics[key] for key in keys) / len(keys)
 
+    def _configure_scenario_dreamer_optimizer(self):
+        module = self.encoder
+        if getattr(module, "init_decoder_name", None) == "scenario_dreamer":
+            decoder = module.init_decoder
+            module = decoder.autoencoder if decoder.learn_autoencoder else decoder.diff_model
+        return build_scenario_dreamer_optimizer(
+            module, lr=self.lr, warmup_steps=self.lr_warmup_steps,
+        )
+
     def configure_optimizers(self):
+        if getattr(self, "optimizer_profile", "default") == "scenario_dreamer":
+            return self._configure_scenario_dreamer_optimizer()
         params = [p for p in self.parameters() if p.requires_grad]
         if not params:
             raise RuntimeError("The model has no trainable parameters.")

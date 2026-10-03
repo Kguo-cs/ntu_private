@@ -1,5 +1,6 @@
 _target_: src.smart.model.smart.SMART
 model_config:
+  optimizer: default  # Select optimizer=scenario_dreamer for the official LDM recipe.
   lr: 0.0005
   lr_warmup_steps: 0
   lr_total_steps: ${trainer.max_epochs}
@@ -30,6 +31,9 @@ model_config:
     temp: 1.0
   decoder:
     init_decoder: flow
+    init_diffusion:
+      use_ema: false
+      ema_decay: 0.9999
     initial_scene_only: false  # Direct initial-state evaluation on full reference lanes.
     scenario_dreamer: null
     hidden_dim: 128

@@ -1,0 +1,12 @@
+# @package _global_
+# Official Waymo LDM AdamW + 500 optimizer-step warmup, then constant LR.
+# Parameter groups, betas=(0.9,0.999), eps=1e-7 and decay=1e-5 live in
+# src/smart/model/optimizers.py. Batch size and training duration are unchanged.
+model:
+  model_config:
+    optimizer: scenario_dreamer
+    lr: 0.0001
+    lr_warmup_steps: 500
+
+trainer:
+  gradient_clip_val: 10.0

@@ -474,10 +474,22 @@ class SMART_GAIL(SMART):
         #     expert_dis_loss=expert_gp=0
         #     expert_dis_mask = self._discriminator_mask(expert_agent).reshape(-1)
 
+        # Training rollouts must use the online policy even when validation
+        # is configured to sample with averaged initial-generator parameters.
+        init_decoder = self.encoder.init_decoder
+        has_ema_option = hasattr(init_decoder, "use_ema")
+        use_ema = getattr(init_decoder, "use_ema", False)
+        encoder_training = self.encoder.training
         with torch.no_grad():
-            self.encoder.eval()
-            rollout_agent = self.encoder.inference( expert_agent )
-            self.encoder.train()
+            try:
+                self.encoder.eval()
+                if has_ema_option:
+                    init_decoder.use_ema = False
+                rollout_agent = self.encoder.inference(expert_agent)
+            finally:
+                if has_ema_option:
+                    init_decoder.use_ema = use_ema
+                self.encoder.train(encoder_training)
 
         # perturbed_dis_mask = self._perturb_expert_dis_mask(
         #     expert_dis_mask,
@@ -707,6 +719,12 @@ class SMART_GAIL(SMART):
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
         self._optimizer_step(optimizer, match_loss + rl_loss + col_loss)
+        # Manual optimization bypasses SMART.optimizer_step. Only this optimizer
+        # updates the initial generator; actor/discriminator steps must not count.
+        if optimizer is not None:
+            update_ema = getattr(self.encoder.init_decoder, "update_ema", None)
+            if update_ema is not None:
+                update_ema()
 
         return match_loss + rl_loss + col_loss
 
@@ -774,6 +792,13 @@ class SMART_GAIL(SMART):
 
 
     def configure_optimizers(self):
+        if getattr(self, "optimizer_profile", "default") == "scenario_dreamer":
+            if not self.automatic_optimization:
+                raise ValueError(
+                    "optimizer=scenario_dreamer requires automatic supervised optimization; "
+                    "manual GAIL/GAN training uses optimizer=default"
+                )
+            return self._configure_scenario_dreamer_optimizer()
         if self.automatic_optimization:
             optimizer = torch.optim.AdamW(
                 _trainable_parameters(self.encoder),

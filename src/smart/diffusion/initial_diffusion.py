@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
+from contextlib import nullcontext
 from types import SimpleNamespace
 from typing import Any, Mapping, Optional
 
@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch_scatter import scatter_sum
+from torch_ema import ExponentialMovingAverage
 
 from src.smart.utils import transform_to_local
 
@@ -30,6 +31,8 @@ class InitDiffusion(nn.Module):
         token_processor,
         gail: bool,
         model_args: Optional[Any] = None,
+        use_ema: bool = False,
+        ema_decay: float = 0.9999,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -49,6 +52,78 @@ class InitDiffusion(nn.Module):
         self.use_rl = bool(args.use_rl)
         self.sampling_steps = int(args.sampling_steps)
         self.branch_steps = getattr(args, "branch_steps", None)
+
+        self.use_ema = bool(use_ema)
+        self.ema_decay = float(ema_decay)
+        if not 0.0 <= self.ema_decay <= 1.0:
+            raise ValueError("ema_decay must be between 0 and 1")
+        self.ema = None
+        self._pending_ema_state = None
+        if self.use_ema:
+            self.reset_ema()
+        # Children load after this module's extra state. Bind EMA to the loaded
+        # generator only after all its parameters have been restored.
+        self.register_load_state_dict_post_hook(self._restore_ema_after_load)
+
+    def reset_ema(self):
+        """Start averaging from the current generator, without training history."""
+        if self.use_ema or self.ema is not None:
+            self.ema = ExponentialMovingAverage(self.G1.parameters(), decay=self.ema_decay)
+
+    def _move_ema(self):
+        parameter = next(self.G1.parameters())
+        self.ema.to(device=parameter.device, dtype=parameter.dtype)
+
+    @torch.no_grad()
+    def update_ema(self):
+        """Called after an optimizer step, including gradient accumulation."""
+        if self.ema is None and self.use_ema:
+            self.reset_ema()
+        if self.ema is not None:
+            self._move_ema()
+            self.ema.update(self.G1.parameters())
+
+    def get_extra_state(self):
+        return {
+            "ema": self.ema.state_dict() if self.ema is not None else None,
+            "ema_parameter_names": list(dict(self.G1.named_parameters())) if self.ema is not None else None,
+        }
+
+    def set_extra_state(self, state):
+        if not isinstance(state, Mapping):
+            raise ValueError("InitDiffusion extra state must be a mapping")
+        self._pending_ema_state = state
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        extra_key = prefix + "_extra_state"
+        self._pending_ema_state = None
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                     missing_keys, unexpected_keys, error_msgs)
+        # Legacy checkpoints have no EMA extra state. Retain strict checking of
+        # every generator weight; exempt only the newly introduced extra key.
+        if extra_key not in state_dict and extra_key in missing_keys:
+            missing_keys.remove(extra_key)
+
+    def _restore_ema_after_load(self, module, incompatible_keys):
+        state = self._pending_ema_state
+        self._pending_ema_state = None
+        saved = state.get("ema") if state is not None else None
+        if saved is None:
+            self.reset_ema()
+            return
+        parameters = dict(self.G1.named_parameters())
+        names = state.get("ema_parameter_names")
+        if names is not None and list(parameters) != names:
+            raise ValueError("InitDiffusion EMA parameter names do not match the generator")
+        shadows = saved.get("shadow_params", [])
+        if len(shadows) != len(parameters) or any(
+                not torch.is_tensor(shadow) or shadow.shape != parameter.shape
+                for shadow, parameter in zip(shadows, parameters.values())):
+            raise ValueError("InitDiffusion EMA parameter shapes do not match the generator")
+        self.ema_decay = float(saved["decay"])
+        self.ema = ExponentialMovingAverage(parameters.values(), decay=self.ema_decay)
+        self.ema.load_state_dict(saved)
 
     @staticmethod
     def _make_args(
@@ -139,12 +214,23 @@ class InitDiffusion(nn.Module):
         scene_heading: Tensor,
         num_graphs: int,
     ):
-        if "initial_map_feature" in agent:
-            feature=agent["initial_map_feature"]["pt_token"]
-            if feature.shape[-1]!=self.G1.model.hidden_dim:
-                agent["initial_map_feature"]["pt_token"] = self.G1.model.lane_embed(feature)
-
-            return agent["initial_map_feature"]
+        # Retain unprojected features when EMA is tracked so repeated sampling
+        # (or switching EMA off) cannot reuse another weight version's embedding.
+        raw_feature = agent.get("_initial_map_raw_feature")
+        if raw_feature is not None:
+            result = dict(raw_feature, pt_token=self.G1.model.lane_embed(raw_feature["pt_token"]))
+            agent["initial_map_feature"] = result
+            return result
+        cached = agent.get("initial_map_feature")
+        if cached is not None:
+            feature = cached["pt_token"]
+            if feature.shape[-1] != self.G1.model.hidden_dim:
+                if self.ema is not None or self.use_ema:
+                    agent["_initial_map_raw_feature"] = dict(cached)
+                result = dict(cached, pt_token=self.G1.model.lane_embed(feature))
+                agent["initial_map_feature"] = result
+                return result
+            return cached
 
         map_feature = self._require(agent, "map_feature")
         batch = map_feature["batch"]
@@ -172,12 +258,15 @@ class InitDiffusion(nn.Module):
                 scene_heading[batch],
             )
 
-        result = {
-            "pt_token": self.G1.model.lane_embed(feature),
+        raw_feature = {
+            "pt_token": feature,
             "position": position,
             "orientation": orientation,
             "batch": batch,
         }
+        if self.ema is not None or self.use_ema:
+            agent["_initial_map_raw_feature"] = raw_feature
+        result = dict(raw_feature, pt_token=self.G1.model.lane_embed(feature))
         agent["initial_map_feature"] = result
         return result
 
@@ -276,16 +365,15 @@ class InitDiffusion(nn.Module):
         return pos, heading, token_index, shape, velocity
 
     def forward(self, tokenized_agent):
-        scene_pos, scene_heading, batch, num_graphs = (
-            self._prepare_ego_context(tokenized_agent)
-        )
-        map_feature = self._initial_map_feature(
-            tokenized_agent,
-            scene_pos,
-            scene_heading,
-            num_graphs,
-        )
-
-        if self.training:
-            return self._train(tokenized_agent, map_feature, batch)
-        return self._infer(tokenized_agent, map_feature)
+        use_average = not self.training and self.use_ema
+        if use_average:
+            if self.ema is None:
+                self.reset_ema()
+            self._move_ema()
+        context = self.ema.average_parameters(self.G1.parameters()) if use_average else nullcontext()
+        with context, torch.set_grad_enabled(torch.is_grad_enabled() and not use_average):
+            scene_pos, scene_heading, batch, num_graphs = self._prepare_ego_context(tokenized_agent)
+            map_feature = self._initial_map_feature(tokenized_agent, scene_pos, scene_heading, num_graphs)
+            if self.training:
+                return self._train(tokenized_agent, map_feature, batch)
+            return self._infer(tokenized_agent, map_feature)

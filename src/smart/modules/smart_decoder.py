@@ -59,6 +59,7 @@ class SMARTDecoder(nn.Module):
         init_decoder: str = "flow",
         scenario_dreamer: Optional[dict] = None,
         initial_scene_only: bool = False,
+        init_diffusion: Optional[dict] = None,
     ) -> None:
         super().__init__()
 
@@ -72,6 +73,7 @@ class SMARTDecoder(nn.Module):
         if self.initial_scene_only and not self.token_processor.pred_init:
             raise ValueError("initial_scene_only requires token_processor.pred_init=true")
         self.scenario_dreamer_config = dict(scenario_dreamer or {})
+        self.init_diffusion_config = dict(init_diffusion or {})
         if init_decoder not in ("flow", "scenario_dreamer"):
             raise ValueError(f"Unknown init_decoder: {init_decoder}")
         if init_decoder == "scenario_dreamer" and self.gail:
@@ -209,6 +211,7 @@ class SMARTDecoder(nn.Module):
             num_freq_bands,
             self.token_processor,
             self.gail,
+            **self.init_diffusion_config,
         )
 
         if not self.sep_map:

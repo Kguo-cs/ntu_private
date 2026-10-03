@@ -127,6 +127,34 @@ lane-conditioned 评价只接受完整图；训练接受全部受支持的 `lg_t
 ```
 
 该配置加载本地公开 AE 并冻结，从头训练 LDM；`use_ema`、学习率和训练 batch size 继承当前 `scenario_dreamer` 训练配置。
+
+不指定 `optimizer` 时等同于 `optimizer=default`，仍使用原 SMART 优化器和调度器。新训练可选择 Scenario Dreamer 优化器配方：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=scenario_dreamer_lane_conditioned_train optimizer=scenario_dreamer
+```
+
+该 profile 使用 AdamW，基础学习率 `1e-4`、betas `(0.9, 0.999)`、epsilon `1e-7`；Linear/Conv 等权重的 weight decay 为 `1e-5`，bias、归一化层、Embedding 和其他参数不做 weight decay；梯度裁剪阈值为 `10`。参数值与[官方训练配置](https://github.com/princeton-computational-imaging/scenario-dreamer/blob/675423469766bf2fd8a6b569ef1869a6f1e76993/cfgs/train/base.yaml#L21-L26)一致。
+
+学习率按 optimizer step 预热 500 步，然后保持恒定。与[官方 scheduler](https://github.com/princeton-computational-imaging/scenario-dreamer/blob/675423469766bf2fd8a6b569ef1869a6f1e76993/utils/train_helpers.py#L35-L40)一致，初始学习率为 `0`，每次 optimizer step 后推进 scheduler；第 500 次更新完成后达到 `1e-4`，第 501 次更新开始使用完整学习率。梯度累积的 microbatch 不单独计步。
+
+该选项也适用于 `experiment=init_diffusion_lane_conditioned`，见[对应命令](init_diffusion_lane_conditioned.md#scenario-dreamer-优化器选项)。它只切换优化器、学习率调度和梯度裁剪，不修改 batch size、epoch 数、数据选择、训练目标或 EMA；lane-conditioned 训练仍是本项目新增的 agent-only 目标，不会变成官方联合训练。
+
+基础学习率和 warmup 长度可分别通过 `model.model_config.lr`、`model.model_config.lr_warmup_steps` 覆盖。该 profile 支持 Scenario Dreamer AE/LDM、InitDiffusion 等自动优化的监督训练；手动优化的 GAIL/GAN 路径不支持，会明确报错。
+
+恢复用此 profile 训练的完整状态时，继续指定同一选项：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=scenario_dreamer_lane_conditioned_train optimizer=scenario_dreamer \
+  action=fit ckpt_path=/absolute/path/to/scenario_dreamer.ckpt
+```
+
+`action=fit ckpt_path=...` 会恢复 checkpoint 的 optimizer/scheduler 状态，须与原运行使用相同 profile；旧运行继续使用默认 profile。若改用 `action=finetune` 从模型权重开始新的训练，则重新创建所选优化器和调度器，warmup 从 0 开始。通过 `ldm_checkpoint` 加载公开 LDM 也只是初始化权重，不恢复官方优化器状态。公开权重测试和其他 `action=test` 评价不执行优化器更新，无需该选项。
+
 训练数据仍来自 `scenario_dreamer_ae_preprocess_waymo/train`，支持全部 `lg_type=0/1` 样本；
 `data.scenario_dreamer_train_non_partitioned_only=false` 使用全部图类型，设置为 `true` 只选择完整场景。
 完整图筛选直接解析 `<prefix>_<scene_index>_<lg_type>_<timestep>.pkl`（也支持 `.pt`）中的类型字段，
