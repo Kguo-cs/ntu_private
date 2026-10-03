@@ -6,14 +6,14 @@ defaults:
   - _self_
 
 action: finetune
-task_name: xflow40_medium1e4
+task_name: xflow40_medium #1e4
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
 model:
   #
   model_config:
-    lr: 0.0001
+    #lr: 0.0001
     token_processor:
       pred_init: true
       learn_init: true
