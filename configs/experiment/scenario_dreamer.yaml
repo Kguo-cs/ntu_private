@@ -53,7 +53,7 @@ data:
   train_raw_dir: ${paths.cache_root}/train
   val_raw_dir: ${paths.cache_root}/test
   test_raw_dir: ${paths.cache_root}/test
-  train_batch_size: 32
+  train_batch_size: 40
   val_batch_size: 256
   test_batch_size: 12
   num_workers: 8
