@@ -56,10 +56,8 @@ class InitDenoiser(nn.Module):
         input_dim: int,
         hidden_dim: int,
         output_dim: int,
-        num_freq_bands: int,
         num_layers: int,
         num_heads: int,
-        head_dim: int,
         dropout: float,
         x_pred: bool = True,
     ) -> None:
@@ -67,10 +65,10 @@ class InitDenoiser(nn.Module):
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        self.num_freq_bands = num_freq_bands
+        num_freq_bands = hidden_dim//2
         self.num_layers = num_layers
         self.num_heads = num_heads
-        self.head_dim = head_dim
+        head_dim = hidden_dim//num_heads
         self.dropout = dropout
         self.x_pred = x_pred
         self.token_processor = token_processor
