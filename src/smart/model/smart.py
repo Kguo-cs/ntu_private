@@ -210,6 +210,11 @@ class SMART(LightningModule):
 
     def _configure_finetuning(self, enabled: bool) -> None:
         if not enabled:
+            # Initial-state training has no agent-policy forward. Scratch mode
+            # trains map + initialization while excluding the unused policy.
+            if (getattr(self.encoder, "initial_scene_only", False)
+                    and self.token_processor.learn_init and not self.encoder.gail):
+                _freeze(self.encoder.agent_encoder)
             return
         _freeze(self.encoder.map_encoder)
         if not self.token_processor.pred_init:
@@ -267,11 +272,6 @@ class SMART(LightningModule):
                 self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
             else:
                 self.sd_evaluator.reset()
-        # if self.sd_evaluator is None:
-        #     self.sd_evaluator = ScenarioDreamerEvaluator(**self.sd_metric_settings)
-        # else:
-        #     self.sd_evaluator.reset()
-
 
     def validation_step(self, data, batch_idx):
         if self._is_scenario_dreamer_ae:
@@ -527,6 +527,15 @@ class SMART(LightningModule):
                 sampling_report = getattr(initial_decoder, "sampling_report", None)
                 if sampling_report is not None:
                     report["decoder"]["sampling"] = sampling_report()
+            elif self.encoder.init_decoder_name == "flow":
+                report["decoder"] = {
+                    "name": "InitDiffusion", "mode": "lane_conditioned",
+                    "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
+                    "sampling_steps": initial_decoder.sampling_steps,
+                    "map_source": "SMART tokens",
+                    "init_map_range_m": self.token_processor.init_map_range,
+                    "conditioning": ["reference map", "GT ego state", "input agent counts", "input agent types"],
+                }
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
                 json.dump(report, handle, indent=2)
             for name, value in metrics.items():

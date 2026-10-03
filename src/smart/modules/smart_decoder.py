@@ -58,6 +58,7 @@ class SMARTDecoder(nn.Module):
         finetune: bool = False,
         init_decoder: str = "flow",
         scenario_dreamer: Optional[dict] = None,
+        initial_scene_only: bool = False,
     ) -> None:
         super().__init__()
 
@@ -67,6 +68,9 @@ class SMARTDecoder(nn.Module):
 
         self.gail = dis_a2a_radius > 0
         self.init_decoder_name = init_decoder
+        self.initial_scene_only = bool(initial_scene_only)
+        if self.initial_scene_only and not self.token_processor.pred_init:
+            raise ValueError("initial_scene_only requires token_processor.pred_init=true")
         self.scenario_dreamer_config = dict(scenario_dreamer or {})
         if init_decoder not in ("flow", "scenario_dreamer"):
             raise ValueError(f"Unknown init_decoder: {init_decoder}")
@@ -361,9 +365,20 @@ class SMARTDecoder(nn.Module):
         n_step_future_10hz: Optional[int] = None,
     ) -> TensorDict:
 
-        if self.init_decoder_name == "scenario_dreamer" and tokenized_agent.get("initial_scene_only", False):
+        initial_scene_only = getattr(self, "initial_scene_only", False)
+        if initial_scene_only and self.init_decoder_name == "flow":
+            # Evaluation must identify a complete reference graph. Training token
+            # caches need no SD graph metadata and do not enter this inference path.
+            sd_map = tokenized_agent.get("sd_map")
+            if sd_map is None or sd_map.get("lg_type") is None:
+                raise ValueError("Full-lane initial-scene evaluation requires sd_map.lg_type metadata")
+            graph_types = sd_map["lg_type"]
+            if graph_types.numel() != int(tokenized_agent["num_graphs"]) or (graph_types != 0).any():
+                raise ValueError("Full-lane initial-scene evaluation requires lg_type=0 for every scene")
+        if initial_scene_only or (self.init_decoder_name == "scenario_dreamer" and tokenized_agent.get("initial_scene_only", False)):
             pos, heading, indices, shape, velocity = self.init_decoder(tokenized_agent)
-            # Official AE data contains one 2D snapshot, with no GT trajectory/z.
+            # Evaluate continuous initial states directly, without token history
+            # reconstruction or autoregressive trajectory generation.
             result = {"pred_traj_10hz": pos, "pred_head_10hz": heading,
                       "pred_z_10hz": pos.new_zeros(pos.shape[:2]),
                       "shape": shape, "initial_local_vel": velocity, "sampled_idx": indices}

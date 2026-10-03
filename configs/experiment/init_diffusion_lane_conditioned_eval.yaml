@@ -1,0 +1,16 @@
+# @package _global_
+defaults:
+  - init_diffusion_lane_conditioned
+  - _self_
+
+action: test
+task_name: init_diffusion_lane_conditioned_eval
+ckpt_path: ???  # Required: a trained SMART/InitDiffusion checkpoint.
+
+model:
+  model_config:
+    sd_require_full_set: true
+
+trainer:
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0

@@ -30,6 +30,7 @@ model_config:
     temp: 1.0
   decoder:
     init_decoder: flow
+    initial_scene_only: false  # Direct initial-state evaluation on full reference lanes.
     scenario_dreamer: null
     hidden_dim: 128
     num_freq_bands: 64
