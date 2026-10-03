@@ -11,8 +11,9 @@ ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_noneg
 float32_matmul_precision: medium
 
 model:
-  lr: 0.0001
+  #
   model_config:
+    lr: 0.0001
     token_processor:
       pred_init: true
       learn_init: true
