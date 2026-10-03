@@ -52,7 +52,6 @@ class Flow(nn.Module):
             input_dim=args.input_dim,
             hidden_dim=args.hidden_dim,
             output_dim=args.input_dim,
-            num_freq_bands=args.num_freq_bands,
             num_layers=args.num_denoiser_layers,
             num_heads=args.num_heads,
             head_dim=args.head_dim,
@@ -91,10 +90,8 @@ class Flow(nn.Module):
                     input_dim=args.input_dim,
                     hidden_dim=args.hidden_dim,
                     output_dim=args.input_dim*2,#,
-                    num_freq_bands=args.num_freq_bands,
                     num_layers=1,
                     num_heads=args.num_heads,
-                    head_dim=args.head_dim,
                     dropout=args.dropout,
                     x_pred=False
                 )
