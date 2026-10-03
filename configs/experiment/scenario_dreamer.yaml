@@ -7,13 +7,13 @@ seed: 0
 ckpt_path: null  # SMART resume checkpoint; official weights belong to init_decoder below.
 task_name: scenario_dreamer_noema
 float32_matmul_precision: medium  # Official eval.py setting; model parameters remain float32.
-optimizer: scenario_dreamer
 
 paths:
   cache_root: ${paths.root_dir}/waymo_data/scenario_dreamer_ae_preprocess_waymo
 
 model:
   model_config:
+    optimizer: scenario_dreamer
     finetune: true
     #lr: 0.0005
     token_processor:
