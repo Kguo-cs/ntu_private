@@ -149,8 +149,8 @@ def matching_loss(
         heading_loss = _component_loss(
             fake_heading, real_heading, use_l1
         )
-        shape_loss = _component_loss(fake_shape, real_shape, use_l1)
-        vel_loss = _component_loss(fake_vel, real_vel, use_l1)
+        shape_loss = _component_loss(fake_shape, real_shape, False)
+        vel_loss = _component_loss(fake_vel, real_vel, False)
 
     elif mode == "gaussian":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
