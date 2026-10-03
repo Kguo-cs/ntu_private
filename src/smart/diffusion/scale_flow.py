@@ -54,7 +54,6 @@ class Flow(nn.Module):
             output_dim=args.input_dim,
             num_layers=args.num_denoiser_layers,
             num_heads=args.num_heads,
-            head_dim=args.head_dim,
             dropout=args.dropout,
         )
 
