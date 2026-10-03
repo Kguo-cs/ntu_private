@@ -51,7 +51,7 @@ data:
   pin_memory: false
   scenario_dreamer_preprocessed: false
   scenario_dreamer_train_non_partitioned_only: false
-  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
+#  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
   scenario_dreamer_eval_set: null  # Rebuilt .pt names differ from official .pkl names.
   scenario_dreamer_train_latent_cache: null
   scenario_dreamer_val_latent_cache: null
