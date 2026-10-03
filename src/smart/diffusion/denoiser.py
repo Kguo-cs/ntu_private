@@ -89,7 +89,7 @@ class InitDenoiser(nn.Module):
         #     group_dims=(2, 2, 2, self.m_delta_dim - 6)
         # )
         #
-        self.type_a_emb = nn.Embedding(self.num_classes + 1, hidden_dim)
+        self.type_a_emb = nn.Embedding(self.num_classes , hidden_dim)
         self.noise_embedding = MLPLayer(self.m_delta_dim, hidden_dim, hidden_dim)
         # Nonlinear time features survive the MLP's initial LayerNorm. For
         # shared scalar time, these are sin/cos pairs at frequencies pi*2**k;

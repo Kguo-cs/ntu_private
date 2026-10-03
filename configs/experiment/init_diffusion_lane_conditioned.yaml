@@ -55,7 +55,7 @@ data:
 
 trainer:
   devices: 1
-  max_epochs: 64
+  max_epochs: 128
   val_check_interval: 1.0
   check_val_every_n_epoch: 1
   limit_val_batches: 1
