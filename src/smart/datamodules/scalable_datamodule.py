@@ -11,8 +11,6 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 
-from functools import partial
-import os
 from typing import Optional
 
 from lightning import LightningDataModule
@@ -23,15 +21,6 @@ from src.smart.datasets import MultiDataset
 
 from .target_builder import WaymoTargetBuilderTrain, WaymoTargetBuilderVal
 import torch
-
-
-def _initialize_loader_worker(worker_id: int, *, sharing_strategy: str, seed_rank: Optional[int]) -> None:
-    # Spawn/forkserver workers do not inherit the parent's PyTorch setting.
-    torch.multiprocessing.set_sharing_strategy(sharing_strategy)
-    if seed_rank is not None:
-        from lightning.fabric.utilities.seed import pl_worker_init_function
-        pl_worker_init_function(worker_id, rank=seed_rank)
-
 
 class MultiDataModule(LightningDataModule):
     def __init__(
@@ -56,16 +45,8 @@ class MultiDataModule(LightningDataModule):
         scenario_dreamer_train_non_partitioned_only: bool = False,
         scenario_dreamer_train_graph_type_index: Optional[str] = None,
         scenario_dreamer_train_sample_list: Optional[str] = None,
-        sharing_strategy: str = "file_system",
-        prefetch_factor: int = 2,
     ) -> None:
         super(MultiDataModule, self).__init__()
-        if sharing_strategy not in torch.multiprocessing.get_all_sharing_strategies():
-            raise ValueError(f"Unsupported tensor sharing strategy: {sharing_strategy}")
-        if isinstance(prefetch_factor, bool) or not isinstance(prefetch_factor, int) or prefetch_factor < 1:
-            raise ValueError("prefetch_factor must be a positive integer")
-        self.sharing_strategy = sharing_strategy
-        self.prefetch_factor = prefetch_factor
         self.dataset_options = {"scenario_dreamer_preprocessed": scenario_dreamer_preprocessed}
         self.eval_dataset_options = dict(self.dataset_options, sample_list=scenario_dreamer_eval_set)
         self.train_dataset_options = dict(
@@ -124,7 +105,6 @@ class MultiDataModule(LightningDataModule):
             pin_memory=self.pin_memory,
             persistent_workers=self.persistent_workers,
             drop_last=False,
-            **self._worker_options(),
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -136,7 +116,6 @@ class MultiDataModule(LightningDataModule):
             pin_memory=False,  # False
             persistent_workers=False,
             drop_last=False,
-            **self._worker_options(),
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
@@ -148,24 +127,4 @@ class MultiDataModule(LightningDataModule):
             pin_memory=False,  # False
             persistent_workers=False,
             drop_last=False,
-            **self._worker_options(),
         )
-
-    def _worker_options(self) -> dict:
-        if self.num_workers == 0:
-            # PyTorch rejects prefetch_factor without multiprocessing workers.
-            return {}
-        torch.multiprocessing.set_sharing_strategy(self.sharing_strategy)
-        # Providing our callback prevents Lightning from inserting its seed
-        # callback, so preserve seed_everything(..., workers=True) explicitly.
-        seed_rank = None
-        if os.environ.get("PL_SEED_WORKERS") == "1":
-            seed_rank = getattr(getattr(self, "trainer", None), "global_rank", 0)
-        return {
-            "prefetch_factor": self.prefetch_factor,
-            "worker_init_fn": partial(
-                _initialize_loader_worker,
-                sharing_strategy=self.sharing_strategy,
-                seed_rank=seed_rank,
-            ),
-        }

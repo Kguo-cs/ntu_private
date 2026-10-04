@@ -77,16 +77,6 @@
 
 `action=fit ckpt_path=...` 恢复 checkpoint 的优化器和 scheduler 状态，应与原训练使用同一 profile；旧运行继续使用默认 profile，不能仅通过修改恢复命令把已有状态转换为新配方。`action=finetune` 只初始化模型权重，重新建立所选优化器和调度器，warmup 从 0 开始；它不恢复原训练进度。独立 `action=test` 评价不执行优化器更新，无需为使用此配方训练的权重额外指定该选项。
 
-## DataLoader 文件描述符不足
-
-`Too many open files` 或 `received 0 items of ancdata` 可能来自多进程共享 graph batch 的张量句柄，不能只按“数据文件没有关闭”排查。公共 DataModule 默认使用 `data.sharing_strategy=file_system`，在父进程及 worker 初始化时设置；训练、验证和测试均生效。该设置兼容 fork 和 spawn，并保留 Lightning 的 worker 随机种子初始化。
-
-InitDiffusion 配置使用 `data.prefetch_factor=1`，即每个 worker 预取一个 batch；其他实验默认仍为 2。`num_workers=0` 时不传预取参数。上述选项只改变数据传输和预取，不改变模型、loss 或精度。
-
-修改不会应用到已经运行的 Python 进程，需重新启动。继续已有训练时保留原启动参数，并设置 `action=fit ckpt_path=/absolute/path/to/last.ckpt` 以恢复优化器和进度。
-
-在启动训练的同一个终端可检查 `ulimit -Sn` / `ulimit -Hn`；若硬限制允许，可执行 `ulimit -n 65536` 后再启动。若仍需定位 worker 错误，临时使用 `data.num_workers=0` 可获得主进程中的原始异常。
-
 ## InitDiffusion EMA
 
 当前 lane-conditioned 训练和评价配置默认启用 `model.model_config.decoder.init_diffusion.use_ema=true`，`ema_decay=0.9999`；通用 SMART 配置仍默认关闭。EMA 只跟踪 `G1` generator 的参数，包括其中的 `lane_embed`，不平均 SMART 地图编码器或其他模块。
