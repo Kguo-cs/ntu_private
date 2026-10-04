@@ -6,14 +6,14 @@ defaults:
   - _self_
 
 action: finetune
-task_name: xflow128_medium_ema_opt_noscale_nocol_l1mse
+task_name: xflow128_medium_ema_noscale_nocol_l1mse
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
 model:
   #
   model_config:
-    optimizer: scenario_dreamer
+    #optimizer: scenario_dreamer
     lr: 0.0001
     token_processor:
       pred_init: true
@@ -44,6 +44,7 @@ data:
   val_batch_size: 256
   test_batch_size: 256
   num_workers: 8
+  prefetch_factor: 1  # Bound queued graph batches and shared-memory usage.
   pin_memory: false
   scenario_dreamer_preprocessed: false
   scenario_dreamer_train_non_partitioned_only: false
