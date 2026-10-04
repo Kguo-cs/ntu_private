@@ -1,5 +1,6 @@
 """Training loaders must honor configured worker and pinned-memory options."""
 import os
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -21,10 +22,15 @@ class TinyGraphDataset(Dataset):
             x=torch.tensor([[float(index), 1.0]]),
             sample_id=torch.tensor([index]),
             worker_pid=torch.tensor([os.getpid()]),
+            worker_strategy=torch.multiprocessing.get_sharing_strategy(),
         )
 
 
 class DataModuleLoaderOptionsTest(unittest.TestCase):
+    def setUp(self):
+        strategy = torch.multiprocessing.get_sharing_strategy()
+        self.addCleanup(torch.multiprocessing.set_sharing_strategy, strategy)
+
     def module(self, **options):
         arguments = dict(
             train_batch_size=3, val_batch_size=3, test_batch_size=3,
@@ -34,8 +40,10 @@ class DataModuleLoaderOptionsTest(unittest.TestCase):
         )
         arguments.update(options)
         module = MultiDataModule(**arguments)
-        # Bypass filesystem setup; exercise the real training loader unchanged.
+        # Bypass filesystem setup; exercise the real loaders and PyG collation.
         module.train_dataset = TinyGraphDataset()
+        module.val_dataset = TinyGraphDataset()
+        module.test_dataset = TinyGraphDataset()
         return module
 
     def iterator(self, loader):
@@ -91,11 +99,46 @@ class DataModuleLoaderOptionsTest(unittest.TestCase):
         self.assertNotIn(os.getpid(), pids)
 
     def test_zero_workers_disables_persistence_and_iterates_in_main_process(self):
-        loader = self.module(num_workers=0, persistent_workers=True).train_dataloader()
+        loader = self.module(num_workers=0, persistent_workers=True, prefetch_factor=3).train_dataloader()
         self.assertEqual(loader.num_workers, 0)
         self.assertFalse(loader.persistent_workers)
         self.assertFalse(loader.pin_memory)
+        self.assertIsNone(loader.prefetch_factor)
+        self.assertIsNone(loader.worker_init_fn)
         self.assertEqual(self.epoch(self.iterator(loader)), {os.getpid()})
+
+    def test_train_val_and_test_workers_share_tensors_with_configured_prefetch(self):
+        module = self.module(prefetch_factor=3)
+        for name in ("train_dataloader", "val_dataloader", "test_dataloader"):
+            with self.subTest(loader=name):
+                loader = getattr(module, name)()
+                self.assertEqual(loader.prefetch_factor, 3)
+                batches = list(self.iterator(loader))
+                self.assertEqual([i for b in batches for i in b.sample_id.tolist()], list(range(7)))
+                self.assertEqual({s for b in batches for s in b.worker_strategy}, {"file_system"})
+                self.assertNotIn(os.getpid(), {p for b in batches for p in b.worker_pid.tolist()})
+
+    def test_spawn_workers_configure_file_system_in_the_new_interpreter(self):
+        loader = self.module(num_workers=1, persistent_workers=False).train_dataloader()
+        # Spawn imports torch afresh and does not inherit the parent's strategy.
+        loader.multiprocessing_context = "spawn"
+        batches = list(self.iterator(loader))
+        self.assertEqual([i for b in batches for i in b.sample_id.tolist()], list(range(7)))
+        self.assertEqual({s for b in batches for s in b.worker_strategy}, {"file_system"})
+        self.assertNotIn(os.getpid(), {p for b in batches for p in b.worker_pid.tolist()})
+
+    def test_custom_worker_callback_preserves_lightning_seed_opt_in_and_rank(self):
+        for seed_workers in ("1", "0"):
+            with self.subTest(seed_workers=seed_workers), patch.dict(os.environ, {"PL_SEED_WORKERS": seed_workers}):
+                module = self.module()
+                module.trainer = SimpleNamespace(global_rank=4)
+                loader = module.train_dataloader()
+                with patch("lightning.fabric.utilities.seed.pl_worker_init_function") as seed_worker:
+                    loader.worker_init_fn(3)
+                if seed_workers == "1":
+                    seed_worker.assert_called_once_with(3, rank=4)
+                else:
+                    seed_worker.assert_not_called()
 
     def test_explicit_nonpersistent_workers_are_not_reused(self):
         loader = self.module(persistent_workers=False).train_dataloader()

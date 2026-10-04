@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: xflow128_medium_ema_noscale_nocol_l1mse
+task_name: xflow128_medium_ema_noscale_nocol
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
