@@ -43,7 +43,7 @@ data:
   train_batch_size: 128
   val_batch_size: 256
   test_batch_size: 256
-  num_workers: 8
+  num_workers: 4
   prefetch_factor: 1  # Bound queued graph batches and shared-memory usage.
   pin_memory: false
   scenario_dreamer_preprocessed: false
