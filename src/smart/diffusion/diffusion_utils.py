@@ -479,7 +479,7 @@ def get_diff_loss(
         if edge_loss.numel():
             # A fixed ego has zero time weight. Use the movable endpoint's
             # weight regardless of where ego appears in the agent ordering.
-            pair_weight = torch.maximum(weight[start_idx], weight[end_idx])*0.01
+            pair_weight = torch.maximum(weight[start_idx], weight[end_idx])*0.1
             collision_loss = (edge_loss * pair_weight).mean()
         else:
             # Valid batches of single-agent scenes have no collision pairs.
