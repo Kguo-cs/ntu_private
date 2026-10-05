@@ -149,8 +149,8 @@ def matching_loss(
         heading_loss = _component_loss(
             fake_heading, real_heading, use_l1
         )
-        shape_loss = _component_loss(fake_shape, real_shape, False)
-        vel_loss = _component_loss(fake_vel, real_vel, False)
+        shape_loss = _component_loss(fake_shape, real_shape, use_l1)
+        vel_loss = _component_loss(fake_vel, real_vel, use_l1)
 
     elif mode == "gaussian":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
@@ -451,15 +451,15 @@ def get_diff_loss(
     w_shape: float = 0.2/ 5,
     w_vel: float = 1 / 5,
     max_loss_weight: float | None = None,
-    use_l1: bool = True,
+    use_l1: bool = False,
 ):
     """State reconstruction plus collision loss beyond each GT pair's overlap."""
     num_states = len(fake_state)
     batch = tokenized_agent["batch"][-num_states:].to(fake_state.device)
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
 
-    #if not use_l1:
-    weight=weight.square()
+    if not use_l1:
+        weight=weight.square()
 
     if use_match:
         fake_idx = get_closest_sum_idx_fast(
