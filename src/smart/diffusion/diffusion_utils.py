@@ -188,7 +188,7 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    #total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
+    total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
