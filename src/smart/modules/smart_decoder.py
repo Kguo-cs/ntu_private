@@ -12,10 +12,13 @@ with the previous implementation.
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from contextlib import nullcontext
+from typing import Dict, Mapping, Optional
 
+import torch
 import torch.nn as nn
 from torch import Tensor
+from torch_ema import ExponentialMovingAverage
 
 from src.smart.diffusion.initial_diffusion import InitDiffusion
 from src.smart.layers import MLPLayer
@@ -135,6 +138,9 @@ class SMARTDecoder(nn.Module):
         self._initial_map_checkpoint_present = False
         self._initial_map_needs_initialization = self.sep_map
         self._initial_map_load_prefix = "init_map_encoder."
+        self.initial_map_ema = None
+        self._pending_initial_map_ema_state = None
+        self._initial_map_revision = 0
 
         self.discriminator: Optional[SMARTAgentDecoder] = None
         self.value_network: Optional[MLPLayer] = None
@@ -179,9 +185,54 @@ class SMARTDecoder(nn.Module):
         if self.sep_map and self._initial_map_needs_initialization:
             self.init_map_encoder.load_state_dict(self.map_encoder.state_dict())
             self._initial_map_needs_initialization = False
+            self.reset_initial_map_ema()
+
+    def reset_initial_map_ema(self) -> None:
+        """Start map averaging from online weights, without earlier history."""
+        self._initial_map_revision += 1
+        if self.sep_map and (getattr(self.init_decoder, "use_ema", False)
+                             or getattr(self.init_decoder, "ema", None) is not None
+                             or self.initial_map_ema is not None):
+            self.initial_map_ema = ExponentialMovingAverage(
+                self.init_map_encoder.parameters(), decay=self.init_decoder.ema_decay,
+            )
+
+    def _move_initial_map_ema(self) -> None:
+        parameter = next(self.init_map_encoder.parameters())
+        self.initial_map_ema.to(device=parameter.device, dtype=parameter.dtype)
+
+    @torch.no_grad()
+    def update_initial_map_ema(self) -> None:
+        """Follow the supervised optimizer's actual updates, including accumulation."""
+        if not self.sep_map or not self.token_processor.learn_init or not any(
+                parameter.requires_grad for parameter in self.init_map_encoder.parameters()):
+            return
+        self._initial_map_revision += 1
+        if self.initial_map_ema is None and getattr(self.init_decoder, "use_ema", False):
+            self.reset_initial_map_ema()
+        if self.initial_map_ema is not None:
+            self._move_initial_map_ema()
+            self.initial_map_ema.update(self.init_map_encoder.parameters())
+
+    def _initial_map_weight_version(self):
+        use_average = not self.training and getattr(self.init_decoder, "use_ema", False)
+        return self._initial_map_revision, use_average
+
+    def get_extra_state(self):
+        return {
+            "initial_map_ema": self.initial_map_ema.state_dict() if self.initial_map_ema is not None else None,
+            "initial_map_ema_parameter_names": list(dict(self.init_map_encoder.named_parameters()))
+            if self.initial_map_ema is not None else None,
+        }
+
+    def set_extra_state(self, state):
+        if not isinstance(state, Mapping):
+            raise ValueError("SMARTDecoder extra state must be a mapping")
+        self._pending_initial_map_ema_state = state
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
+        self._pending_initial_map_ema_state = None
         self._initial_map_load_prefix = prefix + "init_map_encoder."
         self._initial_map_checkpoint_present = any(
             key.startswith(self._initial_map_load_prefix) for key in state_dict
@@ -189,6 +240,11 @@ class SMARTDecoder(nn.Module):
         self._initial_map_needs_initialization = self.sep_map and not self._initial_map_checkpoint_present
         super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
                                      missing_keys, unexpected_keys, error_msgs)
+        # Older checkpoints have neither map EMA nor this extra-state key.
+        # Retain strict checking of all ordinary parameters.
+        extra_key = prefix + "_extra_state"
+        if extra_key not in state_dict and extra_key in missing_keys:
+            missing_keys.remove(extra_key)
 
     def _restore_initial_map_after_load(self, module, incompatible_keys) -> None:
         if self.sep_map and not self._initial_map_checkpoint_present:
@@ -199,6 +255,27 @@ class SMARTDecoder(nn.Module):
                 key for key in incompatible_keys.missing_keys
                 if not key.startswith(self._initial_map_load_prefix)
             ]
+        state = self._pending_initial_map_ema_state
+        self._pending_initial_map_ema_state = None
+        if not self.sep_map:
+            return
+        saved = state.get("initial_map_ema") if state is not None else None
+        if saved is None:
+            # Children (including G1 EMA) and shared-map migration have loaded.
+            self.reset_initial_map_ema()
+            return
+        parameters = dict(self.init_map_encoder.named_parameters())
+        names = state.get("initial_map_ema_parameter_names")
+        if names is not None and list(parameters) != names:
+            raise ValueError("Initial-map EMA parameter names do not match the map encoder")
+        shadows = saved.get("shadow_params", [])
+        if len(shadows) != len(parameters) or any(
+                not torch.is_tensor(shadow) or shadow.shape != parameter.shape
+                for shadow, parameter in zip(shadows, parameters.values())):
+            raise ValueError("Initial-map EMA parameter shapes do not match the map encoder")
+        self.initial_map_ema = ExponentialMovingAverage(parameters.values(), decay=float(saved["decay"]))
+        self.initial_map_ema.load_state_dict(saved)
+        self._initial_map_revision += 1
 
     @staticmethod
     def _make_map_encoder(
@@ -353,12 +430,22 @@ class SMARTDecoder(nn.Module):
             # Re-encode for every training forward, including reused batches.
             # A previous projected/raw feature may retain an old autograd graph.
             tokenized_agent.pop("_initial_map_raw_feature", None)
-            initial_map_feature = self.init_map_encoder(
-                tokenized_map,
-                tokenized_agent=tokenized_agent,
-            )
+            tokenized_agent.pop("_initial_map_weight_version", None)
+            use_average = self._initial_map_weight_version()[1]
+            if use_average:
+                if self.initial_map_ema is None:
+                    self.reset_initial_map_ema()
+                self._move_initial_map_ema()
+            context = (self.initial_map_ema.average_parameters(self.init_map_encoder.parameters())
+                       if use_average else nullcontext())
+            with torch.set_grad_enabled(torch.is_grad_enabled() and not use_average), context:
+                initial_map_feature = self.init_map_encoder(
+                    tokenized_map,
+                    tokenized_agent=tokenized_agent,
+                )
             tokenized_agent["initial_map_feature"] = initial_map_feature
             tokenized_agent["_initial_map_feature_is_raw"] = True
+            tokenized_agent["_initial_map_weight_version"] = self._initial_map_weight_version()
             return initial_map_feature
         cached = tokenized_agent.get("initial_map_feature")
         if cached is not None:
@@ -417,7 +504,9 @@ class SMARTDecoder(nn.Module):
             graph_types = sd_map["lg_type"]
             if graph_types.numel() != int(tokenized_agent["num_graphs"]) or (graph_types != 0).any():
                 raise ValueError("Full-lane initial-scene evaluation requires lg_type=0 for every scene")
-        if getattr(self, "sep_map", False) and "initial_map_feature" not in tokenized_agent:
+        if getattr(self, "sep_map", False) and (
+                "initial_map_feature" not in tokenized_agent
+                or tokenized_agent.get("_initial_map_weight_version") != self._initial_map_weight_version()):
             self._prepare_initial_map_feature(
                 tokenized_agent["tokenized_map"], tokenized_agent, None,
             )

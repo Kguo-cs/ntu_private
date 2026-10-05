@@ -370,7 +370,7 @@ class InitDiffusion(nn.Module):
                 self.reset_ema()
             self._move_ema()
         context = self.ema.average_parameters(self.G1.parameters()) if use_average else nullcontext()
-        with context, torch.set_grad_enabled(torch.is_grad_enabled() and not use_average):
+        with torch.set_grad_enabled(torch.is_grad_enabled() and not use_average), context:
             scene_pos, scene_heading, batch, num_graphs = self._prepare_ego_context(tokenized_agent)
             map_feature = self._initial_map_feature(tokenized_agent, scene_pos, scene_heading, num_graphs)
             if self.training:

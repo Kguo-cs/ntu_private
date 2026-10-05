@@ -63,7 +63,7 @@
 
 加载没有独立地图权重的骨干或共享地图 checkpoint 时，从已加载的共享地图权重初始化独立地图；加载已有 `sep_map` checkpoint 时保留其独立地图权重。把共享地图实验转换为独立地图实验应使用 `action=finetune`，重新建立包含独立地图参数的优化器；`action=fit` 用于恢复同一 `sep_map` 配置的训练。
 
-验证、完整测试及断点续训都需要保留 `model.model_config.decoder.sep_map=true`。独立地图输出已转到 ego 局部坐标，随后只经过 InitDiffusion 的 lane projection。EMA 仍按现有范围平均 `G1`（包含 lane projection），独立地图编码器使用在线权重并随 checkpoint 保存。
+验证、完整测试及断点续训都需要保留 `model.model_config.decoder.sep_map=true`。独立地图输出已转到 ego 局部坐标，随后只经过 InitDiffusion 的 lane projection。启用 EMA 时，独立地图编码器与 `G1`（包含 lane projection）一起跟踪平均权重；评价先使用地图 EMA 编码，再使用 `G1` EMA 进行 projection 和采样。
 
 ## Scenario Dreamer 优化器选项
 
@@ -94,7 +94,7 @@
 
 ## InitDiffusion EMA
 
-当前 lane-conditioned 训练和评价配置默认启用 `model.model_config.decoder.init_diffusion.use_ema=true`，`ema_decay=0.9999`；通用 SMART 配置仍默认关闭。EMA 只跟踪 `G1` generator 的参数，包括其中的 `lane_embed`，不平均 SMART 地图编码器或其他模块。
+当前 lane-conditioned 训练和评价配置默认启用 `model.model_config.decoder.init_diffusion.use_ema=true`，`ema_decay=0.9999`；通用 SMART 配置仍默认关闭。EMA 跟踪 `G1` generator 的参数，包括其中的 `lane_embed`。当 `sep_map=true` 时，还跟踪独立的 `init_map_encoder`，共用同一个开关、衰减值和更新时机；共享 SMART 地图编码器和运动策略不做平均。
 
 训练使用在线参数，每次优化器更新后更新 EMA；验证和测试在 `use_ema=true` 时临时使用平均参数，完成后恢复在线参数。与 Scenario Dreamer 一样，采用 `torch_ema` 默认的 `num_updates` 衰减预热：初期实际衰减受更新次数限制，再逐步接近配置值。
 
@@ -108,7 +108,7 @@
   model.model_config.decoder.init_diffusion.ema_decay=0.9999
 ```
 
-checkpoint 同时保存在线参数、EMA shadow 参数、更新次数和衰减值。上面的 `action=fit ckpt_path=...` 命令会保留这些状态继续训练。严格加载旧的、没有 EMA 状态的模型 checkpoint 时，以已经加载的 `G1` 权重初始化 EMA，更新次数从 0 开始；无法补回此前训练的平均历史。
+checkpoint 同时保存在线参数、EMA shadow 参数、更新次数和衰减值；`sep_map` 的地图 EMA 也单独保存这些状态。上面的 `action=fit ckpt_path=...` 命令会保留这些状态继续训练。严格加载旧的、没有 EMA 状态的模型 checkpoint 时，以已经加载的对应模块权重初始化 EMA，更新次数从 0 开始；无法补回此前训练的平均历史。旧 `sep_map` checkpoint 如果只有 `G1` EMA，则保留 `G1` 的历史，地图 EMA 从已加载的在线地图权重开始。
 
 对同一个 checkpoint 使用在线参数评价：
 

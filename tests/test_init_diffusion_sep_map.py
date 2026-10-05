@@ -1,5 +1,6 @@
 """Independent initial-state map conditioning and legacy checkpoint migration."""
 
+from copy import deepcopy
 from types import SimpleNamespace
 import math
 import unittest
@@ -27,6 +28,9 @@ class TinyPolicy(nn.Module):
 class TinyInitialDecoder(nn.Module):
     def __init__(self, hidden_dim, *args, **kwargs):
         super().__init__()
+        self.use_ema = kwargs.get("use_ema", False)
+        self.ema_decay = kwargs.get("ema_decay", .9999)
+        self.ema_updates = 0
         self.projection = nn.Linear(hidden_dim, 1)
         with torch.no_grad():
             self.projection.weight.copy_(torch.arange(1, hidden_dim + 1)[None] / hidden_dim)
@@ -34,6 +38,9 @@ class TinyInitialDecoder(nn.Module):
 
     def forward(self, agent):
         return self.projection(agent["initial_map_feature"]["pt_token"]).square().mean()
+
+    def update_ema(self):
+        self.ema_updates += 1
 
 
 class ProjectionFlow(nn.Module):
@@ -299,6 +306,264 @@ class InitDiffusionSeparateMapTest(unittest.TestCase):
             repeated = initial._initial_map_feature(agent, scene_pos, scene_heading, 2)
             self.assertEqual(project.call_count, 1)
             torch.testing.assert_close(repeated["pt_token"], expected)
+
+    def test_separate_map_ema_updates_once_after_the_actual_optimizer_step(self):
+        decoder = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        model = self.training_model(decoder)
+        model._configure_finetuning(enabled=False)
+        optimizer = torch.optim.SGD((parameter for parameter in decoder.parameters()
+                                     if parameter.requires_grad), lr=.01)
+        tokens, agent = self.map_tokens(), self.agents()
+        parameters = list(decoder.init_map_encoder.parameters())
+        shared_before = {name: tensor.clone() for name, tensor in decoder.map_encoder.state_dict().items()}
+        shadow_before = [parameter.clone() for parameter in decoder.initial_map_ema.shadow_params]
+
+        def closure():
+            optimizer.zero_grad(set_to_none=True)
+            loss = decoder(tokens, agent)["initial_logit"]
+            loss.backward()
+            return loss
+
+        model.optimizer_step(0, 0, optimizer, closure)
+        self.assertEqual(decoder.init_decoder.ema_updates, 1)
+        self.assertEqual(decoder.initial_map_ema.num_updates, 1)
+        self.assertTrue(any(not torch.equal(before, current)
+                            for before, current in zip(shadow_before, parameters)))
+        # torch_ema warms up the decay on its first update: min(.9, 2 / 11).
+        decay = min(.9, 2. / 11.)
+        for before, online, average in zip(shadow_before, parameters,
+                                           decoder.initial_map_ema.shadow_params):
+            torch.testing.assert_close(average, before * decay + online * (1. - decay))
+        self.assert_state_equal(shared_before, decoder.map_encoder.state_dict())
+        model.optimizer_step(0, 1, optimizer, closure)
+        self.assertEqual(decoder.init_decoder.ema_updates, 2)
+        self.assertEqual(decoder.initial_map_ema.num_updates, 2)
+
+    def test_separate_map_training_uses_online_and_evaluation_uses_average_weights(self):
+        decoder = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        tokens, agent = self.map_tokens(), self.agents()
+        with torch.no_grad():
+            for parameter in decoder.init_map_encoder.parameters():
+                parameter.add_(.15)
+        online_state = {name: tensor.clone() for name, tensor in decoder.init_map_encoder.state_dict().items()}
+        with torch.no_grad():
+            online = decoder.init_map_encoder(tokens, tokenized_agent=agent)["pt_token"]
+            with decoder.initial_map_ema.average_parameters(decoder.init_map_encoder.parameters()):
+                average = decoder.init_map_encoder(tokens, tokenized_agent=agent)["pt_token"]
+        self.assertFalse(torch.allclose(online, average))
+
+        decoder.train()
+        actual_train = decoder._prepare_initial_map_feature(tokens, agent, None)["pt_token"]
+        torch.testing.assert_close(actual_train, online)
+        self.assertTrue(actual_train.requires_grad)
+        decoder.eval()
+        actual_eval = decoder._prepare_initial_map_feature(tokens, agent, None)["pt_token"]
+        torch.testing.assert_close(actual_eval, average)
+        self.assertFalse(actual_eval.requires_grad)
+        self.assert_state_equal(online_state, decoder.init_map_encoder.state_dict())
+        self.assertEqual(decoder.initial_map_ema.num_updates, 0)
+
+    def test_separate_map_average_weights_restore_when_map_encoding_raises(self):
+        decoder = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9}).eval()
+        with torch.no_grad():
+            for parameter in decoder.init_map_encoder.parameters():
+                parameter.add_(.2)
+        online_state = {name: tensor.clone() for name, tensor in decoder.init_map_encoder.state_dict().items()}
+        with patch.object(decoder.init_map_encoder, "forward", side_effect=RuntimeError("map encoding failed")):
+            with self.assertRaisesRegex(RuntimeError, "map encoding failed"):
+                decoder._prepare_initial_map_feature(self.map_tokens(), self.agents(), None)
+        self.assert_state_equal(online_state, decoder.init_map_encoder.state_dict())
+
+    def test_separate_map_ema_flag_changes_refresh_reused_raw_features(self):
+        decoder = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9}).eval()
+        tokens, agent = self.map_tokens(), self.agents()
+        with torch.no_grad():
+            for parameter in decoder.init_map_encoder.parameters():
+                parameter.add_(.15)
+        average = decoder._prepare_initial_map_feature(tokens, agent, None)["pt_token"].clone()
+        agent["_initial_map_raw_feature"] = dict(agent["initial_map_feature"])
+        decoder.init_decoder.use_ema = False
+        actual = decoder._prepare_initial_map_feature(tokens, agent, None)
+        with torch.no_grad():
+            online = decoder.init_map_encoder(tokens, tokenized_agent=agent)["pt_token"]
+        torch.testing.assert_close(actual["pt_token"], online)
+        self.assertFalse(torch.allclose(actual["pt_token"], average))
+        self.assertNotIn("_initial_map_raw_feature", agent)
+        self.assertTrue(agent["_initial_map_feature_is_raw"])
+        decoder.init_decoder.use_ema = True
+        repeated = decoder._prepare_initial_map_feature(tokens, agent, None)
+        torch.testing.assert_close(repeated["pt_token"], average)
+
+    def test_separate_map_ema_checkpoint_restores_average_history_even_with_ema_disabled(self):
+        source = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        for increment in (.1, .25):
+            with torch.no_grad():
+                for parameter in source.init_map_encoder.parameters():
+                    parameter.add_(increment)
+            source.update_initial_map_ema()
+        target = self.decoder(init_diffusion={"use_ema": False, "ema_decay": .7})
+        target.load_state_dict(source.state_dict(), strict=True)
+        self.assertFalse(target.init_decoder.use_ema)
+        self.assertEqual(target.initial_map_ema.num_updates, source.initial_map_ema.num_updates)
+        self.assertEqual(target.initial_map_ema.decay, source.initial_map_ema.decay)
+        self.assert_state_equal(target.init_map_encoder.state_dict(), source.init_map_encoder.state_dict())
+        for actual, expected in zip(target.initial_map_ema.shadow_params, source.initial_map_ema.shadow_params):
+            torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+        self.assertTrue(any(not torch.equal(average, online) for average, online in
+                            zip(target.initial_map_ema.shadow_params, target.init_map_encoder.parameters())))
+
+    def test_old_independent_map_checkpoint_initializes_average_from_loaded_online_weights(self):
+        source = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        with torch.no_grad():
+            for parameter in source.init_map_encoder.parameters():
+                parameter.add_(.4)
+        legacy = source.state_dict()
+        legacy.pop("_extra_state")
+        target = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        incompatible = target.load_state_dict(legacy, strict=True)
+        self.assertEqual(incompatible.missing_keys, [])
+        self.assertEqual(incompatible.unexpected_keys, [])
+        self.assertEqual(target.initial_map_ema.num_updates, 0)
+        for average, loaded in zip(target.initial_map_ema.shadow_params, source.init_map_encoder.parameters()):
+            torch.testing.assert_close(average, loaded, rtol=0, atol=0)
+
+    def test_old_shared_checkpoint_initializes_both_separate_map_and_average_from_loaded_weights(self):
+        source = self.decoder(sep_map=False)
+        with torch.no_grad():
+            for parameter in source.map_encoder.parameters():
+                parameter.add_(.3)
+        legacy = source.state_dict()
+        legacy.pop("_extra_state")
+        target = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        target.load_state_dict(legacy, strict=True)
+        self.assert_state_equal(target.init_map_encoder.state_dict(), source.map_encoder.state_dict())
+        for average, loaded in zip(target.initial_map_ema.shadow_params, source.map_encoder.parameters()):
+            torch.testing.assert_close(average, loaded, rtol=0, atol=0)
+        self.assertEqual(target.initial_map_ema.num_updates, 0)
+
+    def test_separate_map_ema_tracks_parameter_dtype_changes(self):
+        decoder = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        decoder.double()
+        decoder.update_initial_map_ema()
+        self.assertEqual(decoder.initial_map_ema.num_updates, 1)
+        for average, parameter in zip(decoder.initial_map_ema.shadow_params, decoder.init_map_encoder.parameters()):
+            self.assertEqual(average.dtype, parameter.dtype)
+            self.assertEqual(average.device, parameter.device)
+            torch.testing.assert_close(average, parameter, rtol=0, atol=0)
+
+    def test_inference_refreshes_cached_map_only_when_average_selection_or_weights_change(self):
+        decoder = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9}).eval()
+        tokens, agent = self.map_tokens(), self.agents()
+        agent["sd_map"] = {"lg_type": torch.zeros(2, dtype=torch.long)}
+        with torch.no_grad():
+            for parameter in decoder.init_map_encoder.parameters():
+                parameter.add_(.15)
+        average = decoder._prepare_initial_map_feature(tokens, agent, None)["pt_token"].clone()
+        sampled_maps = []
+
+        def sample(inputs):
+            sampled_maps.append(inputs["initial_map_feature"]["pt_token"].clone())
+            return (torch.zeros(4, 1, 2), torch.zeros(4, 1), torch.zeros(4, dtype=torch.long),
+                    torch.ones(4, 3), torch.zeros(4, 1, 2))
+
+        with torch.no_grad(), patch.object(decoder.init_decoder, "forward", side_effect=sample), \
+                patch.object(decoder.init_map_encoder, "forward", wraps=decoder.init_map_encoder.forward) as encode:
+            decoder.inference(agent)
+            decoder.inference(agent)
+            self.assertEqual(encode.call_count, 0)
+            torch.testing.assert_close(sampled_maps[-1], average)
+            decoder.init_decoder.use_ema = False
+            decoder.inference(agent)
+            self.assertEqual(encode.call_count, 1)
+            self.assertFalse(torch.allclose(sampled_maps[-1], average))
+            decoder.init_decoder.use_ema = True
+            decoder.inference(agent)
+            self.assertEqual(encode.call_count, 2)
+            torch.testing.assert_close(sampled_maps[-1], average)
+            decoder.update_initial_map_ema()
+            decoder.inference(agent)
+            self.assertEqual(encode.call_count, 3)
+            self.assertFalse(torch.allclose(sampled_maps[-1], average))
+            decoder.inference(agent)
+            self.assertEqual(encode.call_count, 3)
+            agent.pop("_initial_map_weight_version")
+            decoder.inference(agent)
+            self.assertEqual(encode.call_count, 4)
+
+    def test_joint_map_and_real_init_diffusion_evaluation_uses_both_average_weights(self):
+        decoder = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        with patch("src.smart.diffusion.initial_diffusion.Flow", ProjectionFlow):
+            decoder.init_decoder = InitDiffusion(
+                8, 2, 4, decoder.token_processor, False, use_ema=True, ema_decay=.9,
+            )
+        initial = decoder.init_decoder
+        tokens, agent = self.map_tokens(), self.agents()
+        with torch.no_grad():
+            for parameter in decoder.init_map_encoder.parameters():
+                parameter.add_(.15)
+            initial.G1.model.lane_embed.weight.add_(.5)
+        map_online_state = {name: tensor.clone() for name, tensor in decoder.init_map_encoder.state_dict().items()}
+        generator_online_state = {name: tensor.clone() for name, tensor in initial.G1.state_dict().items()}
+        with torch.no_grad(), decoder.initial_map_ema.average_parameters(decoder.init_map_encoder.parameters()), \
+                initial.ema.average_parameters(initial.G1.parameters()):
+            raw_average = decoder.init_map_encoder(tokens, tokenized_agent=agent)["pt_token"]
+            expected = initial.G1.model.lane_embed(raw_average)
+        decoder.eval()
+        with patch.object(initial, "_infer", side_effect=lambda inputs, feature: feature["pt_token"]):
+            prediction = decoder(tokens, agent)["initial_logit"]
+        torch.testing.assert_close(prediction, expected)
+        torch.testing.assert_close(agent["_initial_map_raw_feature"]["pt_token"], raw_average)
+        self.assertFalse(prediction.requires_grad)
+        self.assert_state_equal(map_online_state, decoder.init_map_encoder.state_dict())
+        self.assert_state_equal(generator_online_state, initial.G1.state_dict())
+        self.assertEqual(decoder.initial_map_ema.num_updates, 0)
+        self.assertEqual(initial.ema.num_updates, 0)
+
+    def test_separate_map_checkpoint_rejects_malformed_average_history_and_partial_weights(self):
+        source = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        for invalid in ("names", "shapes", "count", "partial_weights"):
+            with self.subTest(invalid=invalid):
+                state = deepcopy(source.state_dict())
+                if invalid == "names":
+                    state["_extra_state"]["initial_map_ema_parameter_names"][0] = "unrelated.weight"
+                elif invalid == "shapes":
+                    state["_extra_state"]["initial_map_ema"]["shadow_params"][0] = torch.zeros(1)
+                elif invalid == "count":
+                    state["_extra_state"]["initial_map_ema"]["shadow_params"].pop()
+                else:
+                    state.pop("init_map_encoder.type_pt_emb.weight")
+                target = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+                expected_error = RuntimeError if invalid == "partial_weights" else ValueError
+                with self.assertRaises(expected_error):
+                    target.load_state_dict(state, strict=True)
+
+    def test_joint_evaluation_with_grad_enabled_allows_direct_strict_checkpoint_roundtrip(self):
+        source = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        target = self.decoder(init_diffusion={"use_ema": True, "ema_decay": .9})
+        with patch("src.smart.diffusion.initial_diffusion.Flow", ProjectionFlow):
+            for decoder in (source, target):
+                decoder.init_decoder = InitDiffusion(
+                    8, 2, 4, decoder.token_processor, False, use_ema=True, ema_decay=.9,
+                )
+        source.eval()
+        self.assertTrue(torch.is_grad_enabled())
+        with patch.object(source.init_decoder, "_infer", side_effect=lambda inputs, feature: feature["pt_token"]):
+            source(self.map_tokens(), self.agents())
+        for average in (source.initial_map_ema, source.init_decoder.ema):
+            self.assertIsNotNone(average.collected_params)
+            self.assertTrue(all(parameter.is_leaf and not parameter.requires_grad
+                                for parameter in average.collected_params))
+        # Keep this in-memory: serializing through torch.save could hide a
+        # non-leaf collected tensor that torch_ema.load_state_dict cannot deepcopy.
+        incompatible = target.load_state_dict(source.state_dict(), strict=True)
+        self.assertEqual(incompatible.missing_keys, [])
+        self.assertEqual(incompatible.unexpected_keys, [])
+        self.assert_state_equal(target.init_map_encoder.state_dict(), source.init_map_encoder.state_dict())
+        self.assert_state_equal(target.init_decoder.G1.state_dict(), source.init_decoder.G1.state_dict())
+        for loaded, saved in ((target.initial_map_ema, source.initial_map_ema),
+                              (target.init_decoder.ema, source.init_decoder.ema)):
+            for actual, expected in zip(loaded.shadow_params, saved.shadow_params):
+                torch.testing.assert_close(actual, expected, rtol=0, atol=0)
 
 
 if __name__ == "__main__":

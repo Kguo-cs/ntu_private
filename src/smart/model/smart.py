@@ -548,6 +548,8 @@ class SMART(LightningModule):
                     "ema_num_updates": initial_decoder.ema.num_updates if initial_decoder.ema is not None else None,
                     "map_source": "SMART tokens",
                     "sep_map": getattr(self.encoder, "sep_map", False),
+                    "init_map_ema_num_updates": self.encoder.initial_map_ema.num_updates
+                    if getattr(self.encoder, "initial_map_ema", None) is not None else None,
                     "init_map_range_m": self.token_processor.init_map_range,
                     "conditioning": ["reference map", "GT ego state", "input agent counts", "input agent types"],
                 }
@@ -628,6 +630,9 @@ class SMART(LightningModule):
         update = getattr(self.encoder.init_decoder, "update_ema", None)
         if update is not None:
             update()
+        update_map = getattr(self.encoder, "update_initial_map_ema", None)
+        if update_map is not None:
+            update_map()
 
     def on_test_epoch_start(self):
         self.on_validation_epoch_start()
