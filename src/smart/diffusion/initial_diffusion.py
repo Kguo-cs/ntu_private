@@ -131,7 +131,7 @@ class InitDiffusion(nn.Module):
         """Create deterministic ScaleFlow settings without parsing process CLI."""
         values = {
             "input_dim": 8,
-            "hidden_dim": 512,
+            "hidden_dim": 256,
             "num_heads": 8,
             "dropout": 0.0,
             "num_denoiser_layers": 3,
@@ -222,7 +222,8 @@ class InitDiffusion(nn.Module):
         cached = agent.get("initial_map_feature")
         if cached is not None:
             feature = cached["pt_token"]
-            if feature.shape[-1] != self.G1.model.hidden_dim:
+            is_raw = agent.pop("_initial_map_feature_is_raw", False)
+            if is_raw or feature.shape[-1] != self.G1.model.hidden_dim:
                 if self.ema is not None or self.use_ema:
                     agent["_initial_map_raw_feature"] = dict(cached)
                 result = dict(cached, pt_token=self.G1.model.lane_embed(feature))

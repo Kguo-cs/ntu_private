@@ -92,9 +92,10 @@ class SMARTMapDecoder(nn.Module):
             gt_initial_pos = tokenized_agent["initial_pos"]
             ego_mask = tokenized_agent["ego_mask"]
 
-            ego_position = gt_initial_pos[ego_mask].reshape(-1,batch.max().item()+1,2)
-
-            dist=torch.norm(ego_position[:,batch]-pos_pt[None],dim=-1).amin(0)
+            ego_position = gt_initial_pos[ego_mask]
+            # Map batches can omit the last scene or contain no nodes. The
+            # number/order of egos comes from agents, not the largest map index.
+            dist = torch.norm(ego_position[batch] - pos_pt[..., :2], dim=-1)
 
             dist_mask=dist<(self.token_processor.init_map_range+self.pl2pl_radius)
 
@@ -143,7 +144,7 @@ class SMARTMapDecoder(nn.Module):
             )
 
             for i in range(self.num_layers):
-                x_pt ,_= self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
+                x_pt = self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
 
 
             x_pt=x_pt[mask]
@@ -275,5 +276,4 @@ class SMARTMapDecoder(nn.Module):
         # pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
 
         # x_pt1 = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal1)
-
 

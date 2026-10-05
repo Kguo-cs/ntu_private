@@ -131,7 +131,7 @@ def run(cfg: DictConfig) -> None:
                 if model.bc_map_net is not None:
                     model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
             if model.encoder.sep_map:
-                model.encoder.init_map_encoder.load_state_dict(model.encoder.map_encoder.state_dict())
+                model.encoder.initialize_initial_map_from_shared()
         trainer.fit(model=model, datamodule=datamodule)#
     elif cfg.action == "validate":
         log.info("Starting validating!")

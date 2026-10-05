@@ -44,4 +44,7 @@ sd/metadata/simulation_environment_datasets/waymo_sim_test_pickles/
 sd/metadata/simulation_environment_datasets/waymo_sim_test_jsons/
 diagnostics/
 tests/
+!/tests/
+/tests/*
+!/tests/test_init_diffusion_sep_map.py
 outputs/scenario_dreamer*/

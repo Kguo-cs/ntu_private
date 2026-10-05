@@ -213,12 +213,17 @@ class SMART(LightningModule):
        # self.wosac_submission.save_sub_file()
 
     def _configure_finetuning(self, enabled: bool) -> None:
+        if not self.token_processor.learn_init:
+            _freeze(getattr(self.encoder, "init_map_encoder", None))
         if not enabled:
             # Initial-state training has no agent-policy forward. Scratch mode
             # trains map + initialization while excluding the unused policy.
-            if (getattr(self.encoder, "initial_scene_only", False)
+            if ((getattr(self.encoder, "initial_scene_only", False)
+                 or getattr(self.encoder, "sep_map", False))
                     and self.token_processor.learn_init and not self.encoder.gail):
                 _freeze(self.encoder.agent_encoder)
+                if getattr(self.encoder, "sep_map", False):
+                    _freeze(self.encoder.map_encoder)
             return
         _freeze(self.encoder.map_encoder)
         if not self.token_processor.pred_init:
@@ -348,11 +353,13 @@ class SMART(LightningModule):
     @torch.no_grad()
     def _rollouts(self, tokenized_map, agent,data) -> dict[str, Any]:
         if getattr(self.encoder, "sep_map", False):
-            agent["initial_map_feature"] = self.encoder.init_map_encoder(
-                tokenized_map, tokenized_agent=agent
+            self.encoder._prepare_initial_map_feature(
+                tokenized_map, agent, None,
             )
         sd_decoder = self.encoder.init_decoder_name == "scenario_dreamer"
-        map_feature = {} if sd_decoder and self.scenario_dreamer_init else self.encoder.map_encoder(tokenized_map)
+        initial_map_only = (getattr(self.encoder, "sep_map", False)
+                            and getattr(self.encoder, "initial_scene_only", False))
+        map_feature = {} if initial_map_only or (sd_decoder and self.scenario_dreamer_init) else self.encoder.map_encoder(tokenized_map)
         agent["map_feature"] = map_feature
         if sd_decoder:
             agent["tokenized_map"] = tokenized_map
@@ -540,6 +547,7 @@ class SMART(LightningModule):
                     "ema_decay": initial_decoder.ema_decay,
                     "ema_num_updates": initial_decoder.ema.num_updates if initial_decoder.ema is not None else None,
                     "map_source": "SMART tokens",
+                    "sep_map": getattr(self.encoder, "sep_map", False),
                     "init_map_range_m": self.token_processor.init_map_range,
                     "conditioning": ["reference map", "GT ego state", "input agent counts", "input agent types"],
                 }

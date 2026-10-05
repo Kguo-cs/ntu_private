@@ -60,6 +60,7 @@ class SMARTDecoder(nn.Module):
         scenario_dreamer: Optional[dict] = None,
         initial_scene_only: bool = False,
         init_diffusion: Optional[dict] = None,
+        sep_map: bool = False,
     ) -> None:
         super().__init__()
 
@@ -126,7 +127,14 @@ class SMARTDecoder(nn.Module):
         # Define optional attributes in every configuration.
         self.init_decoder: Optional[InitDiffusion] = None
         self.init_map_encoder: Optional[SMARTMapDecoder] = None
-        self.sep_map = False
+        self.sep_map = bool(sep_map)
+        if self.sep_map and (init_decoder != "flow" or not self.token_processor.pred_init):
+            raise ValueError("sep_map requires init_decoder=flow and token_processor.pred_init=true")
+        if self.sep_map and self.gail:
+            raise ValueError("sep_map currently supports supervised InitDiffusion training, not GAIL")
+        self._initial_map_checkpoint_present = False
+        self._initial_map_needs_initialization = self.sep_map
+        self._initial_map_load_prefix = "init_map_encoder."
 
         self.discriminator: Optional[SMARTAgentDecoder] = None
         self.value_network: Optional[MLPLayer] = None
@@ -164,6 +172,33 @@ class SMARTDecoder(nn.Module):
                 reward_weight=reward_weight,
                 reward_decay=reward_decay,
             )
+        self.register_load_state_dict_post_hook(self._restore_initial_map_after_load)
+
+    def initialize_initial_map_from_shared(self) -> None:
+        """Seed a new initial-map encoder without replacing checkpoint weights."""
+        if self.sep_map and self._initial_map_needs_initialization:
+            self.init_map_encoder.load_state_dict(self.map_encoder.state_dict())
+            self._initial_map_needs_initialization = False
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        self._initial_map_load_prefix = prefix + "init_map_encoder."
+        self._initial_map_checkpoint_present = any(
+            key.startswith(self._initial_map_load_prefix) for key in state_dict
+        )
+        self._initial_map_needs_initialization = self.sep_map and not self._initial_map_checkpoint_present
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                     missing_keys, unexpected_keys, error_msgs)
+
+    def _restore_initial_map_after_load(self, module, incompatible_keys) -> None:
+        if self.sep_map and not self._initial_map_checkpoint_present:
+            self.initialize_initial_map_from_shared()
+            # Shared-map checkpoints predate this optional module. Only exempt
+            # its wholly absent keys; partial independent checkpoints stay strict.
+            incompatible_keys.missing_keys[:] = [
+                key for key in incompatible_keys.missing_keys
+                if not key.startswith(self._initial_map_load_prefix)
+            ]
 
     @staticmethod
     def _make_map_encoder(
@@ -221,13 +256,14 @@ class SMARTDecoder(nn.Module):
             hidden_dim=hidden_dim,
             pl2pl_radius=pl2pl_radius,
             num_freq_bands=num_freq_bands,
-            num_layers=1,
+            num_layers=self.map_encoder.num_layers,
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
             pt2pt_neighbor=pt2pt_neighbor,
             token_processor=self.token_processor,
         )
+        self.initialize_initial_map_from_shared()
 
     def _build_gail_modules(
         self,
@@ -308,23 +344,26 @@ class SMARTDecoder(nn.Module):
         if not self.token_processor.pred_init:
             return None
 
-        cached = tokenized_agent.get("initial_map_feature")
-        if cached is not None:
-            return cached
-
         if self.sep_map:
             if self.init_map_encoder is None:
                 raise RuntimeError(
                     "sep_map=True but init_map_encoder is missing."
                 )
+            tokenized_agent["tokenized_map"] = tokenized_map
+            # Re-encode for every training forward, including reused batches.
+            # A previous projected/raw feature may retain an old autograd graph.
+            tokenized_agent.pop("_initial_map_raw_feature", None)
             initial_map_feature = self.init_map_encoder(
                 tokenized_map,
                 tokenized_agent=tokenized_agent,
             )
             tokenized_agent["initial_map_feature"] = initial_map_feature
-
-        else:
-            tokenized_agent["map_feature"] = map_feature
+            tokenized_agent["_initial_map_feature_is_raw"] = True
+            return initial_map_feature
+        cached = tokenized_agent.get("initial_map_feature")
+        if cached is not None:
+            return cached
+        tokenized_agent["map_feature"] = map_feature
 
     def forward(
         self,
@@ -378,6 +417,10 @@ class SMARTDecoder(nn.Module):
             graph_types = sd_map["lg_type"]
             if graph_types.numel() != int(tokenized_agent["num_graphs"]) or (graph_types != 0).any():
                 raise ValueError("Full-lane initial-scene evaluation requires lg_type=0 for every scene")
+        if getattr(self, "sep_map", False) and "initial_map_feature" not in tokenized_agent:
+            self._prepare_initial_map_feature(
+                tokenized_agent["tokenized_map"], tokenized_agent, None,
+            )
         if initial_scene_only or (self.init_decoder_name == "scenario_dreamer" and tokenized_agent.get("initial_scene_only", False)):
             pos, heading, indices, shape, velocity = self.init_decoder(tokenized_agent)
             # Evaluate continuous initial states directly, without token history
