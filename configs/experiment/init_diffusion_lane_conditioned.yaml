@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: xflow128_med_ema_map_freq64head16_col01_msetotal
+task_name: xflow128_med_ema_freq64head16_col01_msetotal
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
@@ -25,7 +25,7 @@ model:
         use_ema: true
         ema_decay: 0.9999
       initial_scene_only: true
-      sep_map: true
+      sep_map: false
     sd_use_cached_evaluator: true
     sd_eval_set: ${paths.root_dir}/waymo_data/waymo_eval_set.pkl
     sd_real_cache: ${paths.root_dir}/waymo_data/sd_real_metric_cache.sqlite
