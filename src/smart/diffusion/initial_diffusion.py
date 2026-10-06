@@ -133,7 +133,7 @@ class InitDiffusion(nn.Module):
             "input_dim": 8,
             "hidden_dim": 512,
             "num_heads": 8,
-            "dropout": 0.0,
+            "dropout": 0.1,
             "num_denoiser_layers": 3,
             "num_branch_steps": 1,
             "branch_steps": [0,1,2,3,4,5,6,7,8],#5,6,71,3,5,7,4,4,1,2,3,4,5,10,11,12,13,
