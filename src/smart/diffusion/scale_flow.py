@@ -43,9 +43,6 @@ class Flow(nn.Module):
         gail: bool = False,
     ) -> None:
         super().__init__()
-
-        self.hidden_dim = int(args.hidden_dim)
-
         # Standard x0-prediction flow. No Gaussian or MeanFlow output.
         self.model = InitDenoiser(
             token_processor,
