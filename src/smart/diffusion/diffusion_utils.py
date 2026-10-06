@@ -458,8 +458,6 @@ def get_diff_loss(
     batch = tokenized_agent["batch"][-num_states:].to(fake_state.device)
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
 
-    if not use_l1:
-        weight=weight.square()
 
     if use_match:
         fake_idx = get_closest_sum_idx_fast(
@@ -484,6 +482,8 @@ def get_diff_loss(
         else:
             # Valid batches of single-agent scenes have no collision pairs.
             collision_loss = fake_state[:, :2].sum() * 0.0
+    if not use_l1:
+        weight=weight.square()
 
     # w_pos=w_heading=w_shape=w_vel=1
     # real_state=real_state/scale
