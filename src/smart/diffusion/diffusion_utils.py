@@ -145,9 +145,9 @@ def matching_loss(
 
     if mode == "deterministic":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
-        pos_loss = _component_loss(fake_pos, real_pos, use_l1)
+        pos_loss = _component_loss(fake_pos, real_pos, True)
         heading_loss = _component_loss(
-            fake_heading, real_heading, use_l1
+            fake_heading, real_heading, True
         )
         shape_loss = _component_loss(fake_shape, real_shape, use_l1)
         vel_loss = _component_loss(fake_vel, real_vel, use_l1)
