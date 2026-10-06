@@ -39,9 +39,9 @@ class InitDenoiser(nn.Module):
         - return/cfg conditioning branches
         - unused padding/SkipMLP/ExploreNoiseNet code
 
-    The embedding path can be selected by ``init_embedding_mode``:
-        - "new": AgentTokenEncoder-style Fourier/categorical fusion.
-        - "original": old denoiser MLP-addition embedding.
+    ``edge_embedding_type`` selects "fourier" or "mlp" for agent-agent
+    and map-agent geometry. State, ego-context and time embeddings are shared
+    by both choices.
 
     MeanFlow/iMF support:
         When ``mean_flow=True``, the model output is interpreted as the
@@ -60,6 +60,7 @@ class InitDenoiser(nn.Module):
         num_heads: int,
         dropout: float,
         x_pred: bool = True,
+        edge_embedding_type: str = "fourier",
     ) -> None:
         super().__init__()
 
@@ -72,6 +73,7 @@ class InitDenoiser(nn.Module):
         self.dropout = dropout
         self.x_pred = x_pred
         self.token_processor = token_processor
+        self.edge_embedding_type = edge_embedding_type
 
         self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
@@ -122,6 +124,7 @@ class InitDenoiser(nn.Module):
             num_freq_bands=num_freq_bands,
             use_a2a=True,
             use_pl2a=True,
+            embedding_type=edge_embedding_type,
         )
 
         self.lane_embed = MLPLayer(128, hidden_dim, hidden_dim)

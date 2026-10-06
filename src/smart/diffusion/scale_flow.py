@@ -52,6 +52,7 @@ class Flow(nn.Module):
             num_layers=args.num_denoiser_layers,
             num_heads=args.num_heads,
             dropout=args.dropout,
+            edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
         )
 
         self.t_eps = 0.05
@@ -89,7 +90,8 @@ class Flow(nn.Module):
                     num_layers=1,
                     num_heads=args.num_heads,
                     dropout=args.dropout,
-                    x_pred=False
+                    x_pred=False,
+                    edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
                 )
 
             # normalized-space exploration std

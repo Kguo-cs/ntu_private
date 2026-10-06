@@ -543,6 +543,7 @@ class SMART(LightningModule):
                     "name": "InitDiffusion", "mode": "lane_conditioned",
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
+                    "edge_embedding_type": getattr(initial_decoder, "edge_embedding_type", "fourier"),
                     "use_ema": initial_decoder.use_ema,
                     "ema_decay": initial_decoder.ema_decay,
                     "ema_num_updates": initial_decoder.ema.num_updates if initial_decoder.ema is not None else None,

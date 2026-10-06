@@ -33,6 +33,7 @@ model_config:
     init_decoder: flow
     sep_map: false  # A trainable map encoder dedicated to supervised InitDiffusion.
     init_diffusion:
+      edge_embedding_type: fourier  # Denoiser geometry: fourier or mlp.
       use_ema: false
       ema_decay: 0.9999
     initial_scene_only: false  # Direct initial-state evaluation on full reference lanes.

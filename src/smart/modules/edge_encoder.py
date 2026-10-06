@@ -7,7 +7,7 @@ from torch import Tensor
 from torch_geometric.nn.pool import knn, knn_graph
 from torch_scatter import scatter_mean
 
-from src.smart.layers.fourier_embedding import FourierEmbedding
+from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
     angle_between_2d_vectors,
     project_to_local_frame,
@@ -98,11 +98,11 @@ class EdgeEncoder(nn.Module):
         time_span: Optional[int] = 30,
         shift: int = 0,
         discriminator: bool = False,
-        use_bird: bool = False,
         use_pl2a: bool = False,
         use_a2a: bool = False,
         use_t2t: bool = False,
         differentiable_edge: bool = True,
+        embedding_type: str = "fourier",
     ) -> None:
         super().__init__()
 
@@ -110,6 +110,8 @@ class EdgeEncoder(nn.Module):
             raise ValueError("hist_drop_prob must be in [0,1].")
         if use_t2t and shift <= 0:
             raise ValueError("shift must be positive when use_t2t=True.")
+        if embedding_type not in ("fourier", "mlp"):
+            raise ValueError("embedding_type must be 'fourier' or 'mlp'.")
 
         self.hist_drop_prob = hist_drop_prob
         self.time_span = time_span
@@ -121,26 +123,23 @@ class EdgeEncoder(nn.Module):
         self.use_a2a = use_a2a
         self.use_pl2a = use_pl2a
         self.tokenized_pos = False
+        self.embedding_type = embedding_type
 
-        spatial_dim = 4 if use_bird else 3
+        def make_embedding(input_dim):
+            if embedding_type == "mlp":
+                return MLPEmbedding(input_dim=input_dim, hidden_dim=hidden_dim)
+            return FourierEmbedding(
+                input_dim=input_dim, hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
+
+        spatial_dim = 3
         if use_pl2a:
-            self.r_pt2a_emb = FourierEmbedding(
-                input_dim=spatial_dim,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
+            self.r_pt2a_emb = make_embedding(spatial_dim)
         if use_a2a:
-            self.r_a2a_emb = FourierEmbedding(
-                input_dim=spatial_dim,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
+            self.r_a2a_emb = make_embedding(spatial_dim)
         if use_t2t:
-            self.r_t_emb = FourierEmbedding(
-                input_dim=spatial_dim + 1,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
+            self.r_t_emb = make_embedding(spatial_dim + 1)
 
     @staticmethod
     def _select_agents(
@@ -362,6 +361,9 @@ class EdgeEncoder(nn.Module):
             head_vector_s[target],
             self.differentiable_edge,
         )
+        if self.embedding_type == "mlp" and categorical is not None:
+            # Edge categories are already fused; MLPEmbedding accepts a list.
+            categorical = [categorical]
         return self.r_pt2a_emb(
             continuous_inputs=torch.cat(
                 [local_pos, relative_head[:, None]], dim=-1

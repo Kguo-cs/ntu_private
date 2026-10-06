@@ -130,7 +130,6 @@ class InterativeDecoder(nn.Module):
             time_span=time_span,
             shift=self.shift,
             discriminator=discriminator,
-            use_bird=token_processor.use_bird,
             use_pl2a=True,
             use_a2a=True,
             use_t2t=True,
@@ -156,18 +155,17 @@ class InterativeDecoder(nn.Module):
         ])
 
         self.pt2a_attn_layers = nn.ModuleList()
-        if not token_processor.use_bird:
-            self.pt2a_attn_layers.extend([
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=True,
-                    has_pos_emb=True,
-                )
-                for _ in range(self.decode_layers)
-            ])
+        self.pt2a_attn_layers.extend([
+            AttentionLayer(
+                hidden_dim=hidden_dim,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                bipartite=True,
+                has_pos_emb=True,
+            )
+            for _ in range(self.decode_layers)
+        ])
 
         self.a2a_attn_layers = nn.ModuleList()
         if not discriminator:
@@ -388,10 +386,9 @@ class InterativeDecoder(nn.Module):
                     feat_a, r_a2a, edge_index_a2a
                 )
 
-            if not self.token_processor.use_bird:
-                feat_a = self.pt2a_attn_layers[layer](
-                    (feat_map, feat_a), r_pl2a, edge_index_pl2a
-                )
+            feat_a = self.pt2a_attn_layers[layer](
+                (feat_map, feat_a), r_pl2a, edge_index_pl2a
+            )
 
             if agent_train_mask is not None:
                 feat_a = self._select_features(
@@ -512,29 +509,26 @@ class InterativeDecoder(nn.Module):
             agent_train_mask=agent_train_mask,
         )
 
-        if self.token_processor.use_bird:
-            feat_map = edge_index_pl2a = r_pl2a = None
-        else:
-            feat_map = map_feature["pt_token"]
-            if self.discriminator:
-                feat_map = feat_map.detach()
+        feat_map = map_feature["pt_token"]
+        if self.discriminator:
+            feat_map = feat_map.detach()
 
-            edge_index_pl2a, r_pl2a = (
-                self.edge_encoder.build_map2agent_edge(
-                    pos_pl=map_feature["position"],
-                    orient_pl=map_feature["orientation"],
-                    pos_a=pos_a,
-                    head_a=head_a,
-                    head_vector_a=head_vector_a,
-                    mask=mask_a,
-                    batch_s=batch_repeat,
-                    batch_pl=map_feature["batch"],
-                    pl2a_radius=self.pl2a_radius,
-                    max_num_neighbors=self.pt2a_neighbor,
-                    agent_train_mask=agent_train_mask,
-                    layer_num=self.decode_layers,
-                )
+        edge_index_pl2a, r_pl2a = (
+            self.edge_encoder.build_map2agent_edge(
+                pos_pl=map_feature["position"],
+                orient_pl=map_feature["orientation"],
+                pos_a=pos_a,
+                head_a=head_a,
+                head_vector_a=head_vector_a,
+                mask=mask_a,
+                batch_s=batch_repeat,
+                batch_pl=map_feature["batch"],
+                pl2a_radius=self.pl2a_radius,
+                max_num_neighbors=self.pt2a_neighbor,
+                agent_train_mask=agent_train_mask,
+                layer_num=self.decode_layers,
             )
+        )
 
         (
             pos_s,

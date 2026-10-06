@@ -33,12 +33,16 @@ class InitDiffusion(nn.Module):
         model_args: Optional[Any] = None,
         use_ema: bool = False,
         ema_decay: float = 0.9999,
+        edge_embedding_type: str = "fourier",
     ) -> None:
         super().__init__()
         if token_processor is None:
             raise ValueError("token_processor is required.")
+        if edge_embedding_type not in ("fourier", "mlp"):
+            raise ValueError("edge_embedding_type must be 'fourier' or 'mlp'.")
 
         self.token_processor = token_processor
+        self.edge_embedding_type = edge_embedding_type
 
         # Compatibility flags used by SMART/SMART_GAIL.
         self.learn_autoencoder = False
@@ -47,6 +51,7 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
 
         args = self._make_args( )
+        args.edge_embedding_type = edge_embedding_type
         self.G1 = Flow(args, token_processor, gail)
 
         self.use_rl = bool(args.use_rl)

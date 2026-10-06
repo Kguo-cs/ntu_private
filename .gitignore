@@ -47,4 +47,5 @@ tests/
 !/tests/
 /tests/*
 !/tests/test_init_diffusion_sep_map.py
+!/tests/test_init_diffusion_edge_embedding.py
 outputs/scenario_dreamer*/

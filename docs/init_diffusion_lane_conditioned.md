@@ -50,6 +50,21 @@
 
 训练监测只生成一个 batch，仍对照完整 50k GT 分布，因此监测值不能当作完整评估结果。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
 
+## Denoiser 关系编码：Fourier / MLP
+
+默认 `model.model_config.decoder.init_diffusion.edge_embedding_type=fourier`，保留现有 FourierEmbedding。切换为 `mlp` 后，InitDiffusion denoiser 的 agent–agent 和 map–agent 关系使用已有 `MLPEmbedding`，直接编码 `[local_x, local_y, relative_heading]`；输出维度仍为 denoiser 的 hidden dimension。启用 refiner 时，其关系编码也使用同一选项。
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.edge_embedding_type=mlp
+```
+
+这个选项只切换 denoiser 内部关系编码。地图编码器（包括 `sep_map`）、运动策略、agent 状态和时间编码继续使用原实现；MLP 关系不使用 `num_freq_bands`。训练 loss、优化器和采样方法沿用现有配置，EMA 自动跟踪所选关系编码的参数。
+
+恢复训练和评价 MLP checkpoint 时都需要保留 `model.model_config.decoder.init_diffusion.edge_embedding_type=mlp`，例如在 `experiment=init_diffusion_lane_conditioned_eval` 命令中加入同一覆盖项。默认训练配置指定的 SMART 骨干 checkpoint 没有 InitDiffusion 权重，可以用它初始化新的 MLP 实验。已经训练的 Fourier InitDiffusion checkpoint 与 MLP 关系架构不同，不能直接作为 MLP 的续训或评价 checkpoint；本选项不自动转换关系权重和 EMA。
+
 ## 独立地图编码器（sep_map）
 
 默认 `model.model_config.decoder.sep_map=false`，InitDiffusion 复用 SMART 的地图编码器。启用下面的选项后，创建结构相同但参数独立的 `init_map_encoder`；监督训练同时更新这个地图编码器与 InitDiffusion，保留共享地图和运动策略编码器的冻结状态。该选项用于 `init_decoder=flow` 的监督路径。
