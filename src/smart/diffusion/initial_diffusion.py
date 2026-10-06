@@ -136,7 +136,7 @@ class InitDiffusion(nn.Module):
         """Create deterministic ScaleFlow settings without parsing process CLI."""
         values = {
             "input_dim": 8,
-            "hidden_dim": 512,
+            "hidden_dim": 256,
             "num_heads": 8,
             "dropout": 0,
             "num_denoiser_layers": 3,
