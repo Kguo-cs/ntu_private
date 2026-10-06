@@ -188,7 +188,7 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
+    #total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
@@ -458,8 +458,8 @@ def get_diff_loss(
     batch = tokenized_agent["batch"][-num_states:].to(fake_state.device)
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
 
-    # if not use_l1:
-    #     weight=weight.square()
+    if not use_l1:
+        weight=weight.square()
 
     if use_match:
         fake_idx = get_closest_sum_idx_fast(
