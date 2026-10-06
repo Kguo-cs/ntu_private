@@ -137,7 +137,7 @@ class InitDiffusion(nn.Module):
             "num_denoiser_layers": 3,
             "num_branch_steps": 1,
             "branch_steps": [0,1,2,3,4,5,6,7,8],#5,6,71,3,5,7,4,4,1,2,3,4,5,10,11,12,13,
-            "sampling_steps": 40,
+            "sampling_steps": 20,
             "use_rl": False,
         }
         return SimpleNamespace(**values)
