@@ -145,9 +145,9 @@ def matching_loss(
 
     if mode == "deterministic":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
-        pos_loss = _component_loss(fake_pos, real_pos, True)
+        pos_loss = _component_loss(fake_pos, real_pos, use_l1)
         heading_loss = _component_loss(
-            fake_heading, real_heading, True
+            fake_heading, real_heading, use_l1
         )
         shape_loss = _component_loss(fake_shape, real_shape, use_l1)
         vel_loss = _component_loss(fake_vel, real_vel, use_l1)
@@ -188,7 +188,7 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    #total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
+    total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
