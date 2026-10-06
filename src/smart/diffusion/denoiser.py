@@ -66,10 +66,10 @@ class InitDenoiser(nn.Module):
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        num_freq_bands = 128#hidden_dim//2
+        num_freq_bands = hidden_dim//2
         self.num_layers = num_layers
         self.num_heads = num_heads
-        head_dim = 16#hidden_dim//num_heads
+        head_dim = hidden_dim//num_heads
         self.dropout = dropout
         self.x_pred = x_pred
         self.token_processor = token_processor
