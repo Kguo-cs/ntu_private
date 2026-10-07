@@ -192,7 +192,7 @@ class InitDenoiser(nn.Module):
             ).clamp_min(1e-6)
 
             # Keep the old scaling heuristic.
-            scale[:, 2:8] = scale[:, 2:8] * 4
+            scale[:, 2:4] = scale[:, 2:4] * 4
             #scale[:, :2] = scale[:, :2] * 2
 
             self.normal_scale.copy_(scale)
