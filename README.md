@@ -56,9 +56,9 @@ CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_dadasper_node=2 --master_
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=1 setsid nohup python -m sd.train1 > 1.log 2>&1 &
+CUDA_VISIBLE_DEVICES=2 setsid nohup python -m sd.train1 > 1.log 2>&1 &
 
-
+CUDA_VISIBLE_DEVICES=2 setsid nohup python run2.py > 2.log 2>&1 &
 ssh 10.87.114.128
 source "/home/ke/miniconda3/bin/activate"
 cd /home/ke/keguo/sim/src
