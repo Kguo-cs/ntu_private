@@ -222,8 +222,8 @@ class Flow(nn.Module):
         non_ego = ~ego_mask
         non_ego_noise = noise[non_ego]
         matched_index = get_closest_sum_idx_fast(
-            non_ego_noise,
-            x[non_ego],
+            non_ego_noise/self.model.normal_scale,
+            x[non_ego]/self.model.normal_scale,
             {
                 "batch": tokenized_agent["batch"][non_ego],
                 "type": tokenized_agent["type"][non_ego],
