@@ -149,3 +149,5 @@ dit128_airl_128pad64_lambda1_map100_t
 WO53LWBDQV
 kefu321
 todesk：
+
+VectorWorld initialization: [training, weights, data preparation and evaluation](docs/vectorworld_initialization.md).

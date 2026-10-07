@@ -1,0 +1,9 @@
+# @package _global_
+# VectorWorld EGR-DiT uses the same AdamW grouping/constant recipe as Scenario Dreamer.
+model:
+  model_config:
+    optimizer: scenario_dreamer
+    lr: 0.0001
+    lr_warmup_steps: 500
+trainer:
+  gradient_clip_val: 10.0

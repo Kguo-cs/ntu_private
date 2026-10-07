@@ -1,0 +1,16 @@
+# @package _global_
+defaults:
+  - vectorworld_eval
+  - _self_
+
+task_name: vectorworld_lane_conditioned_eval
+model:
+  model_config:
+    decoder:
+      vectorworld:
+        training_mode: lane_conditioned
+        generation_mode: lane_conditioned
+        scene_count_source: input
+data:
+  val_raw_dir: ${paths.cache_root}/test
+  test_raw_dir: ${paths.cache_root}/test

@@ -488,6 +488,7 @@ def get_diff_loss(
     # w_pos=w_heading=w_shape=w_vel=1
     real_state=real_state/scale
     fake_state=fake_state/scale
+    w_pos=w_pos * 10
 
 
     losses = matching_loss(

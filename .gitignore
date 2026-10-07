@@ -49,3 +49,9 @@ tests/
 !/tests/test_init_diffusion_sep_map.py
 !/tests/test_init_diffusion_edge_embedding.py
 outputs/scenario_dreamer*/
+!/tests/test_vectorworld_core.py
+!/tests/test_vectorworld_data.py
+!/tests/test_vectorworld_decoder.py
+!/tests/test_vectorworld_integration.py
+!/tests/test_prepare_vectorworld_data.py
+!/tests/test_vectorworld_latent_stats.py

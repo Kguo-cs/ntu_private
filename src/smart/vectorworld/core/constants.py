@@ -1,0 +1,5 @@
+"""VectorWorld partition constants, matching the released model."""
+NON_PARTITIONED = 0
+PARTITIONED = 1
+AFTER_PARTITION = 0
+BEFORE_PARTITION = 1

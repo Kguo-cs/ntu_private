@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - vectorworld
+  - _self_
+
+task_name: vectorworld_lane_conditioned
+model:
+  model_config:
+    decoder:
+      vectorworld:
+        training_mode: lane_conditioned
+        generation_mode: lane_conditioned
+        scene_count_source: input
+data:
+  val_raw_dir: ${paths.cache_root}/test
+  test_raw_dir: ${paths.cache_root}/test
+  # All lg_type values supported by the model may train; evaluation selects lg_type=0.
+  scenario_dreamer_train_non_partitioned_only: false

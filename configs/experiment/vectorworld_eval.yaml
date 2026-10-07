@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - vectorworld
+  - _self_
+
+action: test
+task_name: vectorworld_flow_eval
+logger: null
+callbacks: null
+model:
+  model_config:
+    decoder:
+      vectorworld:
+        # Embedded motion VAE, model config and EMA are read from this native checkpoint.
+        ae_checkpoint: null
+        ldm_checkpoint: ${sim_root:}/src/waymo_data/vectorworld/checkpoints/flow.ckpt
+        scene_count_source: official_prior
+        count_prior_path: ${sim_root:}/src/smart/scenario_dreamer/assets/initial_prob_matrix_waymo.npz
+        sampling_seed: 0
+trainer:
+  logger: false
+  enable_checkpointing: false
+  limit_test_batches: 1  # 256-scene monitor; use 1.0 and sd_require_full_set=true for 50k.
+data:
+  num_workers: 0

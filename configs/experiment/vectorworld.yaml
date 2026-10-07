@@ -1,0 +1,88 @@
+# @package _global_
+# Train EGR-DiT with a frozen motion VAE and the existing SMART initial metrics.
+defaults:
+  - override /model: smart_fast
+
+action: fit
+seed: 0
+ckpt_path: null
+task_name: vectorworld_flow
+float32_matmul_precision: medium
+
+paths:
+  cache_root: ${sim_root:}/src/waymo_data/vectorworld/vae
+
+model:
+  model_config:
+    optimizer: scenario_dreamer
+    lr: 0.0001
+    lr_warmup_steps: 500
+    finetune: true
+    token_processor:
+      pred_init: true
+      learn_init: true
+      scenario_dreamer_init: true
+    decoder:
+      init_decoder: vectorworld
+      vectorworld:
+        training_stage: ldm
+        training_mode: joint
+        ae_checkpoint: ${sim_root:}/src/waymo_data/vectorworld/checkpoints/autoencoder.ckpt
+        ae_config: null
+        ldm_checkpoint: null
+        ldm_config: null
+        generation_mode: initial_scene
+        scene_count_source: input
+        map_source: exact
+        map_id: 0
+        use_ema: true
+        motion_missing: error
+        sampling_steps: null
+        guidance_scale: null
+    sd_use_cached_evaluator: true
+    sd_eval_set: ${sim_root:}/src/waymo_data/waymo_eval_set.pkl
+    sd_real_cache: ${sim_root:}/src/waymo_data/sd_real_metric_cache.sqlite
+    sd_expected_scenes: 50000
+    sd_gen_timestep: 0
+    sd_prediction_frame: sd_local
+    sd_require_generation_timestep: true
+    sd_require_full_set: false
+    sd_reference_mode: full
+
+data:
+  scenario_dreamer_preprocessed: true
+  scenario_dreamer_train_sample_list: ${paths.cache_root}/train_files.pkl
+  scenario_dreamer_train_latent_cache: null
+  scenario_dreamer_val_latent_cache: null
+  scenario_dreamer_test_latent_cache: null
+  scenario_dreamer_train_non_partitioned_only: false
+  scenario_dreamer_eval_set: ${model.model_config.sd_eval_set}
+  val_tfrecords_splitted: null
+  train_raw_dir: ${paths.cache_root}/train
+  # Joint sampling needs counts/lanes, but no GT motion or latent posterior.
+  val_raw_dir: ${sim_root:}/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test
+  test_raw_dir: ${sim_root:}/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test
+  train_batch_size: 32
+  val_batch_size: 32
+  test_batch_size: 256
+  num_workers: 4
+  pin_memory: false
+
+trainer:
+  devices: 1
+  precision: 32-true
+  max_steps: 165000
+  max_epochs: -1
+  gradient_clip_val: 10.0
+  num_sanity_val_steps: 0
+  limit_val_batches: 1
+  limit_test_batches: 1.0
+  check_val_every_n_epoch: 2
+
+callbacks:
+  model_checkpoint:
+    monitor: collision_rate
+    mode: min
+    filename: vectorworld-{epoch}-{step}
+  model_summary:
+    max_depth: 2

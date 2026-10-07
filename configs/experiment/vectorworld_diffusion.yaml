@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - vectorworld
+  - _self_
+
+task_name: vectorworld_diffusion
+model:
+  model_config:
+    decoder:
+      vectorworld:
+        ldm_config: ${sim_root:}/src/smart/vectorworld/waymo_diffusion.yaml

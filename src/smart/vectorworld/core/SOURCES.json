@@ -1,0 +1,75 @@
+{
+  "project": "VectorWorld",
+  "source_root": "/home/ke/code/VectorWorld",
+  "source_revision": "4e19a43686e00d0b4e02d83e3230b6a1251592be",
+  "license_statement": "Upstream README states Apache 2.0; all available source headers are preserved.",
+  "scope": "Motion-aware VAE and EGR-DiT diffusion, rectified-flow and MeanFlow numerical networks. No external runtime imports.",
+  "files": [
+    {
+      "source": "vectorworld/networks/vae_net.py",
+      "destination": "networks/vae_net.py",
+      "source_sha256": "45e870eae35b226075159c2b7d98f587e87838e67a4cc472f61f06978fbe012f",
+      "changes": "Local package imports only. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/networks/egr_dit.py",
+      "destination": "networks/egr_dit.py",
+      "source_sha256": "c9362bf0865f91e54c5981475f62eaceb67c5ae785224ef62ed7241575d47e86",
+      "changes": "Local package imports only. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/networks/dit_layers.py",
+      "destination": "networks/dit_layers.py",
+      "source_sha256": "763b2057053525357597cb2bb4c6a1f4a677610b2c64840fc687588711a025f7",
+      "changes": "Local package imports only. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/networks/ldm_net.py",
+      "destination": "networks/ldm_net.py",
+      "source_sha256": "cdb75fa10b9cd00b19c87d9049b53dadac1bbd23b22bf4ef44fcfbe31f598795",
+      "changes": "Local package imports; np.sqrt(torch schedule tensor) changed to torch.sqrt for meta-device construction. State-dict layout and schedule formula preserved. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/utils/layers.py",
+      "destination": "utils/layers.py",
+      "source_sha256": "d0b1eef09092ff1c1abaf3da3036826a488464ba12e6b274c42b1175ca1336fb",
+      "changes": "Local package imports only. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/utils/losses.py",
+      "destination": "utils/losses.py",
+      "source_sha256": "a17e4b2ffef2c269e54de34225430f0180f447325e716e16def9891a79b4af5a",
+      "changes": "Local package imports only. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/utils/data_container.py",
+      "destination": "utils/data_container.py",
+      "source_sha256": "13d4d3b99b194a7ad6a7d7fe39a773031d387e93ff973e9116d1a28f58e1ca33",
+      "changes": "Local package imports only. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/utils/pyg_helpers.py",
+      "destination": "utils/pyg_helpers.py",
+      "source_sha256": "f344b7403ae8236ecc2c916fa2eaea96a4723eb1cda373708da9b64dcd61e106",
+      "changes": "Local package imports only. Trailing whitespace removed; final newline normalized."
+    },
+    {
+      "source": "vectorworld/utils/diffusion_helpers.py",
+      "destination": "utils/diffusion_helpers.py",
+      "source_sha256": "e6d74e91a7fb83ea9c10253e952bb0729fbd5246b21b17da374ac009e3d03461",
+      "changes": "Local package imports only."
+    },
+    {
+      "source": "vectorworld/utils/train_helpers.py",
+      "destination": "utils/train_helpers.py",
+      "source_sha256": "b7dce0e8a99f99b720b93143e3e9724b406d9345090d5007eea1074d10ee5f2d",
+      "changes": "Selected unchanged functions: weight_init. Removed dataset and trainer imports."
+    },
+    {
+      "source": "vectorworld/utils/data_helpers.py",
+      "destination": "utils/data_helpers.py",
+      "source_sha256": "bf18ae80d3a9951cd5264fd1ce23ca7b7e126859b4989523675ef10edb304b41",
+      "changes": "Selected unchanged functions: _to_tensor_stats, normalize_latents, unnormalize_latents, reparameterize, sample_latents. Removed dataset and trainer imports. Trailing whitespace removed; final newline normalized."
+    }
+  ]
+}

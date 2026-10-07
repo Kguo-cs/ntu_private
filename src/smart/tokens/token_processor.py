@@ -844,6 +844,30 @@ class TokenProcessor(torch.nn.Module):
                     self.get_init(agent,data)
 
         agent.setdefault("num_graphs", data.num_graphs)
+        if self.scenario_dreamer_init:
+            from src.smart.scenario_dreamer.preprocessed import read_vectorworld_map_metadata
+            map_ids, map_valid, map_sources = read_vectorworld_map_metadata(data, agent["num_graphs"])
+            agent["vectorworld_map_id"] = map_ids
+            agent["vectorworld_map_valid_mask"] = map_valid
+            agent["vectorworld_map_source"] = map_sources
+        # Preserve real motion inputs for VectorWorld without computing histories
+        # in the existing SD / InitDiffusion paths. Native snapshots use sd_agent;
+        # rebuilt SD scenes retain full trajectories in SMART's output row order.
+        if "sd_agent" in data.node_types and "motion_raw" in data["sd_agent"]:
+            raw = data["sd_agent"]
+            agent["vectorworld_motion_raw"] = raw.motion_raw
+            agent["vectorworld_motion_valid_mask"] = raw.motion_valid_mask
+            agent["vectorworld_motion_is_static"] = raw.motion_is_static
+        elif self.scenario_dreamer_init and "agent" in data.node_types:
+            raw = data["agent"]
+            if all(key in raw for key in ("position", "heading", "velocity", "valid_mask")) and "scene_timestep" in data:
+                if len(raw.position) != len(agent["initial_pos"]) or not torch.equal(raw.batch, agent["batch"]):
+                    raise ValueError("Real VectorWorld motion histories must align with initial agent rows")
+                agent["vectorworld_history"] = {
+                    "position": raw.position, "heading": raw.heading,
+                    "velocity": raw.velocity, "valid_mask": raw.valid_mask,
+                    "scene_timestep": data["scene_timestep"].reshape(-1)[raw.batch],
+                }
         self._attach_token_libraries(agent)
         if "sd_lane" in data.node_types:
             edge = data["sd_lane", "to", "sd_lane"]

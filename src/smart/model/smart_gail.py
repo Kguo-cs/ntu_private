@@ -203,8 +203,9 @@ class SMART_GAIL(SMART):
             return _zero(reference)
 
         init_decoder = self.encoder.init_decoder
-        if getattr(init_decoder, "loss_kind", None) == "scenario_dreamer":
-            prefix = "train/scenario_dreamer/autoencoder" if init_decoder.learn_autoencoder else "train/scenario_dreamer"
+        loss_kind = getattr(init_decoder, "loss_kind", None)
+        if loss_kind in ("scenario_dreamer", "vectorworld"):
+            prefix = f"train/{loss_kind}/autoencoder" if init_decoder.learn_autoencoder else f"train/{loss_kind}"
             for name, value in result.items():
                 self._log_train(f"{prefix}/{name}", value)
             return result["loss"]

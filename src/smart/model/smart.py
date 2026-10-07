@@ -219,10 +219,12 @@ class SMART(LightningModule):
             # Initial-state training has no agent-policy forward. Scratch mode
             # trains map + initialization while excluding the unused policy.
             if ((getattr(self.encoder, "initial_scene_only", False)
-                 or getattr(self.encoder, "sep_map", False))
+                 or getattr(self.encoder, "sep_map", False)
+                 or getattr(self.encoder, "init_decoder_name", None) == "vectorworld")
                     and self.token_processor.learn_init and not self.encoder.gail):
                 _freeze(self.encoder.agent_encoder)
-                if getattr(self.encoder, "sep_map", False):
+                if (getattr(self.encoder, "sep_map", False)
+                        or getattr(self.encoder, "init_decoder_name", None) == "vectorworld"):
                     _freeze(self.encoder.map_encoder)
             return
         _freeze(self.encoder.map_encoder)
@@ -260,8 +262,9 @@ class SMART(LightningModule):
         tokenized_map, agent = self.token_processor(data)
         agent["tokenized_map"] = tokenized_map
         losses = self.encoder.init_decoder.autoencoder_loss(agent)
+        loss_kind = getattr(self.encoder.init_decoder, "loss_kind", "scenario_dreamer")
         for name, value in losses.items():
-            self.log(f"{prefix}/scenario_dreamer/autoencoder/{name}", value,
+            self.log(f"{prefix}/{loss_kind}/autoencoder/{name}", value,
                      on_step=False, on_epoch=True, batch_size=int(agent["num_graphs"]),
                      prog_bar=name == "loss", sync_dist=True)
         return losses["loss"]
@@ -356,12 +359,12 @@ class SMART(LightningModule):
             self.encoder._prepare_initial_map_feature(
                 tokenized_map, agent, None,
             )
-        sd_decoder = self.encoder.init_decoder_name == "scenario_dreamer"
+        graph_init_decoder = self.encoder.init_decoder_name in ("scenario_dreamer", "vectorworld")
         initial_map_only = (getattr(self.encoder, "sep_map", False)
                             and getattr(self.encoder, "initial_scene_only", False))
-        map_feature = {} if initial_map_only or (sd_decoder and self.scenario_dreamer_init) else self.encoder.map_encoder(tokenized_map)
+        map_feature = {} if initial_map_only or (graph_init_decoder and self.scenario_dreamer_init) else self.encoder.map_encoder(tokenized_map)
         agent["map_feature"] = map_feature
-        if sd_decoder:
+        if graph_init_decoder:
             agent["tokenized_map"] = tokenized_map
 
         traj, z, head, size, vel, z_list = [], [], [], [], [], []
@@ -538,6 +541,14 @@ class SMART(LightningModule):
                 sampling_report = getattr(initial_decoder, "sampling_report", None)
                 if sampling_report is not None:
                     report["decoder"]["sampling"] = sampling_report()
+            elif self.encoder.init_decoder_name == "vectorworld":
+                report["decoder"] = {"name": "vectorworld"}
+                report_options = getattr(initial_decoder, "report_options", None)
+                if report_options is not None:
+                    report["decoder"].update(report_options())
+                sampling_report = getattr(initial_decoder, "sampling_report", None)
+                if sampling_report is not None:
+                    report["decoder"]["sampling"] = sampling_report()
             elif self.encoder.init_decoder_name == "flow":
                 report["decoder"] = {
                     "name": "InitDiffusion", "mode": "lane_conditioned",
@@ -645,7 +656,7 @@ class SMART(LightningModule):
 
     def _configure_scenario_dreamer_optimizer(self):
         module = self.encoder
-        if getattr(module, "init_decoder_name", None) == "scenario_dreamer":
+        if getattr(module, "init_decoder_name", None) in ("scenario_dreamer", "vectorworld"):
             decoder = module.init_decoder
             module = decoder.autoencoder if decoder.learn_autoencoder else decoder.diff_model
         return build_scenario_dreamer_optimizer(

@@ -38,6 +38,7 @@ model_config:
       ema_decay: 0.9999
     initial_scene_only: false  # Direct initial-state evaluation on full reference lanes.
     scenario_dreamer: null
+    vectorworld: null
     hidden_dim: 128
     num_freq_bands: 64
     num_heads: 8

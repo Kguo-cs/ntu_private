@@ -61,6 +61,7 @@ class SMARTDecoder(nn.Module):
         finetune: bool = False,
         init_decoder: str = "flow",
         scenario_dreamer: Optional[dict] = None,
+        vectorworld: Optional[dict] = None,
         initial_scene_only: bool = False,
         init_diffusion: Optional[dict] = None,
         sep_map: bool = False,
@@ -77,11 +78,12 @@ class SMARTDecoder(nn.Module):
         if self.initial_scene_only and not self.token_processor.pred_init:
             raise ValueError("initial_scene_only requires token_processor.pred_init=true")
         self.scenario_dreamer_config = dict(scenario_dreamer or {})
+        self.vectorworld_config = dict(vectorworld or {})
         self.init_diffusion_config = dict(init_diffusion or {})
-        if init_decoder not in ("flow", "scenario_dreamer"):
+        if init_decoder not in ("flow", "scenario_dreamer", "vectorworld"):
             raise ValueError(f"Unknown init_decoder: {init_decoder}")
-        if init_decoder == "scenario_dreamer" and self.gail:
-            raise ValueError("Scenario Dreamer supports supervised initialization; GAIL requires its own policy loss")
+        if init_decoder in ("scenario_dreamer", "vectorworld") and self.gail:
+            raise ValueError(f"{init_decoder} supports supervised initialization; GAIL requires its own policy loss")
         self.use_lcf = reward_weight != 0
         self.use_kl_penalty = False
         self.alpha = 0.1
@@ -317,6 +319,10 @@ class SMARTDecoder(nn.Module):
             from src.smart.scenario_dreamer.decoder import ScenarioDreamerInitDecoder
             self.init_decoder = ScenarioDreamerInitDecoder(self.token_processor, **self.scenario_dreamer_config)
             return
+        if self.init_decoder_name == "vectorworld":
+            from src.smart.vectorworld.decoder import VectorWorldInitDecoder
+            self.init_decoder = VectorWorldInitDecoder(self.token_processor, **self.vectorworld_config)
+            return
         self.init_decoder = InitDiffusion(
             hidden_dim,
             num_heads,
@@ -457,7 +463,7 @@ class SMARTDecoder(nn.Module):
         tokenized_map: TensorDict,
         tokenized_agent: TensorDict,
     ) -> TensorDict:
-        if self.init_decoder_name == "scenario_dreamer" and self.token_processor.learn_init:
+        if self.init_decoder_name in ("scenario_dreamer", "vectorworld") and self.token_processor.learn_init:
             tokenized_agent["tokenized_map"] = tokenized_map
             return {"initial_logit": self.init_decoder(tokenized_agent)}
         if  self.sep_map and self.token_processor.learn_init and not self.gail:
@@ -510,7 +516,8 @@ class SMARTDecoder(nn.Module):
             self._prepare_initial_map_feature(
                 tokenized_agent["tokenized_map"], tokenized_agent, None,
             )
-        if initial_scene_only or (self.init_decoder_name == "scenario_dreamer" and tokenized_agent.get("initial_scene_only", False)):
+        if initial_scene_only or (self.init_decoder_name in ("scenario_dreamer", "vectorworld")
+                                  and tokenized_agent.get("initial_scene_only", False)):
             pos, heading, indices, shape, velocity = self.init_decoder(tokenized_agent)
             # Evaluate continuous initial states directly, without token history
             # reconstruction or autoregressive trajectory generation.

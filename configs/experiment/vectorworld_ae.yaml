@@ -1,0 +1,24 @@
+# @package _global_
+defaults:
+  - vectorworld
+  - _self_
+
+task_name: vectorworld_vae
+model:
+  model_config:
+    decoder:
+      vectorworld:
+        training_stage: autoencoder
+        ae_checkpoint: null
+data:
+  val_raw_dir: ${paths.cache_root}/test
+  test_raw_dir: ${paths.cache_root}/test
+  train_batch_size: 64
+  val_batch_size: 64
+trainer:
+  max_steps: 85000
+callbacks:
+  model_checkpoint:
+    monitor: val/vectorworld/autoencoder/loss
+    mode: min
+    filename: vectorworld-ae-{epoch}-{step}
