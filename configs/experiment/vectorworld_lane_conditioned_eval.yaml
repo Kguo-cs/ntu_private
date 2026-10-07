@@ -12,5 +12,5 @@ model:
         generation_mode: lane_conditioned
         scene_count_source: input
 data:
-  val_raw_dir: ${paths.cache_root}/test
-  test_raw_dir: ${paths.cache_root}/test
+  val_raw_dir: ${sim_root:}/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test
+  test_raw_dir: ${sim_root:}/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test

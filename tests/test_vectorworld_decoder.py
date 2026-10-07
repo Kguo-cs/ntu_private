@@ -99,7 +99,7 @@ class VectorWorldDecoderTest(unittest.TestCase):
 
     def test_lane_evaluation_full_only_and_five_tuple(self):
         decoder = self.decoder(mode="lane_conditioned").eval()
-        agent = self.agent()
+        agent = self.agent(motion=False)
         result = decoder(agent)
         self.assertEqual(len(result), 5)
         self.assertEqual(tuple(result[0].shape), (3, 1, 2))
@@ -109,6 +109,13 @@ class VectorWorldDecoderTest(unittest.TestCase):
         self.assertEqual(tuple(agent["generated_motion"].shape), (3, 12))
         with self.assertRaisesRegex(ValueError, "full non-partitioned lanes"):
             decoder(self.agent((1,)))
+
+    def test_lane_only_encoding_matches_full_encoder(self):
+        decoder = self.decoder(mode="lane_conditioned").eval()
+        full, _, _, _ = decoder._encode(self.agent())
+        lanes, _, _, _ = decoder._encode_lanes(self.agent(motion=False))
+        torch.testing.assert_close(lanes['lane'].latents, full['lane'].latents)
+        self.assertTrue((lanes['agent'].latents == 0).all())
 
     def test_joint_inference_needs_no_motion_and_returns_generated_lanes(self):
         decoder = self.decoder().eval()

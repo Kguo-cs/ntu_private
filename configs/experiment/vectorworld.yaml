@@ -64,7 +64,7 @@ data:
   test_raw_dir: ${sim_root:}/src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test
   train_batch_size: 32
   val_batch_size: 32
-  test_batch_size: 256
+  test_batch_size: 128
   num_workers: 4
   pin_memory: false
 

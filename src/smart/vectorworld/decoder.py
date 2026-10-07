@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 
 from .core import AutoEncoder, LDM, FlowLDM, MeanFlowLDM
 from .core.utils.data_helpers import normalize_latents, unnormalize_latents
+from .core.utils.data_container import get_features, get_encoder_edge_indices
 from .checkpoints import (ROOT, plain, public_config, resolve_path, load_checkpoint,
                           read_autoencoder, read_generator, validate_stats)
 from .data import build_graph, build_generation_graph
@@ -256,6 +257,30 @@ class VectorWorldInitDecoder(nn.Module):
             data["agent"].x, data["lane"].x = a, l
         return data, rows, centers, angles
 
+    def _encode_lanes(self, agent):
+        """Encode only lane context; initialization never needs GT agent history."""
+        data, rows, centers, angles = self._build_graph(agent, need_motion=False)
+        with torch.no_grad():
+            x_lane = get_features(data)[3]
+            _, edges, _, _, connections = get_encoder_edge_indices(data)
+            encoder = self.autoencoder.encoder
+            lanes = encoder.lane_mlp(x_lane)
+            connections = encoder.lane_conn_mlp(connections)
+            # The released encoder has l2l -> l2a -> a2a, with no a2l path.
+            # These are exactly its lane updates, without computing agent features.
+            for block in encoder.encoder_transformer_blocks:
+                lanes = block.l2l_transformer_layer(lanes, connections, edges)
+                downsampled = block.downsample_lane_emb(lanes)
+                connections = block.update_edge_embeddings(downsampled, edges, connections)
+            a = lanes.new_zeros((data['agent'].num_nodes, int(self.cfg.model.agent_latent_dim)))
+            l = encoder.lane_mu(lanes)
+            stats = self.cfg.dataset
+            _, l = normalize_latents(a, l, stats.agent_latents_mean, stats.agent_latents_std,
+                                     stats.lane_latents_mean, stats.lane_latents_std)
+            data['agent'].x = data['agent'].latents = a
+            data['lane'].x = data['lane'].latents = l
+        return data, rows, centers, angles
+
     _validate_lane_conditioning = ScenarioDreamerInitDecoder._validate_lane_conditioning
     _smart_output = ScenarioDreamerInitDecoder._smart_output
 
@@ -301,7 +326,7 @@ class VectorWorldInitDecoder(nn.Module):
                 data[kind].x = data[kind].x.new_zeros((data[kind].num_nodes,
                                                      int(self.cfg.model[f"{kind}_latent_dim"])))
         else:
-            data, rows, centers, angles = self._encode(agent)
+            data, rows, centers, angles = self._encode_lanes(agent)
         p = next(self.diff_model.parameters())
         self.ema.to(device=p.device, dtype=p.dtype)
         with torch.no_grad(), self.ema.average_parameters() if self.use_ema else nullcontext():

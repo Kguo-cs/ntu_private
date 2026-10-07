@@ -20,6 +20,6 @@ model:
 trainer:
   logger: false
   enable_checkpointing: false
-  limit_test_batches: 1  # 256-scene monitor; use 1.0 and sd_require_full_set=true for 50k.
+  limit_test_batches: 1.0  # 256-scene monitor; use 1.0 and sd_require_full_set=true for 50k.
 data:
   num_workers: 0

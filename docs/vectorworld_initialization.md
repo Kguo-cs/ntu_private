@@ -141,7 +141,7 @@ posterior 采样分布；这是解析估计，与官方有限随机采样的统�
 # Flow 权重，联合生成；默认前 256 个官方文件
 python src/run.py experiment=vectorworld_eval optimizer=vectorworld
 
-# 完整参考 lane 条件，需先回填 test motion
+# 完整参考 lane 条件；仅编码 lane，直接使用已有 SD test 数据，无需 agent history
 python src/run.py experiment=vectorworld_lane_conditioned_eval optimizer=vectorworld
 
 # 切换到 MeanFlow 权重；默认按权重配置使用 1 步
