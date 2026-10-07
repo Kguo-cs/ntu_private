@@ -258,9 +258,11 @@ class SMART_GAIL(SMART):
             std = noise_std[:, 0].mean(0)
         else:
             std = init_decoder.G1.model.normal_scale[0]
+        # State groups have widths 2/2/2/1 in speed mode, 2/2/2/2
+        # in vector mode. Keep the existing log keys for both layouts.
         for name, value in zip(
             ("pos_std", "heading_std", "shape_std", "vel_std"),
-            std.reshape(-1, 2).mean(-1),
+            (std[:2].mean(), std[2:4].mean(), std[4:6].mean(), std[6:].mean()),
         ):
             self._log_train(f"train/{name}", value)
 

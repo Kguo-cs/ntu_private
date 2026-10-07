@@ -14,6 +14,7 @@ from src.smart.diffusion.initial_diffusion import InitDiffusion
 from src.smart.diffusion.scale_flow import Flow, _circular_interpolate, _noise_endpoint
 from src.smart.diffusion.diffusion_utils import get_diff_loss
 from src.smart.utils import wrap_angle
+from src.smart.model.smart_gail import SMART_GAIL
 
 
 class InitDiffusionSpeedTest(unittest.TestCase):
@@ -293,7 +294,16 @@ class InitDiffusionSpeedTest(unittest.TestCase):
                 self.assertTrue(all(loss.ndim == 0 and torch.isfinite(loss) for loss in losses))
                 self.assertEqual(agent['expert_input'].shape, (3, 7))
                 torch.testing.assert_close(agent['expert_input'][:, 6], vector[:, 6:8].norm(dim=-1))
-                sum(losses).backward()
+                logged = {}
+                trainer = SimpleNamespace(encoder=SimpleNamespace(init_decoder=model),
+                                          _log_train=lambda name, value: logged.update({name: value}))
+                loss = SMART_GAIL._initial_prediction_loss(trainer, {"initial_logit": losses}, agent, losses[0])
+                torch.testing.assert_close(loss, losses[0] + losses[1])
+                self.assertEqual(set(logged), {"train/match_loss", "train/pos_loss", "train/heading_loss",
+                                              "train/shape_loss", "train/vel_loss", "train/col_loss",
+                                              "train/pos_std", "train/heading_std", "train/shape_std", "train/vel_std"})
+                torch.testing.assert_close(logged["train/vel_std"], model.G1.model.normal_scale[0, 6])
+                loss.backward()
                 gradients = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]
                 self.assertTrue(gradients)
                 self.assertTrue(all(torch.isfinite(gradient).all() for gradient in gradients))
@@ -325,6 +335,34 @@ class InitDiffusionSpeedTest(unittest.TestCase):
                 torch.testing.assert_close(agent['map_feature']['pt_token'], raw_map_tokens, atol=0, rtol=0)
                 for before, after in zip(online_parameters, model.G1.parameters()):
                     torch.testing.assert_close(after, before, atol=0, rtol=0)
+
+    def test_supervised_training_logs_state_groups_for_speed_and_vector_layouts(self):
+        for dim in (7, 8):
+            for use_noise_std in (False, True):
+                with self.subTest(state_dim=dim, noise_std=use_noise_std):
+                    scale = torch.arange(1., dim + 1.)
+                    initial = SimpleNamespace(use_gan=False, learn_autoencoder=False,
+                                              G1=SimpleNamespace(model=SimpleNamespace(normal_scale=scale[None])))
+                    logged = {}
+                    trainer = SimpleNamespace(encoder=SimpleNamespace(init_decoder=initial),
+                                              _log_train=lambda name, value: logged.update({name: value}))
+                    agent = {}
+                    expected_std = scale
+                    if use_noise_std:
+                        agent['noise_std'] = torch.arange(1., 2 * 3 * dim + 1.).reshape(2, 3, dim)
+                        expected_std = agent['noise_std'][:, 0].mean(0)
+                    losses = tuple(torch.tensor(float(i + 1), requires_grad=True) for i in range(6))
+                    result = SMART_GAIL._initial_prediction_loss(trainer, {'initial_logit': losses}, agent, losses[0])
+                    torch.testing.assert_close(result, losses[0] + losses[1])
+                    expected = (expected_std[:2].mean(), expected_std[2:4].mean(),
+                                expected_std[4:6].mean(), expected_std[6:].mean())
+                    for name, value in zip(('pos_std', 'heading_std', 'shape_std', 'vel_std'), expected):
+                        self.assertEqual(logged['train/' + name].ndim, 0)
+                        torch.testing.assert_close(logged['train/' + name], value)
+                    result.backward()
+                    torch.testing.assert_close(losses[0].grad, torch.tensor(1.))
+                    torch.testing.assert_close(losses[1].grad, torch.tensor(1.))
+                    self.assertTrue(all(value.grad is None for value in losses[2:]))
 
     def test_speed_parameters_and_ema_survive_strict_checkpoint_roundtrip(self):
         model = self.wrapper(use_ema=True, ema_decay=.9)
