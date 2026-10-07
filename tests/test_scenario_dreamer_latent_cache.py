@@ -92,19 +92,23 @@ class ScenarioDreamerLatentCacheTest(unittest.TestCase):
         for kind in ("agent", "lane"):
             torch.testing.assert_close(actual[kind].latents, expected[kind].latents, atol=2e-5, rtol=2e-5)
 
-    def test_cached_lane_training_uses_native_map_categories_without_rebuilding_posteriors(self):
-        from src.smart.scenario_dreamer.map_categories import load_category_keys
+    def test_cached_lane_training_uses_split_aware_categories_without_rebuilding_posteriors(self):
+        from src.smart.scenario_dreamer.map_categories import load_category_keys, SOURCE_RAW_SPLITS, SPLIT_POLICY
         import json
         self.generate()
         index = self.root / "categories.json"
-        index.write_text(json.dumps({"policy": "native_vae_train_plus_val_whitelist",
-                                     "compatible_keys": ["tfrecord-00001-of-00150_8"]}))
+        index.write_text(json.dumps({"schema_version": 2, "policy": SPLIT_POLICY,
+                                     "source_raw_splits": SOURCE_RAW_SPLITS,
+                                     "source_sha256": {name: '0' * 64 for name in SOURCE_RAW_SPLITS},
+                                     "compatible_keys_by_raw_split": {
+                                         "training": [], "validation": ["tfrecord-00001-of-00150_8"],
+                                         "testing": []}}))
         self.ldm.map_category_index = str(index)
         self.ldm.map_category_keys = load_category_keys(index)
         self.ldm.training_mode = "lane_conditioned"
         self.ldm.train()
         raw, cached = self.agents(False), self.agents(True)
-        filenames = [f"testing.tfrecord-00001-of-00150_{8+i}_{kind}_9.pkl"
+        filenames = [f"validation.tfrecord-00001-of-00150_{8+i}_{kind}_9.pkl"
                      for i, kind in enumerate((0, 1, 1, 0))]
         raw["scenario_dreamer_cache_file"] = filenames
         cached["scenario_dreamer_cache_file"] = filenames

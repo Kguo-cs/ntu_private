@@ -146,5 +146,173 @@ class InitDiffusionHeadingNoiseTest(unittest.TestCase):
                     self.assertEqual(actual, None if value == 'null' else float(value))
 
 
+class CircularHeadingFlowTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.threads = torch.get_num_threads()
+        torch.set_num_threads(1)
+
+    @classmethod
+    def tearDownClass(cls):
+        torch.set_num_threads(cls.threads)
+
+    def flow(self, sigma_h=5.):
+        args = InitDiffusionHeadingNoiseTest.args(sigma_h)
+        args.heading_noise = 'circular'
+        model = Flow(args, InitDiffusionHeadingNoiseTest.processor(), False)
+        with torch.no_grad():
+            model.model.normal_mean.copy_(torch.tensor([[3., -2., .8, -.3, 4., 2., 7., 1.]]))
+            model.model.normal_scale.copy_(torch.tensor([[2., 3., .2, 9., 1., .5, 4., 2.]]))
+        return model
+
+    def test_uniform_circle_endpoint_ignores_sigma_and_saved_heading_statistics(self):
+        flow = self.flow()
+        torch.manual_seed(817)
+        eps = torch.randn(8192, 8)
+        noise = _noise_endpoint(flow.model, eps, 5., 'circular')
+        heading = noise[:, 2:4]
+        torch.testing.assert_close(heading.norm(dim=-1), torch.ones(len(eps)), atol=2e-7, rtol=0)
+        torch.testing.assert_close(heading.mean(0), torch.zeros(2), atol=.04, rtol=0)
+        bins = torch.floor((torch.atan2(heading[:, 1], heading[:, 0]) + torch.pi) /
+                           (2*torch.pi) * 16).long().clamp_max(15)
+        torch.testing.assert_close(torch.bincount(bins, minlength=16).float(),
+                                   torch.full((16,), len(eps)/16), atol=90., rtol=0)
+        torch.testing.assert_close(noise, _noise_endpoint(flow.model, eps, None, 'circular'))
+        torch.testing.assert_close(noise, _noise_endpoint(flow.model, eps, 10., 'circular'))
+        indices = [0, 1, 4, 5, 6, 7]
+        torch.testing.assert_close(noise[:, indices], flow.model.denormalize(eps)[:, indices])
+
+    def test_shortest_arc_crosses_pi_boundary_and_other_fields_stay_linear(self):
+        from src.smart.diffusion.scale_flow import _circular_interpolate
+        theta0, theta1 = torch.deg2rad(torch.tensor([170., -170.]))
+        clean = torch.arange(8, dtype=torch.float32)[None].repeat(5, 1)
+        noise = clean + 8.
+        clean[:, 2:4] = torch.stack((theta0.cos(), theta0.sin()))
+        noise[:, 2:4] = torch.stack((theta1.cos(), theta1.sin()))
+        time = torch.linspace(0., 1., 5)[:, None]
+        actual = _circular_interpolate(clean, noise, time)
+        expected_theta = torch.deg2rad(torch.tensor([170., 175., 180., 185., 190.]))
+        expected_heading = torch.stack((expected_theta.cos(), expected_theta.sin()), -1)
+        torch.testing.assert_close(actual[:, 2:4], expected_heading, atol=1e-6, rtol=0)
+        torch.testing.assert_close(actual[:, 2:4].norm(dim=-1), torch.ones(5))
+        indices = [0, 1, 4, 5, 6, 7]
+        torch.testing.assert_close(actual[:, indices], ((1-time)*clean + time*noise)[:, indices])
+        torch.testing.assert_close(actual[0], clean[0], atol=1e-6, rtol=0)
+        torch.testing.assert_close(actual[-1], noise[-1], atol=1e-6, rtol=0)
+
+    def test_training_and_generation_share_circle_source_and_fix_ego(self):
+        flow = self.flow()
+        clean, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
+        eps = torch.linspace(-1.7, 2.1, 24).reshape(3, 8)
+        with patch('src.smart.diffusion.scale_flow.torch.randn_like', return_value=eps.clone()), \
+                patch.object(flow, '_sample_time', return_value=torch.full((3, 1), .4)):
+            source, time, latent = flow._prepare_supervised_batch(clean, agent)
+        non_ego = ~agent['ego_mask']
+        torch.testing.assert_close(latent[:, 2:4].norm(dim=-1), torch.ones(3))
+        torch.testing.assert_close(latent[~non_ego], clean[~non_ego])
+        torch.testing.assert_close(source[~non_ego], clean[~non_ego])
+        seen = []
+        original = flow.model.forward
+        def capture(state, *args, **kwargs):
+            seen.append(state[:, 2:4].norm(dim=-1).clone())
+            return original(state, *args, **kwargs)
+        with patch('src.smart.diffusion.scale_flow.torch.randn', return_value=eps.clone()), \
+                patch.object(flow.model, 'forward', side_effect=capture):
+            generated = flow.eval().sample(agent, feature, steps=5)
+        torch.testing.assert_close(agent['gen_noise'][non_ego], source[non_ego])
+        for norms in seen:
+            torch.testing.assert_close(norms, torch.ones(3), atol=2e-7, rtol=0)
+        torch.testing.assert_close(generated[:, 2:4].norm(dim=-1), torch.ones(3), atol=2e-7, rtol=0)
+        torch.testing.assert_close(generated[~non_ego], clean[~non_ego])
+
+    def test_oracle_x0_heading_recovers_data_for_multiple_step_counts_without_new_head(self):
+        clean, _, _ = InitDiffusionHeadingNoiseTest.inputs()
+        theta = torch.deg2rad(torch.tensor([170., 0., -175.]))
+        clean[:, 2:4] = torch.stack((theta.cos(), theta.sin()), dim=-1)
+        for steps in (1, 20, 40):
+            with self.subTest(steps=steps):
+                flow = self.flow().eval()
+                _, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
+                agent['expert_input'] = clean.clone()
+                with patch.object(flow.model, 'forward', return_value=clean.clone()):
+                    generated = flow.sample(agent, feature, steps=steps)
+                torch.testing.assert_close(generated[:, 2:4], clean[:, 2:4], atol=2e-6, rtol=0)
+                self.assertEqual(flow.model.output_dim, 8)
+
+    def test_velocity_is_tangent_finite_at_conditioned_zero_time_and_matches_arc(self):
+        from src.smart.diffusion.scale_flow import _circular_interpolate
+        flow = self.flow()
+        clean, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
+        noise = clean.clone()
+        phi = torch.deg2rad(torch.tensor([90., 0., -45.]))
+        noise[:, 2:4] = torch.stack((phi.cos(), phi.sin()), -1)
+        time = torch.tensor([[.4], [0.], [.025]])
+        latent = _circular_interpolate(clean, noise, time)
+        with patch.object(flow.model, 'forward', return_value=clean):
+            velocity, predicted = flow._model_velocity(latent, time, agent, feature)
+        self.assertTrue(torch.isfinite(velocity).all())
+        torch.testing.assert_close((velocity[:, 2:4] * latent[:, 2:4]).sum(-1),
+                                   torch.zeros(3), atol=2e-7, rtol=0)
+        torch.testing.assert_close(velocity[1, 2:4], torch.zeros(2))
+        current = torch.atan2(latent[:, 3], latent[:, 2])
+        tangent = torch.stack((-current.sin(), current.cos()), -1)
+        omega = (velocity[:, 2:4] * tangent).sum(-1)
+        expected = torch.tensor([torch.pi/2, 0., -3*torch.pi/4])
+        torch.testing.assert_close(omega, expected, atol=2e-5, rtol=0)
+        torch.testing.assert_close(predicted, clean)
+
+    def test_existing_x0_loss_and_weights_are_used_unchanged_with_finite_gradients(self):
+        from src.smart.diffusion.diffusion_utils import get_diff_loss
+        flow = self.flow().train()
+        clean, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
+        with patch.object(flow, '_sample_time', return_value=torch.full((3, 1), .4)), \
+                patch('src.smart.diffusion.scale_flow.get_diff_loss', wraps=get_diff_loss) as loss_fn:
+            result = flow._supervised_loss(clean, agent, feature)
+        self.assertEqual(loss_fn.call_count, 1)
+        call = loss_fn.call_args
+        self.assertEqual(set(call.kwargs), {'scale', 'use_col', 'x_pred'})
+        self.assertTrue(call.kwargs['use_col'])
+        self.assertTrue(call.kwargs['x_pred'])
+        self.assertEqual(call.args[4], .05)
+        torch.testing.assert_close(call.args[2], clean)
+        reference = get_diff_loss(*call.args, **call.kwargs)
+        for actual, expected in zip(result, reference):
+            torch.testing.assert_close(actual, expected)
+        (result[0].mean() + result[1]).backward()
+        gradients = [p.grad for p in flow.parameters() if p.grad is not None]
+        self.assertTrue(gradients)
+        self.assertTrue(all(torch.isfinite(gradient).all() for gradient in gradients))
+        self.assertTrue(any(gradient.abs().sum() > 0 for gradient in gradients))
+        old = Flow(InitDiffusionHeadingNoiseTest.args(), InitDiffusionHeadingNoiseTest.processor(), False)
+        self.assertEqual({k: v.shape for k, v in old.state_dict().items()},
+                         {k: v.shape for k, v in flow.state_dict().items()})
+        flow.load_state_dict(old.state_dict(), strict=True)
+
+    def test_wrapper_mode_config_and_invalid_or_stochastic_modes(self):
+        with patch.object(InitDiffusion, '_make_args', return_value=InitDiffusionHeadingNoiseTest.args()):
+            wrapper = InitDiffusion(32, 2, 4, InitDiffusionHeadingNoiseTest.processor(), False,
+                                    heading_noise='circular', sigma_h=5.)
+        self.assertEqual(wrapper.heading_noise, 'circular')
+        self.assertEqual(wrapper.G1.heading_noise, 'circular')
+        args = InitDiffusionHeadingNoiseTest.args()
+        args.heading_noise = 'invalid'
+        with self.assertRaisesRegex(ValueError, 'heading_noise must be gaussian or circular'):
+            Flow(args, InitDiffusionHeadingNoiseTest.processor(), False)
+        args.heading_noise = 'circular'
+        with self.assertRaisesRegex(ValueError, 'SDE/PPO transition requires heading_noise=gaussian'):
+            Flow(args, InitDiffusionHeadingNoiseTest.processor(), True)
+        root = Path(__file__).resolve().parents[1]
+        OmegaConf.register_new_resolver('sim_root', lambda: str(root), replace=True)
+        with initialize_config_dir(config_dir=str(root/'configs'), version_base=None):
+            for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
+                config = compose(config_name='run.yaml', overrides=[f'experiment={experiment}'])
+                self.assertEqual(config.model.model_config.decoder.init_diffusion.heading_noise, 'circular')
+                config = compose(config_name='run.yaml', overrides=[f'experiment={experiment}',
+                    'model.model_config.decoder.init_diffusion.heading_noise=gaussian',
+                    'model.model_config.decoder.init_diffusion.sigma_h=null'])
+                self.assertIsNone(config.model.model_config.decoder.init_diffusion.sigma_h)
+                self.assertEqual(config.model.model_config.decoder.init_diffusion.heading_noise, 'gaussian')
+
+
 if __name__ == '__main__':
     unittest.main()

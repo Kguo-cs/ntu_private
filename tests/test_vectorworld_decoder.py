@@ -117,19 +117,27 @@ class VectorWorldDecoderTest(unittest.TestCase):
         torch.testing.assert_close(lanes['lane'].latents, full['lane'].latents)
         self.assertTrue((lanes['agent'].latents == 0).all())
 
-    def test_native_filename_categories_fill_missing_labels_without_history(self):
+    def test_split_aware_categories_fill_missing_labels_without_history(self):
         import json
         with TemporaryDirectory() as directory:
             index = Path(directory) / 'categories.json'
-            index.write_text(json.dumps({'policy': 'native_vae_train_plus_val_whitelist',
-                                         'compatible_keys': ['tfrecord-00001-of-00150_8']}))
+            from src.smart.scenario_dreamer.map_categories import SOURCE_RAW_SPLITS, SPLIT_POLICY
+            index.write_text(json.dumps({'schema_version': 2, 'policy': SPLIT_POLICY,
+                                         'source_raw_splits': SOURCE_RAW_SPLITS,
+                                         'source_sha256': {name: '0' * 64 for name in SOURCE_RAW_SPLITS},
+                                         'compatible_keys_by_raw_split': {
+                                             'training': [], 'validation': ['tfrecord-00001-of-00150_8'],
+                                             'testing': []}}))
             decoder = self.decoder(mode='lane_conditioned', map_category_index=index).eval()
             agent = self.agent(motion=False)
-            agent['scenario_dreamer_cache_file'] = ['testing.tfrecord-00001-of-00150_8_0_9.pkl']
+            agent['scenario_dreamer_cache_file'] = ['validation.tfrecord-00001-of-00150_8_0_9.pkl']
             data, *_ = decoder._encode_lanes(agent)
             self.assertEqual(data.map_id.tolist(), [1])
-            self.assertEqual(data.vectorworld_map_sources, ['native_nocturne_filename_index'])
+            self.assertEqual(data.vectorworld_map_sources, ['split_aware_nocturne_filename_index'])
             self.assertFalse(agent['vectorworld_map_valid_mask'].any())
+            agent['scenario_dreamer_cache_file'] = ['testing.tfrecord-00001-of-00150_8_0_9.pkl']
+            data, *_ = decoder._encode_lanes(agent)
+            self.assertEqual(data.map_id.tolist(), [0])  # Same shard/record, different raw split.
             # Explicit native labels take precedence over filename classification.
             agent['vectorworld_map_valid_mask'][:] = True
             agent['vectorworld_map_id'][:] = 0

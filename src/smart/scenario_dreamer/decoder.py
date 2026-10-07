@@ -192,6 +192,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
         report.update(ae_checkpoint=self.ae_checkpoint_path, ldm_checkpoint=self.ldm_checkpoint_path,
                       training_mode=self.training_mode, ema_num_updates=self.ema.num_updates if self.ema is not None else None,
                       map_category_index=self.map_category_index, map_id_fallback=self.map_id,
+                      map_category_policy=(self.map_category_keys.policy if self.map_category_keys is not None else None),
                       map_condition_sources=dict(self._map_sources),
                       map_condition_id_counts=dict(self._map_ids))
         return report

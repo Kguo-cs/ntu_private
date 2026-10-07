@@ -1,5 +1,6 @@
-"""Native map labels reach the SD denoiser in both input-conditioned paths."""
+"""Split-aware labels reach denoisers; legacy cache behavior stays explicit."""
 import json
+import pickle
 from pathlib import Path
 import tempfile
 import unittest
@@ -11,7 +12,10 @@ from omegaconf import OmegaConf
 from torch_geometric.data import Batch, HeteroData
 
 from src.smart.scenario_dreamer.decoder import ScenarioDreamerInitDecoder
-from src.smart.scenario_dreamer.map_categories import scene_category_key
+from src.smart.scenario_dreamer.map_categories import (
+    scene_category_key, classify_category, load_category_keys, import_category_keys,
+    SPLIT_POLICY, NATIVE_POLICY, SOURCE_RAW_SPLITS,
+)
 from src.smart.scenario_dreamer.preprocessed import adapt_preprocessed_scene
 from src.smart.tokens.token_processor import TokenProcessor
 from test_scenario_dreamer_init_decoder import make_checkpoints, official_scene
@@ -26,10 +30,13 @@ class ScenarioDreamerMapCategoryTest(unittest.TestCase):
         cls.root = Path(cls.temp.name)
         cls.ae, cls.ldm = make_checkpoints(cls.root)
         cls.index = cls.root / "categories.json"
-        cls.index.write_text(json.dumps({
-            "policy": "native_vae_train_plus_val_whitelist",
-            "compatible_keys": ["tfrecord-00001-of-00150_8"],
-        }))
+        for name, keys in {
+            "nocturne_train_filenames.pkl": ["tfrecord-00001-of-01000_8"],
+            "nocturne_val_filenames.pkl": ["tfrecord-00001-of-00150_8"],
+            "nocturne_test_filenames.pkl": ["tfrecord-00001-of-00150_10"],
+        }.items():
+            (cls.root / name).write_bytes(pickle.dumps(keys))
+        import_category_keys(cls.root, cls.index)
         cls.prior = cls.root / "prior.npz"
         probabilities = np.zeros((2, 3, 4), dtype=np.float32)
         probabilities[:, 2, 3] = 1
@@ -57,13 +64,13 @@ class ScenarioDreamerMapCategoryTest(unittest.TestCase):
             scene = official_scene(kind)
             if label is not None:
                 scene["nocturne_compatible"] = label
-            filename = f"testing.tfrecord-00001-of-00150_{8+i}_{kind}_9.pkl"
+            filename = f"validation.tfrecord-00001-of-00150_{8+i}_{kind}_9.pkl"
             scenes.append(HeteroData(adapt_preprocessed_scene(scene, filename)))
         tokens, agent = self.processor(Batch.from_data_list(scenes))
         agent["tokenized_map"] = tokens
         return agent
 
-    def test_lane_eval_config_uses_sim_data_weights_and_native_category_index(self):
+    def test_lane_eval_config_uses_sim_data_weights_and_split_aware_category_index(self):
         from hydra import compose, initialize_config_dir
         root = Path(__file__).resolve().parents[1]
         OmegaConf.register_new_resolver("sim_root", lambda: str(root), replace=True)
@@ -73,6 +80,8 @@ class ScenarioDreamerMapCategoryTest(unittest.TestCase):
         options = cfg.model.model_config.decoder.scenario_dreamer
         self.assertEqual(Path(options.map_category_index), root /
                          "src/waymo_data/scenario_dreamer/metadata/nocturne_compatible_keys.json")
+        if Path(options.map_category_index).exists():
+            self.assertEqual(load_category_keys(options.map_category_index).policy, SPLIT_POLICY)
         self.assertEqual(Path(cfg.data.test_raw_dir), root /
                          "src/waymo_data/scenario_dreamer_ae_preprocess_waymo/test")
         for field in ("ae_checkpoint", "ldm_checkpoint"):
@@ -102,7 +111,7 @@ class ScenarioDreamerMapCategoryTest(unittest.TestCase):
         torch.testing.assert_close(agent["vectorworld_map_valid_mask"], valid, atol=0, rtol=0)
         report = model.sampling_report()
         self.assertEqual(report["map_condition_id_counts"], {"1": 1, "0": 1})
-        self.assertEqual(report["map_condition_sources"], {"native_nocturne_filename_index": 2})
+        self.assertEqual(report["map_condition_sources"], {"split_aware_nocturne_filename_index": 2})
         model.reset_sampling()
         self.assertEqual(model.sampling_report()["map_condition_id_counts"], {})
         self.assertEqual(model.sampling_report()["map_condition_sources"], {})
@@ -121,7 +130,7 @@ class ScenarioDreamerMapCategoryTest(unittest.TestCase):
         graph = model._build_graph(agent)[0]
         self.assertEqual(graph.map_id.tolist(), [1, 1])
         self.assertEqual(graph.map_condition_sources,
-                         ["native_nocturne_filename_index", "metadata_nocturne_compatible"])
+                         ["split_aware_nocturne_filename_index", "metadata_nocturne_compatible"])
         self.assertEqual(agent["vectorworld_map_valid_mask"].tolist(), [False, True])
 
     def test_no_index_honors_explicit_labels_and_configured_fallback(self):
@@ -175,6 +184,89 @@ class ScenarioDreamerMapCategoryTest(unittest.TestCase):
         report = indexed.sampling_report()
         self.assertEqual(report["map_condition_sources"], {"official_count_prior": 2})
         self.assertEqual(report["map_condition_id_counts"], report["map_id_counts"])
+
+
+class MapCategoryIndexPolicyTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.train_key = "tfrecord-00001-of-01000_8"
+        self.val_key = "tfrecord-00001-of-00150_8"
+        self.heldout_key = "tfrecord-00001-of-00150_10"
+        self.sources = {
+            "nocturne_train_filenames.pkl": [self.train_key],
+            "nocturne_val_filenames.pkl": [self.val_key],
+            "nocturne_test_filenames.pkl": [self.heldout_key],
+        }
+        for name, keys in self.sources.items():
+            (self.root / name).write_bytes(pickle.dumps(keys))
+        self.path = import_category_keys(self.root, self.root / "index.json")
+        self.index = load_category_keys(self.path)
+
+    def test_default_import_keeps_raw_split_provenance_and_all_source_hashes(self):
+        data = json.loads(self.path.read_text())
+        self.assertEqual(data["schema_version"], 2)
+        self.assertEqual(self.index.policy, SPLIT_POLICY)
+        self.assertEqual(data["source_raw_splits"], SOURCE_RAW_SPLITS)
+        self.assertEqual(set(data["source_sha256"]), set(self.sources))
+        self.assertEqual(self.index.training_keys, {self.train_key})
+        self.assertEqual(self.index.validation_keys, {self.val_key, self.heldout_key})
+
+    def test_collision_testing_stays_zero_and_heldout_validation_is_positive(self):
+        for key in (self.val_key, self.heldout_key):
+            self.assertEqual(classify_category(f"validation.{key}_0_9.pkl", self.index), 1)
+            self.assertEqual(classify_category(f"testing.{key}_0_9.pkl", self.index), 0)
+            self.assertEqual(classify_category(f"training.{key}_0_9.pkl", self.index), 0)
+        self.assertEqual(classify_category(f"training.{self.train_key}_1_37.pkl", self.index), 1)
+        self.assertEqual(classify_category(f"validation.{self.train_key}_1_37.pkl", self.index), 0)
+        self.assertEqual(classify_category("validation.tfrecord-00001-of-00150_11_0_9.pkl", self.index), 0)
+
+    def test_legacy_policy_requires_explicit_import_and_warns_on_load(self):
+        path = import_category_keys(self.root, self.root / "legacy.json", policy=NATIVE_POLICY)
+        with self.assertWarnsRegex(RuntimeWarning, "legacy splitless"):
+            index = load_category_keys(path)
+        self.assertEqual(index.policy, NATIVE_POLICY)
+        # Reproduce the released bug only under this explicit legacy policy.
+        self.assertEqual(classify_category(f"testing.{self.val_key}_0_9.pkl", index), 1)
+        self.assertEqual(classify_category(f"validation.{self.heldout_key}_0_9.pkl", index), 0)
+
+    def test_invalid_schema_provenance_and_key_types_fail(self):
+        original = json.loads(self.path.read_text())
+        mutations = [
+            {"schema_version": True},
+            {"schema_version": 1},
+            {"policy": "unknown"},
+            {"source_raw_splits": {"nocturne_test_filenames.pkl": "testing"}},
+            {"source_sha256": {}},
+            {"source_sha256": {name: 7 for name in self.sources}},
+            {"compatible_keys_by_raw_split": {"training": [], "validation": [], "testing": [self.val_key]}},
+            {"compatible_keys_by_raw_split": {"training": [False], "validation": [], "testing": []}},
+            {"compatible_keys_by_raw_split": {"training": [self.train_key] * 2, "validation": [], "testing": []}},
+            {"compatible_keys_by_raw_split": {"validation": []}},
+        ]
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                self.path.write_text(json.dumps(dict(original, **mutation)))
+                with self.assertRaises(ValueError):
+                    load_category_keys(self.path)
+        self.path.write_text('[]')
+        with self.assertRaisesRegex(ValueError, "JSON object"):
+            load_category_keys(self.path)
+        with self.assertRaises(TypeError):
+            classify_category(f"testing.{self.val_key}_0_9.pkl", frozenset([self.val_key]))
+
+    def test_missing_test_whitelist_fails_instead_of_silently_using_native_policy(self):
+        (self.root / "nocturne_test_filenames.pkl").unlink()
+        with self.assertRaises(FileNotFoundError):
+            import_category_keys(self.root, self.root / "missing.json")
+
+    def test_import_rejects_duplicate_or_non_string_keys(self):
+        for values in ([self.train_key] * 2, [2], [{"key": self.train_key}]):
+            with self.subTest(values=values):
+                (self.root / "nocturne_train_filenames.pkl").write_bytes(pickle.dumps(values))
+                with self.assertRaises(ValueError):
+                    import_category_keys(self.root, self.root / "bad.json")
 
 
 if __name__ == "__main__":

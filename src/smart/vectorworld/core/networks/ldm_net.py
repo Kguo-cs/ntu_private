@@ -1,5 +1,6 @@
 # Vendored from VectorWorld, revision 4e19a43686e00d0b4e02d83e3230b6a1251592be.
-# See ../SOURCES.json for provenance; local imports and meta-safe schedule square roots.
+# See ../SOURCES.json for provenance; local imports, meta-safe square roots,
+# and fixed-context Flow sampling.
 import numpy as np
 import torch
 from torch import nn
@@ -591,6 +592,17 @@ class FlowLDM(nn.Module):
                 x_agent_tmp = x_agent - dt * v_agent_1
                 x_lane_tmp = x_lane - dt * v_lane_1
 
+                # The corrector must see the same fixed context as the first
+                # field evaluation, including partial inpainting conditions.
+                if cond_agent_mask is not None and hasattr(data["agent"], "latents"):
+                    x_agent_tmp[cond_agent_mask] = data["agent"].latents[
+                        cond_agent_mask
+                    ].unsqueeze(1).to(device)
+                if cond_lane_mask is not None and hasattr(data["lane"], "latents"):
+                    x_lane_tmp[cond_lane_mask] = data["lane"].latents[
+                        cond_lane_mask
+                    ].unsqueeze(1).to(device)
+
                 # corrector at t_next
                 t_scene_next = torch.full((batch_size,), t_next, device=device)
                 t_agent_next = t_scene_next[agent_batch]
@@ -609,6 +621,16 @@ class FlowLDM(nn.Module):
 
             x_agent, x_lane = x_agent_next, x_lane_next
 
+            # Clip generated values before restoring fixed context
+            if self.diffusion_clip is not None and self.diffusion_clip > 0:
+                x_agent = torch.clamp(
+                    x_agent, -self.diffusion_clip, self.diffusion_clip
+                )
+                if mode != "lane_conditioned":
+                    x_lane = torch.clamp(
+                        x_lane, -self.diffusion_clip, self.diffusion_clip
+                    )
+
             # Re-imposed conditions
             if mode == "lane_conditioned" and hasattr(data["lane"], "latents"):
                 x_lane = data["lane"].latents[:, None, :].to(device)
@@ -625,16 +647,6 @@ class FlowLDM(nn.Module):
                 x_lane[cond_lane_mask] = data["lane"].latents[
                     cond_lane_mask
                 ].unsqueeze(1).to(device)
-
-            # Value stable clipping
-            if self.diffusion_clip is not None and self.diffusion_clip > 0:
-                x_agent = torch.clamp(
-                    x_agent, -self.diffusion_clip, self.diffusion_clip
-                )
-                if mode != "lane_conditioned":
-                    x_lane = torch.clamp(
-                        x_lane, -self.diffusion_clip, self.diffusion_clip
-                    )
 
             if return_chain:
                 # Record the " state updated at each step" and squeeze drop the middle dimension (N,1,D)->(N,D) to facilitate external decoding

@@ -50,9 +50,38 @@
 
 训练监测只生成一个 batch，仍对照完整 50k GT 分布，因此监测值不能当作完整评估结果。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
 
+## 圆周 Heading 路径（保留 x0 objective）
+
+当前训练和评价配置默认 `model.model_config.decoder.init_diffusion.heading_noise=circular`。
+对每个非 ego agent，噪声方向在 `[-π, π)` 均匀采样，计算最短角差
+`delta=wrap(theta_noise-theta_gt)`，构造 `theta_t=wrap(theta_gt+t*delta)`，然后编码为 cos/sin。
+heading 始终位于单位圆；位置、尺寸和速度仍使用原线性插值，ego 状态固定且时间为 0。
+
+这实现随机方向、最短角差、圆周插值三步。网络仍预测原来的 8 维 clean `x0`；
+原有 reconstruction/collision loss、时间权重、优化器、EMA 和 denoiser 架构均沿用。
+没有新增 angular-velocity head 或 angular-velocity regression objective。
+反向采样由预测的 `x0` heading 计算
+`omega=wrap(theta_t-theta_x0)/t`，再用 `theta_next=wrap(theta_t+dt*omega)` 更新 heading。
+非 ego 的正时间使用实际 `t`，避免最后一步被 `t_eps` 截断；ego 的 angular velocity 为 0。
+其余状态的 sampler 与 loss 的 `t_eps` 保持原值。
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python src/run.py \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.heading_noise=circular
+```
+
+评价使用相同 `heading_noise`。`sigma_h` 在 circular 模式不参与计算；报告记录
+`heading_noise=circular`、`heading_path=shortest_arc` 和 `sigma_h=null`。
+模型参数形状未改变，可以加载旧权重进行微调；验证新路径的学习效果仍需训练或微调。
+这是保留 x0 objective 的圆周路径实现，不使用 angular-velocity 的 Flow Matching objective。
+当前 circular 模式支持确定性 Flow 采样，SDE/PPO 分支要求使用 Gaussian 模式。
+
 ## Heading 噪声标准差
 
-当前训练与评价配置默认 `model.model_config.decoder.init_diffusion.sigma_h=5.0`。
+切换 `model.model_config.decoder.init_diffusion.heading_noise=gaussian` 时，
+当前实验默认 `model.model_config.decoder.init_diffusion.sigma_h=5.0`。
 heading 的噪声端点为 `sigma_h * N(0, I₂)`：cos/sin 两维均值为 0，使用同一个标准差，
 不读取 heading 的首批数据均值或标准差，也不再乘以已有的 `normal_scale`。
 其他状态分量继续使用原有经验噪声，ego 条件和线性 Rectified Flow 路径保留。
@@ -65,12 +94,14 @@ heading 的噪声端点为 `sigma_h * N(0, I₂)`：cos/sin 两维均值为 0，
 /home/ke/miniconda3/envs/sim/bin/python src/run.py \
   paths.root_dir=/home/ke/code/sim/src \
   experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.heading_noise=gaussian \
   model.model_config.decoder.init_diffusion.sigma_h=2.5
 ```
 
 评价同一模型时使用相同覆盖值。这个参数保存在运行配置中，评价报告记录实际 `sigma_h` 和 `heading_noise`；
 恢复 checkpoint 的权重不会自动切换当前配置的 `sigma_h`。
 切换噪声设置后需训练或微调，以比较对应的学习效果。若复查原有经验噪声模型，训练和评价都设置
+`model.model_config.decoder.init_diffusion.heading_noise=gaussian` 和
 `model.model_config.decoder.init_diffusion.sigma_h=null`。其他未显式启用本选项的实验仍默认使用经验噪声。
 
 ## Denoiser 关系编码：Fourier / MLP

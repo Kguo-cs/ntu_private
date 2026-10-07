@@ -205,6 +205,7 @@ class VectorWorldInitDecoder(nn.Module):
                       scene_count_source=self.scene_count_source, motion_missing=self.motion_missing,
                       map_source=self.map_source, map_id=self.map_id, use_ema=self.use_ema,
                       map_category_index=self.map_category_index,
+                      map_category_policy=(self.map_category_keys.policy if self.map_category_keys is not None else None),
                       lane_eval_map_source=self.lane_eval_map_source,
                       ae_checkpoint=self.ae_checkpoint_path, ldm_checkpoint=self.ldm_checkpoint_path)
         if self.diff_model is not None:
@@ -212,7 +213,8 @@ class VectorWorldInitDecoder(nn.Module):
                           sampling_steps=getattr(self.diff_model, "n_steps",
                                                 getattr(self.diff_model, "num_steps_eval",
                                                         getattr(self.diff_model, "n_timesteps", None))),
-                          guidance_scale=float(self.cfg.train.guidance_scale))
+                          guidance_scale=float(self.cfg.train.guidance_scale),
+                          heun_condition_policy=("fixed_before_corrector" if isinstance(self.diff_model, FlowLDM) else None))
         return report
 
     def sampling_report(self):

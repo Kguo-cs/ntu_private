@@ -3,10 +3,11 @@
 State convention:
     [x, y, heading_cos, heading_sin, length, width, vx, vy]
 
-Rectified-Flow convention:
+Flow convention:
     x0 ~ data, x1 ~ noise
-    x_t = (1 - t) * x0 + t * x1
-    velocity = dx_t/dt = x1 - x0
+    Euclidean fields: x_t = (1 - t) * x0 + t * x1
+    Circular heading: theta_t = wrap(theta0 + t * wrap(theta1 - theta0))
+    The model retains its original 8D x0 prediction and reconstruction objective.
 
 Training uses t in [0, 1]. Generation starts from noise at t=1 and
 integrates backward to data at t=0. The SDE/PPO transition uses the same
@@ -28,17 +29,34 @@ from src.smart.diffusion.diffusion_utils import (
     get_closest_sum_idx_fast,
     get_diff_loss,multi_circle_collision_loss_mem_efficient
 )
-from src.smart.utils import weight_init
+from src.smart.utils import weight_init, wrap_angle
 import copy
 from .denoiser import InitDenoiser
 
 
-def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float]) -> Tensor:
-    """Keep empirical noise for other fields; optionally use N(0, sigma_h² I) for heading."""
+def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float],
+                    heading_noise: str = "gaussian") -> Tensor:
+    """Use a uniform unit-circle heading or the configured Gaussian endpoint."""
     noise = model.denormalize(standard_noise)
-    if sigma_h is not None:
+    if heading_noise == "circular":
+        # The angle of an isotropic standard Gaussian is uniform on S¹.
+        theta = torch.atan2(standard_noise[:, 3], standard_noise[:, 2])
+        heading = torch.stack((theta.cos(), theta.sin()), dim=-1)
+        noise = torch.cat((noise[:, :2], heading, noise[:, 4:]), dim=-1)
+    elif sigma_h is not None:
         noise = torch.cat((noise[:, :2], sigma_h * standard_noise[:, 2:4], noise[:, 4:]), dim=-1)
     return noise
+
+
+def _circular_interpolate(clean: Tensor, noise: Tensor, time: Tensor) -> Tensor:
+    """Interpolate other fields linearly and headings along the shortest arc."""
+    theta0 = torch.atan2(clean[:, 3], clean[:, 2])
+    theta1 = torch.atan2(noise[:, 3], noise[:, 2])
+    delta = wrap_angle(theta1 - theta0)
+    theta = wrap_angle(theta0 + time[:, 0] * delta)
+    state = (1. - time) * clean + time * noise
+    return torch.cat((state[:, :2], torch.stack((theta.cos(), theta.sin()), dim=-1),
+                      state[:, 4:]), dim=-1)
 
 
 class Flow(nn.Module):
@@ -51,6 +69,9 @@ class Flow(nn.Module):
         gail: bool = False,
     ) -> None:
         super().__init__()
+        self.heading_noise = getattr(args, "heading_noise", "gaussian")
+        if self.heading_noise not in ("gaussian", "circular"):
+            raise ValueError("heading_noise must be gaussian or circular")
         sigma_h = getattr(args, "sigma_h", None)
         self.sigma_h = None if sigma_h is None else float(sigma_h)
         if self.sigma_h is not None and (not math.isfinite(self.sigma_h) or self.sigma_h <= 0):
@@ -117,6 +138,8 @@ class Flow(nn.Module):
             # refiner mean 最大修正量，normalized space
             self.refiner_delta_scale = 0.2
 
+        if self.heading_noise == "circular" and self.use_sde:
+            raise ValueError("Circular heading supports deterministic flow sampling; the SDE/PPO transition requires heading_noise=gaussian")
         self.apply(weight_init)
 
     @staticmethod
@@ -168,7 +191,8 @@ class Flow(nn.Module):
         x: Tensor,
         tokenized_agent: HeteroData,
     ) -> Tensor:
-        noise = _noise_endpoint(self.model, torch.randn_like(x), getattr(self, "sigma_h", None))
+        noise = _noise_endpoint(self.model, torch.randn_like(x), getattr(self, "sigma_h", None),
+                                getattr(self, "heading_noise", "gaussian"))
 
         ego_mask = tokenized_agent[
             "ego_mask"
@@ -249,10 +273,10 @@ class Flow(nn.Module):
         )
 
         # Rectified Flow: x0=data, x1=noise.
-        latent = (
-            (1.0 - time) * x
-            + time * noise
-        )
+        if self.heading_noise == "circular":
+            latent = _circular_interpolate(x, noise, time)
+        else:
+            latent = (1.0 - time) * x + time * noise
 
         return noise, time, latent
 
@@ -284,6 +308,16 @@ class Flow(nn.Module):
             self.t_eps
         )
 
+        if self.heading_noise == "circular":
+            theta = torch.atan2(latent[:, 3], latent[:, 2])
+            theta0 = torch.atan2(x0[:, 3], x0[:, 2])
+            # Keep the x0 objective. Convert its predicted heading to the
+            # shortest-arc angular velocity, without an angular-velocity head.
+            denominator = time[:, 0].clamp_min(torch.finfo(time.dtype).eps)
+            omega = wrap_angle(theta - theta0) / denominator
+            omega = torch.where(time[:, 0] > 0, omega, torch.zeros_like(omega))
+            tangent = torch.stack((-theta.sin(), theta.cos()), dim=-1) * omega[:, None]
+            velocity = torch.cat((velocity[:, :2], tangent, velocity[:, 4:]), dim=-1)
         return velocity, x0
 
     def get_ref_mean_std(self,base,tokenized_agent: HeteroData) -> tuple[Tensor, Tensor,Tensor]:
@@ -837,6 +871,14 @@ class Flow(nn.Module):
         )
 
         next_latent = latent + (next_time - time) * velocity
+        if self.heading_noise == "circular":
+            theta = torch.atan2(latent[:, 3], latent[:, 2])
+            tangent = torch.stack((-theta.sin(), theta.cos()), dim=-1)
+            omega = (velocity[:, 2:4] * tangent).sum(dim=-1)
+            theta_next = wrap_angle(theta + (next_time - time)[:, 0] * omega)
+            heading = torch.stack((theta_next.cos(), theta_next.sin()), dim=-1)
+            heading = torch.where(ego_mask[:, None], tokenized_agent["expert_input"][:, 2:4], heading)
+            next_latent = torch.cat((next_latent[:, :2], heading, next_latent[:, 4:]), dim=-1)
         log_prob = latent.new_zeros(num_agents)
         used_noise_level = latent.new_zeros(latent.shape)
 
@@ -913,7 +955,7 @@ class Flow(nn.Module):
             dtype=self.model.normal_scale.dtype,
         )
 
-        latent = _noise_endpoint(self.model, latent, self.sigma_h)
+        latent = _noise_endpoint(self.model, latent, self.sigma_h, self.heading_noise)
         tokenized_agent["gen_noise"]=latent.clone()
 
         if "expert_input" not in tokenized_agent:

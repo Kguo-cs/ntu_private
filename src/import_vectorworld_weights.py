@@ -10,7 +10,9 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.smart.vectorworld.checkpoints import public_config
-from src.smart.vectorworld.map_categories import import_category_keys
+from src.smart.vectorworld.map_categories import (
+    import_category_keys, SPLIT_POLICY, NATIVE_POLICY,
+)
 
 def import_weights(source_root, output_root, variants=("autoencoder", "flow", "meanflow", "diffusion")):
     source_root, output_root = Path(source_root), Path(output_root)
@@ -51,12 +53,15 @@ def main():
     parser.add_argument("--variants", nargs="+", choices=("autoencoder", "flow", "meanflow", "diffusion"),
                         default=("autoencoder", "flow", "meanflow", "diffusion"))
     parser.add_argument("--metadata-only", action="store_true",
-                        help="Import native Nocturne categories without rewriting checkpoints")
+                        help="Import split-aware Nocturne categories without rewriting checkpoints")
     parser.add_argument("--metadata-source", type=Path, default=None)
+    parser.add_argument("--map-category-policy", choices=(SPLIT_POLICY, NATIVE_POLICY),
+                        default=SPLIT_POLICY, help="Legacy native policy is for explicit cache reproduction")
     args = parser.parse_args()
     metadata = args.metadata_source or args.source.parent.parent / "metadata"
-    target = import_category_keys(metadata, args.output.parent / "metadata/nocturne_compatible_keys.json")
-    print(f"Native map category index -> {target}", flush=True)
+    target = import_category_keys(metadata, args.output.parent / "metadata/nocturne_compatible_keys.json",
+                                  policy=args.map_category_policy)
+    print(f"Map category index ({args.map_category_policy}) -> {target}", flush=True)
     if not args.metadata_only:
         import_weights(args.source, args.output, args.variants)
 

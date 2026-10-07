@@ -86,9 +86,10 @@ python src/prepare_vectorworld_data.py \
 不存在，`training_map2_sd` 又没有完整轨迹，因此正式训练仍需提供这个原始目录或完整训练缓存。
 工具不会用伪造的静止轨迹充当监督。真实的静止或短历史轨迹按官方规则得到合法零物理 motion。
 
-如果数据带 `nocturne_compatible` / `map_id`，模型使用逐场景标签。旧快照缺标签时，
-使用配置 `map_id=0` 作为 fallback；这与官方含 Nocturne 分类标签的训练分布有差别，
-报告会记录类别与来源。缺类别标签训练的模型应保持相同条件协议，或补齐标签后训练，
+如果数据带 `nocturne_compatible` / `map_id`，模型优先使用逐场景显式标签。旧快照缺标签时，
+当前配置先查询本地 `map_category_index`；没有索引才使用配置 `map_id=0` 作为 fallback。
+索引复现发布源码的缓存规则，其原始数据 split 歧义见下文；查询成功不代表验证了场景兼容性。
+报告会记录类别与来源。缺类别标签训练的模型应保持相同条件协议，或明确标签协议后训练，
 不能直接假定它学到了 prior 的两个类别。联合无条件评价使用的 count prior 已与 VectorWorld 原文件逐元素比对一致。
 
 ## 训练
@@ -142,9 +143,17 @@ Lane-conditioned 默认在原始完整参考 lane 上评价 agent。原始 Vecto
 VAE 重建地图。要比较原生口径，设置
 `model.model_config.decoder.vectorworld.lane_eval_map_source=reconstructed`。
 
-SD 原始 cache 不含 `nocturne_compatible`。当前配置使用 sim 中的原生文件名索引补标签；
-它严格沿用发布 VAE 缓存的 train+val whitelist，不随机抽取标签，也不根据几何猜测。
-显式原生标签优先。初次导入或旧安装可运行
+SD 原始 cache 不含 `nocturne_compatible`。当前配置使用 sim 中的文件名索引补标签，
+复现发布 VAE 源码的 train+val whitelist 规则；这是一项源码兼容策略，不能直接视为
+按原始数据 split 判定的 Nocturne 兼容性。原始代码先丢弃 `training.` / `validation.` /
+`testing.` 前缀，再查询 `tfrecord-shard_record`，而 validation 与 testing 的这些键会重合。
+
+在官方 50k 清单中，该规则把 5,835 个 `testing.*` 文件标为 1，原因是它们的键命中
+validation whitelist；6,065 个从 validation 移入 test 的 heldout Nocturne 场景反而标为 0，
+因为它们属于单独的 `nocturne_test_filenames.pkl`，发布缓存源码没有加载这份清单。
+因此“与缓存源码一致”和“按原始 split 识别兼容场景”是两个不同协议。目前保留前者，
+尚未根据这些标签验证论文的实际缓存和评价协议；不能以补标签后指标改善与否判断标签是否正确。
+显式原生缓存标签仍优先。初次导入或旧安装可运行
 `python src/import_vectorworld_weights.py --metadata-only`，运行时不依赖外部仓库。
 
 
@@ -192,3 +201,37 @@ decoder/采样/EMA 配置、motion 及 map 条件来源、样本数和参考分�
   完整 lane 检查、native/SMART checkpoint、EMA、数据转换与 latent statistics。
 
 核心来源及差异见 [SOURCES.json](../src/smart/vectorworld/core/SOURCES.json)。
+
+
+## Lane-conditioned 差异诊断（2026-10-07）
+
+50k 新结果仍使用原始参考 lane：speed_jsd=0.03729、lat_dev_jsd=0.16115、
+ang_dev_jsd=0.12348、collision_rate=7.0364%。它不是 joint 生成结果；也不能仅凭
+`training_mode=lane_conditioned` 将公开 joint 权重视为本地 lane-conditioned 训练权重。
+发布 Flow 训练对 lg_type=0 的全部 lane 加噪；完整干净 lane 是评价时施加的条件。
+
+原始与本地 Flow Heun 采样器都有一个条件处理问题：predictor 更新 lane 后，
+corrector 使用暂时偏移的 lane，再于整步末尾恢复条件。仅检查返回 lane 无法发现。
+诊断工具在内存中对每次 vector-field 调用固定 lane，不修改发布采样器或默认配置：
+
+```bash
+python src/check_vectorworld_lane_conditioning.py
+```
+
+工具取官方清单中普通 testing、原生索引命中的 testing、heldout validation 各 8 个场景。
+对同一组初始 agent 噪声、Flow24/Heun/CFG4/EMA190200，实测：
+
+| 对照 | Agent 位置平均绝对偏移 | 子集碰撞率 |
+|---|---:|---:|
+| 原生采样（medium） | 基准 | 6.2112% |
+| 每次 field 调用固定 lane | 0.8201 m | 9.9379% |
+| 保留 split 的 heldout 标签 | 5.1302 m | 9.3333% |
+| highest 矩阵精度 | 0.0207 m | 6.2112% |
+
+偏移是逐 agent 配对的二维位置距离，包含所有 agent 类型。这 24 个场景经过分组抽样，
+不代表 50k 指标；strict clamp 或语义标签在此子集上也没有保证碰撞率改善。
+原生 corrector 输入的 lane latent 最大偏移为 0.7012，strict 版本为 0。
+同一批生成 agent 切换原始/重建 lane，只影响与 lane 有关的评价，不能解释碰撞率差异。
+报告保存在 `logs/vectorworld_lane_conditioning_audit.json`。新增 field 输入级审计测试
+`tests/test_vectorworld_flow_conditioning.py` 也确认条件问题，并证明临时 clamp 对 joint
+采样完全无影响。当前默认保留发布源码行为，以免混淆权重复现与条件采样修正。

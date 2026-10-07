@@ -27,7 +27,7 @@
       "source": "vectorworld/networks/ldm_net.py",
       "destination": "networks/ldm_net.py",
       "source_sha256": "cdb75fa10b9cd00b19c87d9049b53dadac1bbd23b22bf4ef44fcfbe31f598795",
-      "changes": "Local package imports; np.sqrt(torch schedule tensor) changed to torch.sqrt for meta-device construction. State-dict layout and schedule formula preserved. Trailing whitespace removed; final newline normalized."
+      "changes": "Local package imports; np.sqrt(torch schedule tensor) changed to torch.sqrt for meta-device construction. State-dict layout and schedule formula preserved. Trailing whitespace removed; final newline normalized. Flow conditional sampling restores fixed agent/lane predictor nodes before the Heun corrector and restores conditions after clipping. Unconditioned joint sampling is unchanged; the condition fix intentionally differs from upstream."
     },
     {
       "source": "vectorworld/utils/layers.py",
