@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: xflow128_256_ema_col01_msesq3t002 #_l1total #40 #drop01freq128_head16freq128
+task_name: xflow128_256_ema_col01_msesq4 #t #002 #_l1total #40 #drop01freq128_head16freq128
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
