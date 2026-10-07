@@ -7,7 +7,8 @@ Flow convention:
     x0 ~ data, x1 ~ noise
     Euclidean fields: x_t = (1 - t) * x0 + t * x1
     Circular heading: theta_t = wrap(theta0 + t * wrap(theta1 - theta0))
-    The model retains its original 8D x0 prediction and reconstruction objective.
+    Euclidean fields predict x0. Circular heading optionally predicts angular
+    velocity with a separate scalar flow matching objective.
 
 Training uses t in [0, 1]. Generation starts from noise at t=1 and
 integrates backward to data at t=0. The SDE/PPO transition uses the same
@@ -72,11 +73,19 @@ class Flow(nn.Module):
         self.heading_noise = getattr(args, "heading_noise", "gaussian")
         if self.heading_noise not in ("gaussian", "circular"):
             raise ValueError("heading_noise must be gaussian or circular")
+        self.heading_objective = getattr(args, "heading_objective", "x0")
+        if self.heading_objective not in ("x0", "angular_velocity"):
+            raise ValueError("heading_objective must be x0 or angular_velocity")
+        if self.heading_objective == "angular_velocity" and self.heading_noise != "circular":
+            raise ValueError("angular_velocity requires heading_noise=circular")
+        self.heading_flow_loss_weight = float(getattr(args, "heading_flow_loss_weight", 1.0))
+        if not math.isfinite(self.heading_flow_loss_weight) or self.heading_flow_loss_weight <= 0:
+            raise ValueError("heading_flow_loss_weight must be finite and positive")
         sigma_h = getattr(args, "sigma_h", None)
         self.sigma_h = None if sigma_h is None else float(sigma_h)
         if self.sigma_h is not None and (not math.isfinite(self.sigma_h) or self.sigma_h <= 0):
             raise ValueError("sigma_h must be finite and positive, or null for empirical heading noise")
-        # Standard x0-prediction flow. No Gaussian or MeanFlow output.
+        # Euclidean x0 prediction, with an optional scalar circular velocity head.
         self.model = InitDenoiser(
             token_processor,
             input_dim=args.input_dim,
@@ -86,6 +95,7 @@ class Flow(nn.Module):
             num_heads=args.num_heads,
             dropout=args.dropout,
             edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
+            heading_velocity=self.heading_objective == "angular_velocity",
         )
 
         self.t_eps = 0.05
@@ -300,7 +310,19 @@ class Flow(nn.Module):
             use_map_condition=use_map_condition,
         )
 
+        return self._prediction_velocity(latent, time, prediction)
+
+    def _prediction_velocity(
+        self, latent: Tensor, time: Tensor, prediction: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        """Decode mixed Euclidean x0 / circular angular-velocity outputs."""
         x0 = prediction[:, : latent.shape[-1]]
+        if self.heading_objective == "angular_velocity":
+            theta = torch.atan2(latent[:, 3], latent[:, 2])
+            omega = prediction[:, 8]
+            theta0 = wrap_angle(theta - time[:, 0] * omega)
+            x0 = torch.cat((x0[:, :2], torch.stack((theta0.cos(), theta0.sin()), dim=-1),
+                            x0[:, 4:]), dim=-1)
 
         velocity = (
             latent - x0
@@ -310,11 +332,10 @@ class Flow(nn.Module):
 
         if self.heading_noise == "circular":
             theta = torch.atan2(latent[:, 3], latent[:, 2])
-            theta0 = torch.atan2(x0[:, 3], x0[:, 2])
-            # Keep the x0 objective. Convert its predicted heading to the
-            # shortest-arc angular velocity, without an angular-velocity head.
-            denominator = time[:, 0].clamp_min(torch.finfo(time.dtype).eps)
-            omega = wrap_angle(theta - theta0) / denominator
+            if self.heading_objective == "x0":
+                theta0 = torch.atan2(x0[:, 3], x0[:, 2])
+                denominator = time[:, 0].clamp_min(torch.finfo(time.dtype).eps)
+                omega = wrap_angle(theta - theta0) / denominator
             omega = torch.where(time[:, 0] > 0, omega, torch.zeros_like(omega))
             tangent = torch.stack((-theta.sin(), theta.cos()), dim=-1) * omega[:, None]
             velocity = torch.cat((velocity[:, :2], tangent, velocity[:, 4:]), dim=-1)
@@ -501,19 +522,18 @@ class Flow(nn.Module):
         tokenized_agent: HeteroData,
         map_feature: Mapping[str, Tensor],
     ):
-        _, time, latent = (
+        noise, time, latent = (
             self._prepare_supervised_batch(
                 x,
                 tokenized_agent,
             )
         )
 
-        _, x0 = self._model_velocity(
-            latent,
-            time,
-            tokenized_agent,
-            map_feature,
-        )
+        if self.heading_objective == "angular_velocity":
+            prediction = self.model(latent, time, tokenized_agent, map_feature)
+            _, x0 = self._prediction_velocity(latent, time, prediction)
+        else:
+            _, x0 = self._model_velocity(latent, time, tokenized_agent, map_feature)
 
         ego_mask = tokenized_agent[
             "ego_mask"
@@ -526,6 +546,9 @@ class Flow(nn.Module):
             x0,
         )
 
+        loss_options = {}
+        if self.heading_objective == "angular_velocity":
+            loss_options["reconstruction_dims"] = (0, 1, 4, 5, 6, 7)
         loss = get_diff_loss(
             tokenized_agent,
             x0,
@@ -535,7 +558,21 @@ class Flow(nn.Module):
             scale=self.model.normal_scale,
             use_col=True,
             x_pred=True,
+            **loss_options,
         )
+
+        if self.heading_objective == "angular_velocity":
+            theta0 = torch.atan2(x[:, 3], x[:, 2])
+            theta1 = torch.atan2(noise[:, 3], noise[:, 2])
+            target = wrap_angle(theta1 - theta0)
+            active = (~ego_mask[:, 0]) & (time[:, 0] > 0) & (time[:, 0] < 1)
+            # Uniform flow-time weighting; no 1/t^3 weighting or wrapping
+            # the prediction error. The target is d(theta_t)/dt = delta.
+            heading_loss = torch.where(active, (prediction[:, 8] - target).square(),
+                                       torch.zeros_like(target))
+            total, collision, position, _, shape, velocity = loss
+            loss = (total + self.heading_flow_loss_weight * heading_loss, collision,
+                    position, heading_loss, shape, velocity)
 
         return loss
 

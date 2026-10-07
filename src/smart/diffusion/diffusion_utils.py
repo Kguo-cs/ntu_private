@@ -132,6 +132,7 @@ def matching_loss(
     w_vel=0.2,
     use_l1: bool = True,
     scale=None,
+    reconstruction_dims=None,
 ):
     """Return total and component losses, each with shape [N]."""
 
@@ -188,7 +189,12 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    total_loss = F.mse_loss(real_state,fake_state, reduction="none").mean(-1)*w_pos
+    state_error = F.mse_loss(real_state, fake_state, reduction="none")
+    if reconstruction_dims is None:
+        total_loss = state_error.mean(-1) * w_pos
+    else:
+        # Retain each selected dimension's original contribution (1 / 8).
+        total_loss = state_error[:, reconstruction_dims].sum(-1) / state_error.shape[-1] * w_pos
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
@@ -452,6 +458,7 @@ def get_diff_loss(
     w_vel: float = 1 / 5,
     max_loss_weight: float | None = None,
     use_l1: bool = False,
+    reconstruction_dims=None,
 ):
     """State reconstruction plus collision loss beyond each GT pair's overlap."""
     num_states = len(fake_state)
@@ -499,7 +506,8 @@ def get_diff_loss(
         w_shape=w_shape * weight,
         w_vel=w_vel * weight,
         use_l1=use_l1,
-        scale=scale
+        scale=scale,
+        reconstruction_dims=reconstruction_dims,
     )
 
     # losses[0]=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)

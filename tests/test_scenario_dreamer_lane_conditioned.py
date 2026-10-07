@@ -79,6 +79,8 @@ class ScenarioDreamerLaneConditionedTest(unittest.TestCase):
                 with patch.object(model.diff_model, "forward", side_effect=capture):
                     output = model(agent)
                 self.assertEqual(calls, ["lane_conditioned"])
+                self.assertEqual(model.sampling_report()["ddpm_condition_policy"],
+                                 "fixed_before_each_denoising_call")
                 self.assertEqual(len(output), 5)
                 self.assertEqual(output[0].shape, (6, 1, 2))
                 self.assertNotIn("generated_map", agent)

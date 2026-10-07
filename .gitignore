@@ -58,3 +58,4 @@ outputs/scenario_dreamer*/
 !/tests/test_scenario_dreamer_map_categories.py
 !/tests/test_init_diffusion_heading_noise.py
 !/tests/test_vectorworld_flow_conditioning.py
+!/tests/test_scenario_dreamer_sampling_conditions.py

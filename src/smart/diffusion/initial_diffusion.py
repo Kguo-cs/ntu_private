@@ -36,6 +36,8 @@ class InitDiffusion(nn.Module):
         edge_embedding_type: str = "fourier",
         sigma_h: Optional[float] = None,
         heading_noise: str = "gaussian",
+        heading_objective: str = "x0",
+        heading_flow_loss_weight: float = 1.0,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -58,6 +60,10 @@ class InitDiffusion(nn.Module):
         args.sigma_h = self.sigma_h
         self.heading_noise = heading_noise
         args.heading_noise = heading_noise
+        self.heading_objective = heading_objective
+        self.heading_flow_loss_weight = float(heading_flow_loss_weight)
+        args.heading_objective = heading_objective
+        args.heading_flow_loss_weight = self.heading_flow_loss_weight
         self.G1 = Flow(args, token_processor, gail)
 
         self.use_rl = bool(args.use_rl)

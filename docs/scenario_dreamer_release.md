@@ -111,28 +111,37 @@ lane-conditioned 评价只接受完整图；训练接受全部受支持的 `lg_t
 训练阶段仍保持原 LDM loss。若从 `scenario_dreamer_release` 手动覆盖模式，需同时设置
 `model.model_config.decoder.scenario_dreamer.scene_count_source=input`。
 
-`map_id` 现在按场景传入 LDM：优先使用显式 `nocturne_compatible` / `map_id` 标签；
-原始 AE 快照缺少标签时，查本地 `map_category_index`。规则与
-[官方 AE 缓存代码](https://github.com/princeton-computational-imaging/scenario-dreamer/blob/675423469766bf2fd8a6b569ef1869a6f1e76993/models/scenario_dreamer_autoencoder.py#L174-L179)
-一致：取文件名中的 `tfrecord-xxxxx-of-xxxxx_<record>`，判断是否在 train＋val Nocturne 白名单中。
-命中为 1，未命中为 0；文件名的 split、`lg_type` 和 timestep 不参与判断。
-两份白名单已核对官方 SHA-256，并导入
-`src/waymo_data/scenario_dreamer/metadata/nocturne_compatible_keys.json`，运行时只读取 sim 内的索引。
-默认配置已启用，训练、在线 AE 编码和既有 latent cache 路径均使用同一规则，无需重建 AE latent cache。
-`scenario_dreamer_lane_conditioned` 的数据、权重和 reference cache 路径固定解析到 sim 的 `src/waymo_data`，
-从项目根目录执行命令即可。
-若迁移工作区，先导入官方的两份 `nocturne_train_filenames.pkl` / `nocturne_val_filenames.pkl`：
+`map_id` 按场景传入 LDM：优先使用显式 `nocturne_compatible` / `map_id` 标签；
+原始 AE 快照缺少标签时，查 sim 内的 split-aware `map_category_index`：
+`training.*` 只查训练名单，`validation.*` 查验证及 heldout test 名单的并集，
+`testing.*` 为 0。heldout test 名单对应从原始 validation 移入测试集的场景。
+该规则修正了发布缓存代码丢弃 split 后的编号碰撞。`lg_type` 与 timestep 不影响类别。
+
+默认索引 `src/waymo_data/scenario_dreamer/metadata/nocturne_compatible_keys.json`
+已经更新，训练、在线 AE 编码与已有 latent cache 使用同一标签规则；无需重建 AE latent。
+`scenario_dreamer_lane_conditioned` 的数据、权重和 reference cache 路径解析到 sim 的
+`src/waymo_data`。迁移工作区时，导入官方三份 `nocturne_train/val/test_filenames.pkl`：
 
 ```bash
 python -m src.smart.scenario_dreamer.map_categories --metadata-root /path/to/metadata
 ```
 
-`sd_agent_metrics.json` 的 `decoder.sampling.map_condition_id_counts` 和
-`map_condition_sources` 记录实际类别及来源，每轮评价会重置。
-当前官方 50k 清单按该规则分为 `map_id=0: 44165`、`map_id=1: 5835`。
-此前固定 `map_id=0` 的 lane-conditioned 结果需要重新评价；之前从零训练的 LDM 也学到了不同的类别条件，
-单纯修正评价不能视为修正了旧模型的训练。公开权重已经包含官方类别训练。
-`scenario_dreamer_release` 的 `official_prior` 联合生成仍按先验抽取类别，此修复不改变该路径的输出。
+`sd_agent_metrics.json` 的 `decoder.sampling.map_condition_id_counts`、
+`map_condition_sources` 和 `map_category_policy` 记录实际标签及策略。
+默认策略为 `split_aware_nocturne_whitelist`，官方 50k 清单分类为
+`map_id=0: 43935`、`map_id=1: 6065`。
+旧 splitless train+val 策略的 44165/5835 仅可用 CLI 的
+`--policy native_vae_train_plus_val_whitelist` 显式导入作为历史对照，加载时会警告。
+
+Scenario Dreamer 使用 DDPM，没有 Flow Heun 的 predictor/corrector 中间状态。
+当前实现显式在每次 `p_sample` 前、初始状态及 clipping 后恢复固定 lane/agent 条件。
+两个 CFG 分支读取同一固定上下文；`train` / `inpainting` 也保留分区或局部条件，
+包括超出 clipping 范围的条件值。报告字段
+`ddpm_condition_policy=fixed_before_each_denoising_call` 标识逐次条件保证。
+此前 DDPM 已在每步结束时恢复条件，本次明确该保证，不改变 DDPM 的公式、步数或 lane timestep。
+
+旧 lane-conditioned 指标需要重新评价；修正评价标签不会重新训练已有模型。
+`scenario_dreamer_release` 的 `official_prior` 联合生成仍按先验抽取类别，输出不受此修正影响。
 
 完整重跑（`1.0` 表示全部 batch）：
 

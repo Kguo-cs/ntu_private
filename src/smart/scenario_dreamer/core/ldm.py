@@ -1,5 +1,5 @@
 # Adapted from Scenario Dreamer, commit 675423469766bf2fd8a6b569ef1869a6f1e76993.
-# See ../SOURCES.json for provenance and the optional lane-conditioned training extension.
+# See ../SOURCES.json for provenance and conditioned training/sampling extensions.
 import numpy as np
 import torch
 from torch import nn
@@ -125,6 +125,23 @@ class LDM(nn.Module):
         
         return next_x_agent, next_x_lane
 
+    @staticmethod
+    def _restore_conditioned_latents(x_agent, x_lane, data, mode):
+        """Project fixed context before denoising and after generated-value clipping."""
+        if mode == 'lane_conditioned':
+            x_lane = data['lane'].latents[:, None, :].to(x_lane)
+        elif mode == 'train':
+            agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
+            lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
+            x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1).to(x_agent)
+            x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1).to(x_lane)
+        elif mode == 'inpainting':
+            agent_mask = data['agent'].mask
+            lane_mask = data['lane'].mask
+            x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1).to(x_agent)
+            x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1).to(x_lane)
+        return x_agent, x_lane
+
     @torch.no_grad()
     def p_sample_loop(
         self, 
@@ -148,20 +165,9 @@ class LDM(nn.Module):
         else:
             x_lane = torch.randn(lane_shape, device=device) * self.lane_sampling_temperature
 
-        # for sample visualizations during training, we can condition on the noiseless latents
-        # before the partition to visualize inpainting performance.
-        if mode == 'train':
-            agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
-            x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1)
-            lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
-            x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1)
-        
-        if mode == 'inpainting':
-            cond_lane_mask = data['lane'].mask
-            x_lane[cond_lane_mask] = data['lane'].latents[cond_lane_mask].unsqueeze(1)
-            cond_agent_mask = data['agent'].mask
-            x_agent[cond_agent_mask] = data['agent'].latents[cond_agent_mask].unsqueeze(1)
-        
+        # Initialize full-lane or partial fixed context without adding noise.
+        x_agent, x_lane = self._restore_conditioned_latents(x_agent, x_lane, data, mode)
+
         # useful for cool visuals :)
         if return_diffusion_chain: diffusion_chain = [(x_agent, x_lane)]
 
@@ -171,26 +177,15 @@ class LDM(nn.Module):
             t_agent = timesteps[agent_batch]
             t_lane = timesteps[lane_batch]
             
+            # Both CFG branches must read fixed context at every reverse step.
+            x_agent, x_lane = self._restore_conditioned_latents(x_agent, x_lane, data, mode)
             x_agent, x_lane = self.p_sample(x_agent, x_lane, data, t_agent, t_lane)
 
             x_agent = torch.clip(x_agent, -self.cfg_model.diffusion_clip, self.cfg_model.diffusion_clip)
-            if mode == 'lane_conditioned':
-                x_lane = data['lane'].latents[:, np.newaxis, :].to(device)
-            else:
-                # clip outputs to avoid degenerate samples
+            if mode != 'lane_conditioned':
+                # Clip generated outputs, then restore conditions outside clip bounds.
                 x_lane = torch.clip(x_lane, -self.cfg_model.diffusion_clip, self.cfg_model.diffusion_clip)
-
-            if mode == 'inpainting':
-                cond_lane_mask = data['lane'].mask
-                x_lane[cond_lane_mask] = data['lane'].latents[cond_lane_mask].unsqueeze(1)
-                cond_agent_mask = data['agent'].mask
-                x_agent[cond_agent_mask] = data['agent'].latents[cond_agent_mask].unsqueeze(1)
-            
-            if mode == 'train':
-                agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
-                x_agent[agent_mask] = data['agent'].latents[agent_mask].unsqueeze(1)
-                lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
-                x_lane[lane_mask] = data['lane'].latents[lane_mask].unsqueeze(1)
+            x_agent, x_lane = self._restore_conditioned_latents(x_agent, x_lane, data, mode)
 
             if return_diffusion_chain: diffusion_chain.append((x_agent, x_lane))
 

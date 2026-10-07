@@ -193,6 +193,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
                       training_mode=self.training_mode, ema_num_updates=self.ema.num_updates if self.ema is not None else None,
                       map_category_index=self.map_category_index, map_id_fallback=self.map_id,
                       map_category_policy=(self.map_category_keys.policy if self.map_category_keys is not None else None),
+                      ddpm_condition_policy=("fixed_before_each_denoising_call" if self.diff_model is not None else None),
                       map_condition_sources=dict(self._map_sources),
                       map_condition_id_counts=dict(self._map_ids))
         return report

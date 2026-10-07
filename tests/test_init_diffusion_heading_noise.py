@@ -314,5 +314,201 @@ class CircularHeadingFlowTest(unittest.TestCase):
                 self.assertEqual(config.model.model_config.decoder.init_diffusion.heading_noise, 'gaussian')
 
 
+class CircularHeadingVelocityTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.threads = torch.get_num_threads()
+        torch.set_num_threads(1)
+
+    @classmethod
+    def tearDownClass(cls):
+        torch.set_num_threads(cls.threads)
+
+    def flow(self, weight=1.):
+        args = InitDiffusionHeadingNoiseTest.args()
+        args.heading_noise = 'circular'
+        args.heading_objective = 'angular_velocity'
+        args.heading_flow_loss_weight = weight
+        return Flow(args, InitDiffusionHeadingNoiseTest.processor(), False)
+
+    def arc_inputs(self):
+        from src.smart.utils import wrap_angle
+        clean, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
+        angles = torch.deg2rad(torch.tensor([170., 0., -170.]))
+        source_angles = torch.deg2rad(torch.tensor([-170., 0., 170.]))
+        clean[:, 2:4] = torch.stack((angles.cos(), angles.sin()), -1)
+        noise = clean.clone()
+        noise[:, 2:4] = torch.stack((source_angles.cos(), source_angles.sin()), -1)
+        agent['expert_input'] = clean.clone()
+        return clean, noise, wrap_angle(source_angles - angles), agent, feature
+
+    def test_real_head_contract_and_rotation_invariant_scalar_output(self):
+        flow = self.flow()
+        clean, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
+        output = flow.model(clean, torch.full((3, 1), .4), agent, feature)
+        self.assertEqual(output.shape, (3, 9))
+        # Zero unused cos/sin outputs must not cause atan2(0,0) gradients.
+        raw = torch.randn(3, 9, requires_grad=True)
+        raw = torch.cat((raw[:, :2], raw[:, 2:4] * 0., raw[:, 4:]), -1)
+        raw.retain_grad()
+        transformed = flow.model.output_transform(raw, clean[:, :2], torch.tensor([.2, -.4, 2.]))
+        torch.testing.assert_close(transformed[:, 8], raw[:, 8])
+        transformed.sum().backward()
+        self.assertTrue(torch.isfinite(raw.grad).all())
+        torch.testing.assert_close(raw.grad[:, 2:4], torch.zeros(3, 2))
+
+    def test_direct_velocity_is_tangent_and_not_divided_by_time(self):
+        from src.smart.diffusion.scale_flow import _circular_interpolate
+        clean, noise, delta, agent, feature = self.arc_inputs()
+        flow = self.flow()
+        for t in (.9, .4, .025, 1.e-6):
+            time = torch.tensor([[t], [0.], [t]])
+            latent = _circular_interpolate(clean, noise, time)
+            prediction = torch.cat((clean, delta[:, None]), -1)
+            with patch.object(flow.model, 'forward', return_value=prediction):
+                velocity, x0 = flow._model_velocity(latent, time, agent, feature)
+            tangent = torch.stack((-latent[:, 3], latent[:, 2]), -1)
+            torch.testing.assert_close((velocity[:, 2:4] * tangent).sum(-1), delta, atol=1e-6, rtol=0)
+            torch.testing.assert_close((velocity[:, 2:4] * latent[:, 2:4]).sum(-1), torch.zeros(3), atol=1e-6, rtol=0)
+            torch.testing.assert_close(x0, clean, atol=1e-6, rtol=0)
+            self.assertTrue(torch.isfinite(velocity).all())
+
+    def test_oracle_angular_velocity_recovers_boundary_crossings_for_multiple_step_counts(self):
+        clean, noise, delta, agent, feature = self.arc_inputs()
+        flow = self.flow().eval()
+        angles = torch.atan2(noise[:, 3], noise[:, 2])
+        eps = torch.zeros(3, 8)
+        eps[:, 2:4] = torch.stack((angles.cos(), angles.sin()), -1)
+        prediction = torch.cat((clean, delta[:, None]), -1)
+        for steps in (1, 20, 40):
+            with self.subTest(steps=steps), \
+                    patch('src.smart.diffusion.scale_flow.torch.randn', return_value=eps.clone()), \
+                    patch.object(flow.model, 'forward', return_value=prediction):
+                generated = flow.sample(agent, feature, steps=steps)
+                self.assertEqual(generated.shape, (3, 8))
+                torch.testing.assert_close(generated[:, 2:4], clean[:, 2:4], atol=3e-6, rtol=0)
+                torch.testing.assert_close(generated[:, 2:4].norm(dim=-1), torch.ones(3))
+                torch.testing.assert_close(generated[agent['ego_mask']], clean[agent['ego_mask']])
+
+    def test_heading_velocity_mse_is_unweighted_and_ego_has_no_loss_or_gradient(self):
+        from src.smart.diffusion.scale_flow import _circular_interpolate
+        clean, noise, delta, agent, feature = self.arc_inputs()
+        flow = self.flow(weight=.7)
+        for t in (.1, .4, .9):
+            time = torch.tensor([[t], [0.], [t]])
+            latent = _circular_interpolate(clean, noise, time)
+            # Eulerian angular velocities are ordinary real scalars: the error
+            # is not wrapped even when the predicted velocity exceeds 2*pi.
+            omega = (delta + torch.tensor([2*torch.pi, 500., -.5])).requires_grad_()
+            prediction = torch.cat((clean, omega[:, None]), -1)
+            with patch.object(flow, '_prepare_supervised_batch', return_value=(noise, time, latent)), \
+                    patch.object(flow.model, 'forward', return_value=prediction):
+                result = flow._supervised_loss(clean, agent, feature)
+            expected = torch.tensor([(2*torch.pi)**2, 0., .25])
+            torch.testing.assert_close(result[4], torch.zeros(3))
+            torch.testing.assert_close(result[3], expected)
+            # Other predictions are exact; heading reconstruction must be gone.
+            torch.testing.assert_close(result[0], .7 * expected)
+            result[0].sum().backward()
+            torch.testing.assert_close(omega.grad, .7 * torch.tensor([4*torch.pi, 0., -1.]))
+
+    def test_retained_x0_losses_and_collision_match_original_contributions(self):
+        from src.smart.diffusion.scale_flow import _circular_interpolate
+        from src.smart.diffusion.diffusion_utils import get_diff_loss
+        clean, noise, delta, agent, feature = self.arc_inputs()
+        flow = self.flow(weight=.3)
+        time = torch.tensor([[.4], [0.], [.025]])
+        latent = _circular_interpolate(clean, noise, time)
+        state = clean + torch.tensor([1., -2., 99., 99., .5, .2, -3., 1.])
+        prediction = torch.cat((state, (delta + .1)[:, None]), -1)
+        _, decoded = flow._prediction_velocity(latent, time, prediction)
+        decoded = torch.where(agent['ego_mask'][:, None], clean, decoded)
+        with patch.object(flow, '_prepare_supervised_batch', return_value=(noise, time, latent)), \
+                patch.object(flow.model, 'forward', return_value=prediction):
+            actual = flow._supervised_loss(clean, agent, feature)
+        original = get_diff_loss(agent, decoded, clean, time, .05,
+                                 scale=flow.model.normal_scale, use_col=True, x_pred=True)
+        weight = torch.where(time[:, 0] > 0, time[:, 0].clamp_min(.05).pow(-3), 0.)
+        excluded = (decoded[:, 2:4] - clean[:, 2:4]).square().sum(-1) / 8 * .02 * weight
+        torch.testing.assert_close(actual[0], original[0] - excluded + .3 * actual[3])
+        for idx in (1, 2, 4, 5):
+            torch.testing.assert_close(actual[idx], original[idx])
+
+    def test_real_training_backpropagates_and_updates_angular_head(self):
+        flow = self.flow().train()
+        clean, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
+        optimizer = torch.optim.Adam(flow.parameters(), lr=1.e-3)
+        head = flow.model.to_out_heading_velocity
+        before = [p.detach().clone() for p in head.parameters()]
+        with patch.object(flow, '_sample_time', return_value=torch.full((3, 1), .4)):
+            result = flow._supervised_loss(clean, agent, feature)
+        (result[0].mean() + result[1]).backward()
+        gradients = [p.grad for p in flow.parameters() if p.grad is not None]
+        self.assertTrue(all(torch.isfinite(g).all() for g in gradients))
+        self.assertTrue(any(p.grad.abs().sum() > 0 for p in head.parameters()))
+        # Original clean-heading rows are unused in this objective.
+        torch.testing.assert_close(flow.model.to_out_m_delta.mlp[-1].weight.grad[2:4],
+                                   torch.zeros_like(flow.model.to_out_m_delta.mlp[-1].weight.grad[2:4]))
+        optimizer.step()
+        self.assertTrue(any(not torch.equal(p, b) for p, b in zip(head.parameters(), before)))
+        generated = flow.eval().sample(agent, feature, steps=4)
+        self.assertTrue(torch.isfinite(generated).all())
+        torch.testing.assert_close(generated[:, 2:4].norm(dim=-1), torch.ones(3))
+
+    def test_angular_head_ema_and_checkpoint_roundtrip(self):
+        args = InitDiffusionHeadingNoiseTest.args()
+        def wrapper():
+            with patch.object(InitDiffusion, '_make_args', return_value=args):
+                return InitDiffusion(32, 2, 4, InitDiffusionHeadingNoiseTest.processor(), False,
+                                     heading_noise='circular', heading_objective='angular_velocity',
+                                     heading_flow_loss_weight=.4, use_ema=True)
+        model = wrapper()
+        self.assertEqual(model.G1.heading_objective, 'angular_velocity')
+        self.assertEqual(model.G1.heading_flow_loss_weight, .4)
+        names = list(dict(model.G1.named_parameters()))
+        indices = [i for i, name in enumerate(names) if 'to_out_heading_velocity' in name]
+        self.assertTrue(indices)
+        with torch.no_grad():
+            for p in model.G1.model.to_out_heading_velocity.parameters():
+                p.add_(1.)
+        model.update_ema()
+        saved = {k: v.clone() if torch.is_tensor(v) else v for k, v in model.state_dict().items()}
+        restored = wrapper()
+        restored.load_state_dict(saved, strict=True)
+        self.assertEqual(restored.ema.num_updates, 1)
+        for i in indices:
+            torch.testing.assert_close(restored.ema.shadow_params[i], model.ema.shadow_params[i])
+        old = CircularHeadingFlowTest().flow()
+        with self.assertRaisesRegex(RuntimeError, 'Missing key'):
+            restored.G1.load_state_dict(old.state_dict(), strict=True)
+
+    def test_objective_configuration_and_invalid_combinations(self):
+        args = InitDiffusionHeadingNoiseTest.args()
+        args.heading_objective = 'angular_velocity'
+        with self.assertRaisesRegex(ValueError, 'requires heading_noise=circular'):
+            Flow(args, InitDiffusionHeadingNoiseTest.processor(), False)
+        args.heading_noise = 'circular'
+        args.heading_objective = 'invalid'
+        with self.assertRaisesRegex(ValueError, 'heading_objective must be'):
+            Flow(args, InitDiffusionHeadingNoiseTest.processor(), False)
+        args.heading_objective = 'angular_velocity'
+        for value in (0., -1., float('nan'), float('inf')):
+            args.heading_flow_loss_weight = value
+            with self.subTest(weight=value), self.assertRaisesRegex(ValueError, 'must be finite and positive'):
+                Flow(args, InitDiffusionHeadingNoiseTest.processor(), False)
+        root = Path(__file__).resolve().parents[1]
+        OmegaConf.register_new_resolver('sim_root', lambda: str(root), replace=True)
+        with initialize_config_dir(config_dir=str(root/'configs'), version_base=None):
+            for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
+                config = compose(config_name='run.yaml', overrides=[f'experiment={experiment}'])
+                options = config.model.model_config.decoder.init_diffusion
+                self.assertEqual(options.heading_noise, 'circular')
+                self.assertEqual(options.heading_objective, 'angular_velocity')
+                self.assertEqual(options.heading_flow_loss_weight, 1.)
+                config = compose(config_name='run.yaml', overrides=[f'experiment={experiment}',
+                    'model.model_config.decoder.init_diffusion.heading_objective=x0'])
+                self.assertEqual(config.model.model_config.decoder.init_diffusion.heading_objective, 'x0')
+
+
 if __name__ == '__main__':
     unittest.main()

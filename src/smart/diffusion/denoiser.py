@@ -61,6 +61,7 @@ class InitDenoiser(nn.Module):
         dropout: float,
         x_pred: bool = True,
         edge_embedding_type: str = "fourier",
+        heading_velocity: bool = False,
     ) -> None:
         super().__init__()
 
@@ -72,6 +73,9 @@ class InitDenoiser(nn.Module):
         head_dim = hidden_dim//num_heads
         self.dropout = dropout
         self.x_pred = x_pred
+        self.heading_velocity = heading_velocity
+        if heading_velocity and (not x_pred or output_dim != 8):
+            raise ValueError("heading_velocity requires an 8D x0 state predictor")
         self.token_processor = token_processor
         self.edge_embedding_type = edge_embedding_type
 
@@ -158,6 +162,9 @@ class InitDenoiser(nn.Module):
         )
 
         self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
+        if heading_velocity:
+            # rad / unit flow time; shared graph features, separate scalar head.
+            self.to_out_heading_velocity = MLPLayer(hidden_dim, hidden_dim, 1)
 
         self.apply(weight_init)
 
@@ -507,10 +514,16 @@ class InitDenoiser(nn.Module):
                     edge_index_pl2a,
                 )
 
-        return self.to_out_m_delta(feat_a)
+        state = self.to_out_m_delta(feat_a)
+        if self.heading_velocity:
+            return torch.cat((state, self.to_out_heading_velocity(feat_a)), dim=-1)
+        return state
 
     def output_transform(self,res,cur_pos,cur_theta):
-        res_theta = torch.atan2(res[:, 3], res[:, 2])
+        # Flow reconstructs heading from theta_t - t * omega. Do not evaluate
+        # atan2 on the unused clean-heading output in angular-velocity mode.
+        res_theta = (torch.zeros_like(cur_theta) if self.heading_velocity
+                     else torch.atan2(res[:, 3], res[:, 2]))
 
         local_pos, local_theta = transform_to_global(
             res[:, :2],

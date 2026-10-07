@@ -35,6 +35,7 @@ model:
         lane_eval_map_source: reference  # reconstructed matches native lane-conditioned metric conversion.
         scene_count_source: input
         map_source: exact
+        # Split-aware metadata; *_native_legacy.json explicitly selects the old cache rule.
         map_category_index: ${sim_root:}/src/waymo_data/vectorworld/metadata/nocturne_compatible_keys.json
         map_id: 0
         use_ema: true
