@@ -33,6 +33,7 @@ model_config:
     init_decoder: flow
     sep_map: false  # A trainable map encoder dedicated to supervised InitDiffusion.
     init_diffusion:
+      velocity_representation: vector  # vector: vx/vy; speed: scalar norm, reconstruct using heading.
       heading_noise: gaussian  # gaussian: existing linear path; circular: uniform direction + shortest arc.
       heading_objective: x0  # x0 or angular_velocity (requires circular).
       heading_flow_loss_weight: 1.0  # Coefficient of unweighted angular-velocity MSE.

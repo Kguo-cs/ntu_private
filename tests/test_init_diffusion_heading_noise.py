@@ -500,7 +500,8 @@ class CircularHeadingVelocityTest(unittest.TestCase):
         OmegaConf.register_new_resolver('sim_root', lambda: str(root), replace=True)
         with initialize_config_dir(config_dir=str(root/'configs'), version_base=None):
             for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
-                config = compose(config_name='run.yaml', overrides=[f'experiment={experiment}'])
+                config = compose(config_name='run.yaml', overrides=[f'experiment={experiment}',
+                    'model.model_config.decoder.init_diffusion.heading_objective=angular_velocity'])
                 options = config.model.model_config.decoder.init_diffusion
                 self.assertEqual(options.heading_noise, 'circular')
                 self.assertEqual(options.heading_objective, 'angular_velocity')

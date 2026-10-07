@@ -50,9 +50,47 @@
 
 训练监测只生成一个 batch，仍对照完整 50k GT 分布，因此监测值不能当作完整评估结果。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
 
+## 标量 Speed 输入和预测
+
+当前 lane-conditioned 训练和评价默认
+`model.model_config.decoder.init_diffusion.velocity_representation=speed`。
+内部 Flow 状态从 8 维变为 7 维：
+`[x,y,cos(theta),sin(theta),length,width,speed]`，其中 GT speed 是
+`norm(local_vel)`，单位 m/s。denoiser 的连续输入、噪声、normalizer 和输出都只有一个 speed 分量；
+不再预测 vx/vy。启用 angular-velocity objective 时，在这 7 维输出后追加一个角速度，共 8 维网络输出。
+
+speed 使用原来的 x0 reconstruction 方式和时间权重；与 heading 的角速度目标分开。
+训练直接比较预测 speed 与 GT speed，不用重建的 vx/vy 做监督，也不把侧向速度当作错误。
+共享 loss 接口内部补一个恒为 0 的字段，保留原来的每维 `1/8` 系数；
+现有 `train/vel_loss` 日志在 speed 模式记录未加权的 scalar speed MSE。
+位置、尺寸、collision loss、地图条件和 EMA 路径继续沿用。
+
+有噪声的 speed 和网络 raw speed 保留为实数，负预测能获得正常的纠正梯度；
+只在最终物理输出将 speed 截为非负。输出先构造 agent-heading 坐标系的 `[speed,0]`，
+再旋转为世界速度：`vx=speed*cos(global_heading)`、`vy=speed*sin(global_heading)`。
+motion token 选择使用同一 `[speed,0]`；连续初始状态评价仍直接使用生成的物理速度。
+GT ego 的原始速度向量作为条件保留，所以 ego 不强制投影到自身 heading。
+
+这个表示假设生成 agent 的运动方向与 heading 相同，不表达侧滑或倒车方向。
+speed 模式当前支持确定性监督训练和采样；SDE/refiner 路径需使用 vector。
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python src/run.py \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.velocity_representation=speed
+```
+
+独立评价配置继承 speed 模式；评价报告记录实际 `velocity_representation`。
+输入、输出投影及 normalizer 参数形状已经改变，需要训练新的 speed 模型。
+旧 vx/vy checkpoint 的训练恢复和评价必须显式设置
+`model.model_config.decoder.init_diffusion.velocity_representation=vector`，
+同时保留该 checkpoint 对应的 heading_noise 和 heading_objective。
+其他未显式启用 speed 的实验仍默认 vector。
+
 ## 圆周 Heading Flow Matching
 
-当前训练和评价默认以下配置：
+当前配置使用 circular 路径和 x0 heading 目标。需要独立角速度 Flow Matching 时，训练和评价同时设置：
 
 ```yaml
 heading_noise: circular
@@ -62,22 +100,22 @@ heading_flow_loss_weight: 1.0
 
 对每个非 ego agent，噪声方向 `theta_noise` 在 `[-π, π)` 均匀采样，计算最短角差
 `delta=wrap(theta_noise-theta_gt)`，构造 `theta_t=wrap(theta_gt+t*delta)`。
-输入仍是 8 维 `[x,y,cos(theta_t),sin(theta_t),length,width,vx,vy]`；heading 始终为单位向量。
-位置、尺寸和速度保留原来的线性插值和 x0 预测。
+默认输入为上述 7 维 speed 状态；vector 模式仍是原来的 8 维状态。
+heading 始终为单位向量。位置、尺寸和 speed（或 vx/vy）保留线性插值和 x0 预测。
 
 共享 denoiser 图特征后增加一个 scalar head，直接预测 angular velocity `omega_pred`，
 单位为 rad / unit flow time，目标为 `d(theta_t)/dt = delta`。
 `heading_loss=(omega_pred-delta)^2` 在非 ego 的有效训练时间上计算；
 使用普通标量 MSE，不对误差 wrap、不套用 x0 loss 的 `1/t^3` 权重，也不使用 heading normalizer。
 原 cos/sin 的 x0 reconstruction 项已从总 loss 中移除，避免两个目标同时约束 heading。
-其余六维保留原来的系数、8 维平均分母和时间权重。
+其余状态维度保留原来的每维系数、8 维平均分母和时间权重。
 总 loss 为 `Euclidean_x0_loss + heading_flow_loss_weight * heading_loss + collision_loss`；
 `train/heading_loss` 记录未乘该系数的 angular-velocity MSE。
 
 采样直接使用 `theta_next=wrap(theta_t+dt*omega_pred)`，从 t=1 积分到 t=0。
 collision loss 使用 `theta_x0=wrap(theta_t-t*omega_pred)` 得到的 clean heading，
 并保留原来的 collision 权重。ego 状态固定、angular velocity 为 0，且不参与 angular loss。
-最终生成状态和已有评价接口仍是 8 维；没有改变地图条件、优化器或指标计算。
+内部生成状态在 speed 模式为 7 维，在 vector 模式为 8 维；已有物理输出和评价接口保持一致。
 
 ```bash
 /home/ke/miniconda3/envs/sim/bin/python src/run.py \
@@ -97,8 +135,8 @@ EMA 包含新的 angular head，`sep_map` 的训练和 EMA 路径继续沿用。
 
 保留此前的“仅改圆周路径、objective 不变”选项：训练和评价同时覆盖
 `model.model_config.decoder.init_diffusion.heading_objective=x0`。
-这时没有 angular head，仍预测原 8 维 clean x0、使用原 loss，
-采样由 `omega=wrap(theta_t-theta_x0)/t` 得到角速度；可加载此前的 circular/x0 权重。
+这时没有 angular head，预测所选速度表示的 clean x0、使用 reconstruction loss，
+采样由 `omega=wrap(theta_t-theta_x0)/t` 得到角速度；加载此前的 circular/x0 权重还需设置 `velocity_representation=vector`。
 
 ## Heading 噪声标准差
 

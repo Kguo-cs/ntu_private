@@ -1,7 +1,8 @@
 """Rectified Flow with timestep-adaptive SDE noise.
 
 State convention:
-    [x, y, heading_cos, heading_sin, length, width, vx, vy]
+    vector: [x, y, heading_cos, heading_sin, length, width, agent_vx, agent_vy]
+    speed:  [x, y, heading_cos, heading_sin, length, width, speed]
 
 Flow convention:
     x0 ~ data, x1 ~ noise
@@ -70,6 +71,10 @@ class Flow(nn.Module):
         gail: bool = False,
     ) -> None:
         super().__init__()
+        self.velocity_representation = getattr(args, "velocity_representation", "vector")
+        if self.velocity_representation not in ("vector", "speed"):
+            raise ValueError("velocity_representation must be vector or speed")
+        state_dim = 7 if self.velocity_representation == "speed" else args.input_dim
         self.heading_noise = getattr(args, "heading_noise", "gaussian")
         if self.heading_noise not in ("gaussian", "circular"):
             raise ValueError("heading_noise must be gaussian or circular")
@@ -88,14 +93,15 @@ class Flow(nn.Module):
         # Euclidean x0 prediction, with an optional scalar circular velocity head.
         self.model = InitDenoiser(
             token_processor,
-            input_dim=args.input_dim,
+            input_dim=state_dim,
             hidden_dim=args.hidden_dim,
-            output_dim=args.input_dim,
+            output_dim=state_dim,
             num_layers=args.num_denoiser_layers,
             num_heads=args.num_heads,
             dropout=args.dropout,
             edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
             heading_velocity=self.heading_objective == "angular_velocity",
+            velocity_representation=self.velocity_representation,
         )
 
         self.t_eps = 0.05
@@ -116,6 +122,8 @@ class Flow(nn.Module):
             getattr(args, "branch_steps", None)
         )
         self.use_refiner = token_processor.use_refiner
+        if self.velocity_representation == "speed" and (self.use_sde or self.use_refiner):
+            raise ValueError("speed representation supports deterministic supervised Flow; SDE/refiner requires vector")
 
         if self.use_refiner:
             self.use_sde=False
@@ -319,7 +327,7 @@ class Flow(nn.Module):
         x0 = prediction[:, : latent.shape[-1]]
         if self.heading_objective == "angular_velocity":
             theta = torch.atan2(latent[:, 3], latent[:, 2])
-            omega = prediction[:, 8]
+            omega = prediction[:, self.model.m_delta_dim]
             theta0 = wrap_angle(theta - time[:, 0] * omega)
             x0 = torch.cat((x0[:, :2], torch.stack((theta0.cos(), theta0.sin()), dim=-1),
                             x0[:, 4:]), dim=-1)
@@ -548,18 +556,31 @@ class Flow(nn.Module):
 
         loss_options = {}
         if self.heading_objective == "angular_velocity":
-            loss_options["reconstruction_dims"] = (0, 1, 4, 5, 6, 7)
+            loss_options["reconstruction_dims"] = ((0, 1, 4, 5, 6)
+                if self.velocity_representation == "speed" else (0, 1, 4, 5, 6, 7))
+        loss_prediction, loss_target, loss_scale = x0, x, self.model.normal_scale
+        if self.velocity_representation == "speed":
+            # The shared loss/collision API is 8D. Append a dummy zero, so the
+            # scalar speed is supervised directly, without a direction loss.
+            loss_prediction = torch.cat((x0, torch.zeros_like(x0[:, :1])), dim=-1)
+            loss_target = torch.cat((x, torch.zeros_like(x[:, :1])), dim=-1)
+            loss_scale = torch.cat((loss_scale, torch.ones_like(loss_scale[:, :1])), dim=-1)
         loss = get_diff_loss(
             tokenized_agent,
-            x0,
-            x,
+            loss_prediction,
+            loss_target,
             time,
             self.t_eps,
-            scale=self.model.normal_scale,
+            scale=loss_scale,
             use_col=True,
             x_pred=True,
             **loss_options,
         )
+
+        if self.velocity_representation == "speed":
+            total, collision, position, heading, shape, _ = loss
+            speed_loss = (x0[:, 6] - x[:, 6]).square()
+            loss = (total, collision, position, heading, shape, speed_loss)
 
         if self.heading_objective == "angular_velocity":
             theta0 = torch.atan2(x[:, 3], x[:, 2])
@@ -568,7 +589,7 @@ class Flow(nn.Module):
             active = (~ego_mask[:, 0]) & (time[:, 0] > 0) & (time[:, 0] < 1)
             # Uniform flow-time weighting; no 1/t^3 weighting or wrapping
             # the prediction error. The target is d(theta_t)/dt = delta.
-            heading_loss = torch.where(active, (prediction[:, 8] - target).square(),
+            heading_loss = torch.where(active, (prediction[:, self.model.m_delta_dim] - target).square(),
                                        torch.zeros_like(target))
             total, collision, position, _, shape, velocity = loss
             loss = (total + self.heading_flow_loss_weight * heading_loss, collision,
@@ -995,7 +1016,7 @@ class Flow(nn.Module):
         latent = _noise_endpoint(self.model, latent, self.sigma_h, self.heading_noise)
         tokenized_agent["gen_noise"]=latent.clone()
 
-        if "expert_input" not in tokenized_agent:
+        if self.velocity_representation == "speed" or "expert_input" not in tokenized_agent:
             expert_input, _ = self.model.get_input(
                 tokenized_agent
             )

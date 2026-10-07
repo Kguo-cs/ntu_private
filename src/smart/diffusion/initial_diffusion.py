@@ -38,6 +38,7 @@ class InitDiffusion(nn.Module):
         heading_noise: str = "gaussian",
         heading_objective: str = "x0",
         heading_flow_loss_weight: float = 1.0,
+        velocity_representation: str = "vector",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -47,6 +48,9 @@ class InitDiffusion(nn.Module):
 
         self.token_processor = token_processor
         self.edge_embedding_type = edge_embedding_type
+        if velocity_representation not in ("vector", "speed"):
+            raise ValueError("velocity_representation must be vector or speed")
+        self.velocity_representation = velocity_representation
 
         # Compatibility flags used by SMART/SMART_GAIL.
         self.learn_autoencoder = False
@@ -55,6 +59,9 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
 
         args = self._make_args( )
+        args.velocity_representation = velocity_representation
+        if velocity_representation == "speed":
+            args.input_dim = 7
         args.edge_embedding_type = edge_embedding_type
         self.sigma_h = None if sigma_h is None else float(sigma_h)
         args.sigma_h = self.sigma_h

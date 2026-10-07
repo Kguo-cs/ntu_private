@@ -565,6 +565,7 @@ class SMART(LightningModule):
                     "heading_path": "shortest_arc" if getattr(initial_decoder, "heading_noise", "gaussian") == "circular" else "linear",
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
+                    "velocity_representation": getattr(initial_decoder, "velocity_representation", "vector"),
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
                     "edge_embedding_type": getattr(initial_decoder, "edge_embedding_type", "fourier"),

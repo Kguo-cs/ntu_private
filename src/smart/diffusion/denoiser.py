@@ -62,6 +62,7 @@ class InitDenoiser(nn.Module):
         x_pred: bool = True,
         edge_embedding_type: str = "fourier",
         heading_velocity: bool = False,
+        velocity_representation: str = "vector",
     ) -> None:
         super().__init__()
 
@@ -74,8 +75,14 @@ class InitDenoiser(nn.Module):
         self.dropout = dropout
         self.x_pred = x_pred
         self.heading_velocity = heading_velocity
-        if heading_velocity and (not x_pred or output_dim != 8):
-            raise ValueError("heading_velocity requires an 8D x0 state predictor")
+        if velocity_representation not in ("vector", "speed"):
+            raise ValueError("velocity_representation must be vector or speed")
+        self.velocity_representation = velocity_representation
+        state_dim = 7 if velocity_representation == "speed" else 8
+        if velocity_representation == "speed" and (not x_pred or input_dim != 7 or output_dim != 7):
+            raise ValueError("speed representation requires a 7D x0 state predictor")
+        if heading_velocity and (not x_pred or output_dim != state_dim):
+            raise ValueError("heading_velocity requires an x0 state predictor matching the representation")
         self.token_processor = token_processor
         self.edge_embedding_type = edge_embedding_type
 
@@ -216,9 +223,10 @@ class InitDenoiser(nn.Module):
             diff_output:
                 Target state to reconstruct / generate.
 
-        Both have shape [N_agent, 8]:
+        Vector mode has shape [N_agent, 8]:
             [local_x, local_y, cos(local_heading), sin(local_heading),
-             length, width, local_vx, local_vy]
+             length, width, agent_frame_vx, agent_frame_vy]
+        Speed mode has shape [N_agent, 7], replacing vx/vy with their norm.
 
         Notes:
             The previous implementation used a mask that was immediately
@@ -228,7 +236,18 @@ class InitDenoiser(nn.Module):
                 ``batch`` and ``type``.
         """
         if "expert_input" in tokenized_agent.keys():
-            return tokenized_agent["expert_input"], tokenized_agent["expert_input"]
+            state = tokenized_agent["expert_input"]
+            if self.velocity_representation == "speed":
+                if state.shape[-1] == 8:
+                    tokenized_agent["_init_diffusion_ego_local_velocity"] = state[:, 6:8].clone()
+                    state = torch.cat((state[:, :6], torch.linalg.vector_norm(state[:, 6:8], dim=-1, keepdim=True)), dim=-1)
+                    tokenized_agent["expert_input"] = state
+                elif state.shape[-1] != 7:
+                    raise ValueError("speed expert_input must have 7 state fields or 8 vector fields")
+                elif "local_vel" in tokenized_agent:
+                    tokenized_agent.setdefault("_init_diffusion_ego_local_velocity", tokenized_agent["local_vel"][:, :2].clone())
+                self._maybe_init_normalizer(state)
+            return state, state
 
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
@@ -237,6 +256,10 @@ class InitDenoiser(nn.Module):
         agent_pos = tokenized_agent["initial_pos"]
         agent_head = tokenized_agent["initial_heading"]
         local_vel = tokenized_agent["local_vel"]
+        motion = local_vel[:, :2]
+        if self.velocity_representation == "speed":
+            tokenized_agent["_init_diffusion_ego_local_velocity"] = motion.clone()
+            motion = torch.linalg.vector_norm(motion, dim=-1, keepdim=True)
 
         local_pos, local_heading = transform_to_local(
             agent_pos,
@@ -255,7 +278,7 @@ class InitDenoiser(nn.Module):
                 local_pos,
                 heading_vec,
                 shape[:, :2],
-                local_vel[:, :2],
+                motion,
             ],
             dim=-1,
         )
@@ -610,7 +633,20 @@ class InitDenoiser(nn.Module):
         pred_trans = pred_init[..., :2]
         pred_head = pred_init[..., 2:4]
         pred_shape = pred_init[..., 4:6]
-        pred_vel = pred_init[..., 6:8]
+        if self.velocity_representation == "speed":
+            if pred_init.shape[-1] != 7:
+                raise ValueError("speed output requires a 7D generated state")
+            # Noisy/clean regression values remain unconstrained in training.
+            # Only the physical output is nonnegative and aligned with heading.
+            speed = pred_init[..., 6:7].clamp_min(0.)
+            pred_vel = torch.cat((speed, torch.zeros_like(speed)), dim=-1)
+            ego_velocity = tokenized_agent.get("_init_diffusion_ego_local_velocity",
+                                                tokenized_agent.get("local_vel"))
+            if ego_velocity is not None and "ego_mask" in tokenized_agent:
+                pred_vel = torch.where(tokenized_agent["ego_mask"].bool()[:, None],
+                                       ego_velocity[:, :2].to(pred_vel), pred_vel)
+        else:
+            pred_vel = pred_init[..., 6:8]
 
         pred_heading = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
