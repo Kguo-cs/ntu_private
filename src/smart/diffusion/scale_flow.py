@@ -55,7 +55,7 @@ class Flow(nn.Module):
             edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
         )
 
-        self.t_eps = 0.1
+        self.t_eps = 0.02
         self.token_processor=token_processor
 
         # --------------------------------------------------------------
