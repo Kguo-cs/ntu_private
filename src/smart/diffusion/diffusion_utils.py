@@ -459,7 +459,7 @@ def get_diff_loss(
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
 
     if not use_l1:
-        weight=weight.square()*weight.square()
+        weight=weight.square()*weight #.square()
 
     if use_match:
         fake_idx = get_closest_sum_idx_fast(
@@ -486,9 +486,9 @@ def get_diff_loss(
             collision_loss = fake_state[:, :2].sum() * 0.0
 
     # w_pos=w_heading=w_shape=w_vel=1
-    # real_state=real_state/scale
-    # fake_state=fake_state/scale
-    #
+    real_state=real_state/scale
+    fake_state=fake_state/scale
+
 
     losses = matching_loss(
         real_state,
