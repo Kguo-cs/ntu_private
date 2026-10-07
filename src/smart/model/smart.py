@@ -205,7 +205,8 @@ class SMART(LightningModule):
                 "auto_precompute": bool(_cfg(model_config, "sd_auto_precompute", False)),
                 "require_full_set": bool(_cfg(model_config, "sd_require_full_set", True)),
                 "reference_mode": _cfg(model_config, "sd_reference_mode", "matched"),
-                "map_source": "generated" if getattr(self.encoder.init_decoder, "generation_mode", None) == "initial_scene" else "reference",
+                "map_source": getattr(self.encoder.init_decoder, "evaluation_map_source",
+                    "generated" if getattr(self.encoder.init_decoder, "generation_mode", None) == "initial_scene" else "reference"),
             }
         else:
             self.store = None
@@ -533,7 +534,9 @@ class SMART(LightningModule):
                     "checkpoint_step": initial_decoder.checkpoint_step,
                     "use_ema": initial_decoder.use_ema,
                     "map_source": initial_decoder.map_source,
-                    "map_id": "sampled" if getattr(initial_decoder, "scene_count_source", "input") == "official_prior" else initial_decoder.map_id,
+                    "map_id": "sampled" if getattr(initial_decoder, "scene_count_source", "input") == "official_prior" else "per_scene",
+                    "map_id_fallback": initial_decoder.map_id,
+                    "map_category_index": getattr(initial_decoder, "map_category_index", None),
                     "diffusion_steps": initial_decoder.diff_model.n_timesteps,
                     "lane_sampling_temperature": initial_decoder.diff_model.lane_sampling_temperature,
                     "guidance_scale": float(initial_decoder.cfg.train.guidance_scale),
@@ -543,6 +546,10 @@ class SMART(LightningModule):
                     report["decoder"]["sampling"] = sampling_report()
             elif self.encoder.init_decoder_name == "vectorworld":
                 report["decoder"] = {"name": "vectorworld"}
+                if (getattr(initial_decoder, "generation_mode", None) == "lane_conditioned" and
+                        getattr(initial_decoder, "evaluation_map_source", None) == "generated"):
+                    report["generation_task"] = (
+                        "lane-conditioned agent generation; agent metrics on VAE-reconstructed condition lanes")
                 report_options = getattr(initial_decoder, "report_options", None)
                 if report_options is not None:
                     report["decoder"].update(report_options())

@@ -32,8 +32,10 @@ model:
         ldm_checkpoint: null
         ldm_config: null
         generation_mode: initial_scene
+        lane_eval_map_source: reference  # reconstructed matches native lane-conditioned metric conversion.
         scene_count_source: input
         map_source: exact
+        map_category_index: ${sim_root:}/src/waymo_data/vectorworld/metadata/nocturne_compatible_keys.json
         map_id: 0
         use_ema: true
         motion_missing: error

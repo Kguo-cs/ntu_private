@@ -31,7 +31,8 @@ model:
         ldm_config: null  # Optional model/dataset/train overrides for scratch training.
         generation_mode: initial_scene  # Joint lane/agent sampling; metrics use the generated map.
         map_source: exact  # Exact training inputs; joint inference uses their scene counts.
-        map_id: 0
+        map_id: 0  # Fallback when no explicit labels or filename index are configured.
+        map_category_index: ${sim_root:}/src/waymo_data/scenario_dreamer/metadata/nocturne_compatible_keys.json
         use_ema: true #true
     sd_use_cached_evaluator: true
     sd_eval_set: ${paths.root_dir}/waymo_data/waymo_eval_set.pkl

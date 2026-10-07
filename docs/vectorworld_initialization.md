@@ -137,6 +137,17 @@ posterior 采样分布；这是解析估计，与官方有限随机采样的统�
 
 ## 评价
 
+Lane-conditioned 默认在原始完整参考 lane 上评价 agent。原始 VectorWorld 的
+`LDM.forward` 会将 lane latent 解码后的重建 lane 写回场景，因此其原生指标使用
+VAE 重建地图。要比较原生口径，设置
+`model.model_config.decoder.vectorworld.lane_eval_map_source=reconstructed`。
+
+SD 原始 cache 不含 `nocturne_compatible`。当前配置使用 sim 中的原生文件名索引补标签；
+它严格沿用发布 VAE 缓存的 train+val whitelist，不随机抽取标签，也不根据几何猜测。
+显式原生标签优先。初次导入或旧安装可运行
+`python src/import_vectorworld_weights.py --metadata-only`，运行时不依赖外部仓库。
+
+
 ```bash
 # Flow 权重，联合生成；默认前 256 个官方文件
 python src/run.py experiment=vectorworld_eval optimizer=vectorworld

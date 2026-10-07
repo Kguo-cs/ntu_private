@@ -850,6 +850,8 @@ class TokenProcessor(torch.nn.Module):
             agent["vectorworld_map_id"] = map_ids
             agent["vectorworld_map_valid_mask"] = map_valid
             agent["vectorworld_map_source"] = map_sources
+            if "scenario_dreamer_cache_file" in data:
+                agent["scenario_dreamer_cache_file"] = data["scenario_dreamer_cache_file"]
         # Preserve real motion inputs for VectorWorld without computing histories
         # in the existing SD / InitDiffusion paths. Native snapshots use sd_agent;
         # rebuilt SD scenes retain full trajectories in SMART's output row order.

@@ -93,7 +93,8 @@
 `scene_count_source=input`。评价使用相应的原始参考车道，报告应为 `mode=lane_conditioned`、
 `map_source=reference`，不会把 AE 重建车道作为新的生成地图参与评价。
 
-数据清单仍为官方 50k 完整场景；默认检查完整集合。遇到 partitioned 场景、混合了 partitioned 的 batch
+数据清单仍为官方 50k 完整场景；配置默认评价首个 batch，完整重跑命令见下方。
+遇到 partitioned 场景、混合了 partitioned 的 batch
 或缺失图类型元数据时会明确报错，不静默跳过，不把 token 地图当作可验证的完整 lane 图。
 lane-conditioned 评价只接受完整图；训练接受全部受支持的 `lg_type`（0 和 1），包括 partitioned 场景。
 
@@ -110,9 +111,40 @@ lane-conditioned 评价只接受完整图；训练接受全部受支持的 `lg_t
 训练阶段仍保持原 LDM loss。若从 `scenario_dreamer_release` 手动覆盖模式，需同时设置
 `model.model_config.decoder.scenario_dreamer.scene_count_source=input`。
 
+`map_id` 现在按场景传入 LDM：优先使用显式 `nocturne_compatible` / `map_id` 标签；
+原始 AE 快照缺少标签时，查本地 `map_category_index`。规则与
+[官方 AE 缓存代码](https://github.com/princeton-computational-imaging/scenario-dreamer/blob/675423469766bf2fd8a6b569ef1869a6f1e76993/models/scenario_dreamer_autoencoder.py#L174-L179)
+一致：取文件名中的 `tfrecord-xxxxx-of-xxxxx_<record>`，判断是否在 train＋val Nocturne 白名单中。
+命中为 1，未命中为 0；文件名的 split、`lg_type` 和 timestep 不参与判断。
+两份白名单已核对官方 SHA-256，并导入
+`src/waymo_data/scenario_dreamer/metadata/nocturne_compatible_keys.json`，运行时只读取 sim 内的索引。
+默认配置已启用，训练、在线 AE 编码和既有 latent cache 路径均使用同一规则，无需重建 AE latent cache。
+`scenario_dreamer_lane_conditioned` 的数据、权重和 reference cache 路径固定解析到 sim 的 `src/waymo_data`，
+从项目根目录执行命令即可。
+若迁移工作区，先导入官方的两份 `nocturne_train_filenames.pkl` / `nocturne_val_filenames.pkl`：
+
+```bash
+python -m src.smart.scenario_dreamer.map_categories --metadata-root /path/to/metadata
+```
+
+`sd_agent_metrics.json` 的 `decoder.sampling.map_condition_id_counts` 和
+`map_condition_sources` 记录实际类别及来源，每轮评价会重置。
+当前官方 50k 清单按该规则分为 `map_id=0: 44165`、`map_id=1: 5835`。
+此前固定 `map_id=0` 的 lane-conditioned 结果需要重新评价；之前从零训练的 LDM 也学到了不同的类别条件，
+单纯修正评价不能视为修正了旧模型的训练。公开权重已经包含官方类别训练。
+`scenario_dreamer_release` 的 `official_prior` 联合生成仍按先验抽取类别，此修复不改变该路径的输出。
+
+完整重跑（`1.0` 表示全部 batch）：
+
+```bash
+python -m src.run experiment=scenario_dreamer_lane_conditioned \
+  trainer.limit_test_batches=1.0 model.model_config.sd_require_full_set=true
+```
+
 这是基于真实完整车道的条件生成任务，不能直接以本页联合 lane/agent 生成的公开目标表判断是否复现成功。
 
-本模式已通过 54 项 Scenario Dreamer 回归测试及 8 场景公开权重 GPU 冒烟。
+本次类别修复通过 115 项 Scenario Dreamer / VectorWorld 回归测试，并用两个真实类别 0/1 场景验证了构图。
+此前本模式通过 54 项 Scenario Dreamer 回归测试及 8 场景公开权重 GPU 冒烟。
 [冒烟报告](../logs/scenario_dreamer_lane_conditioned_smoke/2026-10-02_10-53-02/sd_agent_metrics.json)
 确认 `map_source=reference`；8 个导出场景的 lane 几何与拓扑均与参考图逐项一致。
 本次未运行 lane-conditioned 的完整 50k 评价。

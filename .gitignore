@@ -55,3 +55,4 @@ outputs/scenario_dreamer*/
 !/tests/test_vectorworld_integration.py
 !/tests/test_prepare_vectorworld_data.py
 !/tests/test_vectorworld_latent_stats.py
+!/tests/test_scenario_dreamer_map_categories.py

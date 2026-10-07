@@ -1,6 +1,7 @@
 """Scenario Dreamer as an ordinary SMART init_decoder (no external checkout)."""
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 import torch
 from torch import nn
@@ -12,6 +13,7 @@ from .core.ldm import LDM
 from .core.data_helpers import unnormalize_scene
 from .data import build_graph, rotate
 from .generation import DEFAULT_COUNT_PRIOR, SceneCountPrior, build_generation_graph
+from .map_categories import apply_category_index, load_category_keys
 
 ROOT = Path(__file__).resolve().parents[3]
 WEIGHTS = ROOT / "src/waymo_data/scenario_dreamer/checkpoints"
@@ -70,7 +72,7 @@ class ScenarioDreamerInitDecoder(nn.Module):
     def __init__(self, token_processor, *, ae_checkpoint=DEFAULT_AE_CHECKPOINT, ae_config=None,
                  ldm_checkpoint=None, ldm_config=None, training_stage="ldm", training_mode="joint",
                  map_source="auto", map_id=0, use_ema=True, generation_mode="initial_scene",
-                 scene_count_source="input", count_prior_path=None, sampling_seed=0):
+                 scene_count_source="input", count_prior_path=None, sampling_seed=0, map_category_index=None):
         super().__init__()
         self.token_processor = token_processor
         if training_stage not in ("ldm", "autoencoder"):
@@ -84,6 +86,10 @@ class ScenarioDreamerInitDecoder(nn.Module):
         self.training_mode = training_mode
         self.map_source = map_source
         self.map_id = int(map_id)
+        self.map_category_index = self._resolved_checkpoint_path(map_category_index)
+        self.map_category_keys = load_category_keys(self.map_category_index) if self.map_category_index else None
+        self._map_sources = Counter()
+        self._map_ids = Counter()
         self.use_ema = bool(use_ema) and not self.learn_autoencoder
         self.generation_mode = generation_mode
         self.scene_count_source = scene_count_source
@@ -175,23 +181,30 @@ class ScenarioDreamerInitDecoder(nn.Module):
         return str((path if path.is_absolute() else ROOT / path).resolve())
 
     def reset_sampling(self):
-        """Reset count sampling and its report; diffusion uses the PyTorch RNG."""
+        """Reset counts and condition reports; diffusion uses the PyTorch RNG."""
+        self._map_sources.clear()
+        self._map_ids.clear()
         if self.count_prior is not None:
             self.count_prior.reset()
 
     def sampling_report(self):
         report = self.count_prior.report() if self.count_prior is not None else {"scene_count_source": "input"}
         report.update(ae_checkpoint=self.ae_checkpoint_path, ldm_checkpoint=self.ldm_checkpoint_path,
-                      training_mode=self.training_mode, ema_num_updates=self.ema.num_updates if self.ema is not None else None)
+                      training_mode=self.training_mode, ema_num_updates=self.ema.num_updates if self.ema is not None else None,
+                      map_category_index=self.map_category_index, map_id_fallback=self.map_id,
+                      map_condition_sources=dict(self._map_sources),
+                      map_condition_id_counts=dict(self._map_ids))
         return report
 
     def _build_generation_graph(self, agent):
         if not agent.get("initial_scene_only", False) or "sd_states" not in agent:
             raise ValueError("official_prior requires the direct preprocessed AE initial-scene data path")
         counts = self.count_prior.sample(int(agent["num_graphs"]))
-        return build_generation_graph(counts, agent_latent_dim=self.cfg.model.agent_latent_dim,
+        result = build_generation_graph(counts, agent_latent_dim=self.cfg.model.agent_latent_dim,
                                       lane_latent_dim=self.cfg.model.lane_latent_dim,
                                       device=agent["initial_pos"].device, dtype=agent["initial_pos"].dtype)
+        self._record_map_conditions(result[0], source="official_count_prior")
+        return result
 
     def train(self, mode=True):
         super().train(mode)
@@ -229,10 +242,19 @@ class ScenarioDreamerInitDecoder(nn.Module):
 
     def _build_graph(self, agent):
         agent["sd_map_id"] = self.map_id
-        return build_graph(
+        agent = apply_category_index(agent, self.map_category_keys, model_name="Scenario Dreamer")
+        result = build_graph(
             agent, agent["tokenized_map"], self.cfg.dataset,
             map_source=self.map_source,
         )
+        self._record_map_conditions(result[0])
+        return result
+
+    def _record_map_conditions(self, graph, *, source=None):
+        ids = graph.map_id.detach().cpu().tolist()
+        sources = [source] * len(ids) if source is not None else graph.map_condition_sources
+        self._map_sources.update(sources)
+        self._map_ids.update(str(int(value)) for value in ids)
 
     def _invalidate_latent_cache_fingerprint(self, module, incompatible_keys):
         self._latent_cache_fingerprint = None

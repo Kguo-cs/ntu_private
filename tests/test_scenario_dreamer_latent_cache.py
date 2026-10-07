@@ -92,6 +92,35 @@ class ScenarioDreamerLatentCacheTest(unittest.TestCase):
         for kind in ("agent", "lane"):
             torch.testing.assert_close(actual[kind].latents, expected[kind].latents, atol=2e-5, rtol=2e-5)
 
+    def test_cached_lane_training_uses_native_map_categories_without_rebuilding_posteriors(self):
+        from src.smart.scenario_dreamer.map_categories import load_category_keys
+        import json
+        self.generate()
+        index = self.root / "categories.json"
+        index.write_text(json.dumps({"policy": "native_vae_train_plus_val_whitelist",
+                                     "compatible_keys": ["tfrecord-00001-of-00150_8"]}))
+        self.ldm.map_category_index = str(index)
+        self.ldm.map_category_keys = load_category_keys(index)
+        self.ldm.training_mode = "lane_conditioned"
+        self.ldm.train()
+        raw, cached = self.agents(False), self.agents(True)
+        filenames = [f"testing.tfrecord-00001-of-00150_{8+i}_{kind}_9.pkl"
+                     for i, kind in enumerate((0, 1, 1, 0))]
+        raw["scenario_dreamer_cache_file"] = filenames
+        cached["scenario_dreamer_cache_file"] = filenames
+        torch.manual_seed(127)
+        expected = self.ldm(raw)
+        embedder = self.ldm.diff_model.model.scene_type_embedder
+        torch.manual_seed(127)
+        with patch.object(self.ldm.autoencoder, "forward_encoder", side_effect=AssertionError("use existing cache")), \
+                patch.object(embedder, "forward", wraps=embedder.forward) as embed:
+            actual = self.ldm(cached)
+        self.assertEqual(embed.call_args.args[0].tolist(), [1, 2, 2, 0])
+        for key in actual:
+            torch.testing.assert_close(actual[key], expected[key], atol=2e-5, rtol=2e-5)
+        actual["loss"].backward()
+        self.assertTrue(any(p.grad is not None for p in self.ldm.diff_model.parameters()))
+
     def test_cached_training_preserves_posterior_resampling_loss_and_gradients(self):
         self.generate()
         raw, cached = self.agents(False), self.agents(True)

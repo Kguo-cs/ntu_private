@@ -7,10 +7,17 @@ defaults:
 action: test
 task_name: scenario_dreamer_lane_conditioned
 
+paths:
+  cache_root: ${sim_root:}/src/waymo_data/scenario_dreamer_ae_preprocess_waymo
+
 model:
   model_config:
+    sd_eval_set: ${sim_root:}/src/waymo_data/waymo_eval_set.pkl
+    sd_real_cache: ${sim_root:}/src/waymo_data/sd_real_metric_cache.sqlite
     decoder:
       scenario_dreamer:
+        ae_checkpoint: ${sim_root:}/src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_autoencoder_waymo/last.ckpt
+        ldm_checkpoint: ${sim_root:}/src/waymo_data/scenario_dreamer/checkpoints/scenario_dreamer_ldm_large_waymo/last.ckpt
         generation_mode: lane_conditioned
         scene_count_source: input
         count_prior_path: null

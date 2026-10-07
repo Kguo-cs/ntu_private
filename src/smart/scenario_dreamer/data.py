@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch_geometric.data import Batch
 
+from .preprocessed import read_vectorworld_map_metadata
 from .core.data_container import ScenarioDreamerData
 from .core.data_helpers import reorder_indices
 from .core.pyg_helpers import get_edge_index_complete_graph, get_edge_index_bipartite
@@ -84,6 +85,10 @@ def build_graph(agent, tokens, cfg, *, map_source="auto"):
     cached = agent.get("sd_cached_posterior")
     if cached is not None and not use_exact:
         raise ValueError("Cached AE posteriors require the exact preprocessed map")
+    map_ids, map_valid, map_sources = read_vectorworld_map_metadata(agent, num_graphs)
+    fallback_id = int(agent.get("sd_map_id", 0))
+    map_sources = [source if bool(valid) else f"fallback_config{fallback_id}"
+                   for source, valid in zip(map_sources, map_valid)]
     graphs, row_ids, centers, angles = [], [], [], []
     for b in range(num_graphs):
         rows = torch.where(batch == b)[0]
@@ -139,8 +144,7 @@ def build_graph(agent, tokens, cfg, *, map_source="auto"):
         li = torch.as_tensor(lane[:, 0], device=device, dtype=torch.long)
         d = ScenarioDreamerData()
         d.num_agents, d.num_lanes, d.lg_type = n, l, kind
-        # AE pickles and old SMART caches have no Nocturne label; use the configured category.
-        d.map_id = int(agent.get("sd_map_id", 0))
+        d.map_id = int(map_ids[b]) if bool(map_valid[b]) else fallback_id
         d["agent"].x = state[ai].float()
         d["agent"].type = torch.nn.functional.one_hot(agent["type"][rows[ai]].long(), 3)
         d["lane"].x = normalized_lanes[li].float()
@@ -174,4 +178,6 @@ def build_graph(agent, tokens, cfg, *, map_source="auto"):
         row_ids.append(rows[ai])
         centers.append(center)
         angles.append(angle)
-    return Batch.from_data_list(graphs).to(device), torch.cat(row_ids), torch.stack(centers), torch.stack(angles)
+    graph = Batch.from_data_list(graphs).to(device)
+    graph.map_condition_sources = map_sources
+    return graph, torch.cat(row_ids), torch.stack(centers), torch.stack(angles)

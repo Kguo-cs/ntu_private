@@ -117,6 +117,33 @@ class VectorWorldDecoderTest(unittest.TestCase):
         torch.testing.assert_close(lanes['lane'].latents, full['lane'].latents)
         self.assertTrue((lanes['agent'].latents == 0).all())
 
+    def test_native_filename_categories_fill_missing_labels_without_history(self):
+        import json
+        with TemporaryDirectory() as directory:
+            index = Path(directory) / 'categories.json'
+            index.write_text(json.dumps({'policy': 'native_vae_train_plus_val_whitelist',
+                                         'compatible_keys': ['tfrecord-00001-of-00150_8']}))
+            decoder = self.decoder(mode='lane_conditioned', map_category_index=index).eval()
+            agent = self.agent(motion=False)
+            agent['scenario_dreamer_cache_file'] = ['testing.tfrecord-00001-of-00150_8_0_9.pkl']
+            data, *_ = decoder._encode_lanes(agent)
+            self.assertEqual(data.map_id.tolist(), [1])
+            self.assertEqual(data.vectorworld_map_sources, ['native_nocturne_filename_index'])
+            self.assertFalse(agent['vectorworld_map_valid_mask'].any())
+            # Explicit native labels take precedence over filename classification.
+            agent['vectorworld_map_valid_mask'][:] = True
+            agent['vectorworld_map_id'][:] = 0
+            data, *_ = decoder._encode_lanes(agent)
+            self.assertEqual(data.map_id.tolist(), [0])
+
+    def test_lane_conditioned_reconstructed_metric_map_is_explicit(self):
+        decoder = self.decoder(mode='lane_conditioned', lane_eval_map_source='reconstructed').eval()
+        agent = self.agent(motion=False)
+        decoder(agent)
+        self.assertEqual(decoder.evaluation_map_source, 'generated')
+        self.assertIn('generated_map', agent)
+        self.assertEqual(tuple(agent['generated_map']['road_points'].shape), (2, 20, 2))
+
     def test_joint_inference_needs_no_motion_and_returns_generated_lanes(self):
         decoder = self.decoder().eval()
         agent = self.agent(motion=False)

@@ -15,6 +15,7 @@ from .core.utils.data_container import get_features, get_encoder_edge_indices
 from .checkpoints import (ROOT, plain, public_config, resolve_path, load_checkpoint,
                           read_autoencoder, read_generator, validate_stats)
 from .data import build_graph, build_generation_graph
+from .map_categories import apply_category_index, load_category_keys
 from ..scenario_dreamer.core.data_helpers import unnormalize_scene
 from ..scenario_dreamer.decoder import ScenarioDreamerInitDecoder
 from ..scenario_dreamer.generation import SceneCountPrior, DEFAULT_COUNT_PRIOR
@@ -51,7 +52,8 @@ class VectorWorldInitDecoder(nn.Module):
                  ldm_config=None, map_source="exact", map_id=0, use_ema=True,
                  generation_mode="initial_scene", scene_count_source="input",
                  count_prior_path=None, sampling_seed=0, motion_missing="error",
-                 sampling_steps=None, guidance_scale=None):
+                 sampling_steps=None, guidance_scale=None, map_category_index=None,
+                 lane_eval_map_source="reference"):
         super().__init__()
         self.token_processor = token_processor
         if training_stage not in ("autoencoder", "ldm"):
@@ -69,7 +71,12 @@ class VectorWorldInitDecoder(nn.Module):
         self.training_stage, self.training_mode = training_stage, training_mode
         self.learn_autoencoder = training_stage == "autoencoder"
         self.generation_mode, self.scene_count_source = generation_mode, scene_count_source
+        if lane_eval_map_source not in ("reference", "reconstructed"):
+            raise ValueError("lane_eval_map_source must be reference or reconstructed")
+        self.lane_eval_map_source = lane_eval_map_source
         self.map_source, self.map_id = map_source, int(map_id)
+        self.map_category_index = str(resolve_path(map_category_index)) if map_category_index else None
+        self.map_category_keys = load_category_keys(self.map_category_index) if self.map_category_index else None
         self.motion_missing = motion_missing
         self.sampling_seed = int(sampling_seed)
         self.use_ema = bool(use_ema) and not self.learn_autoencoder
@@ -146,6 +153,11 @@ class VectorWorldInitDecoder(nn.Module):
                                                max_num_lanes=int(self.cfg.dataset.max_num_lanes),
                                                seed=self.sampling_seed)
 
+    @property
+    def evaluation_map_source(self):
+        return ("generated" if self.generation_mode == "initial_scene" or
+                self.lane_eval_map_source == "reconstructed" else "reference")
+
     def train(self, mode=True):
         super().train(mode)
         if not self.learn_autoencoder:
@@ -192,6 +204,8 @@ class VectorWorldInitDecoder(nn.Module):
                       training_mode=self.training_mode, generation_mode=self.generation_mode,
                       scene_count_source=self.scene_count_source, motion_missing=self.motion_missing,
                       map_source=self.map_source, map_id=self.map_id, use_ema=self.use_ema,
+                      map_category_index=self.map_category_index,
+                      lane_eval_map_source=self.lane_eval_map_source,
                       ae_checkpoint=self.ae_checkpoint_path, ldm_checkpoint=self.ldm_checkpoint_path)
         if self.diff_model is not None:
             report.update(ldm_type=self.cfg.model.ldm_type,
@@ -215,6 +229,7 @@ class VectorWorldInitDecoder(nn.Module):
         if "sd_cached_posterior" in agent:
             raise ValueError("Scenario Dreamer latent caches cannot be used with the VectorWorld motion AE")
         agent["sd_map_id"] = self.map_id
+        agent = apply_category_index(agent, self.map_category_keys, model_name="VectorWorld")
         graph_mode = (self.training_mode if self.training else
                       ("lane_conditioned" if self.generation_mode == "lane_conditioned" else "joint"))
         result = build_graph(agent, agent["tokenized_map"], self.cfg.dataset,
@@ -345,7 +360,7 @@ class VectorWorldInitDecoder(nn.Module):
                 motion[:, 0::2] = (motion[:, 0::2].clamp(-1, 1) - 1) * float(self.ae_config.motion_x_range) / 2
                 motion[:, 1::2] *= float(self.ae_config.motion_y_range)
             agent["generated_motion"] = motion[torch.argsort(rows)]
-            if self.generation_mode == "initial_scene":
+            if self.evaluation_map_source == "generated":
                 agent["generated_map"] = {"coordinate_frame": "sd_local", "road_points": lanes,
                     "road_connection_types": connections,
                     "edge_index_lane_to_lane": data["lane", "to", "lane"].edge_index,
