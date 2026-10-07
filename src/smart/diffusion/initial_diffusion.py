@@ -34,6 +34,7 @@ class InitDiffusion(nn.Module):
         use_ema: bool = False,
         ema_decay: float = 0.9999,
         edge_embedding_type: str = "fourier",
+        sigma_h: Optional[float] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -52,6 +53,8 @@ class InitDiffusion(nn.Module):
 
         args = self._make_args( )
         args.edge_embedding_type = edge_embedding_type
+        self.sigma_h = None if sigma_h is None else float(sigma_h)
+        args.sigma_h = self.sigma_h
         self.G1 = Flow(args, token_processor, gail)
 
         self.use_rl = bool(args.use_rl)

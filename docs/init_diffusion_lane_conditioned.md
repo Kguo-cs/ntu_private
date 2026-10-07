@@ -50,6 +50,29 @@
 
 训练监测只生成一个 batch，仍对照完整 50k GT 分布，因此监测值不能当作完整评估结果。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
 
+## Heading 噪声标准差
+
+当前训练与评价配置默认 `model.model_config.decoder.init_diffusion.sigma_h=5.0`。
+heading 的噪声端点为 `sigma_h * N(0, I₂)`：cos/sin 两维均值为 0，使用同一个标准差，
+不读取 heading 的首批数据均值或标准差，也不再乘以已有的 `normal_scale`。
+其他状态分量继续使用原有经验噪声，ego 条件和线性 Rectified Flow 路径保留。
+训练及采样共用同一噪声转换函数，已加载 checkpoint 中的旧 heading normalizer 不会覆盖此选项。
+
+`5.0` 接近此前 head8 checkpoint 的 heading 噪声均方标准差（约 `5.0044`）。
+`model_args` 不用于设置此值；通过 Hydra 的 `init_diffusion.sigma_h` 显式配置，例如：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python src/run.py \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.sigma_h=2.5
+```
+
+评价同一模型时使用相同覆盖值。这个参数保存在运行配置中，评价报告记录实际 `sigma_h` 和 `heading_noise`；
+恢复 checkpoint 的权重不会自动切换当前配置的 `sigma_h`。
+切换噪声设置后需训练或微调，以比较对应的学习效果。若复查原有经验噪声模型，训练和评价都设置
+`model.model_config.decoder.init_diffusion.sigma_h=null`。其他未显式启用本选项的实验仍默认使用经验噪声。
+
 ## Denoiser 关系编码：Fourier / MLP
 
 默认 `model.model_config.decoder.init_diffusion.edge_embedding_type=fourier`，保留现有 FourierEmbedding。切换为 `mlp` 后，InitDiffusion denoiser 的 agent–agent 和 map–agent 关系使用已有 `MLPEmbedding`，直接编码 `[local_x, local_y, relative_heading]`；输出维度仍为 denoiser 的 hidden dimension。启用 refiner 时，其关系编码也使用同一选项。

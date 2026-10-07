@@ -559,6 +559,8 @@ class SMART(LightningModule):
             elif self.encoder.init_decoder_name == "flow":
                 report["decoder"] = {
                     "name": "InitDiffusion", "mode": "lane_conditioned",
+                    "sigma_h": getattr(initial_decoder, "sigma_h", None),
+                    "heading_noise": "isotropic" if getattr(initial_decoder, "sigma_h", None) is not None else "empirical_diagonal",
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
                     "edge_embedding_type": getattr(initial_decoder, "edge_embedding_type", "fourier"),

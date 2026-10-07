@@ -33,6 +33,14 @@ import copy
 from .denoiser import InitDenoiser
 
 
+def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float]) -> Tensor:
+    """Keep empirical noise for other fields; optionally use N(0, sigma_h² I) for heading."""
+    noise = model.denormalize(standard_noise)
+    if sigma_h is not None:
+        noise = torch.cat((noise[:, :2], sigma_h * standard_noise[:, 2:4], noise[:, 4:]), dim=-1)
+    return noise
+
+
 class Flow(nn.Module):
     """Initial-state flow with simple timestep-adaptive branch noise."""
 
@@ -43,6 +51,10 @@ class Flow(nn.Module):
         gail: bool = False,
     ) -> None:
         super().__init__()
+        sigma_h = getattr(args, "sigma_h", None)
+        self.sigma_h = None if sigma_h is None else float(sigma_h)
+        if self.sigma_h is not None and (not math.isfinite(self.sigma_h) or self.sigma_h <= 0):
+            raise ValueError("sigma_h must be finite and positive, or null for empirical heading noise")
         # Standard x0-prediction flow. No Gaussian or MeanFlow output.
         self.model = InitDenoiser(
             token_processor,
@@ -156,11 +168,7 @@ class Flow(nn.Module):
         x: Tensor,
         tokenized_agent: HeteroData,
     ) -> Tensor:
-        #x = self.model.normalize(x)
-        noise = torch.randn_like(x)
-        noise=self.model.denormalize(
-            noise
-        )
+        noise = _noise_endpoint(self.model, torch.randn_like(x), getattr(self, "sigma_h", None))
 
         ego_mask = tokenized_agent[
             "ego_mask"
@@ -905,9 +913,7 @@ class Flow(nn.Module):
             dtype=self.model.normal_scale.dtype,
         )
 
-        latent = self.model.denormalize(
-            latent
-        )
+        latent = _noise_endpoint(self.model, latent, self.sigma_h)
         tokenized_agent["gen_noise"]=latent.clone()
 
         if "expert_input" not in tokenized_agent:
