@@ -570,6 +570,7 @@ class SMART(LightningModule):
                     "speed_loss_scale": getattr(initial_decoder, "speed_loss_scale", None),
                     "speed_loss_normalization": "rms_speed" if getattr(initial_decoder, "speed_loss_scale", None) is None else "fixed_m_per_s",
                     "size_representation": getattr(initial_decoder, "size_representation", "linear"),
+                    "invalid_size_policy": getattr(initial_decoder, "invalid_size_policy", "mask"),
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
                     "edge_embedding_type": getattr(initial_decoder, "edge_embedding_type", "fourier"),

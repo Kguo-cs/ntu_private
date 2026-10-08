@@ -1,4 +1,5 @@
 import math
+import logging
 import copy
 from typing import Mapping, Optional, Tuple
 
@@ -79,6 +80,7 @@ class InitDenoiser(nn.Module):
         map_lg_type: Optional[int] = 0,
         map_label_dropout: float = 0.1,
         size_representation: str = "linear",
+        invalid_size_policy: str = "mask",
     ) -> None:
         super().__init__()
 
@@ -97,6 +99,10 @@ class InitDenoiser(nn.Module):
         if size_representation not in ("linear", "log"):
             raise ValueError("size_representation must be linear or log")
         self.size_representation = size_representation
+        if invalid_size_policy not in ("mask", "error"):
+            raise ValueError("invalid_size_policy must be mask or error")
+        self.invalid_size_policy = invalid_size_policy
+        self._warned_invalid_sizes = False
         state_dim = 7 if velocity_representation == "speed" else 8
         if velocity_representation == "speed" and (not x_pred or input_dim != 7 or output_dim != 7):
             raise ValueError("speed representation requires a 7D x0 state predictor")
@@ -269,6 +275,60 @@ class InitDenoiser(nn.Module):
             size = size.float()
         return torch.cat((state[..., :4], size.log(), state[..., 6:]), dim=-1)
 
+    def _encode_input_state(self, state: torch.Tensor, agent) -> torch.Tensor:
+        """Treat corrupt training size coordinates as missing annotations."""
+        if self.size_representation == "linear":
+            return state
+        size = state[:, 4:6]
+        valid = torch.isfinite(size) & (size > 0)
+        if valid.all():
+            agent.pop("_init_diffusion_size_valid_mask", None)
+            agent.pop("_init_diffusion_size_metrics", None)
+            return self.state_to_model(state)
+        rows = (~valid).any(-1).nonzero(as_tuple=True)[0]
+        examples = []
+        for row in rows[:5].tolist():
+            example = {"agent": row, "length_width": size[row].detach().cpu().tolist()}
+            for name in ("batch", "type"):
+                if name in agent:
+                    example[name] = int(agent[name][row])
+            examples.append(example)
+        if not self.training or self.invalid_size_policy == "error":
+            raise ValueError("log size representation requires finite, positive length and width; "
+                             f"invalid annotations: {examples}")
+
+        # The fill is only an input condition, never a reconstruction target or
+        # normalizer observation. Prefer a same-type geometric mean, then a
+        # batch geometric mean, then SMART's nominal token dimensions (L,W).
+        size = size.float() if size.dtype in (torch.float16, torch.bfloat16) else size
+        log_size = torch.where(valid, size, torch.ones_like(size)).log()
+        kinds = agent.get("type", torch.zeros(len(size), device=size.device, dtype=torch.long)).long()
+        nominal = size.new_tensor(((4.8, 2.), (1., 1.), (2., 1.)))[kinds.clamp(0, 2)].log()
+        filled = log_size.clone()
+        for dim in range(2):
+            observed = valid[:, dim]
+            fallback = nominal[:, dim].clone()
+            if observed.any():
+                fallback[:] = log_size[observed, dim].mean()
+            for kind in range(3):
+                members = kinds == kind
+                known = members & observed
+                if known.any():
+                    fallback[members] = log_size[known, dim].mean()
+            filled[:, dim] = torch.where(observed, log_size[:, dim], fallback)
+        agent["_init_diffusion_size_valid_mask"] = valid
+        agent["_init_diffusion_size_metrics"] = {
+            "invalid_fields": (~valid).sum().detach(),
+            "invalid_agents": rows.numel(),
+        }
+        if not self._warned_invalid_sizes:
+            logging.getLogger(__name__).warning(
+                "Missing size annotations in log-size training: %s. Masking these "
+                "coordinates in size loss/statistics and their GT collision pairs; "
+                "all agents and other targets are retained.", examples)
+            self._warned_invalid_sizes = True
+        return torch.cat((state[:, :4], filled, state[:, 6:]), dim=-1)
+
     def state_to_physical(self, state: torch.Tensor) -> torch.Tensor:
         """Decode sizes for physical geometry/output, retaining gradients."""
         if self.size_representation == "linear":
@@ -289,7 +349,7 @@ class InitDenoiser(nn.Module):
         scale = self.normal_scale.clamp_min(1e-6)
         return input * scale + self.normal_mean
 
-    def _maybe_init_normalizer(self, diff_output: torch.Tensor) -> None:
+    def _maybe_init_normalizer(self, diff_output: torch.Tensor, size_valid_mask=None) -> None:
         if not torch.all(self.normal_mean == 0):
             # if self.normal_scale[0][0]>15:#20
             #     self.normal_scale[:, :2] = self.normal_scale[:, :2] * 0.8
@@ -299,7 +359,7 @@ class InitDenoiser(nn.Module):
             return
 
         with torch.no_grad():
-            self.normal_mean.copy_(torch.mean(diff_output, dim=0, keepdim=True))
+            mean = torch.mean(diff_output, dim=0, keepdim=True)
 
             scale = torch.std(
                 diff_output,
@@ -307,6 +367,19 @@ class InitDenoiser(nn.Module):
                 keepdim=True,
                 unbiased=False,
             ).clamp_min(1e-6)
+
+            if size_valid_mask is not None:
+                # Missing annotations and their input fills must not influence
+                # the log-size source distribution. No observations => N(0,1).
+                for dim in range(2):
+                    observed = diff_output[size_valid_mask[:, dim], 4 + dim]
+                    if observed.numel():
+                        mean[0, 4 + dim] = observed.mean()
+                        scale[0, 4 + dim] = observed.std(unbiased=False).clamp_min(1e-6)
+                    else:
+                        mean[0, 4 + dim] = 0.
+                        scale[0, 4 + dim] = 1.
+            self.normal_mean.copy_(mean)
 
             # Keep the old scaling heuristic.
             scale[:, 2:4] = scale[:, 2:4] * 4
@@ -354,11 +427,17 @@ class InitDenoiser(nn.Module):
                 elif "local_vel" in tokenized_agent:
                     tokenized_agent.setdefault("_init_diffusion_ego_local_velocity", tokenized_agent["local_vel"][:, :2].clone())
             if self.size_representation == "log":
+                cached_valid = tokenized_agent.get("_init_diffusion_size_valid_mask")
+                if cached_size_mode == "log" and cached_valid is not None and not cached_valid.all() and (
+                        not self.training or self.invalid_size_policy == "error"):
+                    rows = (~cached_valid).any(-1).nonzero(as_tuple=True)[0].tolist()
+                    raise ValueError("cached log expert_input contains missing size annotations; "
+                                     f"evaluation/invalid_size_policy=error require valid sizes, agent rows={rows}")
                 if cached_size_mode is None:
-                    state = self.state_to_model(state)
+                    state = self._encode_input_state(state, tokenized_agent)
                     tokenized_agent["expert_input"] = state
                     tokenized_agent["_init_diffusion_size_representation"] = "log"
-                self._maybe_init_normalizer(state)
+                self._maybe_init_normalizer(state, tokenized_agent.get("_init_diffusion_size_valid_mask"))
             elif self.velocity_representation == "speed":
                 self._maybe_init_normalizer(state)
             return state, state
@@ -397,11 +476,11 @@ class InitDenoiser(nn.Module):
             dim=-1,
         )
 
-        m_init = self.state_to_model(m_init)
+        m_init = self._encode_input_state(m_init, tokenized_agent)
         diff_input = m_init
         diff_output = m_init
 
-        self._maybe_init_normalizer(diff_output)
+        self._maybe_init_normalizer(diff_output, tokenized_agent.get("_init_diffusion_size_valid_mask"))
 
         return diff_input, diff_output
 

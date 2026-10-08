@@ -37,6 +37,7 @@ model_config:
       speed_loss_weight: 0.0  # Optional normalized magnitude MSE in addition to vector reconstruction.
       speed_loss_scale: null  # m/s; null reuses RMS speed from velocity moments, floored at 1 m/s.
       size_representation: linear  # log: generate log(length/width), exp for physical outputs and collision.
+      invalid_size_policy: mask  # Log training: mask missing size labels; error rejects them. Evaluation is strict.
       heading_noise: gaussian  # gaussian: existing linear path; circular: uniform direction + shortest arc.
       heading_objective: x0  # x0 or angular_velocity (requires circular).
       heading_flow_loss_weight: 1.0  # Coefficient of unweighted angular-velocity MSE.

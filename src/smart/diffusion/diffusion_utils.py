@@ -133,6 +133,7 @@ def matching_loss(
     use_l1: bool = True,
     scale=None,
     reconstruction_dims=None,
+    reconstruction_mask=None,
 ):
     """Return total and component losses, each with shape [N]."""
 
@@ -190,6 +191,18 @@ def matching_loss(
         + w_vel * vel_loss
     )
     state_error = F.mse_loss(real_state, fake_state, reduction="none")
+    if reconstruction_mask is not None:
+        if mode != "deterministic" or reconstruction_mask.shape != state_error.shape:
+            raise ValueError("reconstruction_mask must match a deterministic state prediction")
+        reconstruction_mask = reconstruction_mask.to(device=state_error.device, dtype=torch.bool)
+        state_error = torch.where(reconstruction_mask, state_error, torch.zeros_like(state_error))
+        # Keep each coordinate's original contribution; missing labels are not
+        # replaced by an artificial small-size target or renormalized upward.
+        component_error = (fake_state - real_state).abs() if use_l1 else (fake_state - real_state).square()
+        component_error = torch.where(reconstruction_mask, component_error, torch.zeros_like(component_error))
+        pos_loss, heading_loss, shape_loss, vel_loss = (
+            component_error[:, group].mean(-1) for group in (POS, HEADING, SHAPE, VEL)
+        )
     if reconstruction_dims is None:
         total_loss = state_error.mean(-1) * w_pos
     else:
@@ -460,6 +473,8 @@ def get_diff_loss(
     use_l1: bool = False,
     reconstruction_dims=None,
     state_to_physical=None,
+    reconstruction_mask=None,
+    collision_valid_mask=None,
 ):
     """Reconstruct model states; collision geometry optionally decodes sizes.
 
@@ -491,6 +506,12 @@ def get_diff_loss(
         edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
             collision_prediction, batch, reference_state=collision_reference
         )
+        if collision_valid_mask is not None:
+            valid = collision_valid_mask.to(device=fake_state.device, dtype=torch.bool)
+            if valid.shape != (num_states,):
+                raise ValueError("collision_valid_mask must match the agent count")
+            keep = valid[start_idx] & valid[end_idx]
+            edge_loss, end_idx, start_idx = edge_loss[keep], end_idx[keep], start_idx[keep]
         if edge_loss.numel():
             # A fixed ego has zero time weight. Use the movable endpoint's
             # weight regardless of where ego appears in the agent ordering.
@@ -516,6 +537,7 @@ def get_diff_loss(
         use_l1=use_l1,
         scale=scale,
         reconstruction_dims=reconstruction_dims,
+        reconstruction_mask=reconstruction_mask,
     )
 
     # losses[0]=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)

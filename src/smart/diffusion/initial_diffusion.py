@@ -53,6 +53,7 @@ class InitDiffusion(nn.Module):
         size_representation: str = "linear",
         speed_loss_weight: float = 0.0,
         speed_loss_scale: Optional[float] = None,
+        invalid_size_policy: str = "mask",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -68,6 +69,7 @@ class InitDiffusion(nn.Module):
         if size_representation not in ("linear", "log"):
             raise ValueError("size_representation must be linear or log")
         self.size_representation = size_representation
+        self.invalid_size_policy = invalid_size_policy
 
         # Compatibility flags used by SMART/SMART_GAIL.
         self.learn_autoencoder = False
@@ -78,6 +80,7 @@ class InitDiffusion(nn.Module):
         args = self._make_args( )
         args.velocity_representation = velocity_representation
         args.size_representation = size_representation
+        args.invalid_size_policy = invalid_size_policy
         self.speed_loss_weight = float(speed_loss_weight)
         self.speed_loss_scale = None if speed_loss_scale is None else float(speed_loss_scale)
         args.speed_loss_weight = self.speed_loss_weight

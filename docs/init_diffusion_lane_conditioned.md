@@ -147,7 +147,20 @@ speed 模式当前支持确定性监督训练和采样；SDE/refiner 路径需�
 
 碰撞损失对预测和 GT 都先 `exp` 回物理尺寸，再计算原来的额外重叠损失。
 最终初始化输出同样 `exp` 回米，现有 agent metrics 和运动策略读取物理尺寸；ego 的条件尺寸保持原值。
-GT 必须为有限正值，非法尺寸直接报错。log/exp 对 float16、bfloat16 输入使用 float32，
+log 的有效尺寸标注必须为有限正值。训练默认 `invalid_size_policy=mask`：
+将非正值、NaN、Inf 视为缺失尺寸坐标，保留该 agent 的数量、位置、heading、速度和其他有效尺寸监督。
+缺失坐标的输入暂用同类型有效尺寸的几何均值（再依次退回 batch 几何均值、SMART 的标称尺寸）；
+这个替代值不进入尺寸重建 loss 或 normalizer 统计。没有任何有效尺寸观测的坐标使用标准 log Gaussian prior。
+涉及未知 GT 尺寸的碰撞 pair 不计算监督碰撞 loss，其余 pair 继续使用物理尺寸及原来的 GT 重叠允许量。
+这不会把无效尺寸夹成极小正值当作训练目标，也不会删除真实 agent。
+首次遇到无效尺寸会打印 agent、batch、type 和原值，相关 batch 记录
+`train/size_invalid_fields`、`train/size_invalid_agents`。
+
+需要检查数据时设置 `model.model_config.decoder.init_diffusion.invalid_size_policy=error`。
+评价始终拒绝无效 GT 尺寸，包含重复使用的 masked 训练缓存。
+已确认训练缓存 `2f0cdd3fea29917c_0_26.pt` 的一个 vehicle length 为 `-0.0979066`，
+来源是 SD 预处理使用最后有效帧的尺寸；原 Waymo 轨迹的有效帧平均尺寸为正。
+缓存文件保持原样。log/exp 对 float16、bfloat16 输入使用 float32，
 不通过输出端 clamp 堆积边界值；如果 exp 溢出或下溢到零则报错。
 本选项支持监督训练和确定性采样，可与 vector/speed、两种 heading objective、EMA、sep_map 和条件 embedding 组合；SDE/RL/refiner 暂不支持。
 

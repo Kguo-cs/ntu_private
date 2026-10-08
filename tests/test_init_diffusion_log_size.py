@@ -101,7 +101,7 @@ class InitDiffusionLogSizeTest(unittest.TestCase):
                 torch.testing.assert_close(original, before, atol=0, rtol=0)
 
     def test_log_mode_rejects_invalid_clean_sizes_at_encoding_boundary(self):
-        model = self.denoiser()
+        model = self.denoiser(invalid_size_policy="error")
         physical, agent, _ = self.inputs()
         for value in (0., -1., float('nan'), float('inf')):
             for field in (4, 5):

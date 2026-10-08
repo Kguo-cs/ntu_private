@@ -116,6 +116,7 @@ class Flow(nn.Module):
             heading_velocity=self.heading_objective == "angular_velocity",
             velocity_representation=self.velocity_representation,
             size_representation=self.size_representation,
+            invalid_size_policy=getattr(args, "invalid_size_policy", "mask"),
             time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
             time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
             count_embedding_type=getattr(args, "count_embedding_type", "none"),
@@ -634,6 +635,12 @@ class Flow(nn.Module):
         if self.size_representation == "log":
             # Reconstruction uses log sizes; collision circles use meters.
             loss_options["state_to_physical"] = self.model.state_to_physical
+            size_valid = tokenized_agent.get("_init_diffusion_size_valid_mask")
+            if size_valid is not None:
+                reconstruction_mask = torch.ones((len(x), 8), dtype=torch.bool, device=x.device)
+                reconstruction_mask[:, 4:6] = size_valid
+                loss_options["reconstruction_mask"] = reconstruction_mask
+                loss_options["collision_valid_mask"] = size_valid.all(-1)
         if self.heading_objective == "angular_velocity":
             loss_options["reconstruction_dims"] = ((0, 1, 4, 5, 6)
                 if self.velocity_representation == "speed" else (0, 1, 4, 5, 6, 7))
