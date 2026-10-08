@@ -566,6 +566,7 @@ class SMART(LightningModule):
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "velocity_representation": getattr(initial_decoder, "velocity_representation", "vector"),
+                    "size_representation": getattr(initial_decoder, "size_representation", "linear"),
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
                     "edge_embedding_type": getattr(initial_decoder, "edge_embedding_type", "fourier"),
@@ -574,6 +575,12 @@ class SMART(LightningModule):
                     "count_lane_source": getattr(initial_decoder, "count_lane_source", "map_tokens"),
                     "count_max_num_agents": getattr(initial_decoder, "count_max_num_agents", 128),
                     "count_max_num_lanes": getattr(initial_decoder, "count_max_num_lanes", 1024),
+                    "map_embedding_type": getattr(initial_decoder, "map_embedding_type", "none"),
+                    "map_id_source": getattr(initial_decoder, "map_id_source", "fixed"),
+                    "map_id": getattr(initial_decoder, "map_id", 0)
+                    if getattr(initial_decoder, "map_id_source", "fixed") == "fixed" else None,
+                    "map_lg_type": getattr(initial_decoder, "map_lg_type", 0),
+                    "map_label_dropout": getattr(initial_decoder, "map_label_dropout", 0.1),
                     "time_embedding_scale": getattr(initial_decoder, "time_embedding_scale", 99.0)
                     if getattr(initial_decoder, "time_embedding_type", "legacy") == "scenario_dreamer" else None,
                     "use_ema": initial_decoder.use_ema,

@@ -844,12 +844,17 @@ class TokenProcessor(torch.nn.Module):
                     self.get_init(agent,data)
 
         agent.setdefault("num_graphs", data.num_graphs)
-        if self.scenario_dreamer_init:
+        if self.scenario_dreamer_init or getattr(self, "init_map_id_conditioning", False):
             from src.smart.scenario_dreamer.preprocessed import read_vectorworld_map_metadata
             map_ids, map_valid, map_sources = read_vectorworld_map_metadata(data, agent["num_graphs"])
             agent["vectorworld_map_id"] = map_ids
             agent["vectorworld_map_valid_mask"] = map_valid
             agent["vectorworld_map_source"] = map_sources
+            top = data._global_store if hasattr(data, "_global_store") else data
+            for key in ("lg_type", "sd_lg_type", "scenario_dreamer_lg_type"):
+                if key in top:
+                    agent["lg_type"] = torch.as_tensor(top[key]).reshape(-1)
+                    break
             if "scenario_dreamer_cache_file" in data:
                 agent["scenario_dreamer_cache_file"] = data["scenario_dreamer_cache_file"]
         # Preserve real motion inputs for VectorWorld without computing histories

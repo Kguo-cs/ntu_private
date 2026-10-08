@@ -34,6 +34,7 @@ model_config:
     sep_map: false  # A trainable map encoder dedicated to supervised InitDiffusion.
     init_diffusion:
       velocity_representation: vector  # vector: vx/vy; speed: scalar norm, reconstruct using heading.
+      size_representation: linear  # log: generate log(length/width), exp for physical outputs and collision.
       heading_noise: gaussian  # gaussian: existing linear path; circular: uniform direction + shortest arc.
       heading_objective: x0  # x0 or angular_velocity (requires circular).
       heading_flow_loss_weight: 1.0  # Coefficient of unweighted angular-velocity MSE.
@@ -45,6 +46,11 @@ model_config:
       count_lane_source: map_tokens  # map_tokens: prepared SMART inputs; scenario_dreamer: requires sd_map.
       count_max_num_agents: 128  # Inclusive vocabulary limit, counts include ego.
       count_max_num_lanes: 1024  # SMART map tokens differ from SD compact lanes; no silent clipping.
+      map_embedding_type: none  # none or scenario_dreamer (scene label = 2*lg_type + map_id).
+      map_id_source: fixed  # fixed uses the configured category; metadata requires valid per-scene labels.
+      map_id: 0  # Waymo Nocturne category: 0 or 1; used only with map_id_source=fixed.
+      map_lg_type: 0  # Full SMART condition map; null requires per-scene lg_type metadata.
+      map_label_dropout: 0.1  # SD scene-label dropout in training, shared by agent and map nodes.
       use_ema: false
       ema_decay: 0.9999
     initial_scene_only: false  # Direct initial-state evaluation on full reference lanes.

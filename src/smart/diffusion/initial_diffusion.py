@@ -45,6 +45,12 @@ class InitDiffusion(nn.Module):
         count_lane_source: str = "map_tokens",
         count_max_num_agents: int = 128,
         count_max_num_lanes: int = 1024,
+        map_embedding_type: str = "none",
+        map_id_source: str = "fixed",
+        map_id: int = 0,
+        map_lg_type: Optional[int] = 0,
+        map_label_dropout: float = 0.1,
+        size_representation: str = "linear",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -57,6 +63,9 @@ class InitDiffusion(nn.Module):
         if velocity_representation not in ("vector", "speed"):
             raise ValueError("velocity_representation must be vector or speed")
         self.velocity_representation = velocity_representation
+        if size_representation not in ("linear", "log"):
+            raise ValueError("size_representation must be linear or log")
+        self.size_representation = size_representation
 
         # Compatibility flags used by SMART/SMART_GAIL.
         self.learn_autoencoder = False
@@ -66,6 +75,7 @@ class InitDiffusion(nn.Module):
 
         args = self._make_args( )
         args.velocity_representation = velocity_representation
+        args.size_representation = size_representation
         if velocity_representation == "speed":
             args.input_dim = 7
         args.edge_embedding_type = edge_embedding_type
@@ -81,6 +91,16 @@ class InitDiffusion(nn.Module):
         args.count_lane_source = count_lane_source
         args.count_max_num_agents = count_max_num_agents
         args.count_max_num_lanes = count_max_num_lanes
+        self.map_embedding_type = map_embedding_type
+        self.map_id_source = map_id_source
+        self.map_id = map_id
+        self.map_lg_type = map_lg_type
+        self.map_label_dropout = float(map_label_dropout)
+        args.map_embedding_type = self.map_embedding_type
+        args.map_id_source = self.map_id_source
+        args.map_id = self.map_id
+        args.map_lg_type = self.map_lg_type
+        args.map_label_dropout = self.map_label_dropout
         self.sigma_h = None if sigma_h is None else float(sigma_h)
         args.sigma_h = self.sigma_h
         self.heading_noise = heading_noise
@@ -90,6 +110,10 @@ class InitDiffusion(nn.Module):
         args.heading_objective = heading_objective
         args.heading_flow_loss_weight = self.heading_flow_loss_weight
         self.G1 = Flow(args, token_processor, gail)
+        if map_embedding_type == "scenario_dreamer" and (map_id_source == "metadata" or map_lg_type is None):
+            # Forward labels even in the generic Init path where the separate
+            # scenario_dreamer_init tokenization flag is disabled.
+            token_processor.init_map_id_conditioning = True
 
         self.use_rl = bool(args.use_rl)
         self.sampling_steps = int(args.sampling_steps)
@@ -127,6 +151,7 @@ class InitDiffusion(nn.Module):
 
     def get_extra_state(self):
         return {
+            "size_representation": self.size_representation,
             "ema": self.ema.state_dict() if self.ema is not None else None,
             "ema_parameter_names": list(dict(self.G1.named_parameters())) if self.ema is not None else None,
         }
@@ -134,6 +159,11 @@ class InitDiffusion(nn.Module):
     def set_extra_state(self, state):
         if not isinstance(state, Mapping):
             raise ValueError("InitDiffusion extra state must be a mapping")
+        saved_size_mode = state.get("size_representation", "linear")
+        if saved_size_mode != self.size_representation:
+            raise ValueError(f"InitDiffusion checkpoint size_representation={saved_size_mode!r} "
+                             f"does not match configured {self.size_representation!r}; "
+                             "log size models require training with log targets")
         self._pending_ema_state = state
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
@@ -146,6 +176,12 @@ class InitDiffusion(nn.Module):
         # every generator weight; exempt only the newly introduced extra key.
         if extra_key not in state_dict and extra_key in missing_keys:
             missing_keys.remove(extra_key)
+            if self.size_representation != "linear" and any(
+                    key.startswith(prefix + "G1.") for key in state_dict):
+                error_msgs.append("Legacy InitDiffusion checkpoints use linear sizes; "
+                                  "cannot load them as a log size model")
+            # A backbone-only checkpoint can initialize a new log model;
+            # its missing generator weights remain subject to normal checks.
 
     def _restore_ema_after_load(self, module, incompatible_keys):
         state = self._pending_ema_state

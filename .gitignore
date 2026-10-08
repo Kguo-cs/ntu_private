@@ -62,3 +62,6 @@ outputs/scenario_dreamer*/
 !/tests/test_init_diffusion_speed.py
 !/tests/test_init_diffusion_time_embedding.py
 !/tests/test_init_diffusion_count_embedding.py
+!/tests/test_init_diffusion_map_embedding.py
+!/tests/test_init_diffusion_map_metadata.py
+!/tests/test_init_diffusion_log_size.py

@@ -10,6 +10,7 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.scenario_dreamer.core.dit_layers import LabelEmbedder, TimestepEmbedder
+from src.smart.scenario_dreamer.preprocessed import read_vectorworld_map_metadata
 from src.smart.utils import (
     transform_to_global,
     transform_to_local,
@@ -44,6 +45,7 @@ class InitDenoiser(nn.Module):
     and map-agent geometry. ``time_embedding_type`` independently selects
     the legacy encoding or Scenario Dreamer's scalar TimestepEmbedder.
     Optional SD count embeddings condition agents and map tokens by scene size.
+    Optional SD scene-type embeddings share a graph/map label across both types.
 
     MeanFlow/iMF support:
         When ``mean_flow=True``, the model output is interpreted as the
@@ -71,6 +73,12 @@ class InitDenoiser(nn.Module):
         count_lane_source: str = "map_tokens",
         count_max_num_agents: int = 128,
         count_max_num_lanes: int = 1024,
+        map_embedding_type: str = "none",
+        map_id_source: str = "fixed",
+        map_id: int = 0,
+        map_lg_type: Optional[int] = 0,
+        map_label_dropout: float = 0.1,
+        size_representation: str = "linear",
     ) -> None:
         super().__init__()
 
@@ -86,6 +94,9 @@ class InitDenoiser(nn.Module):
         if velocity_representation not in ("vector", "speed"):
             raise ValueError("velocity_representation must be vector or speed")
         self.velocity_representation = velocity_representation
+        if size_representation not in ("linear", "log"):
+            raise ValueError("size_representation must be linear or log")
+        self.size_representation = size_representation
         state_dim = 7 if velocity_representation == "speed" else 8
         if velocity_representation == "speed" and (not x_pred or input_dim != 7 or output_dim != 7):
             raise ValueError("speed representation requires a 7D x0 state predictor")
@@ -112,6 +123,23 @@ class InitDenoiser(nn.Module):
         self.count_lane_source = count_lane_source
         self.count_max_num_agents = count_max_num_agents
         self.count_max_num_lanes = count_max_num_lanes
+
+        if map_embedding_type not in ("none", "scenario_dreamer"):
+            raise ValueError("map_embedding_type must be none or scenario_dreamer")
+        if map_id_source not in ("fixed", "metadata"):
+            raise ValueError("map_id_source must be fixed or metadata")
+        if not isinstance(map_id, int) or isinstance(map_id, bool) or map_id not in (0, 1):
+            raise ValueError("map_id must be integer 0 or 1")
+        if map_lg_type is not None and (not isinstance(map_lg_type, int)
+                or isinstance(map_lg_type, bool) or map_lg_type not in (0, 1)):
+            raise ValueError("map_lg_type must be integer 0 or 1, or null for per-scene metadata")
+        self.map_embedding_type = map_embedding_type
+        self.map_id_source = map_id_source
+        self.map_id = map_id
+        self.map_lg_type = map_lg_type
+        self.map_label_dropout = float(map_label_dropout)
+        if not math.isfinite(self.map_label_dropout) or not 0. <= self.map_label_dropout <= 1.:
+            raise ValueError("map_label_dropout must be finite and between 0 and 1")
 
         self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
@@ -154,6 +182,11 @@ class InitDenoiser(nn.Module):
             # matches SD's Normal(0, .02) initialization for embeddings.
             self.num_agents_embedder = LabelEmbedder(count_max_num_agents + 1, hidden_dim, 0)
             self.num_lanes_embedder = LabelEmbedder(count_max_num_lanes + 1, hidden_dim, 0)
+
+        if map_embedding_type == "scenario_dreamer":
+            # Waymo SD conditions on 2 * lg_type + map_id (four classes),
+            # plus the null label when classifier-free label dropout is used.
+            self.scene_type_embedder = LabelEmbedder(4, hidden_dim, self.map_label_dropout)
 
         if self.x_pred:
             self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
@@ -223,6 +256,31 @@ class InitDenoiser(nn.Module):
     # ---------------------------------------------------------------------
     # Normalization
     # ---------------------------------------------------------------------
+    def state_to_model(self, state: torch.Tensor) -> torch.Tensor:
+        """Encode physical length/width without modifying the input tensor."""
+        if self.size_representation == "linear":
+            return state
+        size = state[..., 4:6]
+        if not torch.isfinite(size).all() or not (size > 0).all():
+            raise ValueError("log size representation requires finite, positive length and width")
+        # Keep log/exp reliable under mixed precision; all other fields retain
+        # their meaning, and concatenation promotes the state if necessary.
+        if size.dtype in (torch.float16, torch.bfloat16):
+            size = size.float()
+        return torch.cat((state[..., :4], size.log(), state[..., 6:]), dim=-1)
+
+    def state_to_physical(self, state: torch.Tensor) -> torch.Tensor:
+        """Decode sizes for physical geometry/output, retaining gradients."""
+        if self.size_representation == "linear":
+            return state
+        size = state[..., 4:6]
+        if size.dtype in (torch.float16, torch.bfloat16):
+            size = size.float()
+        size = size.exp()
+        if not torch.isfinite(size).all() or not (size > 0).all():
+            raise FloatingPointError("exp(log size) produced a non-finite or zero physical size")
+        return torch.cat((state[..., :4], size, state[..., 6:]), dim=-1)
+
     def normalize(self, input: torch.Tensor) -> torch.Tensor:
         scale = self.normal_scale.clamp_min(1e-6)
         return (input - self.normal_mean) / scale
@@ -272,6 +330,7 @@ class InitDenoiser(nn.Module):
             [local_x, local_y, cos(local_heading), sin(local_heading),
              length, width, agent_frame_vx, agent_frame_vy]
         Speed mode has shape [N_agent, 7], replacing vx/vy with their norm.
+        In log size mode, fields 4:6 contain log(length), log(width).
 
         Notes:
             The previous implementation used a mask that was immediately
@@ -282,6 +341,9 @@ class InitDenoiser(nn.Module):
         """
         if "expert_input" in tokenized_agent.keys():
             state = tokenized_agent["expert_input"]
+            cached_size_mode = tokenized_agent.get("_init_diffusion_size_representation")
+            if cached_size_mode is not None and cached_size_mode != self.size_representation:
+                raise ValueError("cached expert_input size representation does not match the denoiser")
             if self.velocity_representation == "speed":
                 if state.shape[-1] == 8:
                     tokenized_agent["_init_diffusion_ego_local_velocity"] = state[:, 6:8].clone()
@@ -291,6 +353,13 @@ class InitDenoiser(nn.Module):
                     raise ValueError("speed expert_input must have 7 state fields or 8 vector fields")
                 elif "local_vel" in tokenized_agent:
                     tokenized_agent.setdefault("_init_diffusion_ego_local_velocity", tokenized_agent["local_vel"][:, :2].clone())
+            if self.size_representation == "log":
+                if cached_size_mode is None:
+                    state = self.state_to_model(state)
+                    tokenized_agent["expert_input"] = state
+                    tokenized_agent["_init_diffusion_size_representation"] = "log"
+                self._maybe_init_normalizer(state)
+            elif self.velocity_representation == "speed":
                 self._maybe_init_normalizer(state)
             return state, state
 
@@ -328,6 +397,7 @@ class InitDenoiser(nn.Module):
             dim=-1,
         )
 
+        m_init = self.state_to_model(m_init)
         diff_input = m_init
         diff_output = m_init
 
@@ -422,6 +492,40 @@ class InitDenoiser(nn.Module):
         )
         return (self.num_agents_embedder(agent_counts, train=self.training),
                 self.num_lanes_embedder(lane_counts, train=self.training))
+
+    def _embed_scene_type(self, tokenized_agent):
+        """Embed explicit SD graph/map categories once for all scene nodes."""
+        num_graphs = int(tokenized_agent["num_graphs"])
+        device = tokenized_agent["batch"].device
+        if self.map_id_source == "metadata":
+            ids, valid, _ = read_vectorworld_map_metadata(tokenized_agent, num_graphs)
+            if not bool(valid.all()):
+                missing = (~valid).nonzero(as_tuple=True)[0].tolist()
+                raise ValueError(
+                    f"map_id_source=metadata requires valid map_id labels for every scene; "
+                    f"missing scenes {missing[:5]}. Use map_id_source=fixed explicitly for unlabeled caches"
+                )
+            ids = ids.to(device=device)
+        else:
+            # This is a configured category, not an inferred missing-label value.
+            ids = torch.full((num_graphs,), self.map_id, device=device, dtype=torch.long)
+        if self.map_lg_type is None:
+            sd_map = tokenized_agent.get("sd_map")
+            kinds = sd_map.get("lg_type") if sd_map is not None else None
+            if kinds is None:
+                kinds = tokenized_agent.get("lg_type")
+            if kinds is None:
+                raise ValueError("map_lg_type=null requires per-scene lg_type metadata")
+            kinds = torch.as_tensor(kinds, device=device).reshape(-1)
+            if kinds.numel() != num_graphs or not bool(((kinds == 0) | (kinds == 1)).all()):
+                raise ValueError("lg_type metadata must provide one 0/1 label per scene")
+            kinds = kinds.long()
+        else:
+            kinds = torch.full((num_graphs,), self.map_lg_type, device=device, dtype=torch.long)
+        labels = 2 * kinds + ids
+        # One call gives one dropout decision per scene, shared by agent/map
+        # nodes; calling the embedder separately would produce different masks.
+        return self.scene_type_embedder(labels, train=self.training)
 
     def _ego_context_embedding(
         self,
@@ -726,6 +830,14 @@ class InitDenoiser(nn.Module):
             # Do not modify cached map tokens: every denoising step starts from
             # the same context and adds the count embedding exactly once.
 
+        if self.map_embedding_type == "scenario_dreamer":
+            scene_embedding = self._embed_scene_type(tokenized_agent)
+            feat_a = feat_a + scene_embedding[batch]
+            map_feature = dict(
+                map_feature,
+                pt_token=map_feature["pt_token"] + scene_embedding[map_feature["batch"]],
+            )
+
         if use_map_condition:
             if self.training and self.map_drop_prob > 0:
                 use_map_condition = (
@@ -759,6 +871,7 @@ class InitDenoiser(nn.Module):
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
+        pred_init = self.state_to_physical(pred_init)
         pred_trans = pred_init[..., :2]
         pred_head = pred_init[..., 2:4]
         pred_shape = pred_init[..., 4:6]

@@ -459,8 +459,14 @@ def get_diff_loss(
     max_loss_weight: float | None = None,
     use_l1: bool = False,
     reconstruction_dims=None,
+    state_to_physical=None,
 ):
-    """State reconstruction plus collision loss beyond each GT pair's overlap."""
+    """Reconstruct model states; collision geometry optionally decodes sizes.
+
+    The transform is applied after matching, to both prediction and reference,
+    so representation-space reconstruction and physical collision use the same
+    agent ordering. It never changes the reconstruction targets.
+    """
     num_states = len(fake_state)
     batch = tokenized_agent["batch"][-num_states:].to(fake_state.device)
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
@@ -480,8 +486,10 @@ def get_diff_loss(
 
     collision_loss = fake_state.new_zeros(())
     if use_col and x_pred:
+        collision_prediction = fake_state if state_to_physical is None else state_to_physical(fake_state)
+        collision_reference = real_state if state_to_physical is None else state_to_physical(real_state)
         edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
-            fake_state, batch, reference_state=real_state
+            collision_prediction, batch, reference_state=collision_reference
         )
         if edge_loss.numel():
             # A fixed ego has zero time weight. Use the movable endpoint's

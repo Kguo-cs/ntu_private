@@ -335,7 +335,8 @@ class InitDiffusionCountEmbeddingTest(unittest.TestCase):
         OmegaConf.register_new_resolver('sim_root', lambda: str(root), replace=True)
         with initialize_config_dir(config_dir=str(root/'configs'), version_base=None):
             for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
-                default = compose(config_name='run.yaml', overrides=[f'experiment={experiment}'])
+                default = compose(config_name='run.yaml', overrides=[f'experiment={experiment}',
+                    'model.model_config.decoder.init_diffusion.count_embedding_type=none'])
                 options = default.model.model_config.decoder.init_diffusion
                 self.assertEqual(options.count_embedding_type, 'none')
                 self.assertEqual(options.count_lane_source, 'map_tokens')

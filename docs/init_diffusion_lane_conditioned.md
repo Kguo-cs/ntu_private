@@ -88,6 +88,43 @@ speed 模式当前支持确定性监督训练和采样；SDE/refiner 路径需�
 同时保留该 checkpoint 对应的 heading_noise 和 heading_objective。
 其他未显式启用 speed 的实验仍默认 vector。
 
+## Log 空间 Length / Width
+
+通用配置默认 `size_representation=linear`。要训练 log 尺寸模型，覆盖：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python src/run.py \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.size_representation=log
+```
+
+内部状态的字段 4、5 改为 `log(length)`、`log(width)`（自然对数，物理尺寸单位为米）。
+输入编码、normalizer 的均值/标准差、Gaussian 噪声端点、Flow 插值、denoiser 的 x0 预测和采样积分全部使用这个表示。
+因此尺寸插值在物理空间对应几何插值；负的 log 值是合法状态，不做截断。
+现有 MSE 和时间权重不变，尺寸项比较 log 值，所以相同的尺寸比例误差有相同的尺寸重建误差。
+`train/shape_loss` 记录 log 尺寸的分量 MSE，`shape_std` 也改为 log 尺寸标准差；与 linear 模式的绝对数值不能直接比较。
+
+碰撞损失对预测和 GT 都先 `exp` 回物理尺寸，再计算原来的额外重叠损失。
+最终初始化输出同样 `exp` 回米，现有 agent metrics 和运动策略读取物理尺寸；ego 的条件尺寸保持原值。
+GT 必须为有限正值，非法尺寸直接报错。log/exp 对 float16、bfloat16 输入使用 float32，
+不通过输出端 clamp 堆积边界值；如果 exp 溢出或下溢到零则报错。
+本选项支持监督训练和确定性采样，可与 vector/speed、两种 heading objective、EMA、sep_map 和条件 embedding 组合；SDE/RL/refiner 暂不支持。
+
+评价时也必须覆盖同一选项：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python src/run.py \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned_eval \
+  ckpt_path=/absolute/path/to/log_size_init_diffusion.ckpt \
+  model.model_config.decoder.init_diffusion.size_representation=log
+```
+
+需要重新训练 log 尺寸模型。旧 linear 初始化权重的尺寸 head 和 normalizer 都使用米，不能改配置后直接续训或评价；
+checkpoint 记录表示并拒绝混用。仍允许用只有 SMART 骨干权重的 checkpoint 初始化新的 log 实验。
+评价报告记录实际 `size_representation`。保持 `linear` 可继续加载原来的初始化权重。
+
 ## 圆周 Heading Flow Matching
 
 当前配置使用 circular 路径和 x0 heading 目标。需要独立角速度 Flow Matching 时，训练和评价同时设置：
@@ -223,6 +260,44 @@ InitDiffusion 默认采用 `count_max_num_agents=128`、`count_max_num_lanes=102
 启用后主 denoiser、可选 refiner 和 EMA 都包含两张 count embedding 表，地图缓存不会被反复累加 embedding。
 新增表需要训练，已有不含这些参数的 InitDiffusion 权重不能直接用于新模式的 strict 续训/评价。
 恢复训练和独立评价必须使用同一数量来源与词表上限；`sd_agent_metrics.json` 记录这些设置。
+
+## Scenario Dreamer map_id / scene-type 编码
+
+`map_embedding_type=scenario_dreamer` 复用 SD 的 scene-type `LabelEmbedder`。
+Waymo 的真实 `map_id` 是 Nocturne 场景类别（0/1），不是地图文件编号；
+SD 用 `scene_idx = 2 * lg_type + map_id` 编码成四类。
+默认 `map_label_dropout=0.1`，因此表有五行，最后一行为训练时的 null label；
+embedding 权重初始化为 `Normal(0, 0.02)`。
+每个 forward 对每个场景只抽一次标签 dropout，再将同一个 embedding 加到 agent 和地图节点。
+
+当前抽查的 `training_map2_sd` 和 `scenario_dreamer_val` 缓存均未保存真实类别标签。
+默认 `map_id_source=fixed` 使用明确配置的类别，训练、评价口径一致，不根据地图几何或文件名推断类别。
+下面的命令可直接用于当前缓存；其中 `map_id=0` 是固定条件，不表示样本具有已确认的真实类别 0：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.map_embedding_type=scenario_dreamer \
+  model.model_config.decoder.init_diffusion.map_id_source=fixed \
+  model.model_config.decoder.init_diffusion.map_id=0
+```
+
+若训练和评价数据都提供有效逐场景标签，使用 `map_id_source=metadata`。
+沿用共享 reader 的来源优先级，读取 canonical `vectorworld_map_id`/valid mask、
+`nocturne_compatible` 或 `map_id`。缺少任何场景标签时明确报错，reader 的无效零占位值不会作为类别 0 使用。
+嵌套 `scenario_dreamer` 标签在 dataset metadata 整理前转为 batch-safe canonical 字段。
+此选项不自动启用只在评价文件名上可用的 whitelist index，以避免训练和评价使用不同标签来源。
+
+`map_lg_type=0` 默认表示 InitDiffusion 使用的完整 SMART 条件地图；
+不会根据文件名中的原始 SD graph variant 自动切换。
+设置 `map_lg_type=null` 时，要求从 `sd_map.lg_type` 或 agent 的逐场景 `lg_type` metadata 读取 0/1 标签，
+可按官方公式处理混合 graph types；也可显式配置固定的 `map_lg_type=1`。
+
+默认 `map_embedding_type=none` 保持旧参数结构和行为。启用后主 denoiser、可选 refiner 与 EMA 均包含
+scene embedding，不修改地图缓存，不改变 loss 或现有 sampler。
+新增表需要训练；strict 恢复训练和评价需要保留相同的模式、标签来源、graph-type 设置与 dropout 配置。
+实际设置保存在运行配置及 `sd_agent_metrics.json` 中。
 
 ## Denoiser 关系编码：Fourier / MLP
 

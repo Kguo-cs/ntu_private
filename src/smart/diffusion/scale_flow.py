@@ -3,6 +3,8 @@
 State convention:
     vector: [x, y, heading_cos, heading_sin, length, width, agent_vx, agent_vy]
     speed:  [x, y, heading_cos, heading_sin, length, width, speed]
+    size_representation=log replaces length/width with their natural logs;
+    internal states stay in log units until physical output/collision decoding.
 
 Flow convention:
     x0 ~ data, x1 ~ noise
@@ -72,6 +74,7 @@ class Flow(nn.Module):
     ) -> None:
         super().__init__()
         self.velocity_representation = getattr(args, "velocity_representation", "vector")
+        self.size_representation = getattr(args, "size_representation", "linear")
         if self.velocity_representation not in ("vector", "speed"):
             raise ValueError("velocity_representation must be vector or speed")
         state_dim = 7 if self.velocity_representation == "speed" else args.input_dim
@@ -102,12 +105,18 @@ class Flow(nn.Module):
             edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
             heading_velocity=self.heading_objective == "angular_velocity",
             velocity_representation=self.velocity_representation,
+            size_representation=self.size_representation,
             time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
             time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
             count_embedding_type=getattr(args, "count_embedding_type", "none"),
             count_lane_source=getattr(args, "count_lane_source", "map_tokens"),
             count_max_num_agents=getattr(args, "count_max_num_agents", 128),
             count_max_num_lanes=getattr(args, "count_max_num_lanes", 1024),
+            map_embedding_type=getattr(args, "map_embedding_type", "none"),
+            map_id_source=getattr(args, "map_id_source", "fixed"),
+            map_id=getattr(args, "map_id", 0),
+            map_lg_type=getattr(args, "map_lg_type", 0),
+            map_label_dropout=getattr(args, "map_label_dropout", 0.1),
         )
 
         self.t_eps = 0.05
@@ -128,6 +137,8 @@ class Flow(nn.Module):
             getattr(args, "branch_steps", None)
         )
         self.use_refiner = token_processor.use_refiner
+        if self.size_representation == "log" and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
+            raise ValueError("log size representation supports supervised Flow training and evaluation; SDE/RL/refiner requires linear sizes")
         if self.velocity_representation == "speed" and (self.use_sde or self.use_refiner):
             raise ValueError("speed representation supports deterministic supervised Flow; SDE/refiner requires vector")
 
@@ -155,6 +166,11 @@ class Flow(nn.Module):
                     count_lane_source=getattr(args, "count_lane_source", "map_tokens"),
                     count_max_num_agents=getattr(args, "count_max_num_agents", 128),
                     count_max_num_lanes=getattr(args, "count_max_num_lanes", 1024),
+                    map_embedding_type=getattr(args, "map_embedding_type", "none"),
+                    map_id_source=getattr(args, "map_id_source", "fixed"),
+                    map_id=getattr(args, "map_id", 0),
+                    map_lg_type=getattr(args, "map_lg_type", 0),
+                    map_label_dropout=getattr(args, "map_label_dropout", 0.1),
                 )
 
             # normalized-space exploration std
@@ -572,6 +588,9 @@ class Flow(nn.Module):
         )
 
         loss_options = {}
+        if self.size_representation == "log":
+            # Reconstruction uses log sizes; collision circles use meters.
+            loss_options["state_to_physical"] = self.model.state_to_physical
         if self.heading_objective == "angular_velocity":
             loss_options["reconstruction_dims"] = ((0, 1, 4, 5, 6)
                 if self.velocity_representation == "speed" else (0, 1, 4, 5, 6, 7))
@@ -1022,6 +1041,13 @@ class Flow(nn.Module):
         ego_mask = tokenized_agent[
             "ego_mask"
         ].bool()
+
+        if self.size_representation == "log":
+            # Fit source statistics and encode any raw cached target before
+            # drawing the log-space endpoint. This also preserves ego sizes.
+            expert_input, _ = self.model.get_input(tokenized_agent)
+            tokenized_agent["expert_input"] = expert_input
+            tokenized_agent["_init_diffusion_size_representation"] = "log"
 
         latent = torch.randn(
             num_agents,
