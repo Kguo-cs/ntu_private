@@ -41,6 +41,10 @@ class InitDiffusion(nn.Module):
         velocity_representation: str = "vector",
         time_embedding_type: str = "legacy",
         time_embedding_scale: float = 99.0,
+        count_embedding_type: str = "none",
+        count_lane_source: str = "map_tokens",
+        count_max_num_agents: int = 128,
+        count_max_num_lanes: int = 1024,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -69,6 +73,14 @@ class InitDiffusion(nn.Module):
         self.time_embedding_scale = float(time_embedding_scale)
         args.time_embedding_type = self.time_embedding_type
         args.time_embedding_scale = self.time_embedding_scale
+        self.count_embedding_type = count_embedding_type
+        self.count_lane_source = count_lane_source
+        self.count_max_num_agents = count_max_num_agents
+        self.count_max_num_lanes = count_max_num_lanes
+        args.count_embedding_type = count_embedding_type
+        args.count_lane_source = count_lane_source
+        args.count_max_num_agents = count_max_num_agents
+        args.count_max_num_lanes = count_max_num_lanes
         self.sigma_h = None if sigma_h is None else float(sigma_h)
         args.sigma_h = self.sigma_h
         self.heading_noise = heading_noise

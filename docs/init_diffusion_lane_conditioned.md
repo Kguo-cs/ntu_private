@@ -190,6 +190,40 @@ Flow 的 `t=0` 是干净状态，`t=1` 是噪声。此模式直接编码 `99*t`�
 已有 legacy InitDiffusion checkpoint 不能直接作为新模式的续训或评价权重，Scenario Dreamer 的完整公开权重也不能直接加载到 InitDiffusion。
 恢复训练或使用 `experiment=init_diffusion_lane_conditioned_eval` 评价新权重时，必须保留相同的 `time_embedding_type` 和 `time_embedding_scale`；评价报告记录这两个设置。
 
+## Scenario Dreamer agent / lane 数量编码
+
+设置 `count_embedding_type=scenario_dreamer` 后，InitDiffusion 复用本仓库 SD 的
+`LabelEmbedder(max_count + 1, hidden_dim, dropout_prob=0)`，用场景整数数量直接查表，
+权重初始化为 `Normal(0, 0.02)`。agent count 包含 ego，统计完整场景，不随 `eval_mask` 改变。
+agent 数量 embedding 加到 agent hidden features；lane 数量 embedding 加到条件地图节点，
+再通过 map→agent attention 影响 agents。保留原有 ego/type-count 条件、attention 架构、loss 和采样流程。
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.count_embedding_type=scenario_dreamer
+```
+
+当前 `training_map2_sd` 缓存只有 SMART tokens，没有精确 SD lane graph。
+默认 `count_lane_source=map_tokens`，在训练和评价中都统计实际送入 InitDiffusion 的条件地图 token 数，
+即现有类型筛选和地图范围裁剪后的 `initial_map_feature` 行数。此数量不是 SD compact-lane 数；
+即使评价样本具有 `sd_map`，也不会自动切换数量定义。
+
+若训练和评价数据都提供了 SD lane graph，可显式选择 `count_lane_source=scenario_dreamer`，
+以 `sd_map` 中当前 `lg_type` 的 graph 行数作为 lane count；缺少 metadata 时明确报错，不回退到 token 数。
+此选项不改变条件地图的 SMART 表示。
+
+SD 公开模型的 count vocab 上限为 agents 30、lanes 100。
+InitDiffusion 默认采用 `count_max_num_agents=128`、`count_max_num_lanes=1024`，
+为现有 SMART 场景和地图 tokens 提供更大的词表；上限是包含端点的，数量 0 有独立 embedding。
+超出上限会报错，不截断数量；需要更大词表时，应在新训练前调整这些选项。
+
+默认 `count_embedding_type=none` 不新增参数，保留旧权重结构。
+启用后主 denoiser、可选 refiner 和 EMA 都包含两张 count embedding 表，地图缓存不会被反复累加 embedding。
+新增表需要训练，已有不含这些参数的 InitDiffusion 权重不能直接用于新模式的 strict 续训/评价。
+恢复训练和独立评价必须使用同一数量来源与词表上限；`sd_agent_metrics.json` 记录这些设置。
+
 ## Denoiser 关系编码：Fourier / MLP
 
 默认 `model.model_config.decoder.init_diffusion.edge_embedding_type=fourier`，保留现有 FourierEmbedding。切换为 `mlp` 后，InitDiffusion denoiser 的 agent–agent 和 map–agent 关系使用已有 `MLPEmbedding`，直接编码 `[local_x, local_y, relative_heading]`；输出维度仍为 denoiser 的 hidden dimension。启用 refiner 时，其关系编码也使用同一选项。

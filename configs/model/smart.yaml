@@ -41,6 +41,10 @@ model_config:
       edge_embedding_type: fourier  # Denoiser geometry: fourier or mlp.
       time_embedding_type: legacy  # legacy or scenario_dreamer (256D sin/cos + SiLU MLP).
       time_embedding_scale: 99.0  # SD mode maps continuous Flow t in [0,1] to released indices [0,99].
+      count_embedding_type: none  # none or scenario_dreamer (learned integer scene-count embeddings).
+      count_lane_source: map_tokens  # map_tokens: prepared SMART inputs; scenario_dreamer: requires sd_map.
+      count_max_num_agents: 128  # Inclusive vocabulary limit, counts include ego.
+      count_max_num_lanes: 1024  # SMART map tokens differ from SD compact lanes; no silent clipping.
       use_ema: false
       ema_decay: 0.9999
     initial_scene_only: false  # Direct initial-state evaluation on full reference lanes.

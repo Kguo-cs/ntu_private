@@ -314,9 +314,8 @@ class InitDiffusionTimeEmbeddingTest(unittest.TestCase):
         with initialize_config_dir(config_dir=str(root/'configs'), version_base=None):
             for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
                 for mode in ('legacy', 'scenario_dreamer'):
-                    overrides = [f'experiment={experiment}']
-                    if mode != 'legacy':
-                        overrides += ['model.model_config.decoder.init_diffusion.time_embedding_type=scenario_dreamer']
+                    overrides = [f'experiment={experiment}',
+                                 f'model.model_config.decoder.init_diffusion.time_embedding_type={mode}']
                     config = compose(config_name='run.yaml', overrides=overrides)
                     options = config.model.model_config.decoder.init_diffusion
                     self.assertEqual(options.time_embedding_type, mode)

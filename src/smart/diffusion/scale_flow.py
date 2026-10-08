@@ -104,6 +104,10 @@ class Flow(nn.Module):
             velocity_representation=self.velocity_representation,
             time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
             time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
+            count_embedding_type=getattr(args, "count_embedding_type", "none"),
+            count_lane_source=getattr(args, "count_lane_source", "map_tokens"),
+            count_max_num_agents=getattr(args, "count_max_num_agents", 128),
+            count_max_num_lanes=getattr(args, "count_max_num_lanes", 1024),
         )
 
         self.t_eps = 0.05
@@ -147,6 +151,10 @@ class Flow(nn.Module):
                     edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
                     time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
                     time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
+                    count_embedding_type=getattr(args, "count_embedding_type", "none"),
+                    count_lane_source=getattr(args, "count_lane_source", "map_tokens"),
+                    count_max_num_agents=getattr(args, "count_max_num_agents", 128),
+                    count_max_num_lanes=getattr(args, "count_max_num_lanes", 1024),
                 )
 
             # normalized-space exploration std

@@ -9,7 +9,7 @@ from src.smart.layers import MLPLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.modules.edge_encoder import EdgeEncoder
-from src.smart.scenario_dreamer.core.dit_layers import TimestepEmbedder
+from src.smart.scenario_dreamer.core.dit_layers import LabelEmbedder, TimestepEmbedder
 from src.smart.utils import (
     transform_to_global,
     transform_to_local,
@@ -43,6 +43,7 @@ class InitDenoiser(nn.Module):
     ``edge_embedding_type`` selects "fourier" or "mlp" for agent-agent
     and map-agent geometry. ``time_embedding_type`` independently selects
     the legacy encoding or Scenario Dreamer's scalar TimestepEmbedder.
+    Optional SD count embeddings condition agents and map tokens by scene size.
 
     MeanFlow/iMF support:
         When ``mean_flow=True``, the model output is interpreted as the
@@ -66,6 +67,10 @@ class InitDenoiser(nn.Module):
         velocity_representation: str = "vector",
         time_embedding_type: str = "legacy",
         time_embedding_scale: float = 99.0,
+        count_embedding_type: str = "none",
+        count_lane_source: str = "map_tokens",
+        count_max_num_agents: int = 128,
+        count_max_num_lanes: int = 1024,
     ) -> None:
         super().__init__()
 
@@ -94,6 +99,19 @@ class InitDenoiser(nn.Module):
         self.time_embedding_scale = float(time_embedding_scale)
         if not math.isfinite(self.time_embedding_scale) or self.time_embedding_scale <= 0:
             raise ValueError("time_embedding_scale must be finite and positive")
+
+        if count_embedding_type not in ("none", "scenario_dreamer"):
+            raise ValueError("count_embedding_type must be none or scenario_dreamer")
+        if count_lane_source not in ("map_tokens", "scenario_dreamer"):
+            raise ValueError("count_lane_source must be map_tokens or scenario_dreamer")
+        for name, value in (("count_max_num_agents", count_max_num_agents),
+                            ("count_max_num_lanes", count_max_num_lanes)):
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+        self.count_embedding_type = count_embedding_type
+        self.count_lane_source = count_lane_source
+        self.count_max_num_agents = count_max_num_agents
+        self.count_max_num_lanes = count_max_num_lanes
 
         self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
@@ -129,6 +147,13 @@ class InitDenoiser(nn.Module):
         self.register_buffer(
             "_time_cos_mask", time_dims.remainder(2).bool(), persistent=False
         )
+
+        if count_embedding_type == "scenario_dreamer":
+            # SD indexes integer scene counts directly, including zero. Its
+            # tables have no label dropout; the generic weight_init below also
+            # matches SD's Normal(0, .02) initialization for embeddings.
+            self.num_agents_embedder = LabelEmbedder(count_max_num_agents + 1, hidden_dim, 0)
+            self.num_lanes_embedder = LabelEmbedder(count_max_num_lanes + 1, hidden_dim, 0)
 
         if self.x_pred:
             self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
@@ -355,6 +380,49 @@ class InitDenoiser(nn.Module):
         features = torch.where(self._time_cos_mask, phase.cos(), phase.sin())
         return self.noise_embedding(features)
 
+    @staticmethod
+    def _scene_node_counts(node_batch: torch.Tensor, num_graphs: int,
+                           max_count: int, name: str) -> torch.Tensor:
+        if (not torch.is_tensor(node_batch) or node_batch.ndim != 1
+                or node_batch.dtype not in (torch.int8, torch.int16, torch.int32,
+                                           torch.int64, torch.uint8)):
+            raise ValueError(f"{name} batch must be a 1D integer tensor")
+        if num_graphs < 0:
+            raise ValueError("num_graphs must be nonnegative")
+        if node_batch.numel() and (node_batch.min() < 0 or node_batch.max() >= num_graphs):
+            raise ValueError(f"{name} batch IDs must be in [0, num_graphs)")
+        counts = torch.bincount(node_batch.long(), minlength=num_graphs)
+        if (counts > max_count).any():
+            raise ValueError(
+                f"{name} count exceeds the embedding limit {max_count}; "
+                f"increase count_max_num_{name} for both training and evaluation"
+            )
+        return counts
+
+    def _embed_scene_counts(self, tokenized_agent, map_feature):
+        """Return scene count embeddings using one fixed lane-count definition."""
+        num_graphs = int(tokenized_agent["num_graphs"])
+        # Use the complete conditioned scene, including ego and agents excluded
+        # by eval_mask, rather than the current forward's subset of agent rows.
+        agent_counts = self._scene_node_counts(
+            tokenized_agent["batch"], num_graphs, self.count_max_num_agents, "agents"
+        )
+        if self.count_lane_source == "scenario_dreamer":
+            sd_map = tokenized_agent.get("sd_map")
+            if sd_map is None or "batch" not in sd_map:
+                raise ValueError(
+                    "count_lane_source=scenario_dreamer requires sd_map lane batch metadata; "
+                    "use map_tokens consistently for token-only training caches"
+                )
+            lane_batch = sd_map["batch"]
+        else:
+            lane_batch = map_feature["batch"]
+        lane_counts = self._scene_node_counts(
+            lane_batch, num_graphs, self.count_max_num_lanes, "lanes"
+        )
+        return (self.num_agents_embedder(agent_counts, train=self.training),
+                self.num_lanes_embedder(lane_counts, train=self.training))
+
     def _ego_context_embedding(
         self,
         pos_s: torch.Tensor,
@@ -501,7 +569,10 @@ class InitDenoiser(nn.Module):
             orient_pl = map_feature["orientation"]
             feat_map = map_feature["pt_token"]
 
-            if batch_pl.numel() > 0 and int(batch_pl.max().item()) != num_graphs - 1:
+            # A missing final map scene does not imply a temporal batch.
+            # Only use the legacy temporal alignment with explicit metadata.
+            temporal_map = "repeat_batch" in tokenized_agent or "agent_valid" in tokenized_agent
+            if temporal_map and batch_pl.numel() > 0 and int(batch_pl.max().item()) != num_graphs - 1:
                 if "agent_valid" not in tokenized_agent:
                     batch_for_map = tokenized_agent["repeat_batch"]
                     n_step = batch_for_map.shape[1]
@@ -640,6 +711,20 @@ class InitDenoiser(nn.Module):
             tokenized_agent=tokenized_agent,
             mode=mode,
         )
+
+        if self.count_embedding_type == "scenario_dreamer":
+            agent_count_embedding, lane_count_embedding = self._embed_scene_counts(
+                tokenized_agent, map_feature
+            )
+            # Match SD's per-node-type routing: agent count conditions agents,
+            # lane count conditions map nodes, then reaches agents via L2A.
+            feat_a = feat_a + agent_count_embedding[batch]
+            map_feature = dict(
+                map_feature,
+                pt_token=map_feature["pt_token"] + lane_count_embedding[map_feature["batch"]],
+            )
+            # Do not modify cached map tokens: every denoising step starts from
+            # the same context and adds the count embedding exactly once.
 
         if use_map_condition:
             if self.training and self.map_drop_prob > 0:
