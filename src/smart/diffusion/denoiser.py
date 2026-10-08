@@ -318,7 +318,7 @@ class InitDenoiser(nn.Module):
             filled[:, dim] = torch.where(observed, log_size[:, dim], fallback)
         agent["_init_diffusion_size_valid_mask"] = valid
         agent["_init_diffusion_size_metrics"] = {
-            "invalid_fields": (~valid).sum().detach(),
+            "invalid_fields": (~valid).sum().to(dtype=filled.dtype).detach(),
             "invalid_agents": rows.numel(),
         }
         if not self._warned_invalid_sizes:

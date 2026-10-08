@@ -2,13 +2,14 @@
 
 import copy
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 import torch
 
 from src.smart.diffusion.diffusion_utils import get_diff_loss
-from test_init_diffusion_log_size import InitDiffusionLogSizeTest
+import test_init_diffusion_log_size as log_fixture
 
 
 class InitDiffusionInvalidSizeTest(unittest.TestCase):
@@ -23,7 +24,7 @@ class InitDiffusionInvalidSizeTest(unittest.TestCase):
 
     def setUp(self):
         torch.manual_seed(818)
-        self.fixture = InitDiffusionLogSizeTest()
+        self.fixture = log_fixture.InitDiffusionLogSizeTest()
 
     def inputs(self, invalid=-1., field=4, representation='vector'):
         physical, agent, feature = self.fixture.inputs(representation)
@@ -113,6 +114,23 @@ class InitDiffusionInvalidSizeTest(unittest.TestCase):
         self.assertEqual(agent['_init_diffusion_size_representation'], 'log')
         self.assertFalse(valid[0, 0])
 
+    def test_constructed_input_masks_missing_sizes_without_mutating_the_physical_shape(self):
+        for representation in ('vector', 'speed'):
+            _, agent, _ = self.inputs(float('nan'), field=5, representation=representation)
+            agent.pop('expert_input')
+            before = agent['shape'].clone()
+            flow = self.fixture.flow(velocity_representation=representation)
+            clean, target = flow.model.train().get_input(agent)
+            self.assertTrue(torch.isfinite(clean).all())
+            torch.testing.assert_close(clean, target, atol=0, rtol=0)
+            torch.testing.assert_close(agent['shape'], before, equal_nan=True)
+            valid = torch.isfinite(before) & (before > 0)
+            torch.testing.assert_close(agent['_init_diffusion_size_valid_mask'], valid)
+            torch.testing.assert_close(clean[:, 4:6][valid], before[valid].log())
+            repeated, _ = flow.model.get_input(agent)
+            torch.testing.assert_close(repeated, clean, atol=0, rtol=0)
+            self.assertEqual(clean.shape[0], 3)
+
     def test_encoding_boundary_stays_strict_even_when_training_mask_policy_is_enabled(self):
         for value in (0., -1., float('nan'), float('inf')):
             physical, _, _ = self.inputs(value)
@@ -129,6 +147,19 @@ class InitDiffusionInvalidSizeTest(unittest.TestCase):
             self.assertRegex(message, '(batch|scene)')
             self.assertIn('type', message)
             self.assertIn('-0.25', message)
+
+    def test_masked_training_cache_cannot_bypass_eval_or_strict_validation(self):
+        for mode in ('eval', 'error'):
+            _, agent, _ = self.inputs(-.25)
+            model = self.fixture.denoiser().train()
+            clean, _ = model.get_input(agent)
+            self.assertTrue(torch.isfinite(clean).all())
+            if mode == 'eval':
+                model.eval()
+            else:
+                model.invalid_size_policy = 'error'
+            with self.subTest(mode=mode), self.assertRaises(ValueError):
+                model.get_input(agent)
 
     def test_linear_mode_is_unchanged_by_invalid_size_policy(self):
         for value in (-1., 0., float('nan'), float('inf')):
@@ -176,6 +207,8 @@ class InitDiffusionInvalidSizeTest(unittest.TestCase):
         clean = model.state_to_model(physical)
         prediction = clean.clone()
         prediction[3, :2] = torch.tensor([3., 0.])
+        # Unknown-size agents must be omitted before exp/collision geometry.
+        prediction[1:3, 4:6] = 1000.
         prediction.requires_grad_(True)
         agent = dict(batch=torch.zeros(4, dtype=torch.long), type=torch.zeros(4, dtype=torch.long))
         valid = torch.tensor([True, False, False, True])
@@ -232,11 +265,60 @@ class InitDiffusionInvalidSizeTest(unittest.TestCase):
                 self.assertEqual(float(metrics['invalid_fields']), 1.)
                 self.assertEqual(float(metrics['invalid_agents']), 1.)
 
+    def test_masked_nonfinite_predictions_cannot_poison_loss_or_gradients(self):
+        for value in (float('nan'), float('inf'), -float('inf')):
+            with self.subTest(value=value):
+                _, agent, _ = self.inputs()
+                model = self.fixture.denoiser().train()
+                clean, _ = model.get_input(agent)
+                prediction = (clean + .2).detach()
+                prediction[0, 4] = value
+                prediction.requires_grad_(True)
+                mask = torch.ones_like(clean, dtype=torch.bool)
+                mask[:, 4:6] = agent['_init_diffusion_size_valid_mask']
+                losses = get_diff_loss(agent, prediction, clean, torch.full((3, 1), .5), .05,
+                                       w_pos=1., x_pred=True, use_col=True,
+                                       reconstruction_mask=mask,
+                                       collision_valid_mask=mask[:, 4:6].all(-1),
+                                       state_to_physical=model.state_to_physical)
+                self.assertTrue(all(torch.isfinite(loss).all() for loss in losses))
+                # Ignore only the bad length; /8 * cubic inverse-time(0.5) stays 1.
+                error = ((clean + .2) - clean).square() * mask
+                torch.testing.assert_close(losses[0], error.sum(-1))
+                torch.testing.assert_close(losses[4], error[:, 4:6].mean(-1))
+                (losses[0].sum() + losses[1]).backward()
+                self.assertTrue(torch.isfinite(prediction.grad).all())
+                self.assertEqual(prediction.grad[0, 4].item(), 0.)
+                for field in (0, 1, 2, 3, 5, 6, 7):
+                    self.assertGreater(prediction.grad[0, field].abs().item(), 0.)
+
+    def test_smart_gail_logs_float_field_counts_and_integer_agent_counts(self):
+        from src.smart.model.smart_gail import SMART_GAIL
+
+        _, agent, feature = self.inputs()
+        agent['initial_map_feature'] = feature
+        wrapper = self.fixture.wrapper().train()
+        result = wrapper(agent)
+        metrics = agent['_init_diffusion_size_metrics']
+        self.assertTrue(metrics['invalid_fields'].is_floating_point())
+        self.assertIsInstance(metrics['invalid_agents'], int)
+        logged = {}
+        owner = SimpleNamespace(encoder=SimpleNamespace(init_decoder=wrapper),
+                                _log_train=lambda name, value: logged.__setitem__(name, value))
+        actual = SMART_GAIL._initial_prediction_loss(owner, {'initial_logit': result},
+                                                     agent, agent['expert_input'])
+        torch.testing.assert_close(actual, result[0] + result[1])
+        for name in ('train/size_invalid_fields', 'train/size_invalid_agents'):
+            self.assertIn(name, logged)
+            self.assertTrue(logged[name].is_floating_point())
+            self.assertEqual(logged[name].ndim, 0)
+            self.assertEqual(logged[name].item(), 1.)
+        self.assertTrue(all(torch.isfinite(value).all() for value in logged.values()))
+
     def test_policy_is_propagated_and_invalid_choices_are_rejected(self):
         for policy in ('mask', 'error'):
             wrapper = self.fixture.wrapper(invalid_size_policy=policy)
             self.assertEqual(wrapper.invalid_size_policy, policy)
-            self.assertEqual(wrapper.G1.invalid_size_policy, policy)
             self.assertEqual(wrapper.G1.model.invalid_size_policy, policy)
         for constructor in (lambda: self.fixture.denoiser(invalid_size_policy='unknown'),
                             lambda: self.fixture.flow(invalid_size_policy='unknown'),

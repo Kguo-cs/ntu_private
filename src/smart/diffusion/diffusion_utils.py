@@ -145,6 +145,15 @@ def matching_loss(
     )
     mode, prediction, logits, logstds = _parse_prediction(fake_state)
 
+    if reconstruction_mask is not None:
+        if mode != "deterministic" or reconstruction_mask.shape != fake_state.shape:
+            raise ValueError("reconstruction_mask must match a deterministic state prediction")
+        reconstruction_mask = reconstruction_mask.to(device=fake_state.device, dtype=torch.bool)
+        # Mask operands before any square/absolute value: even an ignored
+        # non-finite prediction cannot poison the reconstruction gradients.
+        fake_state = torch.where(reconstruction_mask, fake_state, real_state.detach())
+        prediction = fake_state
+
     if mode == "deterministic":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
         pos_loss = _component_loss(fake_pos, real_pos, use_l1)
@@ -191,18 +200,6 @@ def matching_loss(
         + w_vel * vel_loss
     )
     state_error = F.mse_loss(real_state, fake_state, reduction="none")
-    if reconstruction_mask is not None:
-        if mode != "deterministic" or reconstruction_mask.shape != state_error.shape:
-            raise ValueError("reconstruction_mask must match a deterministic state prediction")
-        reconstruction_mask = reconstruction_mask.to(device=state_error.device, dtype=torch.bool)
-        state_error = torch.where(reconstruction_mask, state_error, torch.zeros_like(state_error))
-        # Keep each coordinate's original contribution; missing labels are not
-        # replaced by an artificial small-size target or renormalized upward.
-        component_error = (fake_state - real_state).abs() if use_l1 else (fake_state - real_state).square()
-        component_error = torch.where(reconstruction_mask, component_error, torch.zeros_like(component_error))
-        pos_loss, heading_loss, shape_loss, vel_loss = (
-            component_error[:, group].mean(-1) for group in (POS, HEADING, SHAPE, VEL)
-        )
     if reconstruction_dims is None:
         total_loss = state_error.mean(-1) * w_pos
     else:
@@ -501,17 +498,25 @@ def get_diff_loss(
 
     collision_loss = fake_state.new_zeros(())
     if use_col and x_pred:
-        collision_prediction = fake_state if state_to_physical is None else state_to_physical(fake_state)
-        collision_reference = real_state if state_to_physical is None else state_to_physical(real_state)
-        edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
-            collision_prediction, batch, reference_state=collision_reference
-        )
+        collision_prediction, collision_reference, collision_batch = fake_state, real_state, batch
+        collision_rows = None
         if collision_valid_mask is not None:
             valid = collision_valid_mask.to(device=fake_state.device, dtype=torch.bool)
             if valid.shape != (num_states,):
                 raise ValueError("collision_valid_mask must match the agent count")
-            keep = valid[start_idx] & valid[end_idx]
-            edge_loss, end_idx, start_idx = edge_loss[keep], end_idx[keep], start_idx[keep]
+            collision_rows = valid.nonzero(as_tuple=True)[0]
+            # Decode only known-shape rows: an unconstrained missing-coordinate
+            # prediction must not overflow exp or participate in GT geometry.
+            collision_prediction, collision_reference = fake_state[collision_rows], real_state[collision_rows]
+            collision_batch = batch[collision_rows]
+        if state_to_physical is not None:
+            collision_prediction = state_to_physical(collision_prediction)
+            collision_reference = state_to_physical(collision_reference)
+        edge_loss, end_idx, start_idx = multi_circle_collision_loss_mem_efficient(
+            collision_prediction, collision_batch, reference_state=collision_reference
+        )
+        if collision_rows is not None:
+            start_idx, end_idx = collision_rows[start_idx], collision_rows[end_idx]
         if edge_loss.numel():
             # A fixed ego has zero time weight. Use the movable endpoint's
             # weight regardless of where ego appears in the agent ordering.
