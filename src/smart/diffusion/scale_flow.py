@@ -302,7 +302,7 @@ class Flow(nn.Module):
                 "batch": tokenized_agent["batch"][non_ego],
                 "type": tokenized_agent["type"][non_ego],
             },
-            all_state=True,
+            all_state=False,
         )
         noise[non_ego] = non_ego_noise[matched_index]
 
