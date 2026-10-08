@@ -44,7 +44,8 @@ def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float],
     noise = model.denormalize(standard_noise)
     if heading_noise == "circular":
         # The angle of an isotropic standard Gaussian is uniform on S¹.
-        theta = torch.atan2(standard_noise[:, 3], standard_noise[:, 2])
+        theta = 2 * torch.pi * torch.rand_like(standard_noise[:, 0]) - torch.pi
+       # theta = torch.atan2(standard_noise[:, 3], standard_noise[:, 2])
         heading = torch.stack((theta.cos(), theta.sin()), dim=-1)
         noise = torch.cat((noise[:, :2], heading, noise[:, 4:]), dim=-1)
     elif sigma_h is not None:

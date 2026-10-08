@@ -382,7 +382,7 @@ class InitDenoiser(nn.Module):
             self.normal_mean.copy_(mean)
 
             # Keep the old scaling heuristic.
-            scale[:, 2:4] = scale[:, 2:4] * 4
+            #scale[:, 2:4] = scale[:, 2:4] * 4
             #scale[:, :2] = scale[:, :2] * 2
 
             self.normal_scale.copy_(scale)
