@@ -50,6 +50,24 @@
 
 训练监测只生成一个 batch，仍对照完整 50k GT 分布，因此监测值不能当作完整评估结果。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
 
+## Position、Shape、Velocity 的 Uniform Source
+
+三个组可以独立选择 source，默认均为 `gaussian`，保留已有行为。需要全部改为 uniform 时，训练命令追加：
+
+```bash
+  model.model_config.decoder.init_diffusion.pos_source=uniform \
+  model.model_config.decoder.init_diffusion.shape_source=uniform \
+  model.model_config.decoder.init_diffusion.velocity_source=uniform
+```
+
+每个选项只接受 `gaussian` 或 `uniform`，也可以只开启其中一个。训练加噪与评价初始采样共用相同实现，ego 条件和 Hungarian 匹配保持原样。圆周 heading 仍由 `heading_noise` 独立控制，插值路径和训练 objective 不变。
+
+uniform 在模型的标准化坐标中独立采样 `u ~ U(-√3, √3)`，再使用现有、随权重保存的 normalizer 计算 `x_source = normal_mean + normal_scale * u`（scale 下限仍为 `1e-6`）。这样与 Gaussian source 保持相同的均值和方差；范围是每个坐标的 `mean ± √3 * std`，不是数据的 min/max。位置为 x/y 各自均匀采样，不是圆盘均匀采样。
+
+`shape_source=uniform` 在 `size_representation=log` 时采样 log(length/width)，该 source 对应的物理尺寸呈有界 log-uniform 分布；生成结果仍由学习到的 Flow 决定。linear 模式下直接采样尺寸，source 仍可能为负，不额外 clamp。`velocity_source=uniform` 在 vector 模式下对 vx/vy 各自采样，速度模长不服从均匀分布；speed 模式下只作用于 scalar speed 的源值，内部有噪声的 speed 仍可能为负。
+
+恢复训练或复现评价时，应显式使用该 checkpoint 训练时的同一组 source 设置；评价配置继承训练配置，也支持上述覆盖值。配置和 `sd_agent_metrics.json` 都记录 source 选项。权重结构不变，允许加载原 Gaussian 权重做实验，但只在评价时切换 source 会改变已学习路径的起点分布，不能当作已训练好的 uniform 模型。建议重新训练后比较完整评价指标。当前 Gaussian score 的 SDE/PPO 分支不支持 uniform source。
+
 ## 保留速度向量，增加 Speed Magnitude Loss
 
 当前 lane-conditioned 配置保留 `velocity_representation=vector`，输入和预测仍为 `vx,vy`。

@@ -169,6 +169,8 @@ class CircularHeadingFlowTest(unittest.TestCase):
         flow = self.flow()
         torch.manual_seed(817)
         eps = torch.randn(8192, 8)
+        # Replay the independent angular draw when comparing source settings.
+        rng = torch.get_rng_state().clone()
         noise = _noise_endpoint(flow.model, eps, 5., 'circular')
         heading = noise[:, 2:4]
         torch.testing.assert_close(heading.norm(dim=-1), torch.ones(len(eps)), atol=2e-7, rtol=0)
@@ -177,7 +179,9 @@ class CircularHeadingFlowTest(unittest.TestCase):
                            (2*torch.pi) * 16).long().clamp_max(15)
         torch.testing.assert_close(torch.bincount(bins, minlength=16).float(),
                                    torch.full((16,), len(eps)/16), atol=90., rtol=0)
+        torch.set_rng_state(rng)
         torch.testing.assert_close(noise, _noise_endpoint(flow.model, eps, None, 'circular'))
+        torch.set_rng_state(rng)
         torch.testing.assert_close(noise, _noise_endpoint(flow.model, eps, 10., 'circular'))
         indices = [0, 1, 4, 5, 6, 7]
         torch.testing.assert_close(noise[:, indices], flow.model.denormalize(eps)[:, indices])
@@ -204,6 +208,7 @@ class CircularHeadingFlowTest(unittest.TestCase):
         flow = self.flow()
         clean, agent, feature = InitDiffusionHeadingNoiseTest.inputs()
         eps = torch.linspace(-1.7, 2.1, 24).reshape(3, 8)
+        torch.manual_seed(817)
         with patch('src.smart.diffusion.scale_flow.torch.randn_like', return_value=eps.clone()), \
                 patch.object(flow, '_sample_time', return_value=torch.full((3, 1), .4)):
             source, time, latent = flow._prepare_supervised_batch(clean, agent)
@@ -216,6 +221,7 @@ class CircularHeadingFlowTest(unittest.TestCase):
         def capture(state, *args, **kwargs):
             seen.append(state[:, 2:4].norm(dim=-1).clone())
             return original(state, *args, **kwargs)
+        torch.manual_seed(817)
         with patch('src.smart.diffusion.scale_flow.torch.randn', return_value=eps.clone()), \
                 patch.object(flow.model, 'forward', side_effect=capture):
             generated = flow.eval().sample(agent, feature, steps=5)
@@ -383,6 +389,7 @@ class CircularHeadingVelocityTest(unittest.TestCase):
         for steps in (1, 20, 40):
             with self.subTest(steps=steps), \
                     patch('src.smart.diffusion.scale_flow.torch.randn', return_value=eps.clone()), \
+                    patch('src.smart.diffusion.scale_flow.torch.rand_like', return_value=(angles + torch.pi) / (2 * torch.pi)), \
                     patch.object(flow.model, 'forward', return_value=prediction):
                 generated = flow.sample(agent, feature, steps=steps)
                 self.assertEqual(generated.shape, (3, 8))

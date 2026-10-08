@@ -200,6 +200,7 @@ class InitDiffusionSpeedTest(unittest.TestCase):
         for steps in (1, 20):
             with self.subTest(steps=steps), \
                     patch('src.smart.diffusion.scale_flow.torch.randn', return_value=noise.clone()), \
+                    patch('src.smart.diffusion.scale_flow.torch.rand_like', return_value=(theta1 + torch.pi) / (2 * torch.pi)), \
                     patch.object(flow.model, 'forward', return_value=prediction):
                 generated = flow.sample(agent, feature, steps=steps)
             self.assertEqual(generated.shape, (3, 7))

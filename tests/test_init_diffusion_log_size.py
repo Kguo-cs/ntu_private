@@ -257,6 +257,7 @@ class InitDiffusionLogSizeTest(unittest.TestCase):
                     eps[:, 2] = 1.
                     for steps in (1, 20):
                         with patch('src.smart.diffusion.scale_flow.torch.randn', return_value=eps.clone()), \
+                                patch('src.smart.diffusion.scale_flow.torch.rand_like', return_value=torch.full((3,), .5)), \
                                 patch.object(flow.model, 'forward', return_value=prediction.clone()):
                             generated = flow.sample(agent, feature, steps=steps)
                         torch.testing.assert_close(generated, internal, atol=2.e-5, rtol=0)

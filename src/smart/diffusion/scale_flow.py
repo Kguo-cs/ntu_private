@@ -39,13 +39,29 @@ from .denoiser import InitDenoiser
 
 
 def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float],
-                    heading_noise: str = "gaussian") -> Tensor:
-    """Use a uniform unit-circle heading or the configured Gaussian endpoint."""
+                    heading_noise: str = "gaussian", *,
+                    pos_source: str = "gaussian", shape_source: str = "gaussian",
+                    velocity_source: str = "gaussian") -> Tensor:
+    """Draw selected fields uniformly in standardized model coordinates.
+
+    U(-sqrt(3), sqrt(3)) has the same mean and variance as N(0, 1).
+    Size fields follow the model's linear/log representation; velocity fields
+    are vx/vy or scalar speed. Heading has its own independent source option.
+    """
+    source_fields = (("pos_source", pos_source, slice(0, 2)),
+                     ("shape_source", shape_source, slice(4, 6)),
+                     ("velocity_source", velocity_source, slice(6, None)))
+    for name, source, _ in source_fields:
+        if source not in ("gaussian", "uniform"):
+            raise ValueError(f"{name} must be gaussian or uniform")
+    if any(source == "uniform" for _, source, _ in source_fields):
+        standard_noise = standard_noise.clone()
+        for _, source, fields in source_fields:
+            if source == "uniform":
+                standard_noise[:, fields] = (2 * torch.rand_like(standard_noise[:, fields]) - 1) * math.sqrt(3)
     noise = model.denormalize(standard_noise)
     if heading_noise == "circular":
-        # The angle of an isotropic standard Gaussian is uniform on S¹.
         theta = 2 * torch.pi * torch.rand_like(standard_noise[:, 0]) - torch.pi
-       # theta = torch.atan2(standard_noise[:, 3], standard_noise[:, 2])
         heading = torch.stack((theta.cos(), theta.sin()), dim=-1)
         noise = torch.cat((noise[:, :2], heading, noise[:, 4:]), dim=-1)
     elif sigma_h is not None:
@@ -89,6 +105,11 @@ class Flow(nn.Module):
         if self.speed_loss_weight > 0 and self.velocity_representation != "vector":
             raise ValueError("speed magnitude loss requires velocity_representation=vector; scalar speed is already directly supervised")
         state_dim = 7 if self.velocity_representation == "speed" else args.input_dim
+        for name in ("pos_source", "shape_source", "velocity_source"):
+            source = getattr(args, name, "gaussian")
+            if source not in ("gaussian", "uniform"):
+                raise ValueError(f"{name} must be gaussian or uniform")
+            setattr(self, name, source)
         self.heading_noise = getattr(args, "heading_noise", "gaussian")
         if self.heading_noise not in ("gaussian", "circular"):
             raise ValueError("heading_noise must be gaussian or circular")
@@ -198,6 +219,9 @@ class Flow(nn.Module):
             # refiner mean 最大修正量，normalized space
             self.refiner_delta_scale = 0.2
 
+        if self.use_sde and any(getattr(self, name) == "uniform"
+                                for name in ("pos_source", "shape_source", "velocity_source")):
+            raise ValueError("Uniform sources support deterministic flow sampling; the SDE/PPO drift requires gaussian sources")
         if self.heading_noise == "circular" and self.use_sde:
             raise ValueError("Circular heading supports deterministic flow sampling; the SDE/PPO transition requires heading_noise=gaussian")
         self.apply(weight_init)
@@ -257,7 +281,10 @@ class Flow(nn.Module):
         tokenized_agent: HeteroData,
     ) -> Tensor:
         noise = _noise_endpoint(self.model, torch.randn_like(x), getattr(self, "sigma_h", None),
-                                getattr(self, "heading_noise", "gaussian"))
+                                getattr(self, "heading_noise", "gaussian"),
+                                pos_source=getattr(self, "pos_source", "gaussian"),
+                                shape_source=getattr(self, "shape_source", "gaussian"),
+                                velocity_source=getattr(self, "velocity_source", "gaussian"))
 
         ego_mask = tokenized_agent[
             "ego_mask"
@@ -1119,7 +1146,9 @@ class Flow(nn.Module):
             dtype=self.model.normal_scale.dtype,
         )
 
-        latent = _noise_endpoint(self.model, latent, self.sigma_h, self.heading_noise)
+        latent = _noise_endpoint(self.model, latent, self.sigma_h, self.heading_noise,
+                                 pos_source=self.pos_source, shape_source=self.shape_source,
+                                 velocity_source=self.velocity_source)
         tokenized_agent["gen_noise"]=latent.clone()
 
         if self.velocity_representation == "speed" or "expert_input" not in tokenized_agent:

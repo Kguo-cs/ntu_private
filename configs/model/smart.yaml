@@ -33,6 +33,9 @@ model_config:
     init_decoder: flow
     sep_map: false  # A trainable map encoder dedicated to supervised InitDiffusion.
     init_diffusion:
+      pos_source: gaussian  # gaussian or uniform; uniform uses mean +/- sqrt(3)*std per coordinate.
+      shape_source: gaussian  # Applies to linear sizes or log sizes according to size_representation.
+      velocity_source: gaussian  # Applies to vx/vy or scalar speed according to velocity_representation.
       velocity_representation: vector  # vector: vx/vy; speed: scalar norm, reconstruct using heading.
       speed_loss_weight: 0.0  # Optional normalized magnitude MSE in addition to vector reconstruction.
       speed_loss_scale: null  # m/s; null reuses RMS speed from velocity moments, floored at 1 m/s.

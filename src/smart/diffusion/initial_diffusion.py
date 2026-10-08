@@ -54,6 +54,9 @@ class InitDiffusion(nn.Module):
         speed_loss_weight: float = 0.0,
         speed_loss_scale: Optional[float] = None,
         invalid_size_policy: str = "mask",
+        pos_source: str = "gaussian",
+        shape_source: str = "gaussian",
+        velocity_source: str = "gaussian",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -81,6 +84,9 @@ class InitDiffusion(nn.Module):
         args.velocity_representation = velocity_representation
         args.size_representation = size_representation
         args.invalid_size_policy = invalid_size_policy
+        self.pos_source = args.pos_source = pos_source
+        self.shape_source = args.shape_source = shape_source
+        self.velocity_source = args.velocity_source = velocity_source
         self.speed_loss_weight = float(speed_loss_weight)
         self.speed_loss_scale = None if speed_loss_scale is None else float(speed_loss_scale)
         args.speed_loss_weight = self.speed_loss_weight
