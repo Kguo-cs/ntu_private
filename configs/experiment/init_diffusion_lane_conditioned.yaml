@@ -32,7 +32,7 @@ model:
         time_embedding_type: scenario_dreamer
         #pos_source: uniform
        # shape_source: uniform
-        velocity_source: uniform
+        #velocity_source: uniform
 
        # size_representation: log
       #  speed_loss_weight: 1.0
