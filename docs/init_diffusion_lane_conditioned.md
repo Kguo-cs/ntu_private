@@ -50,9 +50,49 @@
 
 训练监测只生成一个 batch，仍对照完整 50k GT 分布，因此监测值不能当作完整评估结果。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
 
+## 保留速度向量，增加 Speed Magnitude Loss
+
+当前 lane-conditioned 配置保留 `velocity_representation=vector`，输入和预测仍为 `vx,vy`。
+新增 `speed_loss_weight`（默认 `0.0`，关闭）允许在原有向量重建与碰撞损失之外，独立监督速度模长：
+
+```text
+s_pred = norm(v_pred), s_gt = norm(v_gt)
+L_speed = mean_active(((s_pred - s_gt) / speed_scale)^2)
+L_total = L_match_original + L_collision + speed_loss_weight * L_speed
+```
+
+只统计非 ego、`0<t<1` 的 agent；无有效 agent 时辅助项为可微的零。
+该项使用均匀时间权重，不再乘原来 reconstruction 的 `t^-3`。
+现有 `vx,vy` MSE、朝向目标、尺寸表示和噪声/采样路径保持原来的定义。
+内部 agent 坐标系与最终世界坐标系通过旋转关联，速度模长一致，因此监督的物理量与 `speed_jsd` 对齐。
+`match_loss` 已包含加权辅助项；`vel_loss` 继续记录原向量重建分量，不合并 magnitude loss。
+
+`speed_loss_scale=null` 默认复用现有 normalizer 的速度均值和 population 标准差：
+`speed_scale = max(sqrt(sum(mean_v^2 + std_v^2)), 1 m/s)`，即 RMS speed，**不是 speed 标准差**。
+这些统计沿用原有首次拟合与 checkpoint 保存方式，不重新拟合或增加 learnable scale。
+也可配置固定正值（单位 m/s），例如 `speed_loss_scale=10.0`；分母不依赖预测值，也不随每个 batch 重新计算。
+低精度输入的模长运算使用 float32。预测恰为零时 magnitude 项梯度为零，原向量 MSE 仍能将其推向非零 GT。
+
+从权重 `1.0` 开始尝试，并监测归一化辅助项与其他损失的量级：
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python src/run.py \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.velocity_representation=vector \
+  model.model_config.decoder.init_diffusion.speed_loss_weight=1.0
+```
+
+训练日志新增 `train/speed_loss`、`train/speed_weighted_loss` 和 `train/speed_scale`。
+没有新增网络 head、参数或 buffer，因此可以继续训练已有的 vector 模型，EMA 和 checkpoint 架构兼容。
+可与 `size_representation=log`、两种 heading objective、sep_map 和条件 embedding 组合。
+此项用于监督重建；refiner 的策略目标不支持。
+标量 `velocity_representation=speed` 已直接监督 speed，因此开启本向量辅助项会报错。
+评价时建议保留对应训练配置，报告会记录权重和归一化设置；这些选项本身不改变采样计算。
+
 ## 标量 Speed 输入和预测
 
-当前 lane-conditioned 训练和评价默认
+要启用标量模式，训练和评价都设置
 `model.model_config.decoder.init_diffusion.velocity_representation=speed`。
 内部 Flow 状态从 8 维变为 7 维：
 `[x,y,cos(theta),sin(theta),length,width,speed]`，其中 GT speed 是
@@ -81,7 +121,7 @@ speed 模式当前支持确定性监督训练和采样；SDE/refiner 路径需�
   model.model_config.decoder.init_diffusion.velocity_representation=speed
 ```
 
-独立评价配置继承 speed 模式；评价报告记录实际 `velocity_representation`。
+独立评价配置也需覆盖为 speed 模式；评价报告记录实际 `velocity_representation`。
 输入、输出投影及 normalizer 参数形状已经改变，需要训练新的 speed 模型。
 旧 vx/vy checkpoint 的训练恢复和评价必须显式设置
 `model.model_config.decoder.init_diffusion.velocity_representation=vector`，

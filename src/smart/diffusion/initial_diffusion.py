@@ -51,6 +51,8 @@ class InitDiffusion(nn.Module):
         map_lg_type: Optional[int] = 0,
         map_label_dropout: float = 0.1,
         size_representation: str = "linear",
+        speed_loss_weight: float = 0.0,
+        speed_loss_scale: Optional[float] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -76,6 +78,10 @@ class InitDiffusion(nn.Module):
         args = self._make_args( )
         args.velocity_representation = velocity_representation
         args.size_representation = size_representation
+        self.speed_loss_weight = float(speed_loss_weight)
+        self.speed_loss_scale = None if speed_loss_scale is None else float(speed_loss_scale)
+        args.speed_loss_weight = self.speed_loss_weight
+        args.speed_loss_scale = self.speed_loss_scale
         if velocity_representation == "speed":
             args.input_dim = 7
         args.edge_embedding_type = edge_embedding_type

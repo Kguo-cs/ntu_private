@@ -77,6 +77,16 @@ class Flow(nn.Module):
         self.size_representation = getattr(args, "size_representation", "linear")
         if self.velocity_representation not in ("vector", "speed"):
             raise ValueError("velocity_representation must be vector or speed")
+        self.speed_loss_weight = float(getattr(args, "speed_loss_weight", 0.0))
+        if not math.isfinite(self.speed_loss_weight) or self.speed_loss_weight < 0:
+            raise ValueError("speed_loss_weight must be finite and nonnegative")
+        speed_loss_scale = getattr(args, "speed_loss_scale", None)
+        self.speed_loss_scale = None if speed_loss_scale is None else float(speed_loss_scale)
+        if self.speed_loss_scale is not None and (not math.isfinite(self.speed_loss_scale)
+                                                  or self.speed_loss_scale <= 0):
+            raise ValueError("speed_loss_scale must be finite and positive, or null for RMS speed")
+        if self.speed_loss_weight > 0 and self.velocity_representation != "vector":
+            raise ValueError("speed magnitude loss requires velocity_representation=vector; scalar speed is already directly supervised")
         state_dim = 7 if self.velocity_representation == "speed" else args.input_dim
         self.heading_noise = getattr(args, "heading_noise", "gaussian")
         if self.heading_noise not in ("gaussian", "circular"):
@@ -137,6 +147,8 @@ class Flow(nn.Module):
             getattr(args, "branch_steps", None)
         )
         self.use_refiner = token_processor.use_refiner
+        if self.speed_loss_weight > 0 and self.use_refiner:
+            raise ValueError("speed magnitude loss applies to supervised Flow reconstruction; refiner uses its own policy objective")
         if self.size_representation == "log" and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
             raise ValueError("log size representation supports supervised Flow training and evaluation; SDE/RL/refiner requires linear sizes")
         if self.velocity_representation == "speed" and (self.use_sde or self.use_refiner):
@@ -557,12 +569,43 @@ class Flow(nn.Module):
 
         return loss
 
+    def _speed_magnitude_loss(self, prediction: Tensor, target: Tensor,
+                              time: Tensor, ego_mask: Tensor):
+        """Dimensionless speed MSE, averaged over movable interior-time agents.
+
+        The existing vector reconstruction supplies direction gradients, including
+        when the predicted vector is exactly zero. This auxiliary term supervises
+        the physical norm before velocity normalization or output transforms.
+        """
+        predicted_velocity = prediction[:, 6:8]
+        target_velocity = target[:, 6:8].detach()
+        if predicted_velocity.dtype in (torch.float16, torch.bfloat16):
+            predicted_velocity = predicted_velocity.float()
+        if target_velocity.dtype in (torch.float16, torch.bfloat16):
+            target_velocity = target_velocity.float()
+        speed_error = (torch.linalg.vector_norm(predicted_velocity, dim=-1)
+                       - torch.linalg.vector_norm(target_velocity, dim=-1))
+        if self.speed_loss_scale is None:
+            # E[||v||^2] = sum(E[v]^2 + Var[v]). Reuse the checkpointed
+            # population moments; no batch-dependent or learnable denominator.
+            mean = self.model.normal_mean[0, 6:8].detach().to(speed_error)
+            std = self.model.normal_scale[0, 6:8].detach().to(speed_error)
+            scale = (mean.square() + std.square()).sum().sqrt().clamp_min(1.)
+        else:
+            scale = speed_error.new_tensor(self.speed_loss_scale)
+        scene_time = time.reshape(-1)
+        active = (~ego_mask.reshape(-1).bool()) & (scene_time > 0) & (scene_time < 1)
+        error = (speed_error / scale).square()
+        loss = torch.where(active, error, torch.zeros_like(error)).sum() / active.sum().clamp_min(1)
+        return loss, scale
+
     def _supervised_loss(
         self,
         x: Tensor,
         tokenized_agent: HeteroData,
         map_feature: Mapping[str, Tensor],
     ):
+        tokenized_agent.pop("_init_diffusion_speed_metrics", None)
         noise, time, latent = (
             self._prepare_supervised_batch(
                 x,
@@ -630,6 +673,18 @@ class Flow(nn.Module):
             total, collision, position, _, shape, velocity = loss
             loss = (total + self.heading_flow_loss_weight * heading_loss, collision,
                     position, heading_loss, shape, velocity)
+
+        if self.speed_loss_weight > 0:
+            magnitude_loss, magnitude_scale = self._speed_magnitude_loss(x0, x, time, ego_mask)
+            weighted_loss = self.speed_loss_weight * magnitude_loss
+            # A scalar active-agent mean adds once after the wrapper reduces
+            # reconstruction, preserving the existing six-item return contract.
+            loss = (loss[0] + weighted_loss, *loss[1:])
+            tokenized_agent["_init_diffusion_speed_metrics"] = {
+                "loss": magnitude_loss.detach(),
+                "weighted_loss": weighted_loss.detach(),
+                "scale": magnitude_scale.detach(),
+            }
 
         return loss
 

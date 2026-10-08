@@ -253,6 +253,11 @@ class SMART_GAIL(SMART):
         for name, value in metrics.items():
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
+        speed_metrics = agent.get("_init_diffusion_speed_metrics")
+        if speed_metrics is not None:
+            for name, value in speed_metrics.items():
+                self._log_train(f"train/speed_{name}", _safe_mean(value, reference))
+
         noise_std = agent.get("noise_std")
         if noise_std is not None:
             std = noise_std[:, 0].mean(0)
