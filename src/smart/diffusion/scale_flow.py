@@ -102,6 +102,8 @@ class Flow(nn.Module):
             edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
             heading_velocity=self.heading_objective == "angular_velocity",
             velocity_representation=self.velocity_representation,
+            time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
+            time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
         )
 
         self.t_eps = 0.05
@@ -143,6 +145,8 @@ class Flow(nn.Module):
                     dropout=args.dropout,
                     x_pred=False,
                     edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
+                    time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
+                    time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
                 )
 
             # normalized-space exploration std
@@ -159,6 +163,11 @@ class Flow(nn.Module):
         if self.heading_noise == "circular" and self.use_sde:
             raise ValueError("Circular heading supports deterministic flow sampling; the SDE/PPO transition requires heading_noise=gaussian")
         self.apply(weight_init)
+        # The outer generic initialization also visits the time MLP. Restore
+        # SD's Normal(0, .02) weights for both denoisers afterwards.
+        self.model.reset_time_embedding_parameters()
+        if self.use_refiner:
+            self.refine_model.reset_time_embedding_parameters()
 
     @staticmethod
     def _parse_fixed_branch_steps(

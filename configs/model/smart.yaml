@@ -39,6 +39,8 @@ model_config:
       heading_flow_loss_weight: 1.0  # Coefficient of unweighted angular-velocity MSE.
       sigma_h: null  # Positive value: zero-mean isotropic cos/sin noise; null: empirical noise.
       edge_embedding_type: fourier  # Denoiser geometry: fourier or mlp.
+      time_embedding_type: legacy  # legacy or scenario_dreamer (256D sin/cos + SiLU MLP).
+      time_embedding_scale: 99.0  # SD mode maps continuous Flow t in [0,1] to released indices [0,99].
       use_ema: false
       ema_decay: 0.9999
     initial_scene_only: false  # Direct initial-state evaluation on full reference lanes.

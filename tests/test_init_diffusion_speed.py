@@ -385,15 +385,14 @@ class InitDiffusionSpeedTest(unittest.TestCase):
         with self.assertRaises((RuntimeError, ValueError)):
             vector.load_state_dict(saved, strict=True)
 
-    def test_train_eval_default_to_speed_and_allow_legacy_vector_override(self):
+    def test_train_eval_allow_speed_and_vector_overrides(self):
         root = Path(__file__).resolve().parents[1]
         OmegaConf.register_new_resolver('sim_root', lambda: str(root), replace=True)
         with initialize_config_dir(config_dir=str(root / 'configs'), version_base=None):
             for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
                 for mode in ('speed', 'vector'):
-                    overrides = [f'experiment={experiment}']
-                    if mode == 'vector':
-                        overrides.append('model.model_config.decoder.init_diffusion.velocity_representation=vector')
+                    overrides = [f'experiment={experiment}',
+                                 f'model.model_config.decoder.init_diffusion.velocity_representation={mode}']
                     config = compose(config_name='run.yaml', overrides=overrides)
                     self.assertEqual(config.model.model_config.decoder.init_diffusion.velocity_representation, mode)
 

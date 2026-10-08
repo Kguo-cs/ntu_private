@@ -39,6 +39,8 @@ class InitDiffusion(nn.Module):
         heading_objective: str = "x0",
         heading_flow_loss_weight: float = 1.0,
         velocity_representation: str = "vector",
+        time_embedding_type: str = "legacy",
+        time_embedding_scale: float = 99.0,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -63,6 +65,10 @@ class InitDiffusion(nn.Module):
         if velocity_representation == "speed":
             args.input_dim = 7
         args.edge_embedding_type = edge_embedding_type
+        self.time_embedding_type = time_embedding_type
+        self.time_embedding_scale = float(time_embedding_scale)
+        args.time_embedding_type = self.time_embedding_type
+        args.time_embedding_scale = self.time_embedding_scale
         self.sigma_h = None if sigma_h is None else float(sigma_h)
         args.sigma_h = self.sigma_h
         self.heading_noise = heading_noise

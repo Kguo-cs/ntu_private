@@ -166,6 +166,30 @@ heading 的噪声端点为 `sigma_h * N(0, I₂)`：cos/sin 两维均值为 0，
 `model.model_config.decoder.init_diffusion.heading_objective=x0` 和
 `model.model_config.decoder.init_diffusion.sigma_h=null`。其他未显式启用本选项的实验仍默认使用经验噪声。
 
+## Scenario Dreamer 时间编码
+
+`model.model_config.decoder.init_diffusion.time_embedding_type=scenario_dreamer`
+复用本仓库 Scenario Dreamer 的 `TimestepEmbedder`：256 维 sin/cos 特征，
+再经 `Linear(256, hidden_dim) → SiLU → Linear(hidden_dim, hidden_dim)`，无 LayerNorm。
+两层时间 MLP 的权重按官方 `Normal(0, 0.02)` 初始化，bias 为零；隐藏维度仍使用 InitDiffusion 自己的设置。
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python -m src.run \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.time_embedding_type=scenario_dreamer
+```
+
+Flow 的 `t=0` 是干净状态，`t=1` 是噪声。此模式直接编码 `99*t`，
+对应公开 Scenario Dreamer 的 100 个 timestep（0…99），保留连续时间，不取整或反转。
+`time_embedding_scale` 默认 `99.0`，可单独覆盖；ego 的时间仍为 0。
+本选项应用到主 denoiser 和可选 refiner，不改变状态表示、噪声分布、loss、采样步数或优化器；EMA 自动包含时间 MLP。
+
+默认 `time_embedding_type=legacy` 保留当前 `1-t` 的时间特征和原有参数结构。
+切换为 `scenario_dreamer` 会改变时间 MLP 的参数结构，需要新训练；可使用默认的不含 InitDiffusion 权重的 SMART 骨干初始化。
+已有 legacy InitDiffusion checkpoint 不能直接作为新模式的续训或评价权重，Scenario Dreamer 的完整公开权重也不能直接加载到 InitDiffusion。
+恢复训练或使用 `experiment=init_diffusion_lane_conditioned_eval` 评价新权重时，必须保留相同的 `time_embedding_type` 和 `time_embedding_scale`；评价报告记录这两个设置。
+
 ## Denoiser 关系编码：Fourier / MLP
 
 默认 `model.model_config.decoder.init_diffusion.edge_embedding_type=fourier`，保留现有 FourierEmbedding。切换为 `mlp` 后，InitDiffusion denoiser 的 agent–agent 和 map–agent 关系使用已有 `MLPEmbedding`，直接编码 `[local_x, local_y, relative_heading]`；输出维度仍为 denoiser 的 hidden dimension。启用 refiner 时，其关系编码也使用同一选项。

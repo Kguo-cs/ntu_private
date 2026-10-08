@@ -9,6 +9,7 @@ from src.smart.layers import MLPLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.modules.edge_encoder import EdgeEncoder
+from src.smart.scenario_dreamer.core.dit_layers import TimestepEmbedder
 from src.smart.utils import (
     transform_to_global,
     transform_to_local,
@@ -40,8 +41,8 @@ class InitDenoiser(nn.Module):
         - unused padding/SkipMLP/ExploreNoiseNet code
 
     ``edge_embedding_type`` selects "fourier" or "mlp" for agent-agent
-    and map-agent geometry. State, ego-context and time embeddings are shared
-    by both choices.
+    and map-agent geometry. ``time_embedding_type`` independently selects
+    the legacy encoding or Scenario Dreamer's scalar TimestepEmbedder.
 
     MeanFlow/iMF support:
         When ``mean_flow=True``, the model output is interpreted as the
@@ -63,6 +64,8 @@ class InitDenoiser(nn.Module):
         edge_embedding_type: str = "fourier",
         heading_velocity: bool = False,
         velocity_representation: str = "vector",
+        time_embedding_type: str = "legacy",
+        time_embedding_scale: float = 99.0,
     ) -> None:
         super().__init__()
 
@@ -85,6 +88,12 @@ class InitDenoiser(nn.Module):
             raise ValueError("heading_velocity requires an x0 state predictor matching the representation")
         self.token_processor = token_processor
         self.edge_embedding_type = edge_embedding_type
+        if time_embedding_type not in ("legacy", "scenario_dreamer"):
+            raise ValueError("time_embedding_type must be legacy or scenario_dreamer")
+        self.time_embedding_type = time_embedding_type
+        self.time_embedding_scale = float(time_embedding_scale)
+        if not math.isfinite(self.time_embedding_scale) or self.time_embedding_scale <= 0:
+            raise ValueError("time_embedding_scale must be finite and positive")
 
         self.label_drop_prob = 0.0
         self.map_drop_prob=0.0
@@ -103,12 +112,14 @@ class InitDenoiser(nn.Module):
         # )
         #
         self.type_a_emb = nn.Embedding(self.num_classes , hidden_dim)
-        self.noise_embedding = MLPLayer(self.m_delta_dim, hidden_dim, hidden_dim)
-        # Nonlinear time features survive the MLP's initial LayerNorm. For
-        # shared scalar time, these are sin/cos pairs at frequencies pi*2**k;
-        # the first pair distinguishes the two endpoints of [0, 1]. Keep the
-        # MLP parameter layout, but legacy generator weights need finetuning
-        # with this new input representation.
+        self.noise_embedding = (
+            TimestepEmbedder(hidden_dim)
+            if time_embedding_type == "scenario_dreamer"
+            else MLPLayer(self.m_delta_dim, hidden_dim, hidden_dim)
+        )
+        # Legacy features and their nonpersistent buffers retain the old
+        # checkpoint layout. SD mode uses the bundled 256D features instead.
+        # These sin/cos pairs at pi*2**k survive legacy MLP's LayerNorm.
         time_dims = torch.arange(self.m_delta_dim)
         self.register_buffer(
             "_time_frequencies",
@@ -174,6 +185,15 @@ class InitDenoiser(nn.Module):
             self.to_out_heading_velocity = MLPLayer(hidden_dim, hidden_dim, 1)
 
         self.apply(weight_init)
+        self.reset_time_embedding_parameters()
+
+    def reset_time_embedding_parameters(self) -> None:
+        """Restore the released SD time MLP initialization after generic init."""
+        if self.time_embedding_type == "scenario_dreamer":
+            for index in (0, 2):
+                layer = self.noise_embedding.mlp[index]
+                nn.init.normal_(layer.weight, std=0.02)
+                nn.init.zeros_(layer.bias)
 
     # ---------------------------------------------------------------------
     # Normalization
@@ -309,6 +329,27 @@ class InitDenoiser(nn.Module):
 
     def _embed_time(self, beta: torch.Tensor, n_agent: int) -> torch.Tensor:
         """Embed flow time (possibly expanded over state dimensions)."""
+        if self.time_embedding_type == "scenario_dreamer":
+            if (beta.ndim not in (1, 2, 3)
+                    or (beta.ndim == 3 and beta.shape[1] != 1)
+                    or (beta.ndim > 1 and beta.shape[-1] not in (1, self.m_delta_dim))):
+                raise ValueError("Scenario Dreamer time requires one scalar per agent, optionally expanded over state dimensions")
+            time = self._format_beta(beta, n_agent)
+            # Scalar Flow times expand with stride 0, so the usual train/sample
+            # path needs no GPU synchronization to check repeated columns.
+            scalar = time[:, :1]
+            if time.stride(-1) != 0 and not torch.equal(time, scalar.expand_as(time)):
+                raise ValueError("Scenario Dreamer time requires one scalar per agent; per-state timesteps must agree")
+            # Flow t=0 is clean and t=1 is noise. The released SD model uses
+            # indices 0..99; retain fractional indices for continuous Flow.
+            timestep = scalar[:, 0] * self.time_embedding_scale
+            features = self.noise_embedding.timestep_embedding(
+                timestep, self.noise_embedding.frequency_embedding_size
+            )
+            # SD computes frequency features in float32. Match the MLP dtype
+            # for explicitly converted models while retaining autocast support.
+            features = features.to(dtype=self.noise_embedding.mlp[0].weight.dtype)
+            return self.noise_embedding.mlp(features)
         time = self._format_beta(1.0 - beta, n_agent)
         phase = time * self._time_frequencies.to(time)
         features = torch.where(self._time_cos_mask, phase.cos(), phase.sin())
@@ -401,7 +442,10 @@ class InitDenoiser(nn.Module):
         agent_type_embed=self.type_a_emb(agent_type)
         #tokenized_agent["agent_type_embed"]=agent_type_embed
 
-        beta = self._format_beta(beta, m_delta.shape[0])
+        if self.time_embedding_type == "legacy":
+            beta = self._format_beta(beta, m_delta.shape[0])
+        # SD validates the original scalar layout before any dimensions are
+        # removed; malformed grouped times must not be silently truncated.
 
         feat_a = self._original_state_embedding(
             m_delta=m_delta,
