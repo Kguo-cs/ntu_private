@@ -69,6 +69,7 @@ outputs/scenario_dreamer*/
 !/tests/test_init_diffusion_invalid_sizes.py
 !/tests/test_init_diffusion_uniform_source.py
 !/tests/test_init_diffusion_ego_fix.py
+!/tests/test_init_diffusion_ego_partial.py
 !/tests/test_init_diffusion_type_generation.py
 !/tests/test_init_diffusion_ego_embedding.py
 !/tests/test_init_diffusion_map_crop.py

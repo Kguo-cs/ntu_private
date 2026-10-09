@@ -24,6 +24,8 @@ class FlowNoiseMatchingTest(unittest.TestCase):
             use_ego_embedding=use_ego_embedding, generate_type=generate_type,
         )
         flow._conditioned_agent_mask = MethodType(Flow._conditioned_agent_mask, flow)
+        flow._conditioned_state_mask = MethodType(Flow._conditioned_state_mask, flow)
+        flow._ego_field_fixed = MethodType(Flow._ego_field_fixed, flow)
         return flow
 
     def sample(self, clean, noise, batch, agent_type, ego_mask, **options):

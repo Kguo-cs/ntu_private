@@ -243,10 +243,13 @@ class InitDiffusionEgoFixTest(unittest.TestCase):
             agent['batch_ego_pos'][:] = torch.tensor([100., 200.])
             agent['batch_ego_heading'].fill_(.4)
             pos, heading, shape, velocity, _ = flow.model.get_output(state, agent)
-            self.assertAlmostEqual(heading[1, 0].item(), 1., places=6)
+            self.assertAlmostEqual(heading[1, 0].item(), 0. if fixed else 1., places=6)
             self.assertFalse(torch.equal(pos[1, 0], agent['batch_ego_pos'][1]))
-            # Physical velocity is reconstructed in the generated heading frame.
-            angle = torch.tensor(1.)
+            if fixed:
+                torch.testing.assert_close(pos[1, 0], agent['initial_pos'][1], atol=0, rtol=0)
+            # A fixed vector retains its original world frame; free scalar
+            # speed is reconstructed along the generated heading.
+            angle = torch.tensor(0. if fixed else 1.)
             local = agent['local_vel'][1] if fixed else torch.tensor([9., 0.])
             expected = torch.stack((local[0]*angle.cos()-local[1]*angle.sin(),
                                     local[0]*angle.sin()+local[1]*angle.cos()))

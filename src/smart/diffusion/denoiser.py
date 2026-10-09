@@ -21,6 +21,7 @@ from src.smart.utils import (
     weight_init,
 )
 from .noise_schedule import LearnableGroupedPowerSchedule
+from .ego_conditioning import resolve_ego_conditioning
 import torch.nn.functional as F
 
 class InitDenoiser(nn.Module):
@@ -84,6 +85,11 @@ class InitDenoiser(nn.Module):
         fix_ego: bool = True,
         generate_type: bool = False,
         use_ego_embedding: bool = False,
+        fix_ego_position: Optional[bool] = None,
+        fix_ego_heading: Optional[bool] = None,
+        fix_ego_shape: Optional[bool] = None,
+        fix_ego_velocity: Optional[bool] = None,
+        fix_ego_type: Optional[bool] = None,
     ) -> None:
         super().__init__()
 
@@ -101,6 +107,12 @@ class InitDenoiser(nn.Module):
         if not isinstance(fix_ego, bool):
             raise ValueError("fix_ego must be boolean")
         self.fix_ego = fix_ego
+        for name, value in resolve_ego_conditioning(
+            fix_ego, fix_ego_position=fix_ego_position, fix_ego_heading=fix_ego_heading,
+            fix_ego_shape=fix_ego_shape, fix_ego_velocity=fix_ego_velocity,
+            fix_ego_type=fix_ego_type,
+        ).items():
+            setattr(self, name, value)
         if not isinstance(generate_type, bool):
             raise ValueError("generate_type must be boolean")
         self.generate_type = generate_type
@@ -1031,11 +1043,6 @@ class InitDenoiser(nn.Module):
             # Only the physical output is nonnegative and aligned with heading.
             speed = pred_init[..., 6:7].clamp_min(0.)
             pred_vel = torch.cat((speed, torch.zeros_like(speed)), dim=-1)
-            ego_velocity = tokenized_agent.get("_init_diffusion_ego_local_velocity",
-                                                tokenized_agent.get("local_vel"))
-            if self.fix_ego and ego_velocity is not None and "ego_mask" in tokenized_agent:
-                pred_vel = torch.where(tokenized_agent["ego_mask"].bool()[:, None],
-                                       ego_velocity[:, :2].to(pred_vel), pred_vel)
         else:
             pred_vel = pred_init[..., 6:8]
 
@@ -1047,6 +1054,32 @@ class InitDenoiser(nn.Module):
             batch_ego_pos,
             batch_ego_heading,
         )
+
+        ego_mask = tokenized_agent.get("ego_mask")
+        fixed_global_velocity = None
+        if ego_mask is not None:
+            ego_mask = ego_mask.bool()
+            if self.fix_ego_position and "initial_pos" in tokenized_agent:
+                global_pos = torch.where(ego_mask[:, None], tokenized_agent["initial_pos"].to(global_pos), global_pos)
+            if self.fix_ego_heading and "initial_heading" in tokenized_agent:
+                global_heading = torch.where(ego_mask, tokenized_agent["initial_heading"].to(global_heading), global_heading)
+            if self.fix_ego_shape and "shape" in tokenized_agent:
+                # Preserve physical GT exactly, including after log/exp decoding.
+                pred_shape = torch.where(ego_mask[:, None], tokenized_agent["shape"][:, :2].to(pred_shape), pred_shape)
+            ego_velocity = tokenized_agent.get("_init_diffusion_ego_local_velocity", tokenized_agent.get("local_vel"))
+            if self.fix_ego_velocity and ego_velocity is not None:
+                # Stored velocity is in the original agent frame. If heading is
+                # generated, express the same GT world vector in the new frame
+                # before choosing a motion token.
+                reference_heading = tokenized_agent.get("initial_heading")
+                if reference_heading is None:
+                    clean = tokenized_agent.get("expert_input")
+                    reference_heading = (torch.atan2(clean[:, 3], clean[:, 2]) + batch_ego_heading
+                                         if clean is not None else global_heading)
+                fixed_global_velocity = rotate_to_global(ego_velocity[:, :2].to(pred_vel),
+                                                          reference_heading.to(global_heading))
+                local_velocity = rotate_to_local(fixed_global_velocity, global_heading)
+                pred_vel = torch.where(ego_mask[:, None], local_velocity, pred_vel)
 
         gt_initial_pos = global_pos[:, None]
         gt_initial_heading = global_heading[:, None]
@@ -1075,6 +1108,8 @@ class InitDenoiser(nn.Module):
         #local_vel = center_token_traj[torch.arange(len(gt_initial_idx), device=gt_initial_idx.device), gt_initial_idx]
 
         global_vel= rotate_to_global(pred_vel,global_heading)
+        if fixed_global_velocity is not None:
+            global_vel = torch.where(ego_mask[:, None], fixed_global_velocity, global_vel)
 
         return (
             gt_initial_pos,

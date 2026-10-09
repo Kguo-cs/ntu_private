@@ -568,6 +568,10 @@ class SMART(LightningModule):
                 if sampling_report is not None:
                     report["decoder"]["sampling"] = sampling_report()
             elif self.encoder.init_decoder_name == "flow":
+                ego_conditions = {
+                    field: getattr(initial_decoder, f"fix_ego_{field}", getattr(initial_decoder, "fix_ego", True))
+                    for field in ("position", "heading", "shape", "velocity", "type")
+                }
                 report["decoder"] = {
                     "name": "InitDiffusion", "mode": "lane_conditioned",
                     "sigma_h": None if getattr(initial_decoder, "heading_noise", "gaussian") == "circular" else getattr(initial_decoder, "sigma_h", None),
@@ -577,6 +581,7 @@ class SMART(LightningModule):
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
+                    **{f"fix_ego_{field}": fixed for field, fixed in ego_conditions.items()},
                     "use_ego_embedding": getattr(initial_decoder, "use_ego_embedding", False),
                     "match_ego_separately": True,
                     "generate_type": getattr(initial_decoder, "generate_type", False),
@@ -622,7 +627,12 @@ class SMART(LightningModule):
                     if getattr(self.token_processor, "init_map_crop", "circle") == "circle" else None,
                     "init_map_half_extent_m": getattr(self.token_processor, "init_map_half_extent", 32.0)
                     if getattr(self.token_processor, "init_map_crop", "circle") == "square" else None,
-                    "conditioning": ["reference map", "GT ego state and type" if getattr(initial_decoder, "fix_ego", True) and getattr(initial_decoder, "generate_type", False) else "GT ego state" if getattr(initial_decoder, "fix_ego", True) else "GT ego reference frame", "input total agent count" if getattr(initial_decoder, "generate_type", False) else "input agent counts"] + ([] if getattr(initial_decoder, "generate_type", False) else ["input agent types"]) + (["ego/non-ego slot"] if getattr(initial_decoder, "use_ego_embedding", False) else []),
+                    "conditioning": ["reference map", "GT ego reference frame"]
+                        + [f"GT ego {field}" for field, fixed in ego_conditions.items()
+                           if fixed and (field != "type" or getattr(initial_decoder, "generate_type", False))]
+                        + ["input total agent count" if getattr(initial_decoder, "generate_type", False) else "input agent counts"]
+                        + ([] if getattr(initial_decoder, "generate_type", False) else ["input agent types"])
+                        + (["ego/non-ego slot"] if getattr(initial_decoder, "use_ego_embedding", False) else []),
                 }
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
                 json.dump(report, handle, indent=2)

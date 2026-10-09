@@ -223,11 +223,18 @@ class InitDiffusionSpeedTest(unittest.TestCase):
         torch.testing.assert_close(heading[:, 0], global_heading)
         expected = torch.zeros(3, 2)
         expected[0] = torch.tensor([5. * math.cos(1.), 5. * math.sin(1.)])
-        theta = global_heading[1]
+        # The fixed vector retains the cached GT heading (zero relative to
+        # the ego reference), even when the supplied prediction changes it.
+        theta = agent['batch_ego_heading'][1]
         expected[1] = torch.stack((3 * theta.cos() - 4 * theta.sin(),
                                    3 * theta.sin() + 4 * theta.cos()))
         torch.testing.assert_close(velocity, expected, atol=2e-6, rtol=0)
-        torch.testing.assert_close(token[:, 0], torch.tensor([1, 2, 0]))
+        ego_local = agent['local_vel'][1]
+        relative_angle = theta - global_heading[1]
+        selected_local = torch.stack((ego_local[0]*relative_angle.cos()-ego_local[1]*relative_angle.sin(),
+                                     ego_local[0]*relative_angle.sin()+ego_local[1]*relative_angle.cos()))
+        expected_token = (token_vel-selected_local).norm(dim=-1).argmin()
+        torch.testing.assert_close(token[:, 0], torch.tensor([1, expected_token, 0]))
         torch.testing.assert_close(shape, state[:, 4:6])
         # Final reconstruction does not mutate the signed internal flow state.
         self.assertEqual(state[2, 6].item(), -7.)

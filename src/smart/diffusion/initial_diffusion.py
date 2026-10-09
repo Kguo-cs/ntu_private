@@ -17,6 +17,7 @@ from src.smart.utils.map_crop import square_map_mask
 
 from .diffusion_utils import multi_circle_collision_loss_mem_efficient
 from .scale_flow import Flow
+from .ego_conditioning import EGO_FIELDS, resolve_ego_conditioning
 
 
 class InitDiffusion(nn.Module):
@@ -62,6 +63,11 @@ class InitDiffusion(nn.Module):
         generate_type: bool = False,
         type_loss_weight: float = 1.0,
         use_ego_embedding: bool = False,
+        fix_ego_position: Optional[bool] = None,
+        fix_ego_heading: Optional[bool] = None,
+        fix_ego_shape: Optional[bool] = None,
+        fix_ego_velocity: Optional[bool] = None,
+        fix_ego_type: Optional[bool] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -91,6 +97,14 @@ class InitDiffusion(nn.Module):
         if not isinstance(fix_ego, bool):
             raise ValueError("fix_ego must be boolean")
         self.fix_ego = args.fix_ego = fix_ego
+        conditions = resolve_ego_conditioning(
+            fix_ego, fix_ego_position=fix_ego_position, fix_ego_heading=fix_ego_heading,
+            fix_ego_shape=fix_ego_shape, fix_ego_velocity=fix_ego_velocity,
+            fix_ego_type=fix_ego_type,
+        )
+        for name, value in conditions.items():
+            setattr(self, name, value)
+            setattr(args, name, value)
         if not isinstance(generate_type, bool):
             raise ValueError("generate_type must be boolean")
         self.generate_type = args.generate_type = generate_type
@@ -186,6 +200,8 @@ class InitDiffusion(nn.Module):
             "size_representation": self.size_representation,
             "generate_type": self.generate_type,
             "use_ego_embedding": self.use_ego_embedding,
+            "ego_conditioning": {field: getattr(self, f"fix_ego_{field}")
+                                 for field in EGO_FIELDS},
             "ema": self.ema.state_dict() if self.ema is not None else None,
             "ema_parameter_names": list(dict(self.G1.named_parameters())) if self.ema is not None else None,
         }

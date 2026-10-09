@@ -37,6 +37,7 @@ from src.smart.diffusion.diffusion_utils import (
 from src.smart.utils import weight_init, wrap_angle
 import copy
 from .denoiser import InitDenoiser
+from .ego_conditioning import EGO_FIELDS, resolve_ego_conditioning
 
 
 def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float],
@@ -94,6 +95,12 @@ class Flow(nn.Module):
         self.fix_ego = getattr(args, "fix_ego", True)
         if not isinstance(self.fix_ego, bool):
             raise ValueError("fix_ego must be boolean")
+        conditions = resolve_ego_conditioning(self.fix_ego, **{
+            f"fix_ego_{field}": getattr(args, f"fix_ego_{field}", None)
+            for field in EGO_FIELDS
+        })
+        for name, value in conditions.items():
+            setattr(self, name, value)
         self.use_ego_embedding = getattr(args, "use_ego_embedding", False)
         if not isinstance(self.use_ego_embedding, bool):
             raise ValueError("use_ego_embedding must be boolean")
@@ -152,6 +159,7 @@ class Flow(nn.Module):
             velocity_representation=self.velocity_representation,
             size_representation=self.size_representation,
             fix_ego=self.fix_ego,
+            **conditions,
             generate_type=self.generate_type,
             use_ego_embedding=self.use_ego_embedding,
             invalid_size_policy=getattr(args, "invalid_size_policy", "mask"),
@@ -188,8 +196,10 @@ class Flow(nn.Module):
         self.use_refiner = token_processor.use_refiner
         if self.generate_type and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
             raise ValueError("generate_type supports supervised deterministic Flow; SDE/RL/refiner is unsupported")
-        if not self.fix_ego and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
-            raise ValueError("fix_ego=false supports supervised Flow training and evaluation; SDE/RL/refiner requires fixed ego")
+        if not all(conditions[f"fix_ego_{field}"] for field in EGO_FIELDS[:4]) and (
+            self.use_sde or self.use_refiner or getattr(args, "use_rl", False)
+        ):
+            raise ValueError("fix_ego=false or partial ego supports supervised Flow training and evaluation; SDE/RL/refiner requires fixed ego")
         if self.speed_loss_weight > 0 and self.use_refiner:
             raise ValueError("speed magnitude loss applies to supervised Flow reconstruction; refiner uses its own policy objective")
         if self.size_representation == "log" and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
@@ -306,8 +316,8 @@ class Flow(nn.Module):
                                 shape_source=getattr(self, "shape_source", "gaussian"),
                                 velocity_source=getattr(self, "velocity_source", "gaussian"))
 
-        ego_mask = self._conditioned_agent_mask(tokenized_agent)
-        noise[ego_mask] = x[ego_mask]
+        fixed = self._conditioned_state_mask(tokenized_agent, x)
+        noise = torch.where(fixed, x, noise)
 
         # Ego always retains its own source row, independently of whether its
         # state is fixed or its role is embedded. Hungarian only permutes
@@ -355,8 +365,28 @@ class Flow(nn.Module):
         return scene_time[batch]
 
     def _conditioned_agent_mask(self, tokenized_agent) -> Tensor:
+        """Rows with no generated fields; only these use zero timestep."""
         mask = tokenized_agent["ego_mask"].bool()
-        return mask if getattr(self, "fix_ego", True) else torch.zeros_like(mask)
+        fully_fixed = all(self._ego_field_fixed(field) for field in EGO_FIELDS[:4])
+        fully_fixed &= not getattr(self, "generate_type", False) or self._ego_field_fixed("type")
+        return mask if fully_fixed else torch.zeros_like(mask)
+
+    def _ego_field_fixed(self, field) -> bool:
+        # Older lightweight Flow fixtures only provided the master flag.
+        if not hasattr(self, "fix_ego"):
+            return True
+        return getattr(self, f"fix_ego_{field}", self.fix_ego)
+
+    def _conditioned_state_mask(self, tokenized_agent, reference: Tensor) -> Tensor:
+        fields = reference.new_zeros(reference.shape[-1], dtype=torch.bool)
+        for field, indices in (("position", slice(0, 2)), ("heading", slice(2, 4)),
+                               ("shape", slice(4, 6)), ("velocity", slice(6, None))):
+            fields[indices] = self._ego_field_fixed(field)
+        return tokenized_agent["ego_mask"].bool()[:, None] & fields[None]
+
+    def _conditioned_type_mask(self, tokenized_agent) -> Tensor:
+        mask = tokenized_agent["ego_mask"].bool()
+        return mask if self._ego_field_fixed("type") else torch.zeros_like(mask)
 
     def _fix_conditioned_agents(
         self,
@@ -366,7 +396,8 @@ class Flow(nn.Module):
         tokenized_agent: HeteroData,
     ) -> None:
         ego_mask = self._conditioned_agent_mask(tokenized_agent)
-        latent[ego_mask] = clean[ego_mask]
+        fixed = self._conditioned_state_mask(tokenized_agent, clean)
+        latent[fixed] = clean[fixed]
         time[ego_mask] = 0.0
 
     def _prepare_supervised_batch(
@@ -396,14 +427,16 @@ class Flow(nn.Module):
             latent = _circular_interpolate(x, noise, time)
         else:
             latent = (1.0 - time) * x + time * noise
+        latent = torch.where(self._conditioned_state_mask(tokenized_agent, x), x, latent)
 
         if getattr(self, "generate_type", False):
             labels = F.one_hot(tokenized_agent["type"].long(), 3).to(x)
             type_noise = torch.randn_like(labels)
-            conditioned = self._conditioned_agent_mask(tokenized_agent)
+            conditioned = self._conditioned_type_mask(tokenized_agent)
             type_noise[conditioned] = labels[conditioned]
             tokenized_agent["_init_diffusion_type_source"] = type_noise
-            tokenized_agent["_init_diffusion_type_state"] = (1. - time) * labels + time * type_noise
+            type_state = (1. - time) * labels + time * type_noise
+            tokenized_agent["_init_diffusion_type_state"] = torch.where(conditioned[:, None], labels, type_state)
         return noise, time, latent
 
     def _model_velocity(
@@ -684,11 +717,11 @@ class Flow(nn.Module):
         else:
             _, x0 = self._model_velocity(latent, time, tokenized_agent, map_feature)
 
-        ego_mask = self._conditioned_agent_mask(tokenized_agent)[:, None]
+        fixed = self._conditioned_state_mask(tokenized_agent, x)
 
         # Avoid in-place modification of model output.
         x0 = torch.where(
-            ego_mask,
+            fixed,
             x.detach(),
             x0,
         )
@@ -734,7 +767,7 @@ class Flow(nn.Module):
             theta0 = torch.atan2(x[:, 3], x[:, 2])
             theta1 = torch.atan2(noise[:, 3], noise[:, 2])
             target = wrap_angle(theta1 - theta0)
-            active = (~ego_mask[:, 0]) & (time[:, 0] > 0) & (time[:, 0] < 1)
+            active = (~fixed[:, 2]) & (time[:, 0] > 0) & (time[:, 0] < 1)
             # Uniform flow-time weighting; no 1/t^3 weighting or wrapping
             # the prediction error. The target is d(theta_t)/dt = delta.
             heading_loss = torch.where(active, (prediction[:, self.model.m_delta_dim] - target).square(),
@@ -744,7 +777,7 @@ class Flow(nn.Module):
                     position, heading_loss, shape, velocity)
 
         if self.speed_loss_weight > 0:
-            magnitude_loss, magnitude_scale = self._speed_magnitude_loss(x0, x, time, ego_mask)
+            magnitude_loss, magnitude_scale = self._speed_magnitude_loss(x0, x, time, fixed[:, 6])
             weighted_loss = self.speed_loss_weight * magnitude_loss
             # A scalar active-agent mean adds once after the wrapper reduces
             # reconstruction, preserving the existing six-item return contract.
@@ -757,7 +790,7 @@ class Flow(nn.Module):
 
         if getattr(self, "generate_type", False):
             logits = tokenized_agent["_init_diffusion_type_logits"]
-            active = (~ego_mask[:, 0]) & (time[:, 0] > 0) & (time[:, 0] < 1)
+            active = (~self._conditioned_type_mask(tokenized_agent)) & (time[:, 0] > 0) & (time[:, 0] < 1)
             labels = tokenized_agent["type"].long()
             per_agent = F.cross_entropy(logits.float(), labels, reduction="none")
             type_loss = torch.where(active, per_agent, torch.zeros_like(per_agent)).sum() / active.sum().clamp_min(1)
@@ -1106,7 +1139,8 @@ class Flow(nn.Module):
             type_clean = tokenized_agent["_init_diffusion_type_logits"].float().softmax(-1).to(type_state)
             type_velocity = (type_state - type_clean) / time.clamp_min(self.t_eps)
             next_type = type_state + (next_time - time) * type_velocity
-            next_type[ego_mask] = tokenized_agent["_init_diffusion_type_source"][ego_mask]
+            fixed_type = self._conditioned_type_mask(tokenized_agent)
+            next_type[fixed_type] = tokenized_agent["_init_diffusion_type_source"][fixed_type]
             tokenized_agent["_init_diffusion_type_state"] = next_type
         next_latent = latent + (next_time - time) * velocity
         if self.heading_noise == "circular":
@@ -1115,7 +1149,8 @@ class Flow(nn.Module):
             omega = (velocity[:, 2:4] * tangent).sum(dim=-1)
             theta_next = wrap_angle(theta + (next_time - time)[:, 0] * omega)
             heading = torch.stack((theta_next.cos(), theta_next.sin()), dim=-1)
-            heading = torch.where(ego_mask[:, None], tokenized_agent["expert_input"][:, 2:4], heading)
+            fixed_heading = self._conditioned_state_mask(tokenized_agent, latent)[:, 2:4]
+            heading = torch.where(fixed_heading, tokenized_agent["expert_input"][:, 2:4], heading)
             next_latent = torch.cat((next_latent[:, :2], heading, next_latent[:, 4:]), dim=-1)
         log_prob = latent.new_zeros(num_agents)
         used_noise_level = latent.new_zeros(latent.shape)
@@ -1152,6 +1187,9 @@ class Flow(nn.Module):
                 # Expand [N,1] scheduled noise to [N,D] for replay storage.
                 used_noise_level[stochastic] = noise_level[stochastic]
 
+        fixed = self._conditioned_state_mask(tokenized_agent, latent)
+        next_latent = torch.where(fixed, tokenized_agent["expert_input"], next_latent)
+        x0 = torch.where(fixed, tokenized_agent["expert_input"], x0)
         return (
             next_latent,
             x0,
@@ -1218,8 +1256,9 @@ class Flow(nn.Module):
                         "_init_diffusion_generated_type"):
                 tokenized_agent.pop(key, None)
             type_source = torch.randn(num_agents, 3, device=latent.device, dtype=latent.dtype)
-            if ego_mask.any():
-                type_source[ego_mask] = F.one_hot(tokenized_agent["type"][ego_mask].long(), 3).to(type_source)
+            fixed_type = self._conditioned_type_mask(tokenized_agent)
+            if fixed_type.any():
+                type_source[fixed_type] = F.one_hot(tokenized_agent["type"][fixed_type].long(), 3).to(type_source)
             tokenized_agent["_init_diffusion_type_source"] = type_source
             tokenized_agent["_init_diffusion_type_state"] = type_source.clone()
 
@@ -1325,16 +1364,14 @@ class Flow(nn.Module):
 
        # del tokenized_agent["agent_type_embed"]
 
-        latent[
-            ego_mask
-        ] = tokenized_agent[
-            "expert_input"
-        ][ego_mask]
+        fixed = self._conditioned_state_mask(tokenized_agent, latent)
+        latent = torch.where(fixed, tokenized_agent["expert_input"], latent)
 
         if getattr(self, "generate_type", False):
             # Decode the final clean prediction, rather than a residual noisy state.
             types = tokenized_agent["_init_diffusion_type_logits"].argmax(-1)
-            types[ego_mask] = tokenized_agent["_init_diffusion_type_source"][ego_mask].argmax(-1)
+            fixed_type = self._conditioned_type_mask(tokenized_agent)
+            types[fixed_type] = tokenized_agent["_init_diffusion_type_source"][fixed_type].argmax(-1)
             tokenized_agent["_init_diffusion_generated_type"] = types
             tokenized_agent["type"] = types
         if not self.use_sde:

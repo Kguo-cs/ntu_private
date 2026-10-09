@@ -396,10 +396,10 @@ class InitDiffusionMapCropTest(unittest.TestCase):
                     config = compose(config_name="run.yaml", overrides=[f"experiment={experiment}"])
                     options = config.model.model_config.token_processor
                     self.assertEqual(options.init_map_crop, "square")
-                    self.assertEqual(options.init_map_half_extent, 32.)
+                    self.assertEqual(options.init_map_half_extent, 50.)
                     processor = self.public_processor(**OmegaConf.to_container(options, resolve=True))
                     self.assertEqual(processor.init_map_crop, "square")
-                    self.assertEqual(processor.init_map_half_extent, 32.)
+                    self.assertEqual(processor.init_map_half_extent, 50.)
                     selected = compose(config_name="run.yaml", overrides=[
                         f"experiment={experiment}",
                         "model.model_config.token_processor.init_map_crop=circle",
