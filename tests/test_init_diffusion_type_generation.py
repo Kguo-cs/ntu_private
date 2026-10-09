@@ -152,10 +152,12 @@ class InitDiffusionTypeGenerationTest(unittest.TestCase):
         for enabled in (True, False):
             flow = self.flow(generate_type=enabled, fix_ego=False)
             with patch('src.smart.diffusion.scale_flow.get_closest_sum_idx_fast',
-                       return_value=torch.arange(3)) as match:
+                       return_value=torch.arange(2)) as match:
                 flow._sample_noise(clean, agent)
             self.assertEqual(match.call_args.kwargs.get('use_all_type', False), enabled)
-            self.assertEqual(match.call_args.args[0].shape[0], 3)
+            self.assertEqual(match.call_args.args[0].shape[0], 2)
+            torch.testing.assert_close(match.call_args.args[2]['batch'], agent['batch'][~agent['ego_mask']])
+            torch.testing.assert_close(match.call_args.args[2]['type'], agent['type'][~agent['ego_mask']])
         fixed = self.flow(generate_type=True, fix_ego=True)
         with patch('src.smart.diffusion.scale_flow.get_closest_sum_idx_fast',
                    return_value=torch.arange(2)) as match:

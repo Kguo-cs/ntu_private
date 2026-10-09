@@ -572,14 +572,12 @@ class SMART(LightningModule):
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
                     "use_ego_embedding": getattr(initial_decoder, "use_ego_embedding", False),
-                    "match_ego_separately": getattr(initial_decoder, "use_ego_embedding", False),
+                    "match_ego_separately": True,
                     "generate_type": getattr(initial_decoder, "generate_type", False),
                     "type_loss_weight": getattr(initial_decoder, "type_loss_weight", 1.0),
                     "agent_type_source": "generated" if getattr(initial_decoder, "generate_type", False) else "input",
                     "type_source": "gaussian_noisy_one_hot" if getattr(initial_decoder, "generate_type", False) else None,
-                    "matching_groups": ("scene_and_ego_role" if getattr(initial_decoder, "generate_type", False) else "scene_type_and_ego_role")
-                    if getattr(initial_decoder, "use_ego_embedding", False) else
-                    "scene" if getattr(initial_decoder, "generate_type", False) else "scene_and_type",
+                    "matching_groups": "scene_and_ego_role" if getattr(initial_decoder, "generate_type", False) else "scene_type_and_ego_role",
                     "pos_source": getattr(initial_decoder, "pos_source", "gaussian"),
                     "shape_source": getattr(initial_decoder, "shape_source", "gaussian"),
                     "velocity_source": getattr(initial_decoder, "velocity_source", "gaussian"),

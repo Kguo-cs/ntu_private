@@ -80,17 +80,20 @@ class InitDiffusionEgoFixTest(unittest.TestCase):
         del flow.fix_ego
         torch.testing.assert_close(flow._conditioned_agent_mask(agent), agent['ego_mask'])
 
-    def test_no_fix_hungarian_matches_full_source_rows_including_ego(self):
+    def test_no_fix_hungarian_preserves_ego_source_without_embedding(self):
         flow = self.flow(fix_ego=False, heading_noise='gaussian')
         clean, agent, _ = self.inputs()
         agent['type'].zero_()
-        # Positional matching has an unambiguous optimum which moves source
-        # rows across the original ego index. All other state fields move too.
+        # Full Hungarian would move sources across the ego index. Reserve the
+        # ego source even without the embedding and only permute other rows.
         delta = torch.tensor([.1, -.2, .2, .1, .3, .4, .5, .6])
         endpoint = (clean + delta)[torch.tensor([2, 0, 1])]
         with patch('src.smart.diffusion.scale_flow.torch.randn_like', return_value=endpoint.clone()):
             matched = flow._sample_noise(clean, agent)
-        torch.testing.assert_close(matched, clean + delta)
+        torch.testing.assert_close(matched[1], endpoint[1])
+        actual_rows = sorted(tuple(row.tolist()) for row in matched[[0, 2]])
+        expected_rows = sorted(tuple(row.tolist()) for row in endpoint[[0, 2]])
+        self.assertEqual(actual_rows, expected_rows)
         self.assertFalse(torch.equal(matched[1], clean[1]))
         torch.testing.assert_close(agent['ego_mask'], torch.tensor([False, True, False]))
 

@@ -309,11 +309,12 @@ class Flow(nn.Module):
         ego_mask = self._conditioned_agent_mask(tokenized_agent)
         noise[ego_mask] = x[ego_mask]
 
-        # Fixed context cannot be another agent's source. A role-conditioned
-        # ego retains its own noise row even when its state is generated;
-        # other agents are matched using the existing scene/type rule.
+        # Ego always retains its own source row, independently of whether its
+        # state is fixed or its role is embedded. Hungarian only permutes
+        # non-ego sources using the existing scene/type rule.
         matching_excluded = (self.model._ego_role_mask(tokenized_agent)
-                             if getattr(self, "use_ego_embedding", False) else ego_mask)
+                             if getattr(self, "use_ego_embedding", False)
+                             else tokenized_agent["ego_mask"].bool())
         movable = ~matching_excluded
         movable_noise = noise[movable]
         matched_index = get_closest_sum_idx_fast(
