@@ -33,6 +33,7 @@ model_config:
     init_decoder: flow
     sep_map: false  # A trainable map encoder dedicated to supervised InitDiffusion.
     init_diffusion:
+      fix_ego: true  # false: generate and supervise ego along with all other agents.
       pos_source: gaussian  # gaussian or uniform; uniform uses mean +/- sqrt(3)*std per coordinate.
       shape_source: gaussian  # Applies to linear sizes or log sizes according to size_representation.
       velocity_source: gaussian  # Applies to vx/vy or scalar speed according to velocity_representation.

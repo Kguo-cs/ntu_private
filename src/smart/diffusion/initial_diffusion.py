@@ -57,6 +57,7 @@ class InitDiffusion(nn.Module):
         pos_source: str = "gaussian",
         shape_source: str = "gaussian",
         velocity_source: str = "gaussian",
+        fix_ego: bool = True,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -83,6 +84,9 @@ class InitDiffusion(nn.Module):
         args = self._make_args( )
         args.velocity_representation = velocity_representation
         args.size_representation = size_representation
+        if not isinstance(fix_ego, bool):
+            raise ValueError("fix_ego must be boolean")
+        self.fix_ego = args.fix_ego = fix_ego
         args.invalid_size_policy = invalid_size_policy
         self.pos_source = args.pos_source = pos_source
         self.shape_source = args.shape_source = shape_source

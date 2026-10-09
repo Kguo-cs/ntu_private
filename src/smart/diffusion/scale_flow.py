@@ -90,6 +90,9 @@ class Flow(nn.Module):
         gail: bool = False,
     ) -> None:
         super().__init__()
+        self.fix_ego = getattr(args, "fix_ego", True)
+        if not isinstance(self.fix_ego, bool):
+            raise ValueError("fix_ego must be boolean")
         self.velocity_representation = getattr(args, "velocity_representation", "vector")
         self.size_representation = getattr(args, "size_representation", "linear")
         if self.velocity_representation not in ("vector", "speed"):
@@ -138,6 +141,7 @@ class Flow(nn.Module):
             heading_velocity=self.heading_objective == "angular_velocity",
             velocity_representation=self.velocity_representation,
             size_representation=self.size_representation,
+            fix_ego=self.fix_ego,
             invalid_size_policy=getattr(args, "invalid_size_policy", "mask"),
             time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
             time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
@@ -170,6 +174,8 @@ class Flow(nn.Module):
             getattr(args, "branch_steps", None)
         )
         self.use_refiner = token_processor.use_refiner
+        if not self.fix_ego and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
+            raise ValueError("fix_ego=false supports supervised Flow training and evaluation; SDE/RL/refiner requires fixed ego")
         if self.speed_loss_weight > 0 and self.use_refiner:
             raise ValueError("speed magnitude loss applies to supervised Flow reconstruction; refiner uses its own policy objective")
         if self.size_representation == "log" and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
@@ -286,25 +292,23 @@ class Flow(nn.Module):
                                 shape_source=getattr(self, "shape_source", "gaussian"),
                                 velocity_source=getattr(self, "velocity_source", "gaussian"))
 
-        ego_mask = tokenized_agent[
-            "ego_mask"
-        ].bool()
+        ego_mask = self._conditioned_agent_mask(tokenized_agent)
         noise[ego_mask] = x[ego_mask]
 
-        # Conditioned ego states must not become another agent's noise source.
-        # Match only the non-ego sources and targets within each scene/type.
-        non_ego = ~ego_mask
-        non_ego_noise = noise[non_ego]
+        # Fixed context cannot become another agent's noise source. With
+        # fix_ego=False every row, including ego, participates in matching.
+        movable = ~ego_mask
+        movable_noise = noise[movable]
         matched_index = get_closest_sum_idx_fast(
-            non_ego_noise/self.model.normal_scale,
-            x[non_ego]/self.model.normal_scale,
+            movable_noise/self.model.normal_scale,
+            x[movable]/self.model.normal_scale,
             {
-                "batch": tokenized_agent["batch"][non_ego],
-                "type": tokenized_agent["type"][non_ego],
+                "batch": tokenized_agent["batch"][movable],
+                "type": tokenized_agent["type"][movable],
             },
             all_state=False,
         )
-        noise[non_ego] = non_ego_noise[matched_index]
+        noise[movable] = movable_noise[matched_index]
 
         return noise
 
@@ -331,14 +335,18 @@ class Flow(nn.Module):
 
         return scene_time[batch]
 
-    @staticmethod
+    def _conditioned_agent_mask(self, tokenized_agent) -> Tensor:
+        mask = tokenized_agent["ego_mask"].bool()
+        return mask if getattr(self, "fix_ego", True) else torch.zeros_like(mask)
+
     def _fix_conditioned_agents(
+        self,
         clean: Tensor,
         latent: Tensor,
         time: Tensor,
         tokenized_agent: HeteroData,
     ) -> None:
-        ego_mask = tokenized_agent[ "ego_mask"]
+        ego_mask = self._conditioned_agent_mask(tokenized_agent)
         latent[ego_mask] = clean[ego_mask]
         time[ego_mask] = 0.0
 
@@ -648,9 +656,7 @@ class Flow(nn.Module):
         else:
             _, x0 = self._model_velocity(latent, time, tokenized_agent, map_feature)
 
-        ego_mask = tokenized_agent[
-            "ego_mask"
-        ].bool()[:, None]
+        ego_mask = self._conditioned_agent_mask(tokenized_agent)[:, None]
 
         # Avoid in-place modification of model output.
         x0 = torch.where(
@@ -1044,7 +1050,7 @@ class Flow(nn.Module):
             tokenized_agent,
         )
 
-        ego_mask = tokenized_agent["ego_mask"]
+        ego_mask = self._conditioned_agent_mask(tokenized_agent)
         next_time[ego_mask] = 0.0
 
         velocity, x0 = self._model_velocity(
@@ -1128,9 +1134,7 @@ class Flow(nn.Module):
 
         num_agents = agent_batch.numel()
 
-        ego_mask = tokenized_agent[
-            "ego_mask"
-        ].bool()
+        ego_mask = self._conditioned_agent_mask(tokenized_agent)
 
         if self.size_representation == "log":
             # Fit source statistics and encode any raw cached target before

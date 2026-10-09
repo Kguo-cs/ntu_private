@@ -13,7 +13,7 @@
   --raw-dir /home/ke/code/sim/src/waymo_data/full/training_map2_sd
 ```
 
-正式训练默认从配置指定的 SMART 骨干 checkpoint 初始化，并冻结地图编码器。该骨干 checkpoint 不包含 InitDiffusion 参数，初始状态模型从新建参数开始训练。当前默认 `action=finetune`，训练 batch size 40、验证/测试 batch size 256、64 epochs；每个 epoch 用一个验证 batch 监测指标，checkpoint 按 `collision_rate` 保存。
+正式训练默认从配置指定的 SMART 骨干 checkpoint 初始化，并冻结地图编码器。该骨干 checkpoint 不包含 InitDiffusion 参数，初始状态模型从新建参数开始训练。当前默认 `action=finetune`，训练 batch size 256、验证 batch size 512、测试 batch size 256、128 epochs，checkpoint 按 `collision_rate` 保存。验证使用完整数据；实际验证频率还取决于 trainer 的 epoch/interval 设置。
 
 ```bash
 /home/ke/miniconda3/envs/sim/bin/python src/run.py \
@@ -48,7 +48,31 @@
   ckpt_path=/absolute/path/to/init_diffusion.ckpt
 ```
 
-训练监测只生成一个 batch，仍对照完整 50k GT 分布，因此监测值不能当作完整评估结果。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
+当前 `limit_val_batches=1.0` 使用完整验证集，GT 对照为完整 50k 分布。若通过覆盖值只跑部分 batch，不能把该结果当作完整评价；应检查报告中的 `num_samples` 和 `full_membership`。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
+
+## 是否固定 Ego
+
+当前 lane-conditioned 训练和独立评价配置使用 `fix_ego=false`，ego 与其他 agent 一起生成。通用模型配置/API 默认仍为 `true`，保留旧实验行为。
+
+```yaml
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        fix_ego: false
+```
+
+`false` 会完整切换监督训练和确定性采样：ego 参与 source 抽样与按 scene/type 的 Hungarian 匹配，使用场景的正常 timestep，参与原有状态重建、碰撞项以及已启用的 angular-velocity/speed magnitude loss。每一步和最终输出都不再恢复 GT ego，scalar speed 输出也不再用 GT ego 速度向量覆盖。ego 的位置、heading、尺寸和速度都可以改变。loss 公式及系数保持原样，变化的是参与训练的 agent 集合。
+
+GT ego pose/保存的场景变换仍用于建立局部坐标系和条件地图；生成后不重新居中地图。lane-conditioned 路径中的 ego pose context 是重复的静态 pose，转入 ego 坐标系后为零；其他通用路径仍可能使用已有的 ego history context。agent 类型和数量仍来自输入，这个选项不会生成 agent type。评价报告记录实际 `fix_ego` 和 conditioning。
+
+训练、恢复和评价应保持同一设置。旧模型参数结构不变，可以加载固定-ego 权重继续训练，但直接切换旧模型评价时，ego 是此前未被监督生成的节点，结果不代表已训练好的全-agent 模型。当前选项支持监督 Flow 和初始化评价；SDE/RL/refiner 路径仍要求 `fix_ego=true`。
+
+如需恢复旧固定 ego 行为，训练和评价命令同时追加：
+
+```bash
+model.model_config.decoder.init_diffusion.fix_ego=true
+```
 
 ## Position、Shape、Velocity 的 Uniform Source
 
@@ -60,7 +84,7 @@
   model.model_config.decoder.init_diffusion.velocity_source=uniform
 ```
 
-每个选项只接受 `gaussian` 或 `uniform`，也可以只开启其中一个。训练加噪与评价初始采样共用相同实现，ego 条件和 Hungarian 匹配保持原样。圆周 heading 仍由 `heading_noise` 独立控制，插值路径和训练 objective 不变。
+每个选项只接受 `gaussian` 或 `uniform`，也可以只开启其中一个。训练加噪与评价初始采样共用相同实现；是否固定 ego 由 `fix_ego` 控制，source 选项不修改 Hungarian 代价。圆周 heading 仍由 `heading_noise` 独立控制，插值路径和训练 objective 不变。
 
 uniform 在模型的标准化坐标中独立采样 `u ~ U(-√3, √3)`，再使用现有、随权重保存的 normalizer 计算 `x_source = normal_mean + normal_scale * u`（scale 下限仍为 `1e-6`）。这样与 Gaussian source 保持相同的均值和方差；范围是每个坐标的 `mean ± √3 * std`，不是数据的 min/max。位置为 x/y 各自均匀采样，不是圆盘均匀采样。
 
@@ -70,7 +94,7 @@ uniform 在模型的标准化坐标中独立采样 `u ~ U(-√3, √3)`，再使
 
 ## 保留速度向量，增加 Speed Magnitude Loss
 
-当前 lane-conditioned 配置保留 `velocity_representation=vector`，输入和预测仍为 `vx,vy`。
+设置 `velocity_representation=vector` 时，输入和预测保留 `vx,vy`；当前 lane-conditioned 配置使用 `speed`，启用这个辅助项时须同时切换为 vector。
 新增 `speed_loss_weight`（默认 `0.0`，关闭）允许在原有向量重建与碰撞损失之外，独立监督速度模长：
 
 ```text
@@ -79,7 +103,7 @@ L_speed = mean_active(((s_pred - s_gt) / speed_scale)^2)
 L_total = L_match_original + L_collision + speed_loss_weight * L_speed
 ```
 
-只统计非 ego、`0<t<1` 的 agent；无有效 agent 时辅助项为可微的零。
+只统计未固定且 `0<t<1` 的 agent；`fix_ego=false` 时包括 ego，无有效 agent 时辅助项为可微的零。
 该项使用均匀时间权重，不再乘原来 reconstruction 的 `t^-3`。
 现有 `vx,vy` MSE、朝向目标、尺寸表示和噪声/采样路径保持原来的定义。
 内部 agent 坐标系与最终世界坐标系通过旋转关联，速度模长一致，因此监督的物理量与 `speed_jsd` 对齐。
@@ -127,7 +151,7 @@ speed 使用原来的 x0 reconstruction 方式和时间权重；与 heading 的�
 只在最终物理输出将 speed 截为非负。输出先构造 agent-heading 坐标系的 `[speed,0]`，
 再旋转为世界速度：`vx=speed*cos(global_heading)`、`vy=speed*sin(global_heading)`。
 motion token 选择使用同一 `[speed,0]`；连续初始状态评价仍直接使用生成的物理速度。
-GT ego 的原始速度向量作为条件保留，所以 ego 不强制投影到自身 heading。
+`fix_ego=true` 时保留 GT ego 原始速度向量，不强制投影到自身 heading；`false` 时 ego 也使用预测 speed 和 heading 重建速度。
 
 这个表示假设生成 agent 的运动方向与 heading 相同，不表达侧滑或倒车方向。
 speed 模式当前支持确定性监督训练和采样；SDE/refiner 路径需使用 vector。
@@ -164,7 +188,7 @@ speed 模式当前支持确定性监督训练和采样；SDE/refiner 路径需�
 `train/shape_loss` 记录 log 尺寸的分量 MSE，`shape_std` 也改为 log 尺寸标准差；与 linear 模式的绝对数值不能直接比较。
 
 碰撞损失对预测和 GT 都先 `exp` 回物理尺寸，再计算原来的额外重叠损失。
-最终初始化输出同样 `exp` 回米，现有 agent metrics 和运动策略读取物理尺寸；ego 的条件尺寸保持原值。
+最终初始化输出同样 `exp` 回米，现有 agent metrics 和运动策略读取物理尺寸；只有 `fix_ego=true` 时 ego 条件尺寸保持原值。
 log 的有效尺寸标注必须为有限正值。训练默认 `invalid_size_policy=mask`：
 将非正值、NaN、Inf 视为缺失尺寸坐标，保留该 agent 的数量、位置、heading、速度和其他有效尺寸监督。
 缺失坐标的输入暂用同类型有效尺寸的几何均值（再依次退回 batch 几何均值、SMART 的标称尺寸）；
@@ -206,14 +230,14 @@ heading_objective: angular_velocity
 heading_flow_loss_weight: 1.0
 ```
 
-对每个非 ego agent，噪声方向 `theta_noise` 在 `[-π, π)` 均匀采样，计算最短角差
+对每个可生成的 agent（`fix_ego=false` 时包括 ego），噪声方向 `theta_noise` 在 `[-π, π)` 均匀采样，计算最短角差
 `delta=wrap(theta_noise-theta_gt)`，构造 `theta_t=wrap(theta_gt+t*delta)`。
 默认输入为上述 7 维 speed 状态；vector 模式仍是原来的 8 维状态。
 heading 始终为单位向量。位置、尺寸和 speed（或 vx/vy）保留线性插值和 x0 预测。
 
 共享 denoiser 图特征后增加一个 scalar head，直接预测 angular velocity `omega_pred`，
 单位为 rad / unit flow time，目标为 `d(theta_t)/dt = delta`。
-`heading_loss=(omega_pred-delta)^2` 在非 ego 的有效训练时间上计算；
+`heading_loss=(omega_pred-delta)^2` 在未固定 agent 的有效训练时间上计算；
 使用普通标量 MSE，不对误差 wrap、不套用 x0 loss 的 `1/t^3` 权重，也不使用 heading normalizer。
 原 cos/sin 的 x0 reconstruction 项已从总 loss 中移除，避免两个目标同时约束 heading。
 其余状态维度保留原来的每维系数、8 维平均分母和时间权重。
@@ -222,7 +246,7 @@ heading 始终为单位向量。位置、尺寸和 speed（或 vx/vy）保留线
 
 采样直接使用 `theta_next=wrap(theta_t+dt*omega_pred)`，从 t=1 积分到 t=0。
 collision loss 使用 `theta_x0=wrap(theta_t-t*omega_pred)` 得到的 clean heading，
-并保留原来的 collision 权重。ego 状态固定、angular velocity 为 0，且不参与 angular loss。
+并保留原来的 collision 权重。`fix_ego=true` 时 ego 固定、angular velocity 为 0，不参与 angular loss；`false` 时 ego 也学习和积分角速度。
 内部生成状态在 speed 模式为 7 维，在 vector 模式为 8 维；已有物理输出和评价接口保持一致。
 
 ```bash
@@ -252,7 +276,7 @@ EMA 包含新的 angular head，`sep_map` 的训练和 EMA 路径继续沿用。
 当前实验默认 `model.model_config.decoder.init_diffusion.sigma_h=5.0`。
 heading 的噪声端点为 `sigma_h * N(0, I₂)`：cos/sin 两维均值为 0，使用同一个标准差，
 不读取 heading 的首批数据均值或标准差，也不再乘以已有的 `normal_scale`。
-其他状态分量继续使用原有经验噪声，ego 条件和线性 Rectified Flow 路径保留。
+其他状态分量继续使用所选 source，ego 是否固定由 `fix_ego` 控制，线性 Rectified Flow 路径保留。
 训练及采样共用同一噪声转换函数，已加载 checkpoint 中的旧 heading normalizer 不会覆盖此选项。
 
 `5.0` 接近此前 head8 checkpoint 的 heading 噪声均方标准差（约 `5.0044`）。
@@ -290,7 +314,7 @@ heading 的噪声端点为 `sigma_h * N(0, I₂)`：cos/sin 两维均值为 0，
 
 Flow 的 `t=0` 是干净状态，`t=1` 是噪声。此模式直接编码 `99*t`，
 对应公开 Scenario Dreamer 的 100 个 timestep（0…99），保留连续时间，不取整或反转。
-`time_embedding_scale` 默认 `99.0`，可单独覆盖；ego 的时间仍为 0。
+`time_embedding_scale` 默认 `99.0`，可单独覆盖；只有 `fix_ego=true` 时 ego 时间为 0，否则与本场景其他 agent 的时间一致。
 本选项应用到主 denoiser 和可选 refiner，不改变状态表示、噪声分布、loss、采样步数或优化器；EMA 自动包含时间 MLP。
 
 默认 `time_embedding_type=legacy` 保留当前 `1-t` 的时间特征和原有参数结构。
@@ -467,7 +491,7 @@ checkpoint 同时保存在线参数、EMA shadow 参数、更新次数和衰减�
 
 ## 比较范围
 
-本模型沿用 GT ego 状态、agent 类型和数量，条件地图为 SMART tokens，使用现有 50 m 地图查询半径。Scenario Dreamer lane-conditioned 模型使用 AE lane latent；两者的条件信息和地图表示不同。相同的 50k 成员与指标口径便于比较结果，但这不是 Scenario Dreamer 论文结果的复现。
+本模型沿用输入 agent 类型和数量，条件地图为 SMART tokens，使用现有 50 m 地图查询半径。`fix_ego=false` 生成 ego，`true` 固定 GT ego；GT ego 坐标框架与已有 context 仍保留。Scenario Dreamer lane-conditioned 模型使用 AE lane latent；两者的条件信息和地图表示不同。相同的 50k 成员与指标口径便于比较结果，但这不是 Scenario Dreamer 论文结果的复现。
 
 现有训练缓存只保存初始 agent 状态和地图 tokens，没有原始参考时刻或精确 SD lane 图元数据；其时刻与地图来源尚未逐样本追溯。本入口直接使用用户指定的缓存。验证目录则保留官方文件名、参考时刻、坐标变换和完整 lane 图，可用于严格的评估成员检查。
 

@@ -68,3 +68,4 @@ outputs/scenario_dreamer*/
 !/tests/test_init_diffusion_speed_magnitude.py
 !/tests/test_init_diffusion_invalid_sizes.py
 !/tests/test_init_diffusion_uniform_source.py
+!/tests/test_init_diffusion_ego_fix.py

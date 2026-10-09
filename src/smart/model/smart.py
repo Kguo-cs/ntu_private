@@ -565,6 +565,7 @@ class SMART(LightningModule):
                     "heading_path": "shortest_arc" if getattr(initial_decoder, "heading_noise", "gaussian") == "circular" else "linear",
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
+                    "fix_ego": getattr(initial_decoder, "fix_ego", True),
                     "pos_source": getattr(initial_decoder, "pos_source", "gaussian"),
                     "shape_source": getattr(initial_decoder, "shape_source", "gaussian"),
                     "velocity_source": getattr(initial_decoder, "velocity_source", "gaussian"),
@@ -599,7 +600,7 @@ class SMART(LightningModule):
                     "init_map_ema_num_updates": self.encoder.initial_map_ema.num_updates
                     if getattr(self.encoder, "initial_map_ema", None) is not None else None,
                     "init_map_range_m": self.token_processor.init_map_range,
-                    "conditioning": ["reference map", "GT ego state", "input agent counts", "input agent types"],
+                    "conditioning": ["reference map", "GT ego state" if getattr(initial_decoder, "fix_ego", True) else "GT ego reference frame", "input agent counts", "input agent types"],
                 }
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
                 json.dump(report, handle, indent=2)

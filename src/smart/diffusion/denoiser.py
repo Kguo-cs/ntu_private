@@ -81,6 +81,7 @@ class InitDenoiser(nn.Module):
         map_label_dropout: float = 0.1,
         size_representation: str = "linear",
         invalid_size_policy: str = "mask",
+        fix_ego: bool = True,
     ) -> None:
         super().__init__()
 
@@ -95,6 +96,9 @@ class InitDenoiser(nn.Module):
         self.heading_velocity = heading_velocity
         if velocity_representation not in ("vector", "speed"):
             raise ValueError("velocity_representation must be vector or speed")
+        if not isinstance(fix_ego, bool):
+            raise ValueError("fix_ego must be boolean")
+        self.fix_ego = fix_ego
         self.velocity_representation = velocity_representation
         if size_representation not in ("linear", "log"):
             raise ValueError("size_representation must be linear or log")
@@ -963,7 +967,7 @@ class InitDenoiser(nn.Module):
             pred_vel = torch.cat((speed, torch.zeros_like(speed)), dim=-1)
             ego_velocity = tokenized_agent.get("_init_diffusion_ego_local_velocity",
                                                 tokenized_agent.get("local_vel"))
-            if ego_velocity is not None and "ego_mask" in tokenized_agent:
+            if self.fix_ego and ego_velocity is not None and "ego_mask" in tokenized_agent:
                 pred_vel = torch.where(tokenized_agent["ego_mask"].bool()[:, None],
                                        ego_velocity[:, :2].to(pred_vel), pred_vel)
         else:
