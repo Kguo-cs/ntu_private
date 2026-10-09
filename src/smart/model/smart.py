@@ -368,7 +368,13 @@ class SMART(LightningModule):
         graph_init_decoder = self.encoder.init_decoder_name in ("scenario_dreamer", "vectorworld")
         initial_map_only = (getattr(self.encoder, "sep_map", False)
                             and getattr(self.encoder, "initial_scene_only", False))
-        map_feature = {} if initial_map_only or (graph_init_decoder and self.scenario_dreamer_init) else self.encoder.map_encoder(tokenized_map)
+        if initial_map_only or (graph_init_decoder and self.scenario_dreamer_init):
+            map_feature = {}
+        elif (getattr(getattr(self, "token_processor", None), "init_map_crop", "circle") == "square"
+              and self.encoder.init_decoder_name == "flow" and self.token_processor.pred_init):
+            map_feature = self.encoder._get_map_feature(tokenized_map, agent)
+        else:
+            map_feature = self.encoder.map_encoder(tokenized_map)
         agent["map_feature"] = map_feature
         if graph_init_decoder:
             agent["tokenized_map"] = tokenized_map
@@ -611,7 +617,11 @@ class SMART(LightningModule):
                     "sep_map": getattr(self.encoder, "sep_map", False),
                     "init_map_ema_num_updates": self.encoder.initial_map_ema.num_updates
                     if getattr(self.encoder, "initial_map_ema", None) is not None else None,
-                    "init_map_range_m": self.token_processor.init_map_range,
+                    "init_map_crop": getattr(self.token_processor, "init_map_crop", "circle"),
+                    "init_map_range_m": self.token_processor.init_map_range
+                    if getattr(self.token_processor, "init_map_crop", "circle") == "circle" else None,
+                    "init_map_half_extent_m": getattr(self.token_processor, "init_map_half_extent", 32.0)
+                    if getattr(self.token_processor, "init_map_crop", "circle") == "square" else None,
                     "conditioning": ["reference map", "GT ego state and type" if getattr(initial_decoder, "fix_ego", True) and getattr(initial_decoder, "generate_type", False) else "GT ego state" if getattr(initial_decoder, "fix_ego", True) else "GT ego reference frame", "input total agent count" if getattr(initial_decoder, "generate_type", False) else "input agent counts"] + ([] if getattr(initial_decoder, "generate_type", False) else ["input agent types"]) + (["ego/non-ego slot"] if getattr(initial_decoder, "use_ego_embedding", False) else []),
                 }
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:

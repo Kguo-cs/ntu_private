@@ -416,7 +416,14 @@ class SMARTDecoder(nn.Module):
     ):
         map_feature = tokenized_agent.get("map_feature")
         if map_feature is None:
-            map_feature = self.map_encoder(tokenized_map)
+            if (self.init_decoder_name == "flow" and self.token_processor.pred_init
+                    and getattr(self.token_processor, "init_map_crop", "circle") == "square"):
+                # The shared map remains in world coordinates. InitDiffusion
+                # applies its ego transform exactly once, as in the legacy path.
+                map_feature = self.map_encoder(tokenized_map, tokenized_agent=tokenized_agent,
+                                               return_local=False)
+            else:
+                map_feature = self.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
         return map_feature
 

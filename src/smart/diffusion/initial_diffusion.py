@@ -13,6 +13,7 @@ from torch_scatter import scatter_sum
 from torch_ema import ExponentialMovingAverage
 
 from src.smart.utils import transform_to_local
+from src.smart.utils.map_crop import square_map_mask
 
 from .diffusion_utils import multi_circle_collision_loss_mem_efficient
 from .scale_flow import Flow
@@ -331,6 +332,16 @@ class InitDiffusion(nn.Module):
     # ------------------------------------------------------------------
     # Initial map context
     # ------------------------------------------------------------------
+    def _crop_cached_initial_map(self, feature):
+        """Cached initial-map features already use ego-local coordinates."""
+        if getattr(self.token_processor, "init_map_crop", "circle") != "square":
+            return feature
+        keep = (feature["position"][..., :2].abs() < self.token_processor.init_map_half_extent).all(-1)
+        result = dict(feature)
+        for key in ("batch", "position", "orientation", "pt_token"):
+            result[key] = feature[key][keep]
+        return result
+
     def _initial_map_feature(
         self,
         agent,
@@ -342,11 +353,14 @@ class InitDiffusion(nn.Module):
         # (or switching EMA off) cannot reuse another weight version's embedding.
         raw_feature = agent.get("_initial_map_raw_feature")
         if raw_feature is not None:
+            raw_feature = self._crop_cached_initial_map(raw_feature)
+            agent["_initial_map_raw_feature"] = raw_feature
             result = dict(raw_feature, pt_token=self.G1.model.lane_embed(raw_feature["pt_token"]))
             agent["initial_map_feature"] = result
             return result
         cached = agent.get("initial_map_feature")
         if cached is not None:
+            cached = self._crop_cached_initial_map(cached)
             feature = cached["pt_token"]
             is_raw = agent.pop("_initial_map_feature_is_raw", False)
             if is_raw or feature.shape[-1] != self.G1.model.hidden_dim:
@@ -355,6 +369,7 @@ class InitDiffusion(nn.Module):
                 result = dict(cached, pt_token=self.G1.model.lane_embed(feature))
                 agent["initial_map_feature"] = result
                 return result
+            agent["initial_map_feature"] = cached
             return cached
 
         map_feature = self._require(agent, "map_feature")
@@ -364,11 +379,15 @@ class InitDiffusion(nn.Module):
         feature = map_feature["pt_token"]
 
         if batch.numel():
-            distance = torch.linalg.vector_norm(
-                position[..., :2] - scene_pos[batch],
-                dim=-1,
-            )
-            keep = distance < float(self.token_processor.init_map_range)
+            if getattr(self.token_processor, "init_map_crop", "circle") == "square":
+                keep = square_map_mask(position, batch, scene_pos, scene_heading,
+                                       self.token_processor.init_map_half_extent)
+            else:
+                distance = torch.linalg.vector_norm(
+                    position[..., :2] - scene_pos[batch],
+                    dim=-1,
+                )
+                keep = distance < float(self.token_processor.init_map_range)
             batch = batch[keep]
             position = position[keep]
             orientation = orientation[keep]

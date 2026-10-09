@@ -29,6 +29,8 @@ from src.smart.utils import (
     wrap_angle,
     rotate_to_local
 )
+from src.smart.utils.map_crop import validate_init_map_crop
+
 def plot_tokenized_scene(
     tokenized_map,
     tokenized_agent,
@@ -382,11 +384,15 @@ class TokenProcessor(torch.nn.Module):
         learn_init: bool = False,
         learn_autoencoder: bool = False,
         scenario_dreamer_init: bool = False,
+        init_map_crop: str = "circle",
+        init_map_half_extent: float = 32.0,
     ) -> None:
         super().__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.learn_autoencoder = learn_autoencoder
+        self.init_map_half_extent = validate_init_map_crop(init_map_crop, init_map_half_extent)
+        self.init_map_crop = init_map_crop
 
         self.shift = 5
         self.pred_init = pred_init

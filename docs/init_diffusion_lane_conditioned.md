@@ -50,6 +50,29 @@
 
 当前 `limit_val_batches=1.0` 使用完整验证集，GT 对照为完整 50k 分布。若通过覆盖值只跑部分 batch，不能把该结果当作完整评价；应检查报告中的 `num_samples` 和 `full_membership`。显存不足时可调整 `data.train_batch_size`、`data.val_batch_size` 和 `data.test_batch_size`。
 
+## 地图范围裁剪
+
+当前 lane-conditioned 训练和评价使用 ego 局部坐标系中的 64 m × 64 m 正方形：`|x| < 32 m` 且 `|y| < 32 m`，边界点不保留。配置如下：
+
+```yaml
+model:
+  model_config:
+    token_processor:
+      init_map_crop: square
+      init_map_half_extent: 32.0
+```
+
+`init_map_crop=circle` 保留原有路径：`scenario_dreamer_init=true` 时为 50 m 查询半径，通用路径为 100 m。通用模型配置默认 `circle`；lane-conditioned 独立评价继承训练配置，也可通过命令行覆盖：
+
+```bash
+model.model_config.token_processor.init_map_crop=square \
+model.model_config.token_processor.init_map_half_extent=32
+```
+
+正方形筛选在 map encoder 的 attention 之前应用到所有输入 map token，不保留范围外的 attention 邻居。共享 map encoder 输出仍为 world 坐标，由 InitDiffusion 转换一次；`sep_map=true` 的独立 map encoder 输出为 ego 局部坐标，投影时不再次转换。空地图和缺少某个场景地图节点的 batch 仍可处理。输入 token 文件无需重建，训练和评价应使用相同的裁剪配置。评价报告记录 `init_map_crop` 和 `init_map_half_extent_m`；圆形模式则记录 `init_map_range_m`。
+
+这里按 SMART map token 的代表位置筛选，保留原有地图类型选择；不裁断 token 内的几何。它与 SD 的名义空间范围相同，仍与 SD 对 lane polyline 点逐点裁剪、重采样以及 AE lane 表示不同。此选项不改变 agent source、匹配、loss 或评价器使用的完整参考 lane 图。
+
 ## 是否固定 Ego
 
 当前 lane-conditioned 训练和独立评价配置使用 `fix_ego=false`，生成 ego；通用模型配置/API 默认仍为 `true`。需要生成 ego 时，训练和评价都设置如下：
@@ -556,7 +579,7 @@ checkpoint 同时保存在线参数、EMA shadow 参数、更新次数和衰减�
 
 ## 比较范围
 
-本模型沿用输入 agent 总数量，当前 `fix_ego=false`、`generate_type=true` 生成 ego 和类别；`use_ego_embedding=true` 提供 ego slot 的身份条件，不改变这两个设置。条件地图为 SMART tokens，使用现有 50 m 地图查询半径。生成 ego 和类别的条件与 Scenario Dreamer/VectorWorld 对齐，GT ego 坐标框架与已有 context 仍保留。Scenario Dreamer/VectorWorld 使用 AE/VAE lane latent，模型结构和地图表示仍不同。相同的 50k 成员、指标口径以及对齐的 ego/type 条件便于比较结果，这不是 Scenario Dreamer/VectorWorld 论文结果的复现。
+本模型沿用输入 agent 总数量；`fix_ego` 和 `generate_type` 决定是否生成 ego 与类别，`use_ego_embedding` 提供 ego slot 的身份条件。当前条件地图为 SMART tokens，按 64 m × 64 m 正方形筛选；可选择原有圆形查询范围。生成 ego 和类别的设置用于与 Scenario Dreamer/VectorWorld 对齐生成条件，GT ego 坐标框架与已有 context 仍保留。Scenario Dreamer/VectorWorld 使用 AE/VAE lane latent，模型结构和地图表示仍不同。相同的 50k 成员、指标口径以及对齐的 ego/type 条件便于比较结果，这不是 Scenario Dreamer/VectorWorld 论文结果的复现。
 
 现有训练缓存只保存初始 agent 状态和地图 tokens，没有原始参考时刻或精确 SD lane 图元数据；其时刻与地图来源尚未逐样本追溯。本入口直接使用用户指定的缓存。验证目录则保留官方文件名、参考时刻、坐标变换和完整 lane 图，可用于严格的评估成员检查。
 

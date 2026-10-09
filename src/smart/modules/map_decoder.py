@@ -30,6 +30,7 @@ from src.smart.utils import (
 )
 
 from src.smart.layers import MLPLayer
+from src.smart.utils.map_crop import square_map_mask
 
 class SMARTMapDecoder(nn.Module):
 
@@ -76,7 +77,7 @@ class SMARTMapDecoder(nn.Module):
 
         self.apply(weight_init)
 
-    def forward(self, tokenized_map: Dict,tokenized_agent=None):
+    def forward(self, tokenized_map: Dict, tokenized_agent=None, *, return_local: bool = True):
 
         map_type=tokenized_map["type"].long()
 
@@ -85,6 +86,8 @@ class SMARTMapDecoder(nn.Module):
         orient_pt = tokenized_map["orientation"]
         token_idx=tokenized_map["token_idx"].long()
         light_type=tokenized_map["light_type"].long()
+        square_crop = (tokenized_agent is not None
+                       and getattr(self.token_processor, "init_map_crop", "circle") == "square")
 
         if tokenized_agent is None:
             mask = (map_type == 4) | (map_type == 5)
@@ -95,9 +98,15 @@ class SMARTMapDecoder(nn.Module):
             ego_position = gt_initial_pos[ego_mask]
             # Map batches can omit the last scene or contain no nodes. The
             # number/order of egos comes from agents, not the largest map index.
-            dist = torch.norm(ego_position[batch] - pos_pt[..., :2], dim=-1)
-
-            dist_mask=dist<(self.token_processor.init_map_range+self.pl2pl_radius)
+            if square_crop:
+                ego_heading = tokenized_agent["initial_heading"][ego_mask]
+                # Crop every graph source before attention, including lane and
+                # road-line tokens which are not part of the returned context.
+                dist_mask = square_map_mask(pos_pt, batch, ego_position, ego_heading,
+                                            self.token_processor.init_map_half_extent)
+            else:
+                dist = torch.norm(ego_position[batch] - pos_pt[..., :2], dim=-1)
+                dist_mask=dist<(self.token_processor.init_map_range+self.pl2pl_radius)
 
             batch=batch[dist_mask]
             pos_pt=pos_pt[dist_mask]
@@ -105,7 +114,9 @@ class SMARTMapDecoder(nn.Module):
             token_idx=token_idx[dist_mask]
             light_type=light_type[dist_mask]
             map_type=map_type[dist_mask]
-            mask = (dist[dist_mask]<self.token_processor.init_map_range) & ((map_type == 4) | (map_type == 5))#& (map_type<4)#
+            mask = (map_type == 4) | (map_type == 5)
+            if not square_crop:
+                mask = (dist[dist_mask]<self.token_processor.init_map_range) & mask
 
             # valid_idx = torch.where(mask)[0]
             # mask[valid_idx[1::6]] = False
@@ -179,7 +190,12 @@ class SMARTMapDecoder(nn.Module):
             orient_pt=orient_edge
             batch=batch_edge
 
-        if tokenized_agent is not None:
+        elif square_crop:
+            # With no attention layers, retain the same returned map types and
+            # square bounds as the one/multiple-layer initialization path.
+            x_pt, pos_pt, orient_pt, batch = x_pt[mask], pos_pt[mask], orient_pt[mask], batch[mask]
+
+        if tokenized_agent is not None and return_local:
             ego_mask = tokenized_agent["ego_mask"]
             ego_position = tokenized_agent["initial_pos"][ego_mask]
             ego_heading = tokenized_agent["initial_heading"][ego_mask]
@@ -276,4 +292,3 @@ class SMARTMapDecoder(nn.Module):
         # pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
 
         # x_pt1 = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal1)
-

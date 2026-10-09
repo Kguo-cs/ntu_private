@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: sdinit512_tspeed_theta_matchposscale_Ftypeemd #match #5e4 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
+task_name: sdinit512_tspeed_theta_matchposscale_egoFtypeemd32 #match #5e4 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
@@ -19,10 +19,12 @@ model:
       pred_init: true
       learn_init: true
       scenario_dreamer_init: true  # Use the identified scene's instantaneous state.
+      init_map_crop: square  # Match SD's nominal 64 m x 64 m spatial window.
+      init_map_half_extent: 32.0
     decoder:
       init_decoder: flow  # Existing InitDiffusion, with the existing loss/sampler.
       init_diffusion:
-        fix_ego: true  # Keep GT ego state; false generates the reserved ego slot.
+        fix_ego: false  # Keep GT ego state; false generates the reserved ego slot.
         use_ego_embedding: true  # Distinguish ego/non-ego slots in every denoising step.
         generate_type: true  # Keep GT labels; true generates agent types.
         type_loss_weight: 1.0

@@ -13,6 +13,8 @@ model_config:
   val_open_loop: true
   val_closed_loop: true
   token_processor:
+    init_map_crop: circle  # circle: existing radius; square: strict ego-local bounds before map attention.
+    init_map_half_extent: 32.0  # square keeps |x| < extent and |y| < extent, in metres.
     map_token_file: "map_traj_token5.pkl"
     agent_token_file: "agent_vocab_555_s2.pkl" #my2048 #agent_vocab_555_s2
     map_token_sampling: # open-loop
