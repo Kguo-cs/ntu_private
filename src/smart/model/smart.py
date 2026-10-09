@@ -153,6 +153,11 @@ class SMART(LightningModule):
 
         self.scenario_dreamer_init=self.token_processor.scenario_dreamer_init
         self.use_sd_evaluator = bool(_cfg(model_config, "sd_use_cached_evaluator", False))
+        if (self.encoder.init_decoder_name == "flow"
+                and getattr(self.encoder.init_decoder, "generate_type", False)
+                and not (self.scenario_dreamer_init and self.use_sd_evaluator)):
+            raise ValueError("generate_type requires scenario_dreamer_init=true and sd_use_cached_evaluator=true "
+                             "so evaluation filters agents by generated types")
 
         self.scenario_gen=scenario_gen
         self.challenge_type = (
@@ -566,6 +571,11 @@ class SMART(LightningModule):
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
+                    "generate_type": getattr(initial_decoder, "generate_type", False),
+                    "type_loss_weight": getattr(initial_decoder, "type_loss_weight", 1.0),
+                    "agent_type_source": "generated" if getattr(initial_decoder, "generate_type", False) else "input",
+                    "type_source": "gaussian_noisy_one_hot" if getattr(initial_decoder, "generate_type", False) else None,
+                    "matching_groups": "scene" if getattr(initial_decoder, "generate_type", False) else "scene_and_type",
                     "pos_source": getattr(initial_decoder, "pos_source", "gaussian"),
                     "shape_source": getattr(initial_decoder, "shape_source", "gaussian"),
                     "velocity_source": getattr(initial_decoder, "velocity_source", "gaussian"),
@@ -600,7 +610,7 @@ class SMART(LightningModule):
                     "init_map_ema_num_updates": self.encoder.initial_map_ema.num_updates
                     if getattr(self.encoder, "initial_map_ema", None) is not None else None,
                     "init_map_range_m": self.token_processor.init_map_range,
-                    "conditioning": ["reference map", "GT ego state" if getattr(initial_decoder, "fix_ego", True) else "GT ego reference frame", "input agent counts", "input agent types"],
+                    "conditioning": ["reference map", "GT ego state and type" if getattr(initial_decoder, "fix_ego", True) and getattr(initial_decoder, "generate_type", False) else "GT ego state" if getattr(initial_decoder, "fix_ego", True) else "GT ego reference frame", "input total agent count" if getattr(initial_decoder, "generate_type", False) else "input agent counts"] + ([] if getattr(initial_decoder, "generate_type", False) else ["input agent types"]),
                 }
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
                 json.dump(report, handle, indent=2)

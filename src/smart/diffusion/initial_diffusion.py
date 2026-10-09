@@ -58,6 +58,8 @@ class InitDiffusion(nn.Module):
         shape_source: str = "gaussian",
         velocity_source: str = "gaussian",
         fix_ego: bool = True,
+        generate_type: bool = False,
+        type_loss_weight: float = 1.0,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -87,6 +89,11 @@ class InitDiffusion(nn.Module):
         if not isinstance(fix_ego, bool):
             raise ValueError("fix_ego must be boolean")
         self.fix_ego = args.fix_ego = fix_ego
+        if not isinstance(generate_type, bool):
+            raise ValueError("generate_type must be boolean")
+        self.generate_type = args.generate_type = generate_type
+        self.type_loss_weight = args.type_loss_weight = float(type_loss_weight)
+        self._type_head_missing_on_load = False
         args.invalid_size_policy = invalid_size_policy
         self.pos_source = args.pos_source = pos_source
         self.shape_source = args.shape_source = shape_source
@@ -171,6 +178,7 @@ class InitDiffusion(nn.Module):
     def get_extra_state(self):
         return {
             "size_representation": self.size_representation,
+            "generate_type": self.generate_type,
             "ema": self.ema.state_dict() if self.ema is not None else None,
             "ema_parameter_names": list(dict(self.G1.named_parameters())) if self.ema is not None else None,
         }
@@ -183,12 +191,18 @@ class InitDiffusion(nn.Module):
             raise ValueError(f"InitDiffusion checkpoint size_representation={saved_size_mode!r} "
                              f"does not match configured {self.size_representation!r}; "
                              "log size models require training with log targets")
-        self._pending_ema_state = state
+        # A mode change adds/removes the head. Warm-start physical weights,
+        # but start EMA afresh for the new parameter layout.
+        self._pending_ema_state = state if state.get("generate_type", False) == self.generate_type else None
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
         extra_key = prefix + "_extra_state"
         self._pending_ema_state = None
+        if self.generate_type:
+            required = [prefix + "G1.model.to_out_type." + name
+                        for name in self.G1.model.to_out_type.state_dict()]
+            self._type_head_missing_on_load = any(key not in state_dict for key in required)
         super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
                                      missing_keys, unexpected_keys, error_msgs)
         # Legacy checkpoints have no EMA extra state. Retain strict checking of
@@ -285,18 +299,23 @@ class InitDiffusion(nn.Module):
                 dim=-1,
             ).flatten(1)
 
-            agent_type = self._require(agent, "type").long()
-
-            type_id = batch * self.NUM_TYPES + agent_type
-            type_count = torch.bincount(
-                type_id,
-                minlength=num_graphs * self.NUM_TYPES,
-            ).reshape(num_graphs, self.NUM_TYPES)
+            if self.generate_type:
+                counts = torch.bincount(batch, minlength=num_graphs)
+                type_count = torch.stack((counts, torch.zeros_like(counts), torch.zeros_like(counts)), -1)
+            else:
+                agent_type = self._require(agent, "type").long()
+                type_id = batch * self.NUM_TYPES + agent_type
+                type_count = torch.bincount(type_id, minlength=num_graphs * self.NUM_TYPES).reshape(num_graphs, self.NUM_TYPES)
             type_count = type_count.to(local_trajectory)
 
             feature = torch.cat([local_trajectory, type_count], dim=-1)
             agent["ego_feat"] = feature
 
+        if self.generate_type and "ego_feat" in agent:
+            # Also sanitize cached contexts prepared before this option was enabled.
+            counts = torch.bincount(batch, minlength=num_graphs).to(agent["ego_feat"])
+            counts = torch.stack((counts, torch.zeros_like(counts), torch.zeros_like(counts)), -1)
+            agent["ego_feat"] = torch.cat((agent["ego_feat"][:, :-3], counts), -1)
         return scene_pos, scene_heading, batch, num_graphs
 
     # ------------------------------------------------------------------
@@ -439,16 +458,19 @@ class InitDiffusion(nn.Module):
             "shape_loss",
             "velocity_loss",
         )
-        return tuple(
-            self._mean(value, name)
-            for value, name in zip(loss, names)
-        )
+        result = tuple(self._mean(value, name) for value, name in zip(loss, names))
+        self._type_head_missing_on_load = False
+        return result
 
     def _infer(
         self,
         agent,
         map_feature,
     ):
+        if self.generate_type and self._type_head_missing_on_load:
+            raise ValueError("Loaded checkpoint has no trained InitDiffusion type head; "
+                             "train/finetune with generate_type=true before evaluation, "
+                             "or set generate_type=false for a legacy checkpoint")
         sample = self.G1.sample(
             agent,
             map_feature,

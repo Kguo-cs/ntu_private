@@ -258,6 +258,11 @@ class SMART_GAIL(SMART):
             for name, value in speed_metrics.items():
                 self._log_train(f"train/speed_{name}", _safe_mean(value, reference))
 
+        type_metrics = agent.get("_init_diffusion_type_metrics")
+        if type_metrics is not None:
+            for name, value in type_metrics.items():
+                self._log_train(f"train/type_{name}", _safe_mean(value, reference))
+
         size_metrics = agent.get("_init_diffusion_size_metrics")
         if size_metrics is not None:
             for name, value in size_metrics.items():

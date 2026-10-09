@@ -80,6 +80,8 @@ class SMARTDecoder(nn.Module):
         self.scenario_dreamer_config = dict(scenario_dreamer or {})
         self.vectorworld_config = dict(vectorworld or {})
         self.init_diffusion_config = dict(init_diffusion or {})
+        if init_decoder == "flow" and self.init_diffusion_config.get("generate_type", False) and not self.initial_scene_only:
+            raise ValueError("generate_type requires initial_scene_only=true for supervised initialization")
         if init_decoder not in ("flow", "scenario_dreamer", "vectorworld"):
             raise ValueError(f"Unknown init_decoder: {init_decoder}")
         if init_decoder in ("scenario_dreamer", "vectorworld") and self.gail:

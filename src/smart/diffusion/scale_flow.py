@@ -26,6 +26,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 from torch_geometric.data import HeteroData
 
@@ -93,6 +94,12 @@ class Flow(nn.Module):
         self.fix_ego = getattr(args, "fix_ego", True)
         if not isinstance(self.fix_ego, bool):
             raise ValueError("fix_ego must be boolean")
+        self.generate_type = getattr(args, "generate_type", False)
+        if not isinstance(self.generate_type, bool):
+            raise ValueError("generate_type must be boolean")
+        self.type_loss_weight = float(getattr(args, "type_loss_weight", 1.0))
+        if not math.isfinite(self.type_loss_weight) or self.type_loss_weight <= 0:
+            raise ValueError("type_loss_weight must be finite and positive")
         self.velocity_representation = getattr(args, "velocity_representation", "vector")
         self.size_representation = getattr(args, "size_representation", "linear")
         if self.velocity_representation not in ("vector", "speed"):
@@ -142,6 +149,7 @@ class Flow(nn.Module):
             velocity_representation=self.velocity_representation,
             size_representation=self.size_representation,
             fix_ego=self.fix_ego,
+            generate_type=self.generate_type,
             invalid_size_policy=getattr(args, "invalid_size_policy", "mask"),
             time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
             time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
@@ -174,6 +182,8 @@ class Flow(nn.Module):
             getattr(args, "branch_steps", None)
         )
         self.use_refiner = token_processor.use_refiner
+        if self.generate_type and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
+            raise ValueError("generate_type supports supervised deterministic Flow; SDE/RL/refiner is unsupported")
         if not self.fix_ego and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
             raise ValueError("fix_ego=false supports supervised Flow training and evaluation; SDE/RL/refiner requires fixed ego")
         if self.speed_loss_weight > 0 and self.use_refiner:
@@ -307,6 +317,7 @@ class Flow(nn.Module):
                 "type": tokenized_agent["type"][movable],
             },
             all_state=False,
+            use_all_type=getattr(self, "generate_type", False),
         )
         noise[movable] = movable_noise[matched_index]
 
@@ -378,6 +389,13 @@ class Flow(nn.Module):
         else:
             latent = (1.0 - time) * x + time * noise
 
+        if getattr(self, "generate_type", False):
+            labels = F.one_hot(tokenized_agent["type"].long(), 3).to(x)
+            type_noise = torch.randn_like(labels)
+            conditioned = self._conditioned_agent_mask(tokenized_agent)
+            type_noise[conditioned] = labels[conditioned]
+            tokenized_agent["_init_diffusion_type_source"] = type_noise
+            tokenized_agent["_init_diffusion_type_state"] = (1. - time) * labels + time * type_noise
         return noise, time, latent
 
     def _model_velocity(
@@ -643,6 +661,8 @@ class Flow(nn.Module):
         map_feature: Mapping[str, Tensor],
     ):
         tokenized_agent.pop("_init_diffusion_speed_metrics", None)
+        tokenized_agent.pop("_init_diffusion_type_metrics", None)
+        tokenized_agent.pop("_init_diffusion_type_logits", None)
         noise, time, latent = (
             self._prepare_supervised_batch(
                 x,
@@ -727,6 +747,19 @@ class Flow(nn.Module):
                 "scale": magnitude_scale.detach(),
             }
 
+        if getattr(self, "generate_type", False):
+            logits = tokenized_agent["_init_diffusion_type_logits"]
+            active = (~ego_mask[:, 0]) & (time[:, 0] > 0) & (time[:, 0] < 1)
+            labels = tokenized_agent["type"].long()
+            per_agent = F.cross_entropy(logits.float(), labels, reduction="none")
+            type_loss = torch.where(active, per_agent, torch.zeros_like(per_agent)).sum() / active.sum().clamp_min(1)
+            weighted_loss = self.type_loss_weight * type_loss
+            loss = (loss[0] + weighted_loss, *loss[1:])
+            accuracy = ((logits.argmax(-1) == labels) & active).sum().float() / active.sum().clamp_min(1)
+            tokenized_agent["_init_diffusion_type_metrics"] = {
+                "loss": type_loss.detach(), "weighted_loss": weighted_loss.detach(),
+                "accuracy": accuracy.detach(),
+            }
         return loss
 
     def _sde_advantage_loss(
@@ -1060,6 +1093,13 @@ class Flow(nn.Module):
             map_feature,
         )
 
+        if getattr(self, "generate_type", False):
+            type_state = tokenized_agent["_init_diffusion_type_state"]
+            type_clean = tokenized_agent["_init_diffusion_type_logits"].float().softmax(-1).to(type_state)
+            type_velocity = (type_state - type_clean) / time.clamp_min(self.t_eps)
+            next_type = type_state + (next_time - time) * type_velocity
+            next_type[ego_mask] = tokenized_agent["_init_diffusion_type_source"][ego_mask]
+            tokenized_agent["_init_diffusion_type_state"] = next_type
         next_latent = latent + (next_time - time) * velocity
         if self.heading_noise == "circular":
             theta = torch.atan2(latent[:, 3], latent[:, 2])
@@ -1162,6 +1202,16 @@ class Flow(nn.Module):
             tokenized_agent[
                 "expert_input"
             ] = expert_input
+
+        if getattr(self, "generate_type", False):
+            for key in ("_init_diffusion_type_logits", "_init_diffusion_type_metrics",
+                        "_init_diffusion_generated_type"):
+                tokenized_agent.pop(key, None)
+            type_source = torch.randn(num_agents, 3, device=latent.device, dtype=latent.dtype)
+            if ego_mask.any():
+                type_source[ego_mask] = F.one_hot(tokenized_agent["type"][ego_mask].long(), 3).to(type_source)
+            tokenized_agent["_init_diffusion_type_source"] = type_source
+            tokenized_agent["_init_diffusion_type_state"] = type_source.clone()
 
         # Generation: start from x1~noise at t=1 and integrate to x0 at t=0.
         timesteps = torch.linspace(
@@ -1271,6 +1321,12 @@ class Flow(nn.Module):
             "expert_input"
         ][ego_mask]
 
+        if getattr(self, "generate_type", False):
+            # Decode the final clean prediction, rather than a residual noisy state.
+            types = tokenized_agent["_init_diffusion_type_logits"].argmax(-1)
+            types[ego_mask] = tokenized_agent["_init_diffusion_type_source"][ego_mask].argmax(-1)
+            tokenized_agent["_init_diffusion_generated_type"] = types
+            tokenized_agent["type"] = types
         if not self.use_sde:
             tokenized_agent["gen_z"] = latent
 

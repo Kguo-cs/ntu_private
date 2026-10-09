@@ -82,6 +82,7 @@ class InitDenoiser(nn.Module):
         size_representation: str = "linear",
         invalid_size_policy: str = "mask",
         fix_ego: bool = True,
+        generate_type: bool = False,
     ) -> None:
         super().__init__()
 
@@ -99,6 +100,9 @@ class InitDenoiser(nn.Module):
         if not isinstance(fix_ego, bool):
             raise ValueError("fix_ego must be boolean")
         self.fix_ego = fix_ego
+        if not isinstance(generate_type, bool):
+            raise ValueError("generate_type must be boolean")
+        self.generate_type = generate_type
         self.velocity_representation = velocity_representation
         if size_representation not in ("linear", "log"):
             raise ValueError("size_representation must be linear or log")
@@ -248,6 +252,8 @@ class InitDenoiser(nn.Module):
         )
 
         self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
+        if self.generate_type:
+            self.to_out_type = MLPLayer(hidden_dim, hidden_dim, self.num_classes)
         if heading_velocity:
             # rad / unit flow time; shared graph features, separate scalar head.
             self.to_out_heading_velocity = MLPLayer(hidden_dim, hidden_dim, 1)
@@ -306,7 +312,9 @@ class InitDenoiser(nn.Module):
         # batch geometric mean, then SMART's nominal token dimensions (L,W).
         size = size.float() if size.dtype in (torch.float16, torch.bfloat16) else size
         log_size = torch.where(valid, size, torch.ones_like(size)).log()
-        kinds = agent.get("type", torch.zeros(len(size), device=size.device, dtype=torch.long)).long()
+        # Generated types must not leak into noisy inputs through annotation fills.
+        kinds = (torch.zeros(len(size), device=size.device, dtype=torch.long)
+                 if self.generate_type else agent.get("type", torch.zeros(len(size), device=size.device, dtype=torch.long)).long())
         nominal = size.new_tensor(((4.8, 2.), (1., 1.), (2., 1.)))[kinds.clamp(0, 2)].log()
         filled = log_size.clone()
         for dim in range(2):
@@ -621,7 +629,11 @@ class InitDenoiser(nn.Module):
         ego_feat = tokenized_agent["ego_feat"]
 
         ego_pose = ego_feat[:, :-3]
-        type_count = ego_feat[:, -3:][batch]
+        if self.generate_type:
+            counts = torch.bincount(tokenized_agent["batch"].long(), minlength=len(ego_feat)).to(ego_feat)
+            type_count = torch.stack((counts, torch.zeros_like(counts), torch.zeros_like(counts)), -1)[batch]
+        else:
+            type_count = ego_feat[:, -3:][batch]
 
         # [num_graphs, 3, 3] -> [N_agent, 3, 3]
         # Last dim is expected to be [x, y, heading].
@@ -678,12 +690,13 @@ class InitDenoiser(nn.Module):
         batch: torch.Tensor,
         tokenized_agent,
         mode: int,
+        type_state: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
         theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
         pos_s = m_delta[:, :2]
 
-        if self.label_drop_prob > 0:
+        if not self.generate_type and self.label_drop_prob > 0:
             if self.training and mode == 1:
                 drop = torch.rand(agent_type.shape[0], device=agent_type.device) < self.label_drop_prob
                 agent_type =torch.where(drop, torch.full_like(agent_type, self.num_classes), agent_type)
@@ -694,7 +707,12 @@ class InitDenoiser(nn.Module):
         # if "agent_type_embed"  in tokenized_agent and not self.training:
         #     agent_type_embed=tokenized_agent["agent_type_embed"]
         # else:
-        agent_type_embed=self.type_a_emb(agent_type)
+        if self.generate_type:
+            if type_state is None or type_state.shape != (len(m_delta), self.num_classes):
+                raise ValueError("generate_type requires an [N, 3] noisy type state")
+            agent_type_embed = type_state.to(self.type_a_emb.weight) @ self.type_a_emb.weight
+        else:
+            agent_type_embed=self.type_a_emb(agent_type)
         #tokenized_agent["agent_type_embed"]=agent_type_embed
 
         if self.time_embedding_type == "legacy":
@@ -839,6 +857,8 @@ class InitDenoiser(nn.Module):
                     edge_index_pl2a,
                 )
 
+        if self.generate_type:
+            tokenized_agent["_init_diffusion_type_logits"] = self.to_out_type(feat_a)
         state = self.to_out_m_delta(feat_a)
         if self.heading_velocity:
             return torch.cat((state, self.to_out_heading_velocity(feat_a)), dim=-1)
@@ -882,6 +902,7 @@ class InitDenoiser(nn.Module):
 
         batch = tokenized_agent["batch"]
         agent_type = tokenized_agent["type"]
+        type_state = tokenized_agent.get("_init_diffusion_type_state") if self.generate_type else None
         num_graphs = tokenized_agent["num_graphs"]
 
         if eval_mask is not None:
@@ -889,6 +910,8 @@ class InitDenoiser(nn.Module):
             beta = beta[eval_mask]
             batch = batch[eval_mask]
             agent_type = agent_type[eval_mask]
+            if type_state is not None:
+                type_state = type_state[eval_mask]
 
         feat_a, pos_s, theta = self._embed_agents(
             m_delta=m_delta,
@@ -897,6 +920,7 @@ class InitDenoiser(nn.Module):
             batch=batch,
             tokenized_agent=tokenized_agent,
             mode=mode,
+            type_state=type_state,
         )
 
         if self.count_embedding_type == "scenario_dreamer":
@@ -951,6 +975,14 @@ class InitDenoiser(nn.Module):
 
     def get_output(self, pred_init: torch.Tensor, tokenized_agent):
         """Convert generated local all-agent initial state back to global fields."""
+        if self.generate_type:
+            types = tokenized_agent.get("_init_diffusion_generated_type")
+            if types is None or types.shape != (len(pred_init),):
+                raise ValueError("generate_type output requires types from Flow.sample")
+            tokenized_agent["type"] = types
+            shapes, all_tokens, final_tokens = self.token_processor._get_agent_tokens(types)
+            tokenized_agent.update(token_agent_shape=shapes, token_traj_all=all_tokens,
+                                   token_traj=final_tokens)
         batch_ego_pos = tokenized_agent["batch_ego_pos"]
         batch_ego_heading = tokenized_agent["batch_ego_heading"]
 
