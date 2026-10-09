@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: xflow128_msesq3circletspeed_thetacol1_matchposscale #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
+task_name: sdinit128_msesq3circletspeed_thetacol1_matchposscale #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
@@ -57,9 +57,9 @@ data:
   test_raw_dir: ${paths.cache_root}/scenario_dreamer_val
   val_tfrecords_splitted: null
   train_batch_size: 128
-  val_batch_size: 256
+  val_batch_size: 512
   test_batch_size: 256
-  num_workers: 4
+  num_workers: 6
   pin_memory: false
   scenario_dreamer_preprocessed: false
   scenario_dreamer_train_non_partitioned_only: false
@@ -72,9 +72,9 @@ data:
 trainer:
   devices: 1
   max_epochs: 128
-  val_check_interval: 1.0
-  check_val_every_n_epoch: 1
-  limit_val_batches: 1
+#  val_check_interval: 0.0000002 #1.0
+  check_val_every_n_epoch: 4
+  limit_val_batches: 1.0
   num_sanity_val_steps: 0
 
 callbacks:
