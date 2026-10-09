@@ -73,3 +73,4 @@ outputs/scenario_dreamer*/
 !/tests/test_init_diffusion_type_generation.py
 !/tests/test_init_diffusion_ego_embedding.py
 !/tests/test_init_diffusion_map_crop.py
+!/tests/test_init_diffusion_heading_angle_loss.py

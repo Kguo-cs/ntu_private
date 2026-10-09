@@ -54,6 +54,7 @@ model_config:
       invalid_size_policy: mask  # Log training: mask missing size labels; error rejects them. Evaluation is strict.
       heading_noise: gaussian  # gaussian: existing linear path; circular: uniform direction + shortest arc.
       heading_objective: x0  # x0 or angular_velocity (requires circular).
+      heading_x0_loss: vector_mse  # vector_mse or angle_mse: squared wrapped error in radians (x0 only).
       heading_flow_loss_weight: 1.0  # Coefficient of unweighted angular-velocity MSE.
       sigma_h: null  # Positive value: zero-mean isotropic cos/sin noise; null: empirical noise.
       edge_embedding_type: fourier  # Denoiser geometry: fourier or mlp.

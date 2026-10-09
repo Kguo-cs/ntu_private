@@ -393,6 +393,35 @@ EMA 包含新的 angular head，`sep_map` 的训练和 EMA 路径继续沿用。
 这时没有 angular head，预测所选速度表示的 clean x0、使用 reconstruction loss，
 采样由 `omega=wrap(theta_t-theta_x0)/t` 得到角速度；加载此前的 circular/x0 权重还需设置 `velocity_representation=vector`。
 
+## x0 Heading 圆周角度 Loss
+
+保留 clean x0 heading 预测，可选择用最短圆周角差的平方替代 cos/sin 分量 MSE：
+
+```yaml
+heading_objective: x0
+heading_x0_loss: angle_mse
+```
+
+`delta = atan2(sin(theta_pred-theta_gt), cos(theta_pred-theta_gt))`，
+`heading_loss = delta^2`，单位为 rad²；`train/heading_loss` 随之记录此角度 MSE。
+接近反向时梯度不再像单位向量 MSE 那样趋近零，但精确 ±π 仍有最短路径的方向分界。
+只替换 heading reconstruction 分量，继续使用当前 `w_heading` 和时间权重；
+位置、尺寸、速度、collision、圆周插值、x0 输出和采样路径沿用原实现。
+有效 `fix_ego_heading=true` 时 ego heading loss 和梯度为零。
+当前配置固定 ego heading；需要学习 ego heading 时额外设置 `fix_ego_heading=false`。
+
+```bash
+/home/ke/miniconda3/envs/sim/bin/python src/run.py \
+  paths.root_dir=/home/ke/code/sim/src \
+  experiment=init_diffusion_lane_conditioned \
+  model.model_config.decoder.init_diffusion.heading_x0_loss=angle_mse
+```
+
+默认 `vector_mse` 保留原 loss。新选项仅用于 `heading_objective=x0`，
+与 `angular_velocity` 同时启用会报错。它不增加模型参数，旧 x0 checkpoint 可严格加载并用于微调；
+需要训练或微调后才会改变生成效果，单改评价配置不会改变采样。
+运行配置和评价报告记录所选 `heading_x0_loss`。
+
 ## Heading 噪声标准差
 
 同时设置 `heading_noise=gaussian` 和 `heading_objective=x0` 时，

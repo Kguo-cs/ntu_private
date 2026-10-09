@@ -138,6 +138,11 @@ class Flow(nn.Module):
             raise ValueError("heading_objective must be x0 or angular_velocity")
         if self.heading_objective == "angular_velocity" and self.heading_noise != "circular":
             raise ValueError("angular_velocity requires heading_noise=circular")
+        self.heading_x0_loss = getattr(args, "heading_x0_loss", "vector_mse")
+        if self.heading_x0_loss not in ("vector_mse", "angle_mse"):
+            raise ValueError("heading_x0_loss must be vector_mse or angle_mse")
+        if self.heading_x0_loss == "angle_mse" and self.heading_objective != "x0":
+            raise ValueError("heading_x0_loss=angle_mse requires heading_objective=x0")
         self.heading_flow_loss_weight = float(getattr(args, "heading_flow_loss_weight", 1.0))
         if not math.isfinite(self.heading_flow_loss_weight) or self.heading_flow_loss_weight <= 0:
             raise ValueError("heading_flow_loss_weight must be finite and positive")
@@ -727,6 +732,8 @@ class Flow(nn.Module):
         )
 
         loss_options = {}
+        if self.heading_x0_loss == "angle_mse":
+            loss_options["heading_x0_loss"] = self.heading_x0_loss
         if self.size_representation == "log":
             # Reconstruction uses log sizes; collision circles use meters.
             loss_options["state_to_physical"] = self.model.state_to_physical

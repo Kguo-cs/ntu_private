@@ -68,6 +68,7 @@ class InitDiffusion(nn.Module):
         fix_ego_shape: Optional[bool] = None,
         fix_ego_velocity: Optional[bool] = None,
         fix_ego_type: Optional[bool] = None,
+        heading_x0_loss: str = "vector_mse",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -155,6 +156,7 @@ class InitDiffusion(nn.Module):
         self.heading_flow_loss_weight = float(heading_flow_loss_weight)
         args.heading_objective = heading_objective
         args.heading_flow_loss_weight = self.heading_flow_loss_weight
+        self.heading_x0_loss = args.heading_x0_loss = heading_x0_loss
         self.G1 = Flow(args, token_processor, gail)
         if map_embedding_type == "scenario_dreamer" and (map_id_source == "metadata" or map_lg_type is None):
             # Forward labels even in the generic Init path where the separate

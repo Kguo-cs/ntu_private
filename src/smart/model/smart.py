@@ -579,6 +579,7 @@ class SMART(LightningModule):
                         "isotropic" if getattr(initial_decoder, "sigma_h", None) is not None else "empirical_diagonal",
                     "heading_path": "shortest_arc" if getattr(initial_decoder, "heading_noise", "gaussian") == "circular" else "linear",
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
+                    "heading_x0_loss": getattr(initial_decoder, "heading_x0_loss", "vector_mse"),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
                     **{f"fix_ego_{field}": fixed for field, fixed in ego_conditions.items()},

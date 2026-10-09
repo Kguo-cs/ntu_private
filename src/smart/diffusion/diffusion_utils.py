@@ -94,6 +94,24 @@ def _component_loss(
     return loss.mean(-1)
 
 
+def _heading_angle_mse(prediction: Tensor, target: Tensor) -> Tensor:
+    """Squared shortest heading error in radians, from [cos, sin] pairs."""
+    # Keep atan2 and its gradients stable if a caller uses mixed precision.
+    if prediction.dtype in (torch.float16, torch.bfloat16):
+        prediction = prediction.float()
+    if target.dtype in (torch.float16, torch.bfloat16):
+        target = target.float()
+    # Zero pairs have no direction. Use direction zero rather than allowing
+    # atan2(0, 0) to produce non-finite backward values. Normal x0 outputs and
+    # clean targets are unit pairs, so this does not affect their angle loss.
+    fallback = prediction.new_tensor([1., 0.])
+    prediction = torch.where((prediction == 0).all(-1, keepdim=True), fallback, prediction)
+    target = torch.where((target == 0).all(-1, keepdim=True), fallback, target)
+    cross = target[:, 0] * prediction[:, 1] - target[:, 1] * prediction[:, 0]
+    dot = (target * prediction).sum(-1)
+    return torch.atan2(cross, dot).square()
+
+
 def _parse_prediction(fake_state: Tensor):
     """Parse deterministic, Gaussian, or Gaussian-mixture output.
 
@@ -134,6 +152,7 @@ def matching_loss(
     scale=None,
     reconstruction_dims=None,
     reconstruction_mask=None,
+    heading_x0_loss: str = "vector_mse",
 ):
     """Return total and component losses, each with shape [N]."""
 
@@ -144,6 +163,10 @@ def matching_loss(
         real_state[:, :STATE_DIM]
     )
     mode, prediction, logits, logstds = _parse_prediction(fake_state)
+    if heading_x0_loss not in ("vector_mse", "angle_mse"):
+        raise ValueError("heading_x0_loss must be vector_mse or angle_mse")
+    if heading_x0_loss == "angle_mse" and mode != "deterministic":
+        raise ValueError("angle_mse requires a deterministic x0 heading prediction")
 
     if reconstruction_mask is not None:
         if mode != "deterministic" or reconstruction_mask.shape != fake_state.shape:
@@ -157,9 +180,9 @@ def matching_loss(
     if mode == "deterministic":
         fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
         pos_loss = _component_loss(fake_pos, real_pos, use_l1)
-        heading_loss = _component_loss(
-            fake_heading, real_heading, use_l1
-        )
+        heading_loss = (_heading_angle_mse(fake_heading, real_heading)
+                        if heading_x0_loss == "angle_mse" else
+                        _component_loss(fake_heading, real_heading, use_l1))
         shape_loss = _component_loss(fake_shape, real_shape, use_l1)
         vel_loss = _component_loss(fake_vel, real_vel, use_l1)
 
@@ -472,6 +495,7 @@ def get_diff_loss(
     state_to_physical=None,
     reconstruction_mask=None,
     collision_valid_mask=None,
+    heading_x0_loss: str = "vector_mse",
 ):
     """Reconstruct model states; collision geometry optionally decodes sizes.
 
@@ -543,6 +567,7 @@ def get_diff_loss(
         scale=scale,
         reconstruction_dims=reconstruction_dims,
         reconstruction_mask=reconstruction_mask,
+        heading_x0_loss=heading_x0_loss,
     )
 
     # losses[0]=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)
