@@ -199,12 +199,12 @@ def matching_loss(
         + w_shape * shape_loss
         + w_vel * vel_loss
     )
-    state_error = F.mse_loss(real_state, fake_state, reduction="none")
-    if reconstruction_dims is None:
-        total_loss = state_error.mean(-1) * w_pos
-    else:
-        # Retain each selected dimension's original contribution (1 / 8).
-        total_loss = state_error[:, reconstruction_dims].sum(-1) / state_error.shape[-1] * w_pos
+    # state_error = F.mse_loss(real_state, fake_state, reduction="none")
+    # if reconstruction_dims is None:
+    #     total_loss = state_error.mean(-1) * w_pos
+    # else:
+    #     # Retain each selected dimension's original contribution (1 / 8).
+    #     total_loss = state_error[:, reconstruction_dims].sum(-1) / state_error.shape[-1] * w_pos
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
@@ -484,7 +484,7 @@ def get_diff_loss(
     weight = _time_weight(t, num_states, t_eps, x_pred, max_loss_weight)
 
     if not use_l1:
-        weight=weight.square() #*weight #.square()
+        weight=weight.square()*weight #.square()
 
     if use_match:
         fake_idx = get_closest_sum_idx_fast(
