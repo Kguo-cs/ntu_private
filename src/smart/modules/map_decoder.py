@@ -118,13 +118,6 @@ class SMARTMapDecoder(nn.Module):
             if not square_crop:
                 mask = (dist[dist_mask]<self.token_processor.init_map_range) & mask
 
-            # valid_idx = torch.where(mask)[0]
-            # mask[valid_idx[1::6]] = False
-            # mask[valid_idx[2::6]] = False
-            # mask[valid_idx[3::6]] = False
-            # mask[valid_idx[4::6]] = False
-            # mask[valid_idx[5::6]] = False
-
         pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
         x_pt = pt_token_emb_src[token_idx]
 
