@@ -22,7 +22,7 @@ model:
     decoder:
       init_decoder: flow  # Existing InitDiffusion, with the existing loss/sampler.
       init_diffusion:
-        fix_ego: false  # Generate ego too; GT pose still defines the reference frame.
+        fix_ego: true  # Generate ego too; GT pose still defines the reference frame.
         generate_type: true  # Generate vehicle/pedestrian/cyclist labels, including ego.
         type_loss_weight: 1.0
         velocity_representation: speed #vector  # Keep vx/vy prediction; speed enables scalar magnitude instead.
