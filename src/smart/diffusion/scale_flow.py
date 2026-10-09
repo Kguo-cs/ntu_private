@@ -317,7 +317,7 @@ class Flow(nn.Module):
                 "type": tokenized_agent["type"][movable],
             },
             all_state=False,
-            use_all_type=getattr(self, "generate_type", False),
+            use_all_type=False,
         )
         noise[movable] = movable_noise[matched_index]
 
