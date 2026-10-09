@@ -94,6 +94,9 @@ class Flow(nn.Module):
         self.fix_ego = getattr(args, "fix_ego", True)
         if not isinstance(self.fix_ego, bool):
             raise ValueError("fix_ego must be boolean")
+        self.use_ego_embedding = getattr(args, "use_ego_embedding", False)
+        if not isinstance(self.use_ego_embedding, bool):
+            raise ValueError("use_ego_embedding must be boolean")
         self.generate_type = getattr(args, "generate_type", False)
         if not isinstance(self.generate_type, bool):
             raise ValueError("generate_type must be boolean")
@@ -150,6 +153,7 @@ class Flow(nn.Module):
             size_representation=self.size_representation,
             fix_ego=self.fix_ego,
             generate_type=self.generate_type,
+            use_ego_embedding=self.use_ego_embedding,
             invalid_size_policy=getattr(args, "invalid_size_policy", "mask"),
             time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
             time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
@@ -305,9 +309,12 @@ class Flow(nn.Module):
         ego_mask = self._conditioned_agent_mask(tokenized_agent)
         noise[ego_mask] = x[ego_mask]
 
-        # Fixed context cannot become another agent's noise source. With
-        # fix_ego=False every row, including ego, participates in matching.
-        movable = ~ego_mask
+        # Fixed context cannot be another agent's source. A role-conditioned
+        # ego retains its own noise row even when its state is generated;
+        # other agents are matched using the existing scene/type rule.
+        matching_excluded = (self.model._ego_role_mask(tokenized_agent)
+                             if getattr(self, "use_ego_embedding", False) else ego_mask)
+        movable = ~matching_excluded
         movable_noise = noise[movable]
         matched_index = get_closest_sum_idx_fast(
             movable_noise/self.model.normal_scale,
@@ -1173,6 +1180,8 @@ class Flow(nn.Module):
         )
 
         num_agents = agent_batch.numel()
+        if getattr(self, "use_ego_embedding", False):
+            self.model._ego_role_mask(tokenized_agent)
 
         ego_mask = self._conditioned_agent_mask(tokenized_agent)
 

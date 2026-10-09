@@ -13,7 +13,7 @@
   --raw-dir /home/ke/code/sim/src/waymo_data/full/training_map2_sd
 ```
 
-正式训练默认从配置指定的 SMART 骨干 checkpoint 初始化，并冻结地图编码器。该骨干 checkpoint 不包含 InitDiffusion 参数，初始状态模型从新建参数开始训练。当前默认 `action=finetune`，训练 batch size 256、验证 batch size 512、测试 batch size 256、128 epochs，checkpoint 按 `collision_rate` 保存。验证使用完整数据；实际验证频率还取决于 trainer 的 epoch/interval 设置。
+正式训练默认从配置指定的 SMART 骨干 checkpoint 初始化，并冻结地图编码器。该骨干 checkpoint 不包含 InitDiffusion 参数，初始状态模型从新建参数开始训练。当前默认 `action=finetune`，训练 batch size 512、验证 batch size 256、测试 batch size 256、128 epochs，checkpoint 按 `collision_rate` 保存。每 4 个 epoch 使用完整验证集评价。
 
 ```bash
 /home/ke/miniconda3/envs/sim/bin/python src/run.py \
@@ -52,7 +52,7 @@
 
 ## 是否固定 Ego
 
-当前 lane-conditioned 训练和独立评价配置使用 `fix_ego=false`，ego 与其他 agent 一起生成。通用模型配置/API 默认仍为 `true`，保留旧实验行为。
+当前 lane-conditioned 训练和独立评价配置使用 `fix_ego=true`，固定 GT ego；通用模型配置/API 默认也为 `true`。需要生成 ego 时，训练和评价都设置如下：
 
 ```yaml
 model:
@@ -62,21 +62,47 @@ model:
         fix_ego: false
 ```
 
-`false` 会完整切换监督训练和确定性采样：ego 参与 source 抽样与 Hungarian 匹配，使用场景的正常 timestep，参与原有状态重建、碰撞项以及已启用的 angular-velocity/speed magnitude loss。`generate_type=false` 时匹配按 scene/type 分组，`true` 时只按 scene 分组。每一步和最终输出都不再恢复 GT ego，scalar speed 输出也不再用 GT ego 速度向量覆盖。ego 的位置、heading、尺寸和速度都可以改变；是否生成其类型由 `generate_type` 控制。`fix_ego` 本身不改变 loss 公式及系数，变化的是参与训练的 agent 集合。
+`false` 会完整切换监督训练和确定性采样：ego 参与 source 抽样，使用场景的正常 timestep，参与原有状态重建、碰撞项以及已启用的 angular-velocity/speed magnitude loss。启用 `use_ego_embedding` 时，ego 使用自己抽到的 source，Hungarian 只排列 non-ego 的 source；关闭时 ego 也进入匹配集合。`generate_type=false` 时匹配按 scene/type 分组，`true` 时只按 scene 分组。每一步和最终输出都不再恢复 GT ego，scalar speed 输出也不再用 GT ego 速度向量覆盖。ego 的位置、heading、尺寸和速度都可以改变；是否生成其类型由 `generate_type` 控制。`fix_ego` 本身不改变 loss 公式及系数，变化的是参与训练的 agent 集合。
 
-GT ego pose/保存的场景变换仍用于建立局部坐标系和条件地图；生成后不重新居中地图。lane-conditioned 路径中的 ego pose context 是重复的静态 pose，转入 ego 坐标系后为零；其他通用路径仍可能使用已有的 ego history context。agent 总数量仍来自输入；当前实验另外启用 `generate_type=true`，生成类别，关闭时才保留输入类别。评价报告记录实际 `fix_ego`、`generate_type` 和 conditioning。
+GT ego pose/保存的场景变换仍用于建立局部坐标系和条件地图；生成后不重新居中地图。lane-conditioned 路径中的 ego pose context 是重复的静态 pose，转入 ego 坐标系后为零；其他通用路径仍可能使用已有的 ego history context。agent 总数量仍来自输入；当前实验使用 `generate_type=false`，保留输入类别，启用后才生成类别。评价报告记录实际 `fix_ego`、`generate_type`、`use_ego_embedding` 和 conditioning。
 
 训练、恢复和评价应保持同一设置。仅切换 `fix_ego` 不改变模型参数结构，可以加载固定-ego 权重继续训练，但直接切换旧模型评价时，ego 是此前未被监督生成的节点，结果不代表已训练好的全-agent 模型。当前选项支持监督 Flow 和初始化评价；SDE/RL/refiner 路径仍要求 `fix_ego=true`。
 
-如需恢复旧固定 ego 行为，训练和评价命令同时追加：
+显式保持固定 ego 行为时，训练和评价命令同时追加：
 
 ```bash
 model.model_config.decoder.init_diffusion.fix_ego=true
 ```
 
+## Ego / Non-Ego 身份编码
+
+当前 lane-conditioned 训练和评价启用 `use_ego_embedding=true`；通用模型配置和 API 默认 `false`，保留旧模型的参数结构。显式开启的配置如下：
+
+```yaml
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        use_ego_embedding: true
+```
+
+denoiser 增加 `nn.Embedding(2, hidden_dim)`，以输入 `ego_mask` 指定 `0=non-ego`、`1=ego`，在每个 timestep 加到 agent features，随后进入共享 graph attention。ego slot 的身份在训练和采样中保持不变；这里提供已知身份条件，不增加 `is_ego` 分类 head，也不从生成结果中选择哪一辆车作为自车。SMART 每个场景预留的 ego 行继续作为 ego 输出。
+
+训练时，即使 `fix_ego=false`，ego 的 source 也单独保留，Hungarian 只在同场景的 non-ego 之间匹配；不会将其他 agent 的 source 交换到 ego slot。原有匹配代价、连续状态 loss 和已启用的 type CE 均保持不变。`use_ego_embedding=false` 保留原来的匹配行为。
+
+`use_ego_embedding` 与 `fix_ego`、`generate_type` 独立：当前 `fix_ego=true`、`generate_type=false` 仍固定 GT ego 并使用 GT agent type，开启身份编码不会自动改为全-agent 生成。需要同时生成 ego 和全部类别时，训练、恢复和评价都使用：
+
+```bash
+model.model_config.decoder.init_diffusion.use_ego_embedding=true \
+model.model_config.decoder.init_diffusion.fix_ego=false \
+model.model_config.decoder.init_diffusion.generate_type=true
+```
+
+身份编码支持 GT type 与生成 type 两种模式；它属于 `G1`，由相同优化器和 EMA 更新。当前选项面向监督确定性 Flow 和初始化评价。新增 embedding 必须经过训练：旧 checkpoint 可用于 `action=finetune` 初始化已有参数，再训练新身份编码；不能启用选项后直接评价缺少该 embedding 的旧权重。加载这样的旧权重时，直接推理会报错，`G1` EMA 则从已加载的在线参数重新开始。评价旧模型需设置 `use_ego_embedding=false`，并保留该模型训练时的其他配置。
+
 ## 生成 Agent Type
 
-当前 lane-conditioned 训练和独立评价默认 `generate_type=true`、`type_loss_weight=1.0`；通用 SMART 配置和 InitDiffusion API 默认 `generate_type=false`，保留 GT type 条件行为。
+当前 lane-conditioned 训练和独立评价使用 `generate_type=false`、`type_loss_weight=1.0`；通用 SMART 配置和 InitDiffusion API 默认同为 `generate_type=false`，保留 GT type 条件行为。需要生成全部类别时使用如下配置：
 
 ```yaml
 model:
@@ -101,7 +127,7 @@ L_total = L_original + type_loss_weight * L_type
 
 type state 与连续状态使用相同的场景 timestep，并在确定性 Euler 采样中一起更新。denoiser 从有噪声的三维 type state 建立 embedding，类型 head 使用共享图 attention 后的 features；未固定 agent 的 GT 类别仅作为训练目标，不直接用作 type embedding。类型 source 始终为标准 Gaussian，与 position/shape/velocity 的 source 选项独立。现有连续状态、圆周 heading 目标及其权重保持原样，额外增加独立 CE；CE 对未固定且 `0<t<1` 的 agent 取均值，不使用 reconstruction 的 `t^-3` 时间加权。
 
-Hungarian 匹配只按 scene 分组，不再使用 GT type 分组。原有 context 中的三类 GT 数量替换为 `[总数量, 0, 0]`，包括已缓存的 `ego_feat`；总 agent 数量仍由输入指定，各类别的数量由生成结果决定。log 尺寸的缺失标注填充值也不按 GT type 分类，避免类别经输入填充值泄漏。
+生成类别模式的 Hungarian 匹配只按 scene 分组，不再使用 GT type 分组；启用 `use_ego_embedding` 时仅匹配 non-ego。原有 context 中的三类 GT 数量替换为 `[总数量, 0, 0]`，包括已缓存的 `ego_feat`；总 agent 数量仍由输入指定，各类别的数量由生成结果决定。log 尺寸的缺失标注填充值也不按 GT type 分类，避免类别经输入填充值泄漏。
 
 `fix_ego=false` 时 ego 的类别和连续状态全部参与生成；`fix_ego=true` 时保留 GT ego 类别和状态，并将 ego 排除在类型 CE 之外。最终类别取最后一次 clean logits 的 `argmax`。输出使用预测类别更新 `agent["type"]` 及对应的 motion token libraries，再选择速度 token；SD evaluator 也按预测类别筛选生成车辆，GT 对照仍使用真实类别。当前生成类别模式支持监督确定性 Flow、`initial_scene_only=true`、`scenario_dreamer_init=true` 和 cached SD evaluator；SDE/RL/refiner 及其他评价路径暂不支持。
 
@@ -492,7 +518,7 @@ scene embedding，不修改地图缓存，不改变 loss 或现有 sampler。
 
 ## InitDiffusion EMA
 
-当前 lane-conditioned 训练和评价配置默认启用 `model.model_config.decoder.init_diffusion.use_ema=true`，`ema_decay=0.9999`；通用 SMART 配置仍默认关闭。EMA 跟踪 `G1` generator 的参数，包括其中的 `lane_embed` 和已启用的类型 head。当 `sep_map=true` 时，还跟踪独立的 `init_map_encoder`，共用同一个开关、衰减值和更新时机；共享 SMART 地图编码器和运动策略不做平均。
+当前 lane-conditioned 训练和评价配置默认启用 `model.model_config.decoder.init_diffusion.use_ema=true`，`ema_decay=0.9999`；通用 SMART 配置仍默认关闭。EMA 跟踪 `G1` generator 的参数，包括其中的 `lane_embed`、已启用的类型 head 和 ego/non-ego embedding。当 `sep_map=true` 时，还跟踪独立的 `init_map_encoder`，共用同一个开关、衰减值和更新时机；共享 SMART 地图编码器和运动策略不做平均。
 
 训练使用在线参数，每次优化器更新后更新 EMA；验证和测试在 `use_ema=true` 时临时使用平均参数，完成后恢复在线参数。与 Scenario Dreamer 一样，采用 `torch_ema` 默认的 `num_updates` 衰减预热：初期实际衰减受更新次数限制，再逐步接近配置值。
 
@@ -530,7 +556,7 @@ checkpoint 同时保存在线参数、EMA shadow 参数、更新次数和衰减�
 
 ## 比较范围
 
-本模型沿用输入 agent 总数量，当前 `generate_type=true` 生成各 agent 类别；关闭时才使用输入类别。条件地图为 SMART tokens，使用现有 50 m 地图查询半径。`fix_ego=false` 生成 ego，`true` 固定 GT ego；GT ego 坐标框架与已有 context 仍保留。Scenario Dreamer/VectorWorld lane-conditioned 模型也生成 ego 和类别，但使用 AE lane latent；模型结构和地图表示仍不同。相同的 50k 成员、指标口径以及对齐的 ego/type 条件便于比较结果，这不是 Scenario Dreamer/VectorWorld 论文结果的复现。
+本模型沿用输入 agent 总数量，当前 `fix_ego=true`、`generate_type=false` 固定 GT ego 并使用输入类别；`use_ego_embedding=true` 提供 ego slot 的身份条件，不改变这两个设置。条件地图为 SMART tokens，使用现有 50 m 地图查询半径。设置 `fix_ego=false`、`generate_type=true` 后才能与 Scenario Dreamer/VectorWorld 对齐生成 ego 和类别的条件；GT ego 坐标框架与已有 context 仍保留。Scenario Dreamer/VectorWorld 使用 AE/VAE lane latent，模型结构和地图表示仍不同。相同的 50k 成员、指标口径以及对齐的 ego/type 条件便于比较结果，这不是 Scenario Dreamer/VectorWorld 论文结果的复现。
 
 现有训练缓存只保存初始 agent 状态和地图 tokens，没有原始参考时刻或精确 SD lane 图元数据；其时刻与地图来源尚未逐样本追溯。本入口直接使用用户指定的缓存。验证目录则保留官方文件名、参考时刻、坐标变换和完整 lane 图，可用于严格的评估成员检查。
 

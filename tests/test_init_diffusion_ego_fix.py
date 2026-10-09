@@ -301,7 +301,7 @@ class InitDiffusionEgoFixTest(unittest.TestCase):
             with self.subTest(options=options, gail=gail), self.assertRaisesRegex(ValueError, 'fix_ego=false'):
                 Flow(self.args(fix_ego=False, **options), processor, gail)
 
-    def test_training_and_evaluation_config_enable_all_agent_generation(self):
+    def test_training_and_evaluation_config_allow_fixed_or_generated_ego(self):
         root = Path(__file__).resolve().parents[1]
         OmegaConf.register_new_resolver('sim_root', lambda: str(root), replace=True)
         option = 'model.model_config.decoder.init_diffusion.fix_ego'
@@ -309,9 +309,11 @@ class InitDiffusionEgoFixTest(unittest.TestCase):
             for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
                 with self.subTest(experiment=experiment):
                     default = compose(config_name='run.yaml', overrides=[f'experiment={experiment}'])
-                    self.assertFalse(OmegaConf.select(default, option))
-                    old = compose(config_name='run.yaml', overrides=[f'experiment={experiment}', f'{option}=true'])
-                    self.assertTrue(OmegaConf.select(old, option))
+                    self.assertIsInstance(OmegaConf.select(default, option), bool)
+                    for fixed in (True, False):
+                        selected = compose(config_name='run.yaml', overrides=[
+                            f'experiment={experiment}', f'{option}={str(fixed).lower()}'])
+                        self.assertEqual(OmegaConf.select(selected, option), fixed)
 
 
 if __name__ == '__main__':

@@ -571,11 +571,15 @@ class SMART(LightningModule):
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
+                    "use_ego_embedding": getattr(initial_decoder, "use_ego_embedding", False),
+                    "match_ego_separately": getattr(initial_decoder, "use_ego_embedding", False),
                     "generate_type": getattr(initial_decoder, "generate_type", False),
                     "type_loss_weight": getattr(initial_decoder, "type_loss_weight", 1.0),
                     "agent_type_source": "generated" if getattr(initial_decoder, "generate_type", False) else "input",
                     "type_source": "gaussian_noisy_one_hot" if getattr(initial_decoder, "generate_type", False) else None,
-                    "matching_groups": "scene" if getattr(initial_decoder, "generate_type", False) else "scene_and_type",
+                    "matching_groups": ("scene_and_ego_role" if getattr(initial_decoder, "generate_type", False) else "scene_type_and_ego_role")
+                    if getattr(initial_decoder, "use_ego_embedding", False) else
+                    "scene" if getattr(initial_decoder, "generate_type", False) else "scene_and_type",
                     "pos_source": getattr(initial_decoder, "pos_source", "gaussian"),
                     "shape_source": getattr(initial_decoder, "shape_source", "gaussian"),
                     "velocity_source": getattr(initial_decoder, "velocity_source", "gaussian"),
@@ -610,7 +614,7 @@ class SMART(LightningModule):
                     "init_map_ema_num_updates": self.encoder.initial_map_ema.num_updates
                     if getattr(self.encoder, "initial_map_ema", None) is not None else None,
                     "init_map_range_m": self.token_processor.init_map_range,
-                    "conditioning": ["reference map", "GT ego state and type" if getattr(initial_decoder, "fix_ego", True) and getattr(initial_decoder, "generate_type", False) else "GT ego state" if getattr(initial_decoder, "fix_ego", True) else "GT ego reference frame", "input total agent count" if getattr(initial_decoder, "generate_type", False) else "input agent counts"] + ([] if getattr(initial_decoder, "generate_type", False) else ["input agent types"]),
+                    "conditioning": ["reference map", "GT ego state and type" if getattr(initial_decoder, "fix_ego", True) and getattr(initial_decoder, "generate_type", False) else "GT ego state" if getattr(initial_decoder, "fix_ego", True) else "GT ego reference frame", "input total agent count" if getattr(initial_decoder, "generate_type", False) else "input agent counts"] + ([] if getattr(initial_decoder, "generate_type", False) else ["input agent types"]) + (["ego/non-ego slot"] if getattr(initial_decoder, "use_ego_embedding", False) else []),
                 }
             with (self.video_dir.parent / "sd_agent_metrics.json").open("w", encoding="utf-8") as handle:
                 json.dump(report, handle, indent=2)

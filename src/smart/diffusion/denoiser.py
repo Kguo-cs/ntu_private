@@ -83,6 +83,7 @@ class InitDenoiser(nn.Module):
         invalid_size_policy: str = "mask",
         fix_ego: bool = True,
         generate_type: bool = False,
+        use_ego_embedding: bool = False,
     ) -> None:
         super().__init__()
 
@@ -103,6 +104,9 @@ class InitDenoiser(nn.Module):
         if not isinstance(generate_type, bool):
             raise ValueError("generate_type must be boolean")
         self.generate_type = generate_type
+        if not isinstance(use_ego_embedding, bool):
+            raise ValueError("use_ego_embedding must be boolean")
+        self.use_ego_embedding = use_ego_embedding
         self.velocity_representation = velocity_representation
         if size_representation not in ("linear", "log"):
             raise ValueError("size_representation must be linear or log")
@@ -172,6 +176,8 @@ class InitDenoiser(nn.Module):
         # )
         #
         self.type_a_emb = nn.Embedding(self.num_classes , hidden_dim)
+        if self.use_ego_embedding:
+            self.ego_a_emb = nn.Embedding(2, hidden_dim)
         self.noise_embedding = (
             TimestepEmbedder(hidden_dim)
             if time_embedding_type == "scenario_dreamer"
@@ -618,6 +624,21 @@ class InitDenoiser(nn.Module):
         # nodes; calling the embedder separately would produce different masks.
         return self.scene_type_embedder(labels, train=self.training)
 
+    def _ego_role_mask(self, tokenized_agent) -> torch.Tensor:
+        """Validate scene roles before a denoiser evaluation mask is applied."""
+        mask = tokenized_agent.get("ego_mask")
+        batch = tokenized_agent["batch"]
+        if (not torch.is_tensor(mask) or mask.dtype != torch.bool
+                or mask.ndim != 1 or mask.shape != batch.shape):
+            raise ValueError("use_ego_embedding requires a boolean ego_mask of shape [N]")
+        num_graphs = int(tokenized_agent["num_graphs"])
+        if num_graphs < 1 or bool(((batch < 0) | (batch >= num_graphs)).any()):
+            raise ValueError("use_ego_embedding requires valid scene batch IDs")
+        counts = torch.bincount(batch[mask].long(), minlength=num_graphs)
+        if not bool((counts == 1).all()):
+            raise ValueError("use_ego_embedding requires exactly one ego per scene")
+        return mask
+
     def _ego_context_embedding(
         self,
         pos_s: torch.Tensor,
@@ -691,6 +712,7 @@ class InitDenoiser(nn.Module):
         tokenized_agent,
         mode: int,
         type_state: Optional[torch.Tensor] = None,
+        ego_role: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
         theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
@@ -734,6 +756,14 @@ class InitDenoiser(nn.Module):
         )
 
         feat_a = feat_a + ego_embedding
+        if self.use_ego_embedding:
+            if ego_role is None:
+                ego_role = self._ego_role_mask(tokenized_agent)
+            if ego_role.shape != (len(m_delta),):
+                raise ValueError("ego role IDs must align with the denoised agents")
+            # Slot identity stays clean at every timestep, independently of
+            # GT type conditioning and of whether ego state is generated.
+            feat_a = feat_a + self.ego_a_emb(ego_role.long())
 
         return feat_a, pos_s, theta
 
@@ -903,6 +933,7 @@ class InitDenoiser(nn.Module):
         batch = tokenized_agent["batch"]
         agent_type = tokenized_agent["type"]
         type_state = tokenized_agent.get("_init_diffusion_type_state") if self.generate_type else None
+        ego_role = self._ego_role_mask(tokenized_agent) if self.use_ego_embedding else None
         num_graphs = tokenized_agent["num_graphs"]
 
         if eval_mask is not None:
@@ -912,6 +943,8 @@ class InitDenoiser(nn.Module):
             agent_type = agent_type[eval_mask]
             if type_state is not None:
                 type_state = type_state[eval_mask]
+            if ego_role is not None:
+                ego_role = ego_role[eval_mask]
 
         feat_a, pos_s, theta = self._embed_agents(
             m_delta=m_delta,
@@ -921,6 +954,7 @@ class InitDenoiser(nn.Module):
             tokenized_agent=tokenized_agent,
             mode=mode,
             type_state=type_state,
+            ego_role=ego_role,
         )
 
         if self.count_embedding_type == "scenario_dreamer":

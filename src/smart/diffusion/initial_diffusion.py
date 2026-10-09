@@ -60,6 +60,7 @@ class InitDiffusion(nn.Module):
         fix_ego: bool = True,
         generate_type: bool = False,
         type_loss_weight: float = 1.0,
+        use_ego_embedding: bool = False,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -94,6 +95,10 @@ class InitDiffusion(nn.Module):
         self.generate_type = args.generate_type = generate_type
         self.type_loss_weight = args.type_loss_weight = float(type_loss_weight)
         self._type_head_missing_on_load = False
+        if not isinstance(use_ego_embedding, bool):
+            raise ValueError("use_ego_embedding must be boolean")
+        self.use_ego_embedding = args.use_ego_embedding = use_ego_embedding
+        self._ego_embedding_missing_on_load = False
         args.invalid_size_policy = invalid_size_policy
         self.pos_source = args.pos_source = pos_source
         self.shape_source = args.shape_source = shape_source
@@ -179,6 +184,7 @@ class InitDiffusion(nn.Module):
         return {
             "size_representation": self.size_representation,
             "generate_type": self.generate_type,
+            "use_ego_embedding": self.use_ego_embedding,
             "ema": self.ema.state_dict() if self.ema is not None else None,
             "ema_parameter_names": list(dict(self.G1.named_parameters())) if self.ema is not None else None,
         }
@@ -191,14 +197,18 @@ class InitDiffusion(nn.Module):
             raise ValueError(f"InitDiffusion checkpoint size_representation={saved_size_mode!r} "
                              f"does not match configured {self.size_representation!r}; "
                              "log size models require training with log targets")
-        # A mode change adds/removes the head. Warm-start physical weights,
+        # A mode change adds/removes parameters. Warm-start physical weights,
         # but start EMA afresh for the new parameter layout.
-        self._pending_ema_state = state if state.get("generate_type", False) == self.generate_type else None
+        same_layout = (state.get("generate_type", False) == self.generate_type
+                       and state.get("use_ego_embedding", False) == self.use_ego_embedding)
+        self._pending_ema_state = state if same_layout else None
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
         extra_key = prefix + "_extra_state"
         self._pending_ema_state = None
+        if self.use_ego_embedding:
+            self._ego_embedding_missing_on_load = prefix + "G1.model.ego_a_emb.weight" not in state_dict
         if self.generate_type:
             required = [prefix + "G1.model.to_out_type." + name
                         for name in self.G1.model.to_out_type.state_dict()]
@@ -460,6 +470,7 @@ class InitDiffusion(nn.Module):
         )
         result = tuple(self._mean(value, name) for value, name in zip(loss, names))
         self._type_head_missing_on_load = False
+        self._ego_embedding_missing_on_load = False
         return result
 
     def _infer(
@@ -467,6 +478,10 @@ class InitDiffusion(nn.Module):
         agent,
         map_feature,
     ):
+        if self.use_ego_embedding and self._ego_embedding_missing_on_load:
+            raise ValueError("Loaded checkpoint has no InitDiffusion ego embedding; "
+                             "train/finetune with use_ego_embedding=true before evaluation, "
+                             "or set use_ego_embedding=false for a legacy checkpoint")
         if self.generate_type and self._type_head_missing_on_load:
             raise ValueError("Loaded checkpoint has no trained InitDiffusion type head; "
                              "train/finetune with generate_type=true before evaluation, "

@@ -452,9 +452,11 @@ class InitDiffusionTypeGenerationTest(unittest.TestCase):
             for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
                 with self.subTest(experiment=experiment):
                     default = compose(config_name='run.yaml', overrides=[f'experiment={experiment}'])
-                    self.assertTrue(OmegaConf.select(default, option))
-                    old = compose(config_name='run.yaml', overrides=[f'experiment={experiment}', f'{option}=false'])
-                    self.assertFalse(OmegaConf.select(old, option))
+                    self.assertIsInstance(OmegaConf.select(default, option), bool)
+                    for generated in (True, False):
+                        selected = compose(config_name='run.yaml', overrides=[
+                            f'experiment={experiment}', f'{option}={str(generated).lower()}'])
+                        self.assertEqual(OmegaConf.select(selected, option), generated)
                     self.assertEqual(OmegaConf.select(default, 'model.model_config.decoder.init_diffusion.type_loss_weight'), 1.)
 
 
