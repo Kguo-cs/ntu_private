@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: sdinit256_msesq3circletspeed_thetacol1_matchposscale5e4 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
+task_name: sdinit256_tspeed_thetacol1_matchposscale_step10 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
@@ -14,7 +14,7 @@ model:
   #
   model_config:
     #optimizer: scenario_dreamer
-    lr: 0.0005
+    lr: 0.0001
     token_processor:
       pred_init: true
       learn_init: true
