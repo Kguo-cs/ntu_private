@@ -546,7 +546,7 @@ def get_diff_loss(
     if not use_l1:
         weight=weight.square()*weight #.square()
 
-        weight=weight.clamp_max(1000)
+        weight=weight.clamp_max(100)
 
     if use_match:
         fake_idx = get_closest_sum_idx_fast(
