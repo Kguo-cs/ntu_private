@@ -148,7 +148,7 @@ model.model_config.decoder.init_diffusion.use_ego_embedding=true
 
 身份编码支持 GT type 与生成 type 两种模式；它属于 `G1`，由相同优化器和 EMA 更新。当前选项面向监督确定性 Flow 和初始化评价。新增 embedding 必须经过训练：旧 checkpoint 可用于 `action=finetune` 初始化已有参数，再训练新身份编码；不能启用选项后直接评价缺少该 embedding 的旧权重。加载这样的旧权重时，直接推理会报错，`G1` EMA 则从已加载的在线参数重新开始。评价旧模型需设置 `use_ego_embedding=false`，并保留该模型训练时的其他配置。
 
-监督训练还记录 `train/ego_position_l1`、`train/ego_heading_l1`、`train/ego_length_l1`、`train/ego_width_l1`，沿用已有每 50 个 optimizer steps 的记录频率。它们比较当前随机训练 timestep 的 clean-state 预测 `x0` 与 GT，只统计 ego，不额外运行完整生成采样，也不加入训练 loss 或时间权重。position 是 GT ego 局部坐标中的 `|Δx| + |Δy|`，单位 m，与分布报告使用的欧氏距离不同；heading 是最短圆周角度差的绝对值，单位 rad，并额外记录度数版本 `train/ego_heading_l1_deg`。length/width 分别记录物理尺寸的绝对误差（m）；log 尺寸先 `exp`，缺失的尺寸标签按维度排除。各指标对当前 batch 的 ego 取均值；固定字段恢复 GT 后误差为 0，无有效尺寸标签时省略对应尺寸指标。这些是在线训练权重的有噪声输入重建误差，不是 EMA 完整采样的评价结果。
+监督训练还记录 `train/ego_position_l1`、`train/ego_heading_l1`、`train/ego_length_l1`、`train/ego_width_l1`，沿用已有每 50 个 optimizer steps 的记录频率。它们比较当前随机训练 timestep 的 clean-state 预测 `x0` 与 GT，只统计 ego，不额外运行完整生成采样，也不加入训练 loss 或时间权重。position 是 GT ego 局部坐标中的 `|Δx| + |Δy|`，单位 m，与分布报告使用的欧氏距离不同；heading 是最短圆周角度差的绝对值，单位 rad，并额外记录度数版本 `train/ego_heading_l1_deg`。length/width 分别记录物理尺寸的绝对误差（m）；log 尺寸先 `exp`，缺失的尺寸标签按维度排除。各指标对当前 batch 的 ego 取均值；固定字段恢复 GT 后误差为 0，无有效尺寸标签时省略对应尺寸指标。这些是在线训练权重的有噪声输入重建误差，不是 EMA 完整采样的评价结果。 开启 `generate_type=true` 时还记录 `train/ego_type_accuracy`（0–1），只比较 ego 的当前 clean type 预测与 GT：feature 模式对 raw type 三列取 `argmax`，separate/joint 模式对分类 logits 取 `argmax`。与其他 ego 指标一样，该值按条件恢复后的输出统计；`fix_ego_type=true` 时为 1，表示 GT 类型被保留。未生成 type 或没有 ego 时不记录此项。
 
 ## 生成 Agent Type
 

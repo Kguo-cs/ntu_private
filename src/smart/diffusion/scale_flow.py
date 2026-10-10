@@ -1004,7 +1004,8 @@ class Flow(nn.Module):
             time_weight = time[:, 0].clamp_min(self.t_eps).reciprocal().pow(3)
             weighted_loss = (type_error * active * time_weight * (0.1 / 5) * 3 / self.model.feature_dim).mean()
             labels = tokenized_agent["type"].long()
-            accuracy = ((x0[:, dim:].argmax(-1) == labels) & active).sum().float() / active.sum().clamp_min(1)
+            predicted_type = x0[:, dim:].detach().argmax(-1)
+            accuracy = ((predicted_type == labels) & active).sum().float() / active.sum().clamp_min(1)
             tokenized_agent["_init_diffusion_type_metrics"] = {
                 "loss": type_loss.detach(), "weighted_loss": weighted_loss.detach(),
                 "accuracy": accuracy.detach(),
@@ -1017,11 +1018,21 @@ class Flow(nn.Module):
             type_loss = torch.where(active, per_agent, torch.zeros_like(per_agent)).sum() / active.sum().clamp_min(1)
             weighted_loss = self.type_loss_weight * type_loss
             loss = (loss[0] + weighted_loss, *loss[1:])
-            accuracy = ((logits.argmax(-1) == labels) & active).sum().float() / active.sum().clamp_min(1)
+            predicted_type = logits.detach().argmax(-1)
+            accuracy = ((predicted_type == labels) & active).sum().float() / active.sum().clamp_min(1)
             tokenized_agent["_init_diffusion_type_metrics"] = {
                 "loss": type_loss.detach(), "weighted_loss": weighted_loss.detach(),
                 "accuracy": accuracy.detach(),
             }
+        if getattr(self, "generate_type", False):
+            ego = tokenized_agent["ego_mask"].bool()
+            if ego.any():
+                # Like ego state errors, measure the conditioned clean output.
+                # Fixed ego types are restored to GT in generation.
+                correct_type = (predicted_type == labels) | self._conditioned_type_mask(tokenized_agent)
+                tokenized_agent["_init_diffusion_ego_metrics"]["type_accuracy"] = (
+                    correct_type[ego].float().mean().detach()
+                )
         return loss
 
     def _sde_advantage_loss(

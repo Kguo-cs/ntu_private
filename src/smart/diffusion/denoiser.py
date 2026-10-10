@@ -931,6 +931,8 @@ class InitDenoiser(nn.Module):
                     r_pl2a,
                     edge_index_pl2a,
                 )
+        if ego_role_embedding is not None:
+            feat_a = feat_a + ego_role_embedding
 
         if self.generate_type and not self.type_as_feature:
             tokenized_agent["_init_diffusion_type_logits"] = self.to_out_type(feat_a)
