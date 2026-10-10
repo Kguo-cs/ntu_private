@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: sdinit512_tspeed_theta_scaletype_egoVFtypeemd5e4cosin_same #_ang Weight50 #match #5e4 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
+task_name: sdinit512_tspeed_theta_scaletype_egoVFtypeemd5e4_same #cosin_ang Weight50 #match #5e4 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
@@ -31,7 +31,7 @@ model:
         fix_ego_velocity: false  # Generate ego speed, reconstructed with its predicted heading.
         fix_ego_type: true
         use_ego_embedding: true  # Distinguish ego/non-ego slots in every denoising step.
-        ego_context_heading_encoding: sincos  # Continuous relative heading features for every agent.
+        ego_context_heading_encoding: angle  # Continuous relative heading features for every agent.
         generate_type: true  # Generate non-ego types; ego type follows fix_ego_type.
         type_loss_weight: 1.0  # CE modes only; feature uses the shared state loss.
         type_process: feature  # Type uses the same input/output projection and MSE as other features.
