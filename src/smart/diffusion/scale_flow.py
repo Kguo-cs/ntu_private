@@ -666,22 +666,8 @@ class Flow(nn.Module):
                 self.refiner_delta_scale
                 * torch.tanh(prediction[:, :base.shape[-1]])
         )
-
-        # delta_mu[:, 4:6] = 0.0  # don't touch length / width
-
-        # delta_mu=prediction[:,:base.shape[-1]]
-
-        #log_std=self.refiner_log_std.clamp(  math.log(0.03),  math.log(0.3)  ).expand_as(delta_mu)
-        log_std = prediction[:, base.shape[-1]:]#
-        # min_log_std = math.log(0.03)
-        # max_log_std = math.log(0.3)
-        #
-        # log_std = min_log_std + (
-        #         0.5 * (torch.tanh(prediction[:,base.shape[-1]:]) + 1.0)
-        #         * (max_log_std - min_log_std)
-        # )
+        log_std = prediction[:, base.shape[-1]:]
         std = log_std.exp()
-
         return std, delta_mu, log_std
 
     def get_loss(
