@@ -153,16 +153,35 @@ def matching_loss(
     reconstruction_dims=None,
     reconstruction_mask=None,
     heading_x0_loss: str = "vector_mse",
+    physical_state_dim: int | None = None,
 ):
-    """Return total and component losses, each with shape [N]."""
+    """Return total and component losses, each with shape [N].
+
+    An explicit physical width selects a deterministic state whose additional
+    features share the same reconstruction objective and full-state mean.
+    Omitting it retains the legacy deterministic and probabilistic layouts.
+    """
 
     if real_state.shape[0] != fake_state.shape[0]:
         raise ValueError("real_state and fake_state must have the same length")
 
-    real_pos, real_heading, real_shape, real_vel = _split_state(
-        real_state[:, :STATE_DIM]
-    )
-    mode, prediction, logits, logstds = _parse_prediction(fake_state)
+    if physical_state_dim is not None:
+        if physical_state_dim not in (7, 8):
+            raise ValueError("physical_state_dim must be 7 or 8")
+        if (real_state.ndim != 2 or fake_state.ndim != 2
+                or real_state.shape != fake_state.shape
+                or real_state.shape[-1] < physical_state_dim):
+            raise ValueError("Explicit physical states require matching [N, D] predictions and targets")
+        real_pos, real_heading, real_shape, real_vel = (
+            real_state[:, POS], real_state[:, HEADING], real_state[:, SHAPE],
+            real_state[:, 6:physical_state_dim],
+        )
+        mode, prediction, logits, logstds = "deterministic", fake_state, None, None
+    else:
+        real_pos, real_heading, real_shape, real_vel = _split_state(
+            real_state[:, :STATE_DIM]
+        )
+        mode, prediction, logits, logstds = _parse_prediction(fake_state)
     if heading_x0_loss not in ("vector_mse", "angle_mse"):
         raise ValueError("heading_x0_loss must be vector_mse or angle_mse")
     if heading_x0_loss == "angle_mse" and mode != "deterministic":
@@ -174,11 +193,27 @@ def matching_loss(
         reconstruction_mask = reconstruction_mask.to(device=fake_state.device, dtype=torch.bool)
         # Mask operands before any square/absolute value: even an ignored
         # non-finite prediction cannot poison the reconstruction gradients.
-        fake_state = torch.where(reconstruction_mask, fake_state, real_state.detach())
+        if physical_state_dim is None:
+            fake_state = torch.where(reconstruction_mask, fake_state, real_state.detach())
+        else:
+            # Additional features use the same mask. Zero both operands so a
+            # missing, non-finite target is as harmless as a missing prediction.
+            fake_state = torch.where(reconstruction_mask, fake_state, torch.zeros_like(fake_state))
+            real_state = torch.where(reconstruction_mask, real_state, torch.zeros_like(real_state))
+            real_pos, real_heading, real_shape, real_vel = (
+                real_state[:, POS], real_state[:, HEADING], real_state[:, SHAPE],
+                real_state[:, 6:physical_state_dim],
+            )
         prediction = fake_state
 
     if mode == "deterministic":
-        fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
+        if physical_state_dim is None:
+            fake_pos, fake_heading, fake_shape, fake_vel = _split_state(prediction)
+        else:
+            fake_pos, fake_heading, fake_shape, fake_vel = (
+                prediction[:, POS], prediction[:, HEADING], prediction[:, SHAPE],
+                prediction[:, 6:physical_state_dim],
+            )
         pos_loss = _component_loss(fake_pos, real_pos, use_l1)
         heading_loss = (_heading_angle_mse(fake_heading, real_heading)
                         if heading_x0_loss == "angle_mse" else
@@ -226,7 +261,7 @@ def matching_loss(
     if reconstruction_dims is None:
         total_loss = state_error.mean(-1) * w_pos
     else:
-        # Retain each selected dimension's original contribution (1 / 8).
+        # Retain each selected dimension's contribution to the full-state mean.
         total_loss = state_error[:, reconstruction_dims].sum(-1) / state_error.shape[-1] * w_pos
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
@@ -496,6 +531,7 @@ def get_diff_loss(
     reconstruction_mask=None,
     collision_valid_mask=None,
     heading_x0_loss: str = "vector_mse",
+    physical_state_dim: int | None = None,
 ):
     """Reconstruct model states; collision geometry optionally decodes sizes.
 
@@ -523,6 +559,10 @@ def get_diff_loss(
     collision_loss = fake_state.new_zeros(())
     if use_col and x_pred:
         collision_prediction, collision_reference, collision_batch = fake_state, real_state, batch
+        if physical_state_dim is not None:
+            # Extra state features never enter physical decoding or geometry.
+            collision_prediction = collision_prediction[:, :physical_state_dim]
+            collision_reference = collision_reference[:, :physical_state_dim]
         collision_rows = None
         if collision_valid_mask is not None:
             valid = collision_valid_mask.to(device=fake_state.device, dtype=torch.bool)
@@ -531,7 +571,8 @@ def get_diff_loss(
             collision_rows = valid.nonzero(as_tuple=True)[0]
             # Decode only known-shape rows: an unconstrained missing-coordinate
             # prediction must not overflow exp or participate in GT geometry.
-            collision_prediction, collision_reference = fake_state[collision_rows], real_state[collision_rows]
+            collision_prediction = collision_prediction[collision_rows]
+            collision_reference = collision_reference[collision_rows]
             collision_batch = batch[collision_rows]
         if state_to_physical is not None:
             collision_prediction = state_to_physical(collision_prediction)
@@ -568,6 +609,7 @@ def get_diff_loss(
         reconstruction_dims=reconstruction_dims,
         reconstruction_mask=reconstruction_mask,
         heading_x0_loss=heading_x0_loss,
+        physical_state_dim=physical_state_dim,
     )
 
     # losses[0]=w_pos*F.l1_loss(real_state,fake_state,reduction='none').mean(-1)

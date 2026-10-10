@@ -64,6 +64,8 @@ class InitDiffusion(nn.Module):
         type_loss_weight: float = 1.0,
         type_process: str = "separate",
         type_match_weight: float = 1.0,
+        type_noise_stats: str = "standard",
+        type_noise_std_floor: float = 0.01,
         use_ego_embedding: bool = False,
         fix_ego_position: Optional[bool] = None,
         fix_ego_heading: Optional[bool] = None,
@@ -115,6 +117,8 @@ class InitDiffusion(nn.Module):
         self.type_loss_weight = args.type_loss_weight = float(type_loss_weight)
         self.type_process = args.type_process = type_process
         self.type_match_weight = args.type_match_weight = float(type_match_weight)
+        self.type_noise_stats = args.type_noise_stats = type_noise_stats
+        self.type_noise_std_floor = args.type_noise_std_floor = float(type_noise_std_floor)
         self._type_head_missing_on_load = False
         if not isinstance(use_ego_embedding, bool):
             raise ValueError("use_ego_embedding must be boolean")
@@ -209,6 +213,8 @@ class InitDiffusion(nn.Module):
             "generate_type": self.generate_type,
             "type_process": self.type_process,
             "type_match_weight": self.type_match_weight,
+            "type_noise_stats": self.type_noise_stats,
+            "type_noise_std_floor": self.type_noise_std_floor,
             "use_ego_embedding": self.use_ego_embedding,
             "ego_context_heading_encoding": self.ego_context_heading_encoding,
             "ego_conditioning": {field: getattr(self, f"fix_ego_{field}")
@@ -235,7 +241,8 @@ class InitDiffusion(nn.Module):
         # but start EMA afresh for the new parameter layout.
         same_layout = (state.get("generate_type", False) == self.generate_type
                        and state.get("use_ego_embedding", False) == self.use_ego_embedding
-                       and saved_context_encoding == self.ego_context_heading_encoding)
+                       and saved_context_encoding == self.ego_context_heading_encoding
+                       and (state.get("generate_type", False) and state.get("type_process") == "feature") == self.G1.feature_type)
         self._pending_ema_state = state if same_layout else None
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
@@ -244,7 +251,21 @@ class InitDiffusion(nn.Module):
         self._pending_ema_state = None
         if self.use_ego_embedding:
             self._ego_embedding_missing_on_load = prefix + "G1.model.ego_a_emb.weight" not in state_dict
-        if self.generate_type:
+        if self.G1.feature_type:
+            expected = {prefix + "G1.model." + name: value for name, value in self.G1.model.state_dict().items()
+                        if name.startswith(("proj_in_m_delta.", "to_out_m_delta."))}
+            self._type_head_missing_on_load = any(
+                key not in state_dict or state_dict[key].shape != value.shape
+                for key, value in expected.items())
+            saved = state_dict.get(extra_key, {})
+            if not isinstance(saved, Mapping) or saved.get("type_process") != "feature":
+                # Removing incompatible boundary weights lets strict=False
+                # finetune retain the shared backbone. Strict loading still
+                # fails on these missing keys, and inference is guarded.
+                for key, value in expected.items():
+                    if key in state_dict and state_dict[key].shape != value.shape:
+                        del state_dict[key]
+        elif self.generate_type:
             required = [prefix + "G1.model.to_out_type." + name
                         for name in self.G1.model.to_out_type.state_dict()]
             self._type_head_missing_on_load = any(key not in state_dict for key in required)
@@ -535,6 +556,10 @@ class InitDiffusion(nn.Module):
             raise ValueError("Loaded checkpoint has no InitDiffusion ego embedding; "
                              "train/finetune with use_ego_embedding=true before evaluation, "
                              "or set use_ego_embedding=false for a legacy checkpoint")
+        if self.G1.feature_type and self._type_head_missing_on_load:
+            raise ValueError("Loaded checkpoint has no trained full type-feature input/output weights; "
+                             "train/finetune with type_process=feature before evaluation, "
+                             "or use the checkpoint's original type_process")
         if self.generate_type and self._type_head_missing_on_load:
             raise ValueError("Loaded checkpoint has no trained InitDiffusion type head; "
                              "train/finetune with generate_type=true before evaluation, "

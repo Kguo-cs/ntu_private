@@ -150,7 +150,7 @@ model.model_config.decoder.init_diffusion.use_ego_embedding=true
 
 ## 生成 Agent Type
 
-当前 lane-conditioned 训练和独立评价使用 `generate_type=true`、`type_process=joint`、`type_loss_weight=1.0`，生成 non-ego 类别，并通过 `fix_ego_type=true` 保留 GT ego 类别；通用 SMART 配置和 InitDiffusion API 默认 `generate_type=false`、`type_process=separate`，保留已有行为。当前实验的类别设置如下，连续字段沿用上节的固定设置：
+当前 lane-conditioned 训练和独立评价使用 `generate_type=true`、`type_process=feature`、`type_noise_stats=data`。type 与其他特征一起进入同一输入投影、输出层和重建 loss；non-ego 类别生成，`fix_ego_type=true` 保留 GT ego 类别。通用 SMART 配置和 InitDiffusion API 默认仍为 `generate_type=false`、`type_process=separate`、`type_noise_stats=standard`，保留已有行为。当前实验配置如下，连续字段沿用前面的固定设置：
 
 ```yaml
 model:
@@ -159,52 +159,73 @@ model:
       init_diffusion:
         generate_type: true
         fix_ego_type: true
-        type_process: joint
-        type_match_weight: 1.0
-        type_loss_weight: 1.0
+        type_process: feature
+        type_noise_stats: data
+        type_noise_std_floor: 0.01
 ```
 
-类别为 `0=vehicle`、`1=pedestrian`、`2=cyclist`。`type_process=joint` 将 type one-hot 放到连续特征后面，作为同一条 Flow state；speed 模式总维度为 10，vector 模式为 11：
+类别为 `0=vehicle`、`1=pedestrian`、`2=cyclist`。`feature` 将原始 one-hot 追加到物理状态后，speed 模式完整状态维度为 10，vector 模式为 11：
 
 ```text
 speed:  [x, y, cos(theta), sin(theta), length, width, speed, type_0, type_1, type_2]
 vector: [x, y, cos(theta), sin(theta), length, width, vx, vy, type_0, type_1, type_2]
 ```
 
-使用 log 尺寸时，length/width 两列在内部表示为 log(length/width)。训练先构造完整的 source，再用同一个 Hungarian 排列同时重排连续字段和三个 type source 通道。joint 模式只在同场景的 non-ego 之间匹配，不按 GT type 分组；ego 保留自己的完整 source 行。GT 连续状态和 GT type 标签始终保持对齐，不重排 GT 标签。
+使用 log 尺寸时，length/width 在内部表示为 log(length/width)。完整有噪声状态经过相同 `proj_in_m_delta` 投影和图 attention，`to_out_m_delta` 同时输出物理字段与三个 raw type x0 值；feature 模式不建立独立 `type_a_emb` 或 `to_out_type`，不执行 softmax 或 CE。所有字段使用同一个场景 timestep；Scenario Dreamer 的 scalar time embedding 保持原样，legacy time embedding 仍沿用物理 7/8 维时间函数，时间函数独立于追加的状态维度。
 
-`type_match_weight` 是有限、非负的匹配系数，默认 `1.0`，用于将 type source 到 GT one-hot 的距离加入归一化连续字段的匹配成本；设为 `0` 时类别不影响匹配成本，但其 source 仍随连续 source 一起排列。它与 `type_loss_weight` 独立，后者控制训练 CE 的系数。GT type 在这里作为训练的匹配目标和监督标签，不作为评价时的类别条件。`generate_type=false` 时不增加类别通道，`type_process=joint` 不改变原来的 GT-type 条件路径。
-
-type 三列仍使用标准 Gaussian source 和线性插值，圆周 heading 仅对 cos/sin 两列使用角度插值；类别不进入物理字段的 normalizer、几何变换或 collision。所有字段共用同一个场景 timestep，并在确定性 Euler 采样中作为联合 state 更新。clean 预测拼接连续输出与 `softmax(type_logits)`；最终类别取 `argmax`。类别训练仍使用 CE，没有改成 one-hot MSE：
+训练先抽取完整 source，再在同场景的 non-ego 之间做 Hungarian 匹配，所有物理和 type source 通道按同一排列重排，不按 GT type 分组；ego 保留自己的 source 行。GT 物理状态和 GT type 标签始终保持对齐，不重排标签。匹配中每个通道按自己的标准差归一化，feature 模式采用相同系数的平方距离：
 
 ```text
-y_gt = one_hot(GT_type, 3), epsilon_type ~ N(0, I_3)
-y_t = (1 - t) * y_gt + t * epsilon_type
-type_clean = softmax(type_logits)
-dy/dt = (y_t - type_clean) / max(t, t_eps)
-L_type = mean_active(cross_entropy(type_logits, GT_type))
-L_total = L_original + type_loss_weight * L_type
+cost = sum(((source - target) / std)^2)
 ```
 
-denoiser 从联合 state 的三维 type 切片建立 embedding，类型 head 使用共享图 attention 后的 features；需要生成类别的 agent 使用有噪声的 state，不直接读取 GT type embedding。类型 source 分布与 position/shape/velocity 的 source 选项独立，但联合匹配后源行的配对关系共用。类型固定的 ego 将 source、输入和每一步 type state 恢复为 GT one-hot，即使其速度生成、时间仍大于零。现有连续状态、圆周 heading 目标及其权重保持原样，额外增加独立 CE；CE 对类型未固定且 `0<t<1` 的 agent 取均值，不使用 reconstruction 的 `t^-3` 时间加权。
+`type_match_weight` 和 `type_loss_weight` 在 feature 模式中不参与成本或 loss。GT type 只作为训练目标和固定 ego 条件，不作为 non-ego 评价时的类别输入。`generate_type=false` 时不追加类别通道，所选 `type_process` 不改变原来的 GT-type 条件路径。
 
-`type_process=separate` 保留旧版分开的三维 type state：连续 source 先按已有 scene/type 规则匹配，之后独立抽样 type source，类别不参与 Hungarian 成本。当前实验默认 joint；恢复或评价旧的 separate 模型时显式覆盖如下，并保留该模型训练时的其他选项。切换过程改变训练配对和 source 路径，应通过新训练或 finetune 比较，不能只切换旧权重的评价设置来声称 joint 训练结果。
+`type_noise_stats` 支持 `standard` 和 `data`。`standard` 使用均值 0、标准差 1 的三维 Gaussian source；当前实验使用 `data`，根据首次训练 batch 中全部 agent（包括 ego）的 one-hot 标签建立统计。DDP 先汇总各 rank 的类别计数，再计算每类比例 `p_k`：
+
+```text
+mu_type[k] = p_k
+std_type[k] = max(sqrt(p_k * (1 - p_k)), type_noise_std_floor)
+type_source = mu_type + std_type * epsilon, epsilon ~ N(0, I_3)
+```
+
+这与物理字段按首批数据建立 source 统计的方式相同，不扫描整个训练集。`type_noise_std_floor` 默认 `0.01`，要求有限且 `0 < floor <= 0.5`，避免首批缺少某类时标准差为零。type 统计冻结并随 checkpoint 保存；评价沿用训练统计，不根据评价 GT 更新。统计 buffer 不参与 EMA，物理 normalizer 保持 7/8 维，type source 和匹配使用其各自保存的三维统计；类别通道不进入几何旋转、尺寸解码或 collision。评价报告记录统计模式、均值和标准差。
+
+feature 中 type 的训练、插值和采样与其他 Euclidean 特征使用同一路径：
+
+```text
+z_gt = [physical_GT, one_hot(GT_type, 3)]
+z_t = (1 - t) * z_gt + t * z_source
+z0_pred = model(z_t, t, map)
+dz/dt = (z_t - z0_pred) / max(t, t_eps)
+L_reconstruction = 0.02 * max(t, t_eps)^(-3) * mean_features((z0_pred - z_gt)^2)
+```
+
+该重建项保留现有物理字段使用的 raw MSE、系数和时间权重，type 不增加独立 loss，也不单独按标准差缩放 loss。speed 的均值分母为 10，vector 为 11；speed 不添加参与均值的虚拟 velocity 通道。固定 ego 字段和无效尺寸标注按原有规则屏蔽。圆周 heading 仍只改变 cos/sin 两列的插值与更新；`heading_objective=angular_velocity` 时从 shared reconstruction 排除 heading 两列，但仍包含 type，额外角速度标量位于完整状态之后，其独立 heading 目标保持原样。collision 和可选 speed magnitude loss 保持原有物理含义。
+
+确定性 Euler 采样从完整 source 积分到完整 raw 状态，type 不做 simplex 投影、softmax 或 clamp；最终对积分后的三个 type 值取 `argmax`，再恢复固定 ego 类型。输出物理 7/8 维状态，并以生成类别更新 `agent["type"]`、motion token libraries 和速度 token。SD evaluator 按最终生成类别筛选车辆，GT 对照仍使用真实类别。
+
+`fix_ego_type` 独立于其他 ego 字段：为 `true` 时，其 source、输入和每一步 type state 恢复为 GT one-hot，type 重建误差为零；为 `false` 时，ego type 也进入共同重建和采样。若其他全部 ego 字段固定而 type 生成，ego 仍使用正常 Flow 时间。全部生成类别模式都将 context 中三类 GT 数量替换为 `[总数量, 0, 0]`；log 尺寸的缺失标注填充值也不按 GT type 分类，避免标签经输入泄漏。总 agent 数量由输入指定，各类别数量由生成决定。
+
+训练日志保留 `train/type_loss`、`train/type_weighted_loss` 和 `train/type_accuracy`。feature 的 type loss 是未固定类型的 agent 上的 raw one-hot MSE；weighted loss 是它在共同重建项中的实际贡献，已包含时间权重、`0.02` 系数、三个 type 通道和完整状态分母。这些日志是诊断值，不会再次加到总 loss。这里的 accuracy 衡量训练时有噪声输入下的重建分类，不能直接代替最终生成类别的评价。
+
+保留两种旧 CE 路径：
+
+- `type_process=joint`：完整 source 共同匹配、插值和更新，但 denoiser 仍使用独立 noisy type embedding 与 type head；type x0 为 `softmax(type_logits)`，训练使用独立 CE。
+- `type_process=separate`：物理 source 先按已有 scene/type 规则匹配，之后独立抽取 type source，type 不参与 Hungarian 成本；仍使用独立 type embedding/head、softmax 和 CE。
+
+这两种路径都保留 `type_loss_weight` 控制 CE 系数；joint 还保留 `type_match_weight` 控制标准差归一化后的 type 匹配成本。CE 对类型未固定且 `0<t<1` 的 agent 取均值，不采用 reconstruction 的 `t^-3` 权重。两者都支持 `type_noise_stats=data`，也保留 `standard` 的旧 source 分布。复现旧 separate/standard 模型时显式覆盖如下，并保留其其他训练选项：
 
 ```bash
-model.model_config.decoder.init_diffusion.type_process=separate
+model.model_config.decoder.init_diffusion.type_process=separate \
+model.model_config.decoder.init_diffusion.type_noise_stats=standard
 ```
 
-joint 和 separate 均将原有 context 中的三类 GT 数量替换为 `[总数量, 0, 0]`，包括已缓存的 `ego_feat`；总 agent 数量仍由输入指定，各类别的数量由生成结果决定。log 尺寸的缺失标注填充值也不按 GT type 分类，避免类别经输入填充值泄漏。
+feature 改变输入投影和输出层的参数维度，因此 strict 恢复训练或测试需要 feature 权重。旧 CE 模型或 GT-type initializer 可通过 `action=finetune`、`strict=False` 加载共享骨干；仅形状不兼容的输入/输出边界权重重新初始化，EMA 从已加载的在线参数重新开始。加载后直接评价会被拒绝，必须训练新增路径后再评价；新 feature 权重中的共同投影与输出层由同一优化器和 EMA 更新。只有 SMART 骨干的默认 checkpoint 仍可用于初始化新实验。
 
-`generate_type=true` 时，ego 是否生成类别只由有效 `fix_ego_type` 决定：`false` 纳入类型生成和 CE，`true` 保留 GT ego 类别并排除其 CE。该标志与连续字段是否固定独立；若全部连续字段固定而 ego 类型生成，ego 仍使用正常 Flow 时间。最终生成类别取最后一次 clean logits 的 `argmax`，再按 type mask 恢复固定 ego 的 GT 类别。输出使用最终类别更新 `agent["type"]` 及对应的 motion token libraries，再选择速度 token；SD evaluator 也按最终类别筛选生成车辆，GT 对照仍使用真实类别。当前生成类别模式支持监督确定性 Flow、`initial_scene_only=true`、`scenario_dreamer_init=true` 和 cached SD evaluator；SDE/RL/refiner 及其他评价路径暂不支持。需要同时生成 ego 和 non-ego 类别时，将 `fix_ego_type=false`；完整生成 ego 的配方见前面的五字段覆盖示例。
+data 模式的旧权重若缺少类别统计，可在首次 finetune batch 初始化；直接评价缺少统计的 checkpoint 会报错，不使用验证/测试 GT 拟合。切换过程或 source 统计需新训练或 finetune，不能只切换旧权重的评价配置来声称对应训练结果。评价旧 GT-type 模型使用 `generate_type=false`，并保留其速度表示、heading、ego 和其他配置。
 
-训练日志增加 `train/type_loss`、`train/type_weighted_loss` 和 `train/type_accuracy`。新 head 属于 `G1`，优化器和 EMA 一起更新它。checkpoint 保存 `generate_type`；训练、恢复和评价必须保持同一设置。旧的 GT-type initializer 没有训练过类型 head，需要用 `action=finetune` 继续训练新 head 和生成路径，不能直接作为类型生成模型评价；切换模式时 `G1` EMA 从加载后的在线参数重新开始。只有 SMART 骨干的默认 checkpoint 可继续用于初始化新实验。
-
-评价旧 GT-type 模型时，训练恢复或评价命令追加以下覆盖项，并保留旧模型的速度表示、heading、ego 和其他配置：
-
-```bash
-model.model_config.decoder.init_diffusion.generate_type=false
-```
+当前生成类别模式支持监督确定性 Flow、`initial_scene_only=true`、`scenario_dreamer_init=true` 和 cached SD evaluator；SDE/RL/refiner 及其他评价路径暂不支持。
 
 ## Position、Shape、Velocity 的 Uniform Source
 

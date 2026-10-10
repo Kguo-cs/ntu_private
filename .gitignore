@@ -76,3 +76,6 @@ outputs/scenario_dreamer*/
 !/tests/test_init_diffusion_heading_angle_loss.py
 !/tests/test_init_diffusion_ego_context_heading.py
 !/tests/test_init_diffusion_joint_type.py
+!/tests/test_init_diffusion_type_noise_stats.py
+!/tests/test_init_diffusion_feature_type.py
+!/tests/test_init_diffusion_feature_loss.py

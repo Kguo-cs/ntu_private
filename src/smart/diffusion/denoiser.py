@@ -84,6 +84,7 @@ class InitDenoiser(nn.Module):
         invalid_size_policy: str = "mask",
         fix_ego: bool = True,
         generate_type: bool = False,
+        type_as_feature: bool = False,
         use_ego_embedding: bool = False,
         fix_ego_position: Optional[bool] = None,
         fix_ego_heading: Optional[bool] = None,
@@ -117,6 +118,11 @@ class InitDenoiser(nn.Module):
         if not isinstance(generate_type, bool):
             raise ValueError("generate_type must be boolean")
         self.generate_type = generate_type
+        if not isinstance(type_as_feature, bool):
+            raise ValueError("type_as_feature must be boolean")
+        if type_as_feature and not generate_type:
+            raise ValueError("type_as_feature requires generate_type=true")
+        self.type_as_feature = type_as_feature
         if not isinstance(use_ego_embedding, bool):
             raise ValueError("use_ego_embedding must be boolean")
         self.use_ego_embedding = use_ego_embedding
@@ -181,7 +187,8 @@ class InitDenoiser(nn.Module):
         self.num_classes = 3
         self.shape_dim = 2
         self.m_delta_dim = input_dim
-        self.output_dim =output_dim
+        self.feature_dim = input_dim + (3 if self.type_as_feature else 0)
+        self.output_dim = output_dim + (3 if self.type_as_feature else 0)
 
         self.register_buffer("normal_mean", torch.zeros(1, self.m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, self.m_delta_dim))
@@ -191,7 +198,8 @@ class InitDenoiser(nn.Module):
         #     group_dims=(2, 2, 2, self.m_delta_dim - 6)
         # )
         #
-        self.type_a_emb = nn.Embedding(self.num_classes , hidden_dim)
+        if not self.type_as_feature:
+            self.type_a_emb = nn.Embedding(self.num_classes, hidden_dim)
         if self.use_ego_embedding:
             self.ego_a_emb = nn.Embedding(2, hidden_dim)
         self.noise_embedding = (
@@ -225,9 +233,9 @@ class InitDenoiser(nn.Module):
             self.scene_type_embedder = LabelEmbedder(4, hidden_dim, self.map_label_dropout)
 
         if self.x_pred:
-            self.proj_in_m_delta = nn.Linear(self.m_delta_dim - 4, hidden_dim)
+            self.proj_in_m_delta = nn.Linear(self.feature_dim - 4, hidden_dim)
         else:
-            self.proj_in_m_delta = nn.Linear(self.m_delta_dim, hidden_dim)
+            self.proj_in_m_delta = nn.Linear(self.feature_dim, hidden_dim)
 
         # Ego-context embedding. The input is:
         #   local ego poses relative to the generated agent + per-scene type count.
@@ -274,7 +282,7 @@ class InitDenoiser(nn.Module):
         )
 
         self.to_out_m_delta = MLPLayer(hidden_dim, hidden_dim, self.output_dim)
-        if self.generate_type:
+        if self.generate_type and not self.type_as_feature:
             self.to_out_type = MLPLayer(hidden_dim, hidden_dim, self.num_classes)
         if heading_velocity:
             # rad / unit flow time; shared graph features, separate scalar head.
@@ -717,7 +725,7 @@ class InitDenoiser(nn.Module):
         self,
         m_delta: torch.Tensor,
         beta: torch.Tensor,
-        agent_type_embed: torch.Tensor,
+        agent_type_embed: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """Embed state, time and type, retaining the noisy heading magnitude.
 
@@ -730,7 +738,8 @@ class InitDenoiser(nn.Module):
         else:
             feat_a = self.proj_in_m_delta(m_delta)
         feat_a = feat_a + self._embed_time(beta, m_delta.shape[0])
-        feat_a = feat_a + agent_type_embed
+        if agent_type_embed is not None:
+            feat_a = feat_a + agent_type_embed
         return feat_a
 
     def _embed_agents(
@@ -759,7 +768,11 @@ class InitDenoiser(nn.Module):
         # if "agent_type_embed"  in tokenized_agent and not self.training:
         #     agent_type_embed=tokenized_agent["agent_type_embed"]
         # else:
-        if self.generate_type:
+        if self.type_as_feature:
+            if m_delta.shape[-1] != self.feature_dim:
+                raise ValueError(f"type_as_feature requires a full {self.feature_dim}D state")
+            agent_type_embed = None
+        elif self.generate_type:
             if type_state is None or type_state.shape != (len(m_delta), self.num_classes):
                 raise ValueError("generate_type requires an [N, 3] noisy type state")
             agent_type_embed = type_state.to(self.type_a_emb.weight) @ self.type_a_emb.weight
@@ -917,9 +930,11 @@ class InitDenoiser(nn.Module):
                     edge_index_pl2a,
                 )
 
-        if self.generate_type:
+        if self.generate_type and not self.type_as_feature:
             tokenized_agent["_init_diffusion_type_logits"] = self.to_out_type(feat_a)
         state = self.to_out_m_delta(feat_a)
+        if self.type_as_feature:
+            tokenized_agent["_init_diffusion_type_prediction"] = state[:, self.m_delta_dim:]
         if self.heading_velocity:
             return torch.cat((state, self.to_out_heading_velocity(feat_a)), dim=-1)
         return state

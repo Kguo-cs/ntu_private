@@ -109,15 +109,29 @@ class Flow(nn.Module):
         if not isinstance(self.generate_type, bool):
             raise ValueError("generate_type must be boolean")
         self.type_loss_weight = float(getattr(args, "type_loss_weight", 1.0))
-        if not math.isfinite(self.type_loss_weight) or self.type_loss_weight <= 0:
-            raise ValueError("type_loss_weight must be finite and positive")
         self.type_process = getattr(args, "type_process", "separate")
-        if self.type_process not in ("separate", "joint"):
-            raise ValueError("type_process must be separate or joint")
+        if self.type_process not in ("separate", "joint", "feature"):
+            raise ValueError("type_process must be separate, joint or feature")
         self.type_match_weight = float(getattr(args, "type_match_weight", 1.0))
         if not math.isfinite(self.type_match_weight) or self.type_match_weight < 0:
             raise ValueError("type_match_weight must be finite and nonnegative")
-        self.joint_type = self.generate_type and self.type_process == "joint"
+        self.feature_type = self.generate_type and self.type_process == "feature"
+        self.joint_type = self.generate_type and self.type_process in ("joint", "feature")
+        if not self.feature_type and (not math.isfinite(self.type_loss_weight) or self.type_loss_weight <= 0):
+            raise ValueError("type_loss_weight must be finite and positive")
+        self.type_noise_stats = getattr(args, "type_noise_stats", "standard")
+        if self.type_noise_stats not in ("standard", "data"):
+            raise ValueError("type_noise_stats must be standard or data")
+        self.type_noise_std_floor = float(getattr(args, "type_noise_std_floor", 0.01))
+        if not math.isfinite(self.type_noise_std_floor) or not 0 < self.type_noise_std_floor <= 0.5:
+            raise ValueError("type_noise_std_floor must be finite and in (0, 0.5]")
+        self._uses_data_type_noise = self.generate_type and self.type_noise_stats == "data"
+        if self._uses_data_type_noise:
+            # Keep physical normalization at 7/8D. These three channels share
+            # feature reconstruction in feature mode and never enter geometry.
+            self.register_buffer("type_normal_mean", torch.zeros(1, 3))
+            self.register_buffer("type_normal_scale", torch.ones(1, 3))
+            self.register_buffer("type_normal_initialized", torch.tensor(False))
         self.velocity_representation = getattr(args, "velocity_representation", "vector")
         self.size_representation = getattr(args, "size_representation", "linear")
         if self.velocity_representation not in ("vector", "speed"):
@@ -174,6 +188,7 @@ class Flow(nn.Module):
             fix_ego=self.fix_ego,
             **conditions,
             generate_type=self.generate_type,
+            type_as_feature=self.feature_type,
             use_ego_embedding=self.use_ego_embedding,
             ego_context_heading_encoding=self.ego_context_heading_encoding,
             invalid_size_policy=getattr(args, "invalid_size_policy", "mask"),
@@ -320,6 +335,84 @@ class Flow(nn.Module):
     # ==================================================================
     # Standard flow helpers
     # ==================================================================
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        stats_keys = [prefix + name for name in
+                      ("type_normal_mean", "type_normal_scale", "type_normal_initialized")]
+        legacy_stats = self._uses_data_type_noise and not any(key in state_dict for key in stats_keys)
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                     missing_keys, unexpected_keys, error_msgs)
+        # Old initializers can warm-start training. Partially missing new stats
+        # remain strict errors; evaluation of uninitialized data mode is rejected.
+        if legacy_stats:
+            self.type_normal_mean.zero_()
+            self.type_normal_scale.fill_(1.)
+            self.type_normal_initialized.fill_(False)
+            for key in stats_keys:
+                if key in missing_keys:
+                    missing_keys.remove(key)
+
+    def _require_type_normalizer(self) -> None:
+        if not self._uses_data_type_noise:
+            return
+        if not self.type_normal_initialized.item():
+            raise RuntimeError("type_noise_stats=data requires initialized training statistics; "
+                               "train/finetune to populate them before evaluation, or use "
+                               "type_noise_stats=standard for a legacy model")
+        if not (torch.isfinite(self.type_normal_mean).all()
+                and torch.isfinite(self.type_normal_scale).all()
+                and (self.type_normal_scale > 0).all()):
+            raise RuntimeError("Saved type noise mean/std must be finite with positive std")
+
+    @torch.no_grad()
+    def _maybe_init_type_normalizer(self, tokenized_agent) -> None:
+        if not self._uses_data_type_noise or self.type_normal_initialized.item():
+            return
+        if not self.training:
+            self._require_type_normalizer()
+        labels = tokenized_agent["type"].long()
+        if labels.ndim != 1 or ((labels < 0) | (labels >= 3)).any():
+            raise ValueError("Type noise statistics require one-dimensional labels in [0, 2]")
+        # Use the first training batch, as with physical statistics, but merge
+        # counts across ranks so every checkpoint has the same distribution.
+        counts = torch.bincount(labels, minlength=3).to(
+            device=self.type_normal_mean.device, dtype=torch.float64)
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            torch.distributed.all_reduce(counts)
+        total = counts.sum()
+        if not total.item():
+            raise ValueError("Cannot initialize type noise statistics from an empty training batch")
+        probability = (counts / total).unsqueeze(0)
+        scale = (probability * (1. - probability)).sqrt().clamp_min(self.type_noise_std_floor)
+        self.type_normal_mean.copy_(probability)
+        self.type_normal_scale.copy_(scale)
+        self.type_normal_initialized.fill_(True)
+
+    def _draw_type_source(self, standard: Tensor) -> Tensor:
+        self._require_type_normalizer()
+        if not self._uses_data_type_noise:
+            return standard
+        return standard * self.type_normal_scale.to(standard) + self.type_normal_mean.to(standard)
+
+    def _type_match_scale(self, reference: Tensor) -> Tensor:
+        self._require_type_normalizer()
+        return (self.type_normal_scale.to(reference) if self._uses_data_type_noise
+                else reference.new_ones((1, 3)))
+
+    def type_noise_report(self) -> dict:
+        if not self.generate_type:
+            return {"type_noise_stats": None}
+        initialized = self._uses_data_type_noise and self.type_normal_initialized.item()
+        return {
+            "type_noise_stats": self.type_noise_stats,
+            "type_noise_std_floor": self.type_noise_std_floor if self._uses_data_type_noise else None,
+            "type_noise_statistics_initialized": bool(initialized),
+            "type_noise_mean": (self.type_normal_mean[0].detach().cpu().tolist()
+                                if initialized else [0., 0., 0.] if not self._uses_data_type_noise else None),
+            "type_noise_std": (self.type_normal_scale[0].detach().cpu().tolist()
+                               if initialized else [1., 1., 1.] if not self._uses_data_type_noise else None),
+        }
+
     def _joint_clean(self, physical: Tensor, tokenized_agent) -> Tensor:
         """Pack physical state and one-hot type without physical scaling."""
         if not self.joint_type:
@@ -328,7 +421,8 @@ class Flow(nn.Module):
         return torch.cat((physical, labels), dim=-1)
 
     def _draw_joint_source(self, physical: Tensor) -> Tensor:
-        """Draw a whole source row; transform only its physical channels."""
+        """Draw a whole source row using each group's saved statistics."""
+        self._require_type_normalizer()
         dim = self.model.m_delta_dim
         standard = torch.randn_like(physical.new_empty((len(physical), dim + 3)))
         physical_source = _noise_endpoint(
@@ -336,9 +430,10 @@ class Flow(nn.Module):
             pos_source=self.pos_source, shape_source=self.shape_source,
             velocity_source=self.velocity_source,
         )
-        return torch.cat((physical_source, standard[:, dim:]), dim=-1)
+        return torch.cat((physical_source, self._draw_type_source(standard[:, dim:])), dim=-1)
 
     def _sample_noise(self, x: Tensor, tokenized_agent: HeteroData) -> Tensor:
+        self._maybe_init_type_normalizer(tokenized_agent)
         if self.joint_type:
             noise = self._draw_joint_source(x)
             x = self._joint_clean(x, tokenized_agent)
@@ -361,11 +456,12 @@ class Flow(nn.Module):
         movable = ~excluded
         movable_noise = noise[movable]
         if self.joint_type:
-            scale = torch.cat((self.model.normal_scale, x.new_ones((1, 3))), dim=-1)
+            scale = torch.cat((self.model.normal_scale, self._type_match_scale(x)), dim=-1)
             match_noise, match_target = movable_noise / scale, x[movable] / scale
             # Squared distance: normalized physical cost + lambda * type cost.
-            weights = torch.cat((x.new_ones(self.model.m_delta_dim),
-                                 x.new_full((3,), math.sqrt(self.type_match_weight))))
+            weights = (x.new_ones(x.shape[-1]) if self.feature_type else
+                       torch.cat((x.new_ones(self.model.m_delta_dim),
+                                  x.new_full((3,), math.sqrt(self.type_match_weight)))))
             match_noise, match_target = match_noise * weights, match_target * weights
         else:
             match_noise = movable_noise / self.model.normal_scale
@@ -474,7 +570,7 @@ class Flow(nn.Module):
                 tokenized_agent["_init_diffusion_type_state"] = latent[:, dim:]
             else:
                 labels = F.one_hot(tokenized_agent["type"].long(), 3).to(x)
-                type_noise = torch.randn_like(labels)
+                type_noise = self._draw_type_source(torch.randn_like(labels))
                 conditioned = self._conditioned_type_mask(tokenized_agent)
                 type_noise[conditioned] = labels[conditioned]
                 tokenized_agent["_init_diffusion_type_source"] = type_noise
@@ -484,9 +580,9 @@ class Flow(nn.Module):
 
     def _denoise(self, latent, time, tokenized_agent, map_feature,
                  eval_mask=None, mode=1, use_map_condition=True):
-        # The network fuses physical features with the noisy type embedding.
-        # Keep categorical channels outside physical normalizers/transforms.
-        if self.joint_type:
+        # Feature mode passes the complete state through the shared projection.
+        # Legacy joint mode routes the type tail through its categorical branch.
+        if self.joint_type and not self.feature_type:
             dim = self.model.m_delta_dim
             tokenized_agent["_init_diffusion_type_state"] = latent[:, dim:]
             latent = latent[:, :dim]
@@ -522,16 +618,17 @@ class Flow(nn.Module):
         self, latent: Tensor, time: Tensor, prediction: Tensor, type_logits=None,
     ) -> tuple[Tensor, Tensor]:
         """Decode mixed Euclidean x0 / circular angular-velocity outputs."""
-        dim = self.model.m_delta_dim if self.joint_type else latent.shape[-1]
+        dim = self.model.feature_dim if self.feature_type else (
+            self.model.m_delta_dim if self.joint_type else latent.shape[-1])
         x0 = prediction[:, :dim]
         if self.heading_objective == "angular_velocity":
             theta = torch.atan2(latent[:, 3], latent[:, 2])
-            omega = prediction[:, self.model.m_delta_dim]
+            omega = prediction[:, self.model.feature_dim]
             theta0 = wrap_angle(theta - time[:, 0] * omega)
             x0 = torch.cat((x0[:, :2], torch.stack((theta0.cos(), theta0.sin()), dim=-1),
                             x0[:, 4:]), dim=-1)
 
-        if self.joint_type:
+        if self.joint_type and not self.feature_type:
             if type_logits is None:
                 raise ValueError("Joint type Flow requires clean type logits")
             x0 = torch.cat((x0, type_logits.float().softmax(-1).to(latent)), dim=-1)
@@ -767,6 +864,7 @@ class Flow(nn.Module):
         tokenized_agent.pop("_init_diffusion_speed_metrics", None)
         tokenized_agent.pop("_init_diffusion_type_metrics", None)
         tokenized_agent.pop("_init_diffusion_type_logits", None)
+        tokenized_agent.pop("_init_diffusion_type_prediction", None)
         noise, time, latent = (
             self._prepare_supervised_batch(
                 x,
@@ -782,7 +880,9 @@ class Flow(nn.Module):
             )
         else:
             _, x0 = self._model_velocity(latent, time, tokenized_agent, map_feature)
-        if self.joint_type:
+        if self.feature_type:
+            x = self._joint_clean(x, tokenized_agent)
+        elif self.joint_type:
             # Preserve physical reconstruction/collision and categorical CE.
             x0 = x0[:, :self.model.m_delta_dim]
 
@@ -803,15 +903,22 @@ class Flow(nn.Module):
             loss_options["state_to_physical"] = self.model.state_to_physical
             size_valid = tokenized_agent.get("_init_diffusion_size_valid_mask")
             if size_valid is not None:
-                reconstruction_mask = torch.ones((len(x), 8), dtype=torch.bool, device=x.device)
+                mask_dim = x.shape[-1] if self.feature_type else 8
+                reconstruction_mask = torch.ones((len(x), mask_dim), dtype=torch.bool, device=x.device)
                 reconstruction_mask[:, 4:6] = size_valid
                 loss_options["reconstruction_mask"] = reconstruction_mask
                 loss_options["collision_valid_mask"] = size_valid.all(-1)
         if self.heading_objective == "angular_velocity":
             loss_options["reconstruction_dims"] = ((0, 1, 4, 5, 6)
                 if self.velocity_representation == "speed" else (0, 1, 4, 5, 6, 7))
+        if self.feature_type:
+            loss_options["physical_state_dim"] = self.model.m_delta_dim
+            if "reconstruction_dims" in loss_options:
+                loss_options["reconstruction_dims"] += tuple(range(self.model.m_delta_dim, self.model.feature_dim))
         loss_prediction, loss_target, loss_scale = x0, x, self.model.normal_scale
-        if self.velocity_representation == "speed":
+        if self.feature_type:
+            loss_scale = torch.cat((loss_scale, self._type_match_scale(x)), dim=-1)
+        if self.velocity_representation == "speed" and not self.feature_type:
             # The shared loss/collision API is 8D. Append a dummy zero, so the
             # scalar speed is supervised directly, without a direction loss.
             loss_prediction = torch.cat((x0, torch.zeros_like(x0[:, :1])), dim=-1)
@@ -841,7 +948,7 @@ class Flow(nn.Module):
             active = (~fixed[:, 2]) & (time[:, 0] > 0) & (time[:, 0] < 1)
             # Uniform flow-time weighting; no 1/t^3 weighting or wrapping
             # the prediction error. The target is d(theta_t)/dt = delta.
-            heading_loss = torch.where(active, (prediction[:, self.model.m_delta_dim] - target).square(),
+            heading_loss = torch.where(active, (prediction[:, self.model.feature_dim] - target).square(),
                                        torch.zeros_like(target))
             total, collision, position, _, shape, velocity = loss
             loss = (total + self.heading_flow_loss_weight * heading_loss, collision,
@@ -859,7 +966,22 @@ class Flow(nn.Module):
                 "scale": magnitude_scale.detach(),
             }
 
-        if getattr(self, "generate_type", False):
+        if self.feature_type:
+            dim = self.model.m_delta_dim
+            active = (~self._conditioned_type_mask(tokenized_agent)) & (time[:, 0] > 0) & (time[:, 0] < 1)
+            type_error = (x0[:, dim:] - x[:, dim:]).square().mean(-1)
+            type_loss = torch.where(active, type_error, torch.zeros_like(type_error)).sum() / active.sum().clamp_min(1)
+            # Diagnostics only: the raw type errors already participate in the
+            # shared state MSE, with the same coefficient, time and denominator.
+            time_weight = time[:, 0].clamp_min(self.t_eps).reciprocal().pow(3)
+            weighted_loss = (type_error * active * time_weight * (0.1 / 5) * 3 / self.model.feature_dim).mean()
+            labels = tokenized_agent["type"].long()
+            accuracy = ((x0[:, dim:].argmax(-1) == labels) & active).sum().float() / active.sum().clamp_min(1)
+            tokenized_agent["_init_diffusion_type_metrics"] = {
+                "loss": type_loss.detach(), "weighted_loss": weighted_loss.detach(),
+                "accuracy": accuracy.detach(),
+            }
+        elif getattr(self, "generate_type", False):
             logits = tokenized_agent["_init_diffusion_type_logits"]
             active = (~self._conditioned_type_mask(tokenized_agent)) & (time[:, 0] > 0) & (time[:, 0] < 1)
             labels = tokenized_agent["type"].long()
@@ -1293,6 +1415,7 @@ class Flow(nn.Module):
         )
 
         num_agents = agent_batch.numel()
+        self._require_type_normalizer()
         if getattr(self, "use_ego_embedding", False):
             self.model._ego_role_mask(tokenized_agent)
 
@@ -1328,11 +1451,11 @@ class Flow(nn.Module):
             ] = expert_input
 
         if getattr(self, "generate_type", False):
-            for key in ("_init_diffusion_type_logits", "_init_diffusion_type_metrics",
+            for key in ("_init_diffusion_type_logits", "_init_diffusion_type_prediction", "_init_diffusion_type_metrics",
                         "_init_diffusion_generated_type"):
                 tokenized_agent.pop(key, None)
             type_source = (latent[:, self.model.m_delta_dim:].clone() if self.joint_type else
-                           torch.randn(num_agents, 3, device=latent.device, dtype=latent.dtype))
+                           self._draw_type_source(torch.randn(num_agents, 3, device=latent.device, dtype=latent.dtype)))
             fixed_type = self._conditioned_type_mask(tokenized_agent)
             if fixed_type.any():
                 type_source[fixed_type] = F.one_hot(tokenized_agent["type"][fixed_type].long(), 3).to(type_source)
@@ -1448,8 +1571,10 @@ class Flow(nn.Module):
         latent = torch.where(fixed, clean, latent)
 
         if getattr(self, "generate_type", False):
-            # Decode the final clean prediction, rather than a residual noisy state.
-            types = tokenized_agent["_init_diffusion_type_logits"].argmax(-1)
+            # Feature mode decodes the integrated raw state, like other fields.
+            # Categorical legacy modes decode their final clean class head.
+            types = (latent[:, self.model.m_delta_dim:].argmax(-1) if self.feature_type else
+                     tokenized_agent["_init_diffusion_type_logits"].argmax(-1))
             fixed_type = self._conditioned_type_mask(tokenized_agent)
             types[fixed_type] = tokenized_agent["_init_diffusion_type_source"][fixed_type].argmax(-1)
             tokenized_agent["_init_diffusion_generated_type"] = types
