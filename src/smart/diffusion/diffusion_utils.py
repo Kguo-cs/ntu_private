@@ -216,18 +216,18 @@ def matching_loss(
         shape_loss = gm_kl_loss(fake_shape, logits, shape_std, real_shape)
         vel_loss = gm_kl_loss(fake_vel, logits, vel_std, real_vel)
 
-    total_loss = (
-        w_pos * pos_loss
-        + w_heading * heading_loss
-        + w_shape * shape_loss
-        + w_vel * vel_loss
-    )
-    # state_error = F.mse_loss(real_state, fake_state, reduction="none")
-    # if reconstruction_dims is None:
-    #     total_loss = state_error.mean(-1) * w_pos
-    # else:
-    #     # Retain each selected dimension's original contribution (1 / 8).
-    #     total_loss = state_error[:, reconstruction_dims].sum(-1) / state_error.shape[-1] * w_pos
+    # total_loss = (
+    #     w_pos * pos_loss
+    #     + w_heading * heading_loss
+    #     + w_shape * shape_loss
+    #     + w_vel * vel_loss
+    # )
+    state_error = F.mse_loss(real_state, fake_state, reduction="none")
+    if reconstruction_dims is None:
+        total_loss = state_error.mean(-1) * w_pos
+    else:
+        # Retain each selected dimension's original contribution (1 / 8).
+        total_loss = state_error[:, reconstruction_dims].sum(-1) / state_error.shape[-1] * w_pos
     return total_loss, pos_loss, heading_loss, shape_loss, vel_loss
 
 
