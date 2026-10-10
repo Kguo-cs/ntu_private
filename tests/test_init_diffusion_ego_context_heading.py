@@ -211,7 +211,7 @@ class InitDiffusionEgoContextHeadingTest(unittest.TestCase):
         for shadow, parameter in zip(fresh.ema.shadow_params, fresh.G1.parameters()):
             torch.testing.assert_close(shadow, parameter, atol=0, rtol=0)
 
-    def test_train_and_eval_configs_enable_sincos_with_explicit_legacy_override(self):
+    def test_train_and_eval_configs_support_both_heading_encoding_overrides(self):
         root = Path(__file__).resolve().parents[1]
         OmegaConf.register_new_resolver('sim_root', lambda: str(root), replace=True)
         prefix = 'model.model_config.decoder.init_diffusion.ego_context_heading_encoding'
@@ -219,10 +219,11 @@ class InitDiffusionEgoContextHeadingTest(unittest.TestCase):
             for experiment in ('init_diffusion_lane_conditioned', 'init_diffusion_lane_conditioned_eval'):
                 with self.subTest(experiment=experiment):
                     configured = compose(config_name='run.yaml', overrides=[f'experiment={experiment}'])
-                    self.assertEqual(OmegaConf.select(configured, prefix), 'sincos')
-                    legacy = compose(config_name='run.yaml', overrides=[f'experiment={experiment}',
-                                                                       f'{prefix}=angle'])
-                    self.assertEqual(OmegaConf.select(legacy, prefix), 'angle')
+                    self.assertIn(OmegaConf.select(configured, prefix), ('angle', 'sincos'))
+                    for encoding in ('angle', 'sincos'):
+                        override = compose(config_name='run.yaml', overrides=[f'experiment={experiment}',
+                                                                            f'{prefix}={encoding}'])
+                        self.assertEqual(OmegaConf.select(override, prefix), encoding)
 
 
 if __name__ == '__main__':

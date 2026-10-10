@@ -136,7 +136,7 @@ model:
         use_ego_embedding: true
 ```
 
-denoiser 增加 `nn.Embedding(2, hidden_dim)`，以输入 `ego_mask` 指定 `0=non-ego`、`1=ego`，在每个 timestep 加到 agent features，随后进入共享 graph attention。ego slot 的身份在训练和采样中保持不变；这里提供已知身份条件，不增加 `is_ego` 分类 head，也不从生成结果中选择哪一辆车作为自车。SMART 每个场景预留的 ego 行继续作为 ego 输出。
+denoiser 增加 `nn.Embedding(2, hidden_dim)`，以输入 `ego_mask` 指定 `0=non-ego`、`1=ego`，在每个 timestep 的每层 graph attention 输入中加入身份编码。各层复用同一张 embedding 表：第一层使用初始 agent features 中的编码，后续层在 agent-to-agent attention 前再次加入，第一层不会重复添加。参数形状和 checkpoint keys 不变；多层模型的前向行为会改变，旧权重可加载后继续训练。ego slot 的身份在训练和采样中保持不变；这里提供已知身份条件，不增加 `is_ego` 分类 head，也不从生成结果中选择哪一辆车作为自车。SMART 每个场景预留的 ego 行继续作为 ego 输出。
 
 训练时，无论 ego 是全部生成、部分固定还是全部固定，每个场景的 ego source 都只与该场景的 GT ego 配对，Hungarian 只在同场景的 non-ego 之间匹配；不会将其他 agent 的 source 交换到 ego slot，也不会在场景之间交换 ego source。原有匹配代价、连续状态 loss 和已启用的 type CE 公式均保持不变，固定字段按各自的标志屏蔽监督。此匹配规则始终生效，关闭 `use_ego_embedding` 只移除身份编码，不让 ego 进入 Hungarian 集合。
 

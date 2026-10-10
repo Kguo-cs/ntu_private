@@ -747,7 +747,7 @@ class InitDenoiser(nn.Module):
         mode: int,
         type_state: Optional[torch.Tensor] = None,
         ego_role: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
 
         theta = torch.atan2(m_delta[:, 3], m_delta[:, 2])
         pos_s = m_delta[:, :2]
@@ -794,6 +794,7 @@ class InitDenoiser(nn.Module):
         )
 
         feat_a = feat_a + ego_embedding
+        ego_role_embedding = None
         if self.use_ego_embedding:
             if ego_role is None:
                 ego_role = self._ego_role_mask(tokenized_agent)
@@ -801,9 +802,10 @@ class InitDenoiser(nn.Module):
                 raise ValueError("ego role IDs must align with the denoised agents")
             # Slot identity stays clean at every timestep, independently of
             # GT type conditioning and of whether ego state is generated.
-            feat_a = feat_a + self.ego_a_emb(ego_role.long())
+            ego_role_embedding = self.ego_a_emb(ego_role.long())
+            feat_a = feat_a + ego_role_embedding
 
-        return feat_a, pos_s, theta
+        return feat_a, pos_s, theta, ego_role_embedding
 
     # ---------------------------------------------------------------------
     # Graph denoising
@@ -818,6 +820,7 @@ class InitDenoiser(nn.Module):
             map_feature: Mapping[str, torch.Tensor],
             num_graphs: int,
             use_map_condition: bool = True,
+            ego_role_embedding: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         head_vector_s = torch.stack(
             [theta.cos(), theta.sin()],
@@ -912,6 +915,10 @@ class InitDenoiser(nn.Module):
             )
 
         for layer_i in range(self.num_layers):
+            # The first layer already receives the role embedding from
+            # _embed_agents. Reuse it before each subsequent attention block.
+            if layer_i > 0 and ego_role_embedding is not None:
+                feat_a = feat_a + ego_role_embedding
             feat_a = self.a2a_attn_layers[layer_i](
                 feat_a,
                 r_a2a,
@@ -986,7 +993,7 @@ class InitDenoiser(nn.Module):
             if ego_role is not None:
                 ego_role = ego_role[eval_mask]
 
-        feat_a, pos_s, theta = self._embed_agents(
+        feat_a, pos_s, theta, ego_role_embedding = self._embed_agents(
             m_delta=m_delta,
             beta=beta,
             agent_type=agent_type,
@@ -1035,7 +1042,8 @@ class InitDenoiser(nn.Module):
             tokenized_agent=tokenized_agent,
             map_feature=map_feature,
             num_graphs=num_graphs,
-            use_map_condition=use_map_condition
+            use_map_condition=use_map_condition,
+            ego_role_embedding=ego_role_embedding,
         )
 
         if self.x_pred :
