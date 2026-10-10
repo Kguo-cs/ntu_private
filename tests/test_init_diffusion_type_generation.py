@@ -147,14 +147,14 @@ class InitDiffusionTypeGenerationTest(unittest.TestCase):
                 self.assertFalse(torch.equal(categorical[2], labels[2]))
                 self.assertFalse(torch.equal(categorical[2], categorical[2].softmax(-1)))
 
-    def test_type_generation_matching_does_not_partition_by_gt_type(self):
+    def test_separate_type_generation_preserves_gt_type_grouped_matching(self):
         clean, agent, _ = self.inputs()
         for enabled in (True, False):
             flow = self.flow(generate_type=enabled, fix_ego=False)
             with patch('src.smart.diffusion.scale_flow.get_closest_sum_idx_fast',
                        return_value=torch.arange(2)) as match:
                 flow._sample_noise(clean, agent)
-            self.assertEqual(match.call_args.kwargs.get('use_all_type', False), enabled)
+            self.assertFalse(match.call_args.kwargs.get('use_all_type', False))
             self.assertEqual(match.call_args.args[0].shape[0], 2)
             torch.testing.assert_close(match.call_args.args[2]['batch'], agent['batch'][~agent['ego_mask']])
             torch.testing.assert_close(match.call_args.args[2]['type'], agent['type'][~agent['ego_mask']])
@@ -163,7 +163,7 @@ class InitDiffusionTypeGenerationTest(unittest.TestCase):
                    return_value=torch.arange(2)) as match:
             fixed._sample_noise(clean, agent)
         self.assertEqual(match.call_args.args[0].shape[0], 2)
-        self.assertTrue(match.call_args.kwargs['use_all_type'])
+        self.assertFalse(match.call_args.kwargs['use_all_type'])
 
     def test_type_ce_is_active_agent_mean_with_fixed_ego_and_time_boundary_masks(self):
         for fixed in (True, False):

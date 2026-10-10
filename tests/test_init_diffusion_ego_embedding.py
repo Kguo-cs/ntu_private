@@ -183,7 +183,7 @@ class InitDiffusionEgoEmbeddingTest(unittest.TestCase):
             with patch('src.smart.diffusion.scale_flow.get_closest_sum_idx_fast',
                        return_value=torch.arange(2)) as match:
                 flow._sample_noise(clean, agent)
-            self.assertEqual(match.call_args.kwargs.get('use_all_type', False), generation)
+            self.assertFalse(match.call_args.kwargs.get('use_all_type', False))
             torch.testing.assert_close(match.call_args.args[2]['type'], agent['type'][~agent['ego_mask']], atol=0, rtol=0)
             torch.testing.assert_close(match.call_args.args[2]['batch'], agent['batch'][~agent['ego_mask']], atol=0, rtol=0)
 

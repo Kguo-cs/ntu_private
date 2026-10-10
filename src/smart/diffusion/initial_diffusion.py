@@ -62,6 +62,8 @@ class InitDiffusion(nn.Module):
         fix_ego: bool = True,
         generate_type: bool = False,
         type_loss_weight: float = 1.0,
+        type_process: str = "separate",
+        type_match_weight: float = 1.0,
         use_ego_embedding: bool = False,
         fix_ego_position: Optional[bool] = None,
         fix_ego_heading: Optional[bool] = None,
@@ -111,6 +113,8 @@ class InitDiffusion(nn.Module):
             raise ValueError("generate_type must be boolean")
         self.generate_type = args.generate_type = generate_type
         self.type_loss_weight = args.type_loss_weight = float(type_loss_weight)
+        self.type_process = args.type_process = type_process
+        self.type_match_weight = args.type_match_weight = float(type_match_weight)
         self._type_head_missing_on_load = False
         if not isinstance(use_ego_embedding, bool):
             raise ValueError("use_ego_embedding must be boolean")
@@ -203,6 +207,8 @@ class InitDiffusion(nn.Module):
         return {
             "size_representation": self.size_representation,
             "generate_type": self.generate_type,
+            "type_process": self.type_process,
+            "type_match_weight": self.type_match_weight,
             "use_ego_embedding": self.use_ego_embedding,
             "ego_context_heading_encoding": self.ego_context_heading_encoding,
             "ego_conditioning": {field: getattr(self, f"fix_ego_{field}")

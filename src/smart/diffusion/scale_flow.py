@@ -111,6 +111,13 @@ class Flow(nn.Module):
         self.type_loss_weight = float(getattr(args, "type_loss_weight", 1.0))
         if not math.isfinite(self.type_loss_weight) or self.type_loss_weight <= 0:
             raise ValueError("type_loss_weight must be finite and positive")
+        self.type_process = getattr(args, "type_process", "separate")
+        if self.type_process not in ("separate", "joint"):
+            raise ValueError("type_process must be separate or joint")
+        self.type_match_weight = float(getattr(args, "type_match_weight", 1.0))
+        if not math.isfinite(self.type_match_weight) or self.type_match_weight < 0:
+            raise ValueError("type_match_weight must be finite and nonnegative")
+        self.joint_type = self.generate_type and self.type_process == "joint"
         self.velocity_representation = getattr(args, "velocity_representation", "vector")
         self.size_representation = getattr(args, "size_representation", "linear")
         if self.velocity_representation not in ("vector", "speed"):
@@ -313,46 +320,64 @@ class Flow(nn.Module):
     # ==================================================================
     # Standard flow helpers
     # ==================================================================
-    def _sample_noise(
-        self,
-        x: Tensor,
-        tokenized_agent: HeteroData,
-    ) -> Tensor:
-        noise = _noise_endpoint(self.model, torch.randn_like(x), getattr(self, "sigma_h", None),
-                                getattr(self, "heading_noise", "gaussian"),
-                                pos_source=getattr(self, "pos_source", "gaussian"),
-                                shape_source=getattr(self, "shape_source", "gaussian"),
-                                velocity_source=getattr(self, "velocity_source", "gaussian"))
+    def _joint_clean(self, physical: Tensor, tokenized_agent) -> Tensor:
+        """Pack physical state and one-hot type without physical scaling."""
+        if not self.joint_type:
+            return physical
+        labels = F.one_hot(tokenized_agent["type"].long(), 3).to(physical)
+        return torch.cat((physical, labels), dim=-1)
 
+    def _draw_joint_source(self, physical: Tensor) -> Tensor:
+        """Draw a whole source row; transform only its physical channels."""
+        dim = self.model.m_delta_dim
+        standard = torch.randn_like(physical.new_empty((len(physical), dim + 3)))
+        physical_source = _noise_endpoint(
+            self.model, standard[:, :dim], self.sigma_h, self.heading_noise,
+            pos_source=self.pos_source, shape_source=self.shape_source,
+            velocity_source=self.velocity_source,
+        )
+        return torch.cat((physical_source, standard[:, dim:]), dim=-1)
+
+    def _sample_noise(self, x: Tensor, tokenized_agent: HeteroData) -> Tensor:
+        if self.joint_type:
+            noise = self._draw_joint_source(x)
+            x = self._joint_clean(x, tokenized_agent)
+        else:
+            noise = _noise_endpoint(
+                self.model, torch.randn_like(x), getattr(self, "sigma_h", None),
+                getattr(self, "heading_noise", "gaussian"),
+                pos_source=getattr(self, "pos_source", "gaussian"),
+                shape_source=getattr(self, "shape_source", "gaussian"),
+                velocity_source=getattr(self, "velocity_source", "gaussian"),
+            )
         fixed = self._conditioned_state_mask(tokenized_agent, x)
         noise = torch.where(fixed, x, noise)
 
-        # Ego always retains its own source row, independently of whether its
-        # state is fixed or its role is embedded. Hungarian only permutes
-        # non-ego sources using the existing scene/type rule.
-        matching_excluded = (self.model._ego_role_mask(tokenized_agent)
-                             if getattr(self, "use_ego_embedding", False)
-                             else tokenized_agent["ego_mask"].bool())
-        movable = ~matching_excluded
+        # Ego retains its own source. Joint matching permutes complete source
+        # rows within a scene; separate mode keeps the existing GT-type groups.
+        excluded = (self.model._ego_role_mask(tokenized_agent)
+                    if getattr(self, "use_ego_embedding", False)
+                    else tokenized_agent["ego_mask"].bool())
+        movable = ~excluded
         movable_noise = noise[movable]
+        if self.joint_type:
+            scale = torch.cat((self.model.normal_scale, x.new_ones((1, 3))), dim=-1)
+            match_noise, match_target = movable_noise / scale, x[movable] / scale
+            # Squared distance: normalized physical cost + lambda * type cost.
+            weights = torch.cat((x.new_ones(self.model.m_delta_dim),
+                                 x.new_full((3,), math.sqrt(self.type_match_weight))))
+            match_noise, match_target = match_noise * weights, match_target * weights
+        else:
+            match_noise = movable_noise / self.model.normal_scale
+            match_target = x[movable] / self.model.normal_scale
         matched_index = get_closest_sum_idx_fast(
-            movable_noise/self.model.normal_scale,
-            x[movable]/self.model.normal_scale,
-            {
-                "batch": tokenized_agent["batch"][movable],
-                "type": tokenized_agent["type"][movable],
-            },
-            all_state=True,
-            use_all_type=False,#getattr(self, "generate_type", False),
+            match_noise, match_target,
+            {"batch": tokenized_agent["batch"][movable],
+             "type": tokenized_agent["type"][movable]},
+            all_state=True, use_all_type=self.joint_type,
         )
         noise[movable] = movable_noise[matched_index]
-
         return noise
-
-        # return self.model.denormalize(
-        #     noise[matched_index]
-        # )
-        #
 
     def _sample_time(
         self,
@@ -387,9 +412,12 @@ class Flow(nn.Module):
 
     def _conditioned_state_mask(self, tokenized_agent, reference: Tensor) -> Tensor:
         fields = reference.new_zeros(reference.shape[-1], dtype=torch.bool)
+        dim = self.model.m_delta_dim if self.joint_type else reference.shape[-1]
         for field, indices in (("position", slice(0, 2)), ("heading", slice(2, 4)),
-                               ("shape", slice(4, 6)), ("velocity", slice(6, None))):
+                               ("shape", slice(4, 6)), ("velocity", slice(6, dim))):
             fields[indices] = self._ego_field_fixed(field)
+        if self.joint_type and reference.shape[-1] == dim + 3:
+            fields[dim:] = self._ego_field_fixed("type")
         return tokenized_agent["ego_mask"].bool()[:, None] & fields[None]
 
     def _conditioned_type_mask(self, tokenized_agent) -> Tensor:
@@ -418,6 +446,8 @@ class Flow(nn.Module):
             tokenized_agent,
         )
 
+        if self.joint_type:
+            x = self._joint_clean(x, tokenized_agent)
         time = self._sample_time(
             x,
             tokenized_agent,
@@ -438,14 +468,30 @@ class Flow(nn.Module):
         latent = torch.where(self._conditioned_state_mask(tokenized_agent, x), x, latent)
 
         if getattr(self, "generate_type", False):
-            labels = F.one_hot(tokenized_agent["type"].long(), 3).to(x)
-            type_noise = torch.randn_like(labels)
-            conditioned = self._conditioned_type_mask(tokenized_agent)
-            type_noise[conditioned] = labels[conditioned]
-            tokenized_agent["_init_diffusion_type_source"] = type_noise
-            type_state = (1. - time) * labels + time * type_noise
-            tokenized_agent["_init_diffusion_type_state"] = torch.where(conditioned[:, None], labels, type_state)
+            if self.joint_type:
+                dim = self.model.m_delta_dim
+                tokenized_agent["_init_diffusion_type_source"] = noise[:, dim:]
+                tokenized_agent["_init_diffusion_type_state"] = latent[:, dim:]
+            else:
+                labels = F.one_hot(tokenized_agent["type"].long(), 3).to(x)
+                type_noise = torch.randn_like(labels)
+                conditioned = self._conditioned_type_mask(tokenized_agent)
+                type_noise[conditioned] = labels[conditioned]
+                tokenized_agent["_init_diffusion_type_source"] = type_noise
+                type_state = (1. - time) * labels + time * type_noise
+                tokenized_agent["_init_diffusion_type_state"] = torch.where(conditioned[:, None], labels, type_state)
         return noise, time, latent
+
+    def _denoise(self, latent, time, tokenized_agent, map_feature,
+                 eval_mask=None, mode=1, use_map_condition=True):
+        # The network fuses physical features with the noisy type embedding.
+        # Keep categorical channels outside physical normalizers/transforms.
+        if self.joint_type:
+            dim = self.model.m_delta_dim
+            tokenized_agent["_init_diffusion_type_state"] = latent[:, dim:]
+            latent = latent[:, :dim]
+        return self.model(latent, time, tokenized_agent, map_feature, eval_mask,
+                          mode=mode, use_map_condition=use_map_condition)
 
     def _model_velocity(
         self,
@@ -457,7 +503,7 @@ class Flow(nn.Module):
         mode: int = 1,
         use_map_condition: bool = True,
     ) -> tuple[Tensor, Tensor]:
-        prediction = self.model(
+        prediction = self._denoise(
             latent,
             time,
             tokenized_agent,
@@ -467,19 +513,28 @@ class Flow(nn.Module):
             use_map_condition=use_map_condition,
         )
 
-        return self._prediction_velocity(latent, time, prediction)
+        return self._prediction_velocity(
+            latent, time, prediction,
+            type_logits=tokenized_agent.get("_init_diffusion_type_logits") if self.joint_type else None,
+        )
 
     def _prediction_velocity(
-        self, latent: Tensor, time: Tensor, prediction: Tensor,
+        self, latent: Tensor, time: Tensor, prediction: Tensor, type_logits=None,
     ) -> tuple[Tensor, Tensor]:
         """Decode mixed Euclidean x0 / circular angular-velocity outputs."""
-        x0 = prediction[:, : latent.shape[-1]]
+        dim = self.model.m_delta_dim if self.joint_type else latent.shape[-1]
+        x0 = prediction[:, :dim]
         if self.heading_objective == "angular_velocity":
             theta = torch.atan2(latent[:, 3], latent[:, 2])
             omega = prediction[:, self.model.m_delta_dim]
             theta0 = wrap_angle(theta - time[:, 0] * omega)
             x0 = torch.cat((x0[:, :2], torch.stack((theta0.cos(), theta0.sin()), dim=-1),
                             x0[:, 4:]), dim=-1)
+
+        if self.joint_type:
+            if type_logits is None:
+                raise ValueError("Joint type Flow requires clean type logits")
+            x0 = torch.cat((x0, type_logits.float().softmax(-1).to(latent)), dim=-1)
 
         velocity = (
             latent - x0
@@ -720,10 +775,16 @@ class Flow(nn.Module):
         )
 
         if self.heading_objective == "angular_velocity":
-            prediction = self.model(latent, time, tokenized_agent, map_feature)
-            _, x0 = self._prediction_velocity(latent, time, prediction)
+            prediction = self._denoise(latent, time, tokenized_agent, map_feature)
+            _, x0 = self._prediction_velocity(
+                latent, time, prediction,
+                type_logits=tokenized_agent.get("_init_diffusion_type_logits") if self.joint_type else None,
+            )
         else:
             _, x0 = self._model_velocity(latent, time, tokenized_agent, map_feature)
+        if self.joint_type:
+            # Preserve physical reconstruction/collision and categorical CE.
+            x0 = x0[:, :self.model.m_delta_dim]
 
         fixed = self._conditioned_state_mask(tokenized_agent, x)
 
@@ -1127,8 +1188,9 @@ class Flow(nn.Module):
         )
         next_time = torch.full_like(time, next_time_scalar)
 
+        clean = self._joint_clean(tokenized_agent["expert_input"], tokenized_agent)
         self._fix_conditioned_agents(
-            tokenized_agent["expert_input"],
+            clean,
             latent,
             time,
             tokenized_agent,
@@ -1144,7 +1206,7 @@ class Flow(nn.Module):
             map_feature,
         )
 
-        if getattr(self, "generate_type", False):
+        if getattr(self, "generate_type", False) and not self.joint_type:
             type_state = tokenized_agent["_init_diffusion_type_state"]
             type_clean = tokenized_agent["_init_diffusion_type_logits"].float().softmax(-1).to(type_state)
             type_velocity = (type_state - type_clean) / time.clamp_min(self.t_eps)
@@ -1198,8 +1260,10 @@ class Flow(nn.Module):
                 used_noise_level[stochastic] = noise_level[stochastic]
 
         fixed = self._conditioned_state_mask(tokenized_agent, latent)
-        next_latent = torch.where(fixed, tokenized_agent["expert_input"], next_latent)
-        x0 = torch.where(fixed, tokenized_agent["expert_input"], x0)
+        next_latent = torch.where(fixed, clean, next_latent)
+        x0 = torch.where(fixed, clean, x0)
+        if self.joint_type:
+            tokenized_agent["_init_diffusion_type_state"] = next_latent[:, self.model.m_delta_dim:]
         return (
             next_latent,
             x0,
@@ -1241,17 +1305,19 @@ class Flow(nn.Module):
             tokenized_agent["expert_input"] = expert_input
             tokenized_agent["_init_diffusion_size_representation"] = "log"
 
-        latent = torch.randn(
-            num_agents,
-            self.model.m_delta_dim,
-            device=agent_batch.device,
-            dtype=self.model.normal_scale.dtype,
-        )
-
-        latent = _noise_endpoint(self.model, latent, self.sigma_h, self.heading_noise,
-                                 pos_source=self.pos_source, shape_source=self.shape_source,
-                                 velocity_source=self.velocity_source)
-        tokenized_agent["gen_noise"]=latent.clone()
+        if self.joint_type:
+            physical = torch.empty(num_agents, self.model.m_delta_dim,
+                                   device=agent_batch.device, dtype=self.model.normal_scale.dtype)
+            latent = self._draw_joint_source(physical)
+        else:
+            latent = torch.randn(
+                num_agents, self.model.m_delta_dim,
+                device=agent_batch.device, dtype=self.model.normal_scale.dtype,
+            )
+            latent = _noise_endpoint(self.model, latent, self.sigma_h, self.heading_noise,
+                                     pos_source=self.pos_source, shape_source=self.shape_source,
+                                     velocity_source=self.velocity_source)
+        tokenized_agent["gen_noise"] = latent[:, :self.model.m_delta_dim].clone()
 
         if self.velocity_representation == "speed" or "expert_input" not in tokenized_agent:
             expert_input, _ = self.model.get_input(
@@ -1265,12 +1331,15 @@ class Flow(nn.Module):
             for key in ("_init_diffusion_type_logits", "_init_diffusion_type_metrics",
                         "_init_diffusion_generated_type"):
                 tokenized_agent.pop(key, None)
-            type_source = torch.randn(num_agents, 3, device=latent.device, dtype=latent.dtype)
+            type_source = (latent[:, self.model.m_delta_dim:].clone() if self.joint_type else
+                           torch.randn(num_agents, 3, device=latent.device, dtype=latent.dtype))
             fixed_type = self._conditioned_type_mask(tokenized_agent)
             if fixed_type.any():
                 type_source[fixed_type] = F.one_hot(tokenized_agent["type"][fixed_type].long(), 3).to(type_source)
             tokenized_agent["_init_diffusion_type_source"] = type_source
             tokenized_agent["_init_diffusion_type_state"] = type_source.clone()
+            if self.joint_type:
+                latent[:, self.model.m_delta_dim:] = type_source
 
         # Generation: start from x1~noise at t=1 and integrate to x0 at t=0.
         timesteps = torch.linspace(
@@ -1375,7 +1444,8 @@ class Flow(nn.Module):
        # del tokenized_agent["agent_type_embed"]
 
         fixed = self._conditioned_state_mask(tokenized_agent, latent)
-        latent = torch.where(fixed, tokenized_agent["expert_input"], latent)
+        clean = self._joint_clean(tokenized_agent["expert_input"], tokenized_agent)
+        latent = torch.where(fixed, clean, latent)
 
         if getattr(self, "generate_type", False):
             # Decode the final clean prediction, rather than a residual noisy state.
@@ -1384,6 +1454,8 @@ class Flow(nn.Module):
             types[fixed_type] = tokenized_agent["_init_diffusion_type_source"][fixed_type].argmax(-1)
             tokenized_agent["_init_diffusion_generated_type"] = types
             tokenized_agent["type"] = types
+        if self.joint_type:
+            latent = latent[:, :self.model.m_delta_dim]
         if not self.use_sde:
             tokenized_agent["gen_z"] = latent
 
