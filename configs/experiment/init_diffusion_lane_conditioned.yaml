@@ -25,11 +25,11 @@ model:
       init_decoder: flow  # Existing InitDiffusion, with the existing loss/sampler.
       init_diffusion:
         fix_ego: false  # Default for fields without an explicit override.
-        fix_ego_position: false
-        fix_ego_heading: false
-        fix_ego_shape: false
+        fix_ego_position: true
+        fix_ego_heading: true
+        fix_ego_shape: true
         fix_ego_velocity: false  # Generate ego speed, reconstructed with its predicted heading.
-        fix_ego_type: false
+        fix_ego_type: true  # Generate ego type, reconstructed with its predicted heading.
         use_ego_embedding: true  # Distinguish ego/non-ego slots in every denoising step.
         ego_context_heading_encoding: angle  # Continuous relative heading features for every agent.
         generate_type: true  # Generate non-ego types; ego type follows fix_ego_type.
