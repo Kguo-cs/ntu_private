@@ -309,7 +309,9 @@ class InitDiffusionSpeedTest(unittest.TestCase):
                 torch.testing.assert_close(loss, losses[0] + losses[1])
                 self.assertEqual(set(logged), {"train/match_loss", "train/pos_loss", "train/heading_loss",
                                               "train/shape_loss", "train/vel_loss", "train/col_loss",
-                                              "train/pos_std", "train/heading_std", "train/shape_std", "train/vel_std"})
+                                              "train/pos_std", "train/heading_std", "train/shape_std", "train/vel_std",
+                                              "train/ego_position_l1", "train/ego_heading_l1", "train/ego_heading_l1_deg",
+                                              "train/ego_length_l1", "train/ego_width_l1"})
                 torch.testing.assert_close(logged["train/vel_std"], model.G1.model.normal_scale[0, 6])
                 loss.backward()
                 gradients = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]

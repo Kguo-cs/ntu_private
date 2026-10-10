@@ -500,7 +500,7 @@ class InitDiffusionEgoPartialTest(unittest.TestCase):
             with self.subTest(options=options, gail=gail), self.assertRaisesRegex(ValueError, '(?i)ego'):
                 Flow(self.args(fix_ego=True, fix_ego_velocity=False, **options), processor, gail)
 
-    def test_current_configs_fix_pose_shape_type_and_generate_velocity(self):
+    def test_current_configs_generate_all_ego_fields(self):
         root = Path(__file__).resolve().parents[1]
         generic = OmegaConf.load(root/'configs/model/smart.yaml').model_config.decoder.init_diffusion
         for group in GROUPS:
@@ -513,7 +513,7 @@ class InitDiffusionEgoPartialTest(unittest.TestCase):
                     decoder = config.model.model_config.decoder.init_diffusion
                     self.assertFalse(decoder.fix_ego)
                     for group in GROUPS:
-                        self.assertIs(decoder[f'fix_ego_{group}'], group != 'velocity')
+                        self.assertFalse(decoder[f'fix_ego_{group}'])
                     self.assertEqual(config.model.model_config.token_processor.init_map_half_extent, 32.)
                     self.assertEqual(config.model.model_config.token_processor.init_map_crop, 'circle')
 

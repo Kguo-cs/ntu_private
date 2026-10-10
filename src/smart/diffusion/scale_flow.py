@@ -841,12 +841,50 @@ class Flow(nn.Module):
         loss = torch.where(active, error, torch.zeros_like(error)).sum() / active.sum().clamp_min(1)
         return loss, scale
 
+    @torch.no_grad()
+    def _ego_l1_metrics(self, prediction: Tensor, target: Tensor, tokenized_agent) -> dict:
+        """Unweighted clean-state ego errors at the sampled training timestep.
+
+        Position uses L1 distance in the GT ego frame; heading uses shortest
+        angular distance. Size errors are in meters, including log-size models.
+        Fixed fields have already been restored to GT by the caller.
+        """
+        ego = tokenized_agent["ego_mask"].bool()
+        if not ego.any():
+            return {}
+        # Detach before geometry and use float32 for mixed-precision diagnostics.
+        predicted = prediction.detach()[ego, :6].float()
+        truth = target.detach()[ego, :6].float()
+        heading_error = wrap_angle(torch.atan2(predicted[:, 3], predicted[:, 2])
+                                   - torch.atan2(truth[:, 3], truth[:, 2])).abs().mean()
+        metrics = {
+            "position_l1": (predicted[:, :2] - truth[:, :2]).abs().sum(-1).mean(),
+            "heading_l1": heading_error,
+            "heading_l1_deg": torch.rad2deg(heading_error),
+        }
+        size_valid = torch.isfinite(truth[:, 4:6])
+        if self.size_representation == "linear":
+            size_valid &= truth[:, 4:6] > 0
+        annotation_valid = tokenized_agent.get("_init_diffusion_size_valid_mask")
+        if annotation_valid is not None:
+            size_valid &= annotation_valid[ego].bool()
+        for dim, name in enumerate(("length_l1", "width_l1")):
+            valid = size_valid[:, dim]
+            if valid.any():
+                pred_size = predicted[valid, 4 + dim]
+                gt_size = truth[valid, 4 + dim]
+                if self.size_representation == "log":
+                    pred_size, gt_size = pred_size.exp(), gt_size.exp()
+                metrics[name] = (pred_size - gt_size).abs().mean()
+        return metrics
+
     def _supervised_loss(
         self,
         x: Tensor,
         tokenized_agent: HeteroData,
         map_feature: Mapping[str, Tensor],
     ):
+        tokenized_agent.pop("_init_diffusion_ego_metrics", None)
         tokenized_agent.pop("_init_diffusion_speed_metrics", None)
         tokenized_agent.pop("_init_diffusion_type_metrics", None)
         tokenized_agent.pop("_init_diffusion_type_logits", None)
@@ -879,6 +917,10 @@ class Flow(nn.Module):
             fixed,
             x.detach(),
             x0,
+        )
+
+        tokenized_agent["_init_diffusion_ego_metrics"] = self._ego_l1_metrics(
+            x0, x, tokenized_agent,
         )
 
         loss_options = {}
@@ -1392,6 +1434,7 @@ class Flow(nn.Module):
         ] = None,
     ) -> Tensor:
 
+        tokenized_agent.pop("_init_diffusion_ego_metrics", None)
         agent_batch = tokenized_agent[
             "batch"
         ].long()
