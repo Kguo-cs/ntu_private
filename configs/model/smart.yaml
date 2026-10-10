@@ -42,6 +42,7 @@ model_config:
       fix_ego_velocity: null
       fix_ego_type: null  # Independent of continuous fields when generate_type=true.
       use_ego_embedding: false  # Embed reserved ego/non-ego roles; ego always matches separately.
+      ego_context_heading_encoding: angle  # angle: legacy 12D context; sincos: continuous 15D context.
       generate_type: false  # Joint noisy one-hot Flow; requires supervised initial-scene SD evaluation.
       type_loss_weight: 1.0  # Active-agent mean cross entropy in addition to continuous reconstruction.
       pos_source: gaussian  # gaussian or uniform; uniform uses mean +/- sqrt(3)*std per coordinate.

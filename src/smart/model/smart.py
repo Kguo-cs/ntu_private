@@ -584,6 +584,7 @@ class SMART(LightningModule):
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
                     **{f"fix_ego_{field}": fixed for field, fixed in ego_conditions.items()},
                     "use_ego_embedding": getattr(initial_decoder, "use_ego_embedding", False),
+                    "ego_context_heading_encoding": getattr(initial_decoder, "ego_context_heading_encoding", "angle"),
                     "match_ego_separately": True,
                     "generate_type": getattr(initial_decoder, "generate_type", False),
                     "type_loss_weight": getattr(initial_decoder, "type_loss_weight", 1.0),

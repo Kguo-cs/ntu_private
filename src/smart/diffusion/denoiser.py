@@ -90,6 +90,7 @@ class InitDenoiser(nn.Module):
         fix_ego_shape: Optional[bool] = None,
         fix_ego_velocity: Optional[bool] = None,
         fix_ego_type: Optional[bool] = None,
+        ego_context_heading_encoding: str = "angle",
     ) -> None:
         super().__init__()
 
@@ -119,6 +120,9 @@ class InitDenoiser(nn.Module):
         if not isinstance(use_ego_embedding, bool):
             raise ValueError("use_ego_embedding must be boolean")
         self.use_ego_embedding = use_ego_embedding
+        if ego_context_heading_encoding not in ("angle", "sincos"):
+            raise ValueError("ego_context_heading_encoding must be angle or sincos")
+        self.ego_context_heading_encoding = ego_context_heading_encoding
         self.velocity_representation = velocity_representation
         if size_representation not in ("linear", "log"):
             raise ValueError("size_representation must be linear or log")
@@ -227,8 +231,8 @@ class InitDenoiser(nn.Module):
 
         # Ego-context embedding. The input is:
         #   local ego poses relative to the generated agent + per-scene type count.
-        # For the current tokenization, ego pose part is 9 and type-count part is 3.
-        self.ego_dim = 9
+        # Three poses: position6 + angle3 (legacy) or cos3 + sin3; count3.
+        self.ego_dim = 12 if self.ego_context_heading_encoding == "sincos" else 9
         self.ego_embed = MLPLayer(self.ego_dim + 3, hidden_dim, hidden_dim)
 
         self.edge_encoder = EdgeEncoder(
@@ -278,6 +282,19 @@ class InitDenoiser(nn.Module):
 
         self.apply(weight_init)
         self.reset_time_embedding_parameters()
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        weight = state_dict.get(prefix + "ego_embed.mlp.0.weight")
+        expected_dim = self.ego_embed.mlp[0].in_features
+        if torch.is_tensor(weight) and weight.ndim == 2 and weight.shape[1] != expected_dim:
+            error_msgs.append(
+                f"{prefix}ego_context_heading_encoding={self.ego_context_heading_encoding!r} "
+                f"requires {expected_dim} ego context inputs, checkpoint has {weight.shape[1]}. "
+                "Use the checkpoint's encoding (angle=12, sincos=15) for evaluation/resume; "
+                "train a new model to change the context representation.")
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                     missing_keys, unexpected_keys, error_msgs)
 
     def reset_time_embedding_parameters(self) -> None:
         """Restore the released SD time MLP initialization after generic init."""
@@ -681,13 +698,14 @@ class InitDenoiser(nn.Module):
             theta,
         )
 
-        local_ego_head=wrap_angle(local_ego_head)
+        heading_features = ((local_ego_head.cos(), local_ego_head.sin())
+                            if self.ego_context_heading_encoding == "sincos" else
+                            (wrap_angle(local_ego_head),))
 
         ego_features = torch.cat(
             [
                 local_ego_pos.flatten(1, 2),
-                local_ego_head,#.cos(),
-             #   local_ego_head.sin(),
+                *heading_features,
                 type_count,
             ],
             dim=-1,

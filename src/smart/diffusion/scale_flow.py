@@ -104,6 +104,7 @@ class Flow(nn.Module):
         self.use_ego_embedding = getattr(args, "use_ego_embedding", False)
         if not isinstance(self.use_ego_embedding, bool):
             raise ValueError("use_ego_embedding must be boolean")
+        self.ego_context_heading_encoding = getattr(args, "ego_context_heading_encoding", "angle")
         self.generate_type = getattr(args, "generate_type", False)
         if not isinstance(self.generate_type, bool):
             raise ValueError("generate_type must be boolean")
@@ -167,6 +168,7 @@ class Flow(nn.Module):
             **conditions,
             generate_type=self.generate_type,
             use_ego_embedding=self.use_ego_embedding,
+            ego_context_heading_encoding=self.ego_context_heading_encoding,
             invalid_size_policy=getattr(args, "invalid_size_policy", "mask"),
             time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
             time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),
@@ -229,6 +231,7 @@ class Flow(nn.Module):
                     num_heads=args.num_heads,
                     dropout=args.dropout,
                     x_pred=False,
+                    ego_context_heading_encoding=self.ego_context_heading_encoding,
                     edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
                     time_embedding_type=getattr(args, "time_embedding_type", "legacy"),
                     time_embedding_scale=getattr(args, "time_embedding_scale", 99.0),

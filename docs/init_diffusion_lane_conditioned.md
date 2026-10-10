@@ -393,6 +393,32 @@ EMA 包含新的 angular head，`sep_map` 的训练和 EMA 路径继续沿用。
 这时没有 angular head，预测所选速度表示的 clean x0、使用 reconstruction loss，
 采样由 `omega=wrap(theta_t-theta_x0)/t` 得到角速度；加载此前的 circular/x0 权重还需设置 `velocity_representation=vector`。
 
+## Ego context 的连续角度表示
+
+当前 lane-conditioned 训练和评价启用 `ego_context_heading_encoding: sincos`。
+denoiser 将三个 GT ego 参考姿态变换到每个 noisy agent 的坐标系，
+用 `[cos(relative_heading), sin(relative_heading)]` 替代原始 wrapped angle。
+MLP 输入依次为 `[position6, cos3, sin3, count3]`，从 12 维变成 15 维；
+sin/cos 在 ±π 两侧连续。缓存的 `ego_feat` 仍使用原来的姿态布局，
+编码在每次 denoiser 调用时计算，因此训练和每一步采样共用同一表示。
+该 context 条件作用于所有 agent，与 ego/non-ego 身份 embedding 独立；
+即使固定 ego heading，non-ego 的相对角度仍受益于连续表示。
+`heading_objective`、heading loss 和采样路径沿用所选配置。
+
+通用 SMART 和未显式选择该选项的旧配置默认 `angle`，保留原来的 12 维模型。
+checkpoint 保存编码模式，EMA 包含新的 context MLP 参数。
+12 维和 15 维权重不能直接互换，`strict=False` 也不能忽略维度不匹配；
+跨模式加载会明确报错，不自动近似迁移原角度权重。
+当前实验的 SMART 骨干 checkpoint 不含 InitDiffusion 参数，可初始化新的 sincos 训练。
+从原始 angle InitDiffusion checkpoint 恢复训练或评价时需要覆盖：
+
+```bash
+model.model_config.decoder.init_diffusion.ego_context_heading_encoding=angle
+```
+
+新 sincos 模型训练和评价均使用 `sincos`；仅改旧模型的评价配置不能改善其预测。
+运行配置和评价报告记录实际 `ego_context_heading_encoding`。
+
 ## x0 Heading 圆周角度 Loss
 
 保留 clean x0 heading 预测，可选择用最短圆周角差的平方替代 cos/sin 分量 MSE：

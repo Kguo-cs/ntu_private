@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 action: finetune
-task_name: sdinit512_tspeed_theta_scaletype_egoVFtypeemd5e4 #_ang Weight50 #match #5e4 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
+task_name: sdinit512_tspeed_theta_scaletype_egoVFtypeemd_nohead #5e4 #_ang Weight50 #match #5e4 #shapescale #_speed_sizescale10 #002 #_l1total #40 #drop01freq128_head16freq128
 ckpt_path: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 float32_matmul_precision: medium
 
@@ -14,7 +14,7 @@ model:
   #
   model_config:
     #optimizer: scenario_dreamer
-    lr: 0.0005
+    lr: 0.0001
     token_processor:
       pred_init: true
       learn_init: true
@@ -26,11 +26,12 @@ model:
       init_diffusion:
         fix_ego: false  # Default for fields without an explicit override.
         fix_ego_position: true
-        fix_ego_heading: true
+        fix_ego_heading: false
         fix_ego_shape: true
         fix_ego_velocity: false  # Generate ego speed along its fixed GT heading.
         fix_ego_type: true
         use_ego_embedding: true  # Distinguish ego/non-ego slots in every denoising step.
+        ego_context_heading_encoding: sincos  # Continuous relative heading features for every agent.
         generate_type: true  # Keep GT labels; true generates agent types.
         type_loss_weight: 1.0
         velocity_representation: speed #vector  # Keep vx/vy prediction; speed enables scalar magnitude instead.

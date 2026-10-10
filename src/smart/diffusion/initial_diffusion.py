@@ -69,6 +69,7 @@ class InitDiffusion(nn.Module):
         fix_ego_velocity: Optional[bool] = None,
         fix_ego_type: Optional[bool] = None,
         heading_x0_loss: str = "vector_mse",
+        ego_context_heading_encoding: str = "angle",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -114,6 +115,7 @@ class InitDiffusion(nn.Module):
         if not isinstance(use_ego_embedding, bool):
             raise ValueError("use_ego_embedding must be boolean")
         self.use_ego_embedding = args.use_ego_embedding = use_ego_embedding
+        self.ego_context_heading_encoding = args.ego_context_heading_encoding = ego_context_heading_encoding
         self._ego_embedding_missing_on_load = False
         args.invalid_size_policy = invalid_size_policy
         self.pos_source = args.pos_source = pos_source
@@ -202,6 +204,7 @@ class InitDiffusion(nn.Module):
             "size_representation": self.size_representation,
             "generate_type": self.generate_type,
             "use_ego_embedding": self.use_ego_embedding,
+            "ego_context_heading_encoding": self.ego_context_heading_encoding,
             "ego_conditioning": {field: getattr(self, f"fix_ego_{field}")
                                  for field in EGO_FIELDS},
             "ema": self.ema.state_dict() if self.ema is not None else None,
@@ -216,10 +219,17 @@ class InitDiffusion(nn.Module):
             raise ValueError(f"InitDiffusion checkpoint size_representation={saved_size_mode!r} "
                              f"does not match configured {self.size_representation!r}; "
                              "log size models require training with log targets")
+        saved_context_encoding = state.get("ego_context_heading_encoding", "angle")
+        if saved_context_encoding != self.ego_context_heading_encoding:
+            raise ValueError(
+                f"Checkpoint ego_context_heading_encoding={saved_context_encoding!r} does not match "
+                f"configured {self.ego_context_heading_encoding!r}. Use the checkpoint's encoding "
+                "for evaluation/resume; train from backbone-only weights to change the context representation.")
         # A mode change adds/removes parameters. Warm-start physical weights,
         # but start EMA afresh for the new parameter layout.
         same_layout = (state.get("generate_type", False) == self.generate_type
-                       and state.get("use_ego_embedding", False) == self.use_ego_embedding)
+                       and state.get("use_ego_embedding", False) == self.use_ego_embedding
+                       and saved_context_encoding == self.ego_context_heading_encoding)
         self._pending_ema_state = state if same_layout else None
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
