@@ -1,0 +1,219 @@
+{
+  "created_utc": "2026-10-11T12:45:22.840435+00:00",
+  "status": "PASS_ACTUAL_PHASE2_AND_EXTENDED_JOINT_LOSS_FIGURES",
+  "scope": "Actual scientific figures only, no model/GPU/PDF authoring. CPU layout fixtures are separately marked /tmp data and are not report observations.",
+  "tool_sha256": "0c9037d213d4ef2d01a47d2cc8514e6405c8f9dfb6992fcbde6150aaa3975ede",
+  "actual_observation_count": 82,
+  "plot_metadata_sha256": "d549ea6a15531632a6e818c7e7b45e4c237f4ce0d29345bcb6178b8a151ce898",
+  "phase2_selection_sha256": "90e2605933098b9d84b7b9d61303d405478164188c80aeab0b2c80f6f3fc2a5f",
+  "source_hashes_stable_during_render": true,
+  "stage_status": {
+    "phase1": "complete",
+    "extended_joint_losses": "complete",
+    "phase2": "complete",
+    "long_confirmation": "skipped",
+    "full50000": "skipped"
+  },
+  "phase2": {
+    "observed_single_factors": 11,
+    "all_declared_factors_observed": true,
+    "batch256": {
+      "steps": 1536,
+      "batch_size": 256,
+      "actual_training_exposures": 393216,
+      "same_exposure_as_B512_768": true,
+      "diagram_annotation": "dagger marker and B256/1536 footer"
+    },
+    "scores_and_gates_agree_with_selection": {
+      "batch256": {
+        "R_delta": 1.1102230246251565e-16,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "ego_sincos": {
+        "R_delta": -1.1102230246251565e-16,
+        "R_attr_delta": -1.1102230246251565e-16,
+        "gate_equal": true
+      },
+      "optimizer_sd": {
+        "R_delta": -1.1102230246251565e-16,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "speed_uniform": {
+        "R_delta": -1.1102230246251565e-16,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "clip2": {
+        "R_delta": 0.0,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "shape_uniform": {
+        "R_delta": 0.0,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "size_log": {
+        "R_delta": 2.220446049250313e-16,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "edge_mlp": {
+        "R_delta": -2.220446049250313e-16,
+        "R_attr_delta": 1.1102230246251565e-16,
+        "gate_equal": true
+      },
+      "count_embedding": {
+        "R_delta": 0.0,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "lr1e3": {
+        "R_delta": -2.220446049250313e-16,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      },
+      "lr2e4": {
+        "R_delta": 0.0,
+        "R_attr_delta": 0.0,
+        "gate_equal": true
+      }
+    },
+    "visual_qa": "All11 labels, score numbers, gate stars and batch dagger readable; no label/axis/footer overlap or canvas clipping."
+  },
+  "extended_joint_losses": {
+    "observed_continued": [
+      "new_control",
+      "old_control",
+      "shape_p2",
+      "speed4"
+    ],
+    "observed_fresh_joint": "shape_p2_speed4",
+    "actual_training_exposures": 393216,
+    "unobserved_768_competitors": [
+      "col10",
+      "col5",
+      "shape4",
+      "width4",
+      "heading_mse1",
+      "heading_p0",
+      "heading_p2",
+      "speed_p0",
+      "pos16",
+      "pos_l1_16"
+    ],
+    "unobserved_768_values_not_padded_or_inferred": true,
+    "progression_exposures_by_arm": {
+      "new_control": [
+        131072,
+        262144,
+        393216
+      ],
+      "old_control": [
+        131072,
+        262144,
+        393216
+      ],
+      "shape_p2": [
+        131072,
+        262144,
+        393216
+      ],
+      "shape_p2_speed4": [
+        131072,
+        262144,
+        393216
+      ],
+      "speed4": [
+        131072,
+        262144,
+        393216
+      ]
+    },
+    "relative_curve_interpretation": "R/R_attr denominator is the observed new_control at each same exposure. Three actual256/512/768 checkpoints; no final extrapolation or uncertainty band for TRAIN N1.",
+    "visual_qa": "Five heatmap rows, actual ratios, color saturation and gate marker readable. Both score progression curves retain actual points, distinct colors and legends; footer explains changing matched control and no extrapolation."
+  },
+  "report_box_pt": [
+    511,
+    490
+  ],
+  "all_actual_fonts_after_fit_pt_at_least": 9.0,
+  "actual_PNGs_ready_for_PDF": [
+    {
+      "name": "phase1_relative_metrics",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_relative_metrics.png",
+      "png_sha256": "82b40f1e1c53dbe7689dbd47ad7e51461c21115223afd552c59e2b327e7df912",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_relative_metrics.svg",
+      "svg_sha256": "2a8b96bb16c50fede729f79635ea7a57fddf32125c53053383fdea3a857aab03",
+      "native_width_pt": 511.0,
+      "native_height_pt": 477.36000000000007,
+      "minimum_source_font_pt": 9.0,
+      "minimum_font_after_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "phase1_extended_joint_relative_metrics",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_extended_joint_relative_metrics.png",
+      "png_sha256": "4df544fd5f185ff1b12fce4be3bc73ba3c4dfab9f5bd6e627e7ada11b7d44dc1",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_extended_joint_relative_metrics.svg",
+      "svg_sha256": "8ea9b85917783d1a643f370661713ec4b03f79894e217c9c8c8662e553e37fb1",
+      "native_width_pt": 511.0,
+      "native_height_pt": 309.59999999999997,
+      "minimum_source_font_pt": 9.0,
+      "minimum_font_after_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "phase1_loss_progression_R",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_loss_progression_R.png",
+      "png_sha256": "64b798e8c2aadf766627933cbbbc585d2eaee358e690142a9bd4333db703b6c3",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_loss_progression_R.svg",
+      "svg_sha256": "3990fd44ed3766ac746b0471937c296ce318e0a5ec6ca632d8a86b070dcadac6",
+      "native_width_pt": 511.0,
+      "native_height_pt": 338.40000000000003,
+      "minimum_source_font_pt": 9.0,
+      "minimum_font_after_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "phase1_loss_progression_R_attr",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_loss_progression_R_attr.png",
+      "png_sha256": "e02f8e70d0fcb4b627431a704b7600ac2ee2d1b41c0a4fd4f7cd91792fa85572",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_loss_progression_R_attr.svg",
+      "svg_sha256": "d02dc035266b71fa20cc13b7ee9e17f7c2c87b8ce4a853c9c10501424696c658",
+      "native_width_pt": 511.0,
+      "native_height_pt": 338.40000000000003,
+      "minimum_source_font_pt": 9.0,
+      "minimum_font_after_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "phase2_equal_exposure",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase2_equal_exposure.png",
+      "png_sha256": "3178d243ba6ff3264f3eca535ded41bf82a12939b96e515a58752373e4a8c4b3",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase2_equal_exposure.svg",
+      "svg_sha256": "01600872b0e8708ff296e72eab5270d28cd295af66a38cfa3411131e546ba801",
+      "native_width_pt": 511.0,
+      "native_height_pt": 454.32,
+      "minimum_source_font_pt": 9.0,
+      "minimum_font_after_511x490_fit_pt": 9.0
+    }
+  ],
+  "future_layout_guard_retest": {
+    "metadata_path": "/tmp/sim_frozen_map_plot_layout_qa/layout_fixture_metadata.json",
+    "sha256": "6af3f1ab06782f230cef9e53c84fb108058bdb0d8b608fd2c1f3e83bdea04a77",
+    "scope": "LAYOUT_ONLY_NOT_RESULTS",
+    "figures_tested": 14,
+    "font_source_min": 9.0,
+    "font_report_box_min": 8.59046283309958,
+    "guard_rejections": {
+      "too_wide": "rejected_too_wide: native figure is wider than 511 pt",
+      "source_font_small": "rejected_source_font_small: text would be smaller than the declared report font limit",
+      "height_fit_font_small": "rejected_height_fit_font_small: text would be smaller than the declared report font limit"
+    }
+  },
+  "torch_imported": false,
+  "py_compile": "PASS",
+  "scoped_diff_check_plotter_and_figures": "PASS",
+  "whole_repo_diff_check": "Unrelated generated all_observations.csv uses CRLF and is flagged as trailing whitespace; not edited in this task.",
+  "warnings": [],
+  "no_report_PDF_created": true
+}

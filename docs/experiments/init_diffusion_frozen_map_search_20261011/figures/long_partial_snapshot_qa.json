@@ -1,0 +1,221 @@
+{
+  "created_at_utc": "2026-10-11T13:49:34.870892+00:00",
+  "status": "PASS_CURRENT_PARTIAL_LONG_SNAPSHOT_ONLY",
+  "snapshot_scope": "Two completed long runs; fresh confirmation and full50k unfinished. This is not a final report or claim of final optimality.",
+  "plot_tool_sha256": "2facc11f607b9b53dd29a53efadd43685c910ec8a3c2bba224ac72cafa148b98",
+  "plot_metadata_sha256": "0dfbad34d292d976fd811a22db595a68bc3990cec870dd423380c5ab286491d4",
+  "total_actual_observations_in_snapshot": 100,
+  "actual_long_observations": 16,
+  "observed_variants": [
+    "combo_batch256_ego_sincos",
+    "new_control"
+  ],
+  "unobserved_planned_long_variants_not_padded": [
+    "ego_sincos"
+  ],
+  "evaluation_cohort_sha256": "01427e13aaa604c74834bf56493a5db1c95299845c4bb673a936fe16e345df30",
+  "evaluation_scenes": 4096,
+  "training_seed_ids": [
+    817
+  ],
+  "TRAIN_N_each_point": 1,
+  "GEN_seed_ids_within_TRAIN": [
+    2817,
+    3817
+  ],
+  "GEN_means_rechecked_against_actual_native_summary_values": true,
+  "across_TRAIN_uncertainty_not_estimated_from_N1": true,
+  "SD_errorbars_and_bands_absent_at_N1": true,
+  "equal_exposure_checks": [
+    {
+      "actual_exposure": 524262,
+      "equivalent_full_epochs": 1.0622439427647494,
+      "baseline_B": 512,
+      "baseline_updates": 1024,
+      "combo_B": 256,
+      "combo_updates": 2048,
+      "same_exposure": true
+    },
+    {
+      "actual_exposure": 1048524,
+      "equivalent_full_epochs": 2.124487885529499,
+      "baseline_B": 512,
+      "baseline_updates": 2048,
+      "combo_B": 256,
+      "combo_updates": 4096,
+      "same_exposure": true
+    },
+    {
+      "actual_exposure": 1572786,
+      "equivalent_full_epochs": 3.1867318282942487,
+      "baseline_B": 512,
+      "baseline_updates": 3072,
+      "combo_B": 256,
+      "combo_updates": 6144,
+      "same_exposure": true
+    },
+    {
+      "actual_exposure": 2097048,
+      "equivalent_full_epochs": 4.248975771058998,
+      "baseline_B": 512,
+      "baseline_updates": 4096,
+      "combo_B": 256,
+      "combo_updates": 8192,
+      "same_exposure": true
+    }
+  ],
+  "external_baseline_bridge": [
+    {
+      "actual_exposure": 524262,
+      "reference_budgets": [
+        1024
+      ],
+      "candidate_budgets": [
+        2048
+      ],
+      "exact_cohort_exposure_GEN_pairing": true,
+      "R_actual_GENmean_N1": 0.7847811930147964,
+      "R_attr_actual_GENmean_N1": 0.574860627648155
+    },
+    {
+      "actual_exposure": 1048524,
+      "reference_budgets": [
+        2048
+      ],
+      "candidate_budgets": [
+        4096
+      ],
+      "exact_cohort_exposure_GEN_pairing": true,
+      "R_actual_GENmean_N1": 0.8644009070818154,
+      "R_attr_actual_GENmean_N1": 0.741172136282222
+    },
+    {
+      "actual_exposure": 1572786,
+      "reference_budgets": [
+        3072
+      ],
+      "candidate_budgets": [
+        6144
+      ],
+      "exact_cohort_exposure_GEN_pairing": true,
+      "R_actual_GENmean_N1": 0.8949339840107645,
+      "R_attr_actual_GENmean_N1": 0.7666525790233858
+    },
+    {
+      "actual_exposure": 2097048,
+      "reference_budgets": [
+        4096
+      ],
+      "candidate_budgets": [
+        8192
+      ],
+      "exact_cohort_exposure_GEN_pairing": true,
+      "R_actual_GENmean_N1": 0.9274982694441459,
+      "R_attr_actual_GENmean_N1": 0.861960115398612
+    }
+  ],
+  "incomplete_generation_cells_skipped": [],
+  "unknown_generation_plan_cells": [],
+  "source_summary_hashes_stable_during_render": true,
+  "actual_long_PNG_and_SVG_files": [
+    {
+      "name": "long_confirmation_nearest_dist_jsd",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_nearest_dist_jsd.png",
+      "png_sha256": "7f20ae8cf0ca9298c579a15e97e708be382b0f4059631d00fc7cfd65e36263fd",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_nearest_dist_jsd.svg",
+      "svg_sha256": "3cbbfe1c6d12b18a63f12569cfff687b581fbb4b9ebea15f545a4f44203deec7",
+      "native_width_pt": 511.0,
+      "native_height_pt": 313.2,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "long_confirmation_lat_dev_jsd",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_lat_dev_jsd.png",
+      "png_sha256": "b7f2d40efd5732afaf23087e54a81b8b4a05b9113472ae273b90b5625b79d4fc",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_lat_dev_jsd.svg",
+      "svg_sha256": "2c35e46489bd3586fa3ba84a5ac00f080c721912a9a7d189bbfadc5a3628e2ef",
+      "native_width_pt": 511.0,
+      "native_height_pt": 313.2,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "long_confirmation_ang_dev_jsd",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_ang_dev_jsd.png",
+      "png_sha256": "fcb40da05bc2648ef3135b00a21e7a24d948ea96e0989972c7e9500fe1bf41d2",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_ang_dev_jsd.svg",
+      "svg_sha256": "a1706f00d3a0aae7b8e07189d9e86a1df49b8c83806334c8cfec6d430df7090e",
+      "native_width_pt": 511.0,
+      "native_height_pt": 313.2,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "long_confirmation_length_jsd",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_length_jsd.png",
+      "png_sha256": "cf2df22425f8048182481a13e5d5c868c0463883e19c574f8cb9ce515c0dfd27",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_length_jsd.svg",
+      "svg_sha256": "e6b9e0c9ad45a45e0f3484282537a5ade69dd2cf1b24cc11a645a1360dc007cc",
+      "native_width_pt": 511.0,
+      "native_height_pt": 313.2,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "long_confirmation_width_jsd",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_width_jsd.png",
+      "png_sha256": "f063eaea8f75ab0ed624d6850b76d4f57477056e0295035b888afcd6d59e3f90",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_width_jsd.svg",
+      "svg_sha256": "11ae13f927a0eca3fcb1f1661d5d5d121a45f950d277a39929dce508a045b4ec",
+      "native_width_pt": 511.0,
+      "native_height_pt": 313.2,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "long_confirmation_speed_jsd",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_speed_jsd.png",
+      "png_sha256": "625dec1c81e5ead884b7c22fce0625e6ab9e6b4940e13bb4fefc0d4e3a18543d",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_speed_jsd.svg",
+      "svg_sha256": "d788001a48a9d27b364fc1e2261dad4f4bd9f3b930be290bf9750734c58ca8a0",
+      "native_width_pt": 511.0,
+      "native_height_pt": 313.2,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "long_confirmation_collision_rate",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_collision_rate.png",
+      "png_sha256": "6a092e72036e842e34d78ead53b90b47d728c3ea201cc615930fbcc0f28d1170",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_collision_rate.svg",
+      "svg_sha256": "bc9d89c50723ff7b05220a23a75ea41d4ed8b0634a4fd01d60a74c6ea986d10f",
+      "native_width_pt": 511.0,
+      "native_height_pt": 313.2,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    },
+    {
+      "name": "long_confirmation_training_seed_count",
+      "png": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_training_seed_count.png",
+      "png_sha256": "b88fdf342d67f3ae57a86cd2e87c1dedc1b424ad8ba80013fb1857665248896c",
+      "svg": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/long_confirmation_training_seed_count.svg",
+      "svg_sha256": "2cfa44cda94a415fde86cf5ab4d42d34d2ea7b36263f66be912891a0f96aa747",
+      "native_width_pt": 511.0,
+      "native_height_pt": 273.59999999999997,
+      "min_source_font_pt": 9.0,
+      "min_font_at_511x490_fit_pt": 9.0
+    }
+  ],
+  "visual_qa": "All7 metric charts and TRAIN-N chart inspected: correct2-arm legends with B512/B256 and N1, real aligned exposure points, natural-log JSD axes and collision percent axis, no SD bands or placeholder third arm, no visible text clipping/overlap.",
+  "plot_cpu_settings": {
+    "OMP_NUM_THREADS": 1,
+    "MKL_NUM_THREADS": 1,
+    "OPENBLAS_NUM_THREADS": 1,
+    "nice": 10,
+    "CUDA_VISIBLE_DEVICES": ""
+  },
+  "torch_imported_by_plotter": false,
+  "warnings": [],
+  "final_PDF_created": false
+}

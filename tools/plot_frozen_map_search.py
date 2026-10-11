@@ -95,6 +95,8 @@ def save_figure(fig, output, name):
         # A tight bounding box can silently change physical width. Layout is
         # resolved before saving; the exported canvas retains native dimensions.
         fig.savefig(path, dpi=SAVE_DPI, bbox_inches=None, facecolor="white")
+        if suffix == "svg":
+            path.write_text("\n".join(line.rstrip() for line in path.read_text().splitlines()) + "\n")
         paths.append(str(path.resolve()))
     with (output / f"{name}.png").open("rb") as handle:
         handle.seek(16)
@@ -185,9 +187,11 @@ def heatmap(points, output, name, title, detail):
     colorbar.set_label("Ratio (lower is better)", fontsize=9.5)
     colorbar.ax.tick_params(labelsize=9)
     ax.set_title(title, fontsize=12, pad=12)
-    fig.text(.5, .022, detail + "\nColor clipped to 0–2; numbers show actual ratios; * gate FAIL.",
+    footer = detail + "\nColor clipped to 0–2; numbers show actual ratios; * gate FAIL."
+    fig.text(.5, .022, footer,
              ha="center", va="bottom", fontsize=9)
-    fig.tight_layout(rect=(0, .18, 1, .99))
+    footer_height_fraction = ((footer.count("\n") + 1) * 12 + 14) / (height * 72)
+    fig.tight_layout(rect=(0, max(.18, footer_height_fraction), 1, .99))
     return save_figure(fig, output, name)
 
 
@@ -215,6 +219,79 @@ def phase1_plot(rows, artifacts, output, weights):
               "Gate: road ≥ control − 2 pp; vehicle/GT 0.9–1.1;\n"
               "length, width and speed ≤ 1.15× control.")
     info["files"] = heatmap(points, output, "phase1_relative_metrics", "Fixed map: initial loss sweep", detail)
+    return info
+
+
+def extended_loss_plots(rows, artifacts, output, weights, exposure):
+    """Only the continued arms and recorded fresh interaction have late data."""
+    protocol = read(artifacts / "search_protocol.json", {})
+    continued = list(read(artifacts / "design/phase1_extend_resume.json", {}))
+    joint_enabled = read(artifacts / "loss_interaction_protocol.json", {}).get("enabled", False)
+    expected = continued + (["shape_p2_speed4"] if joint_enabled else [])
+    source = [row for row in rows if Path(row["run_path"]).name in ("phase1_extend", "loss_interaction")
+              and row["seen_training_examples"] == exposure and row["evaluation_weights"] == weights]
+    control = [row for row in source if row["variant"] == "new_control"]
+    points, skipped = comparison_points(source, control)
+    points.sort(key=lambda item: (item["variant"] != "new_control", item["variant"] == "shape_p2_speed4", item["variant"]))
+    observed = {item["variant"] for item in points}
+    unobserved = [name for name in protocol.get("phase1", {}).get("arms", []) if name not in observed]
+    missing = [name for name in expected if name not in observed]
+    info = {"status": "incomplete" if missing else "complete", "equal_observed_sample_exposure": exposure,
+            "points": points, "expected_continued_variants": continued, "fresh_interaction_enabled": joint_enabled,
+            "missing_expected_variants": missing, "unobserved_768_competitors": unobserved,
+            "missing_observation_policy": "Only four selected arms were continued; all other768-step competitors remain unobserved. No values are padded or inferred.",
+            "skipped_observations": skipped, "files": []}
+    if not points:
+        info.update(status="skipped", reason="No paired extended/joint loss endpoints yet")
+        return info
+    if len({item["cohort_sha256"] for item in points}) != 1:
+        raise ValueError("Extended loss comparison cannot combine evaluation cohorts")
+    if any(item["batch_sizes"] != [512] or item["budgets"] != [768] for item in points):
+        raise ValueError("Extended loss figure requires the declared B512/768 exposure")
+    train_n = sorted({item["statistics"]["num_independent_training_seeds"] for item in points})
+    detail = (f"{source[0]['num_samples']:,} scenes; {weights.upper()}; B512 × 768 = {exposure:,} TRAIN examples.\n"
+              f"Observed {len(observed & set(continued))} continued arms + {int('shape_p2_speed4' in observed)} fresh joint; TRAIN N={','.join(map(str, train_n))}.\n"
+              "Gate: road ≥ control − 2 pp; vehicle/GT 0.9–1.1; attributes ≤ 1.15×.\n"
+              "Other 768-step competitors unobserved; no estimates.")
+    info["files"] = heatmap(points, output, "phase1_extended_joint_relative_metrics",
+                             "Fixed map: extended and joint losses", detail)
+    # A changing control denominator is explicit: these are observed relative
+    # scores, never extrapolated learning curves or predictions of final quality.
+    progression = [row for row in rows if row["variant"] in observed
+                   and Path(row["run_path"]).name in ("phase1", "phase1_extend", "loss_interaction")
+                   and row["budget"] in (256, 512, 768) and row["evaluation_weights"] == weights
+                   and row["cohort_sha256"] == points[0]["cohort_sha256"]]
+    controls = [row for row in progression if row["variant"] == "new_control"]
+    trend_points, trend_skipped = comparison_points(progression, controls)
+    curves = defaultdict(list)
+    for item in trend_points:
+        curves[item["variant"]].append(item)
+    for name, values in curves.items():
+        if len(values) != len({item["seen_training_examples"] for item in values}):
+            raise ValueError(f"Ambiguous loss progression arm at identical exposure: {name}")
+    info["observed_progression"] = dict(curves)
+    info["skipped_progression"] = trend_skipped
+    for key, label in (("R_ratio_of_arm_means", "Seven-metric ratio R"),
+                       ("R_attr_ratio_of_arm_means", "Attribute ratio R_attr")):
+        fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, 4.7))
+        for index, item in enumerate(points):
+            values = sorted(curves.get(item["variant"], []), key=lambda cell: cell["seen_training_examples"])
+            x = [cell["seen_training_examples"] / 1000 for cell in values]
+            y = [cell["comparison"][key] for cell in values]
+            ax.plot(x, y, "o-", label=compact(item["variant"], 21), color=PALETTE[index % len(PALETTE)], linewidth=1.8)
+        ax.axhline(1, color="#777777", linestyle="--", linewidth=1)
+        ax.set_title("Observed loss arms: " + label, fontsize=12)
+        ax.set_xlabel("Observed TRAIN examples (thousands)")
+        ax.set_ylabel(label + " (lower is better)")
+        ax.grid(alpha=.2)
+        handles, labels = ax.get_legend_handles_labels()
+        fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False,
+                   bbox_to_anchor=(.5, .09), fontsize=9.5)
+        fig.text(.5, .012, f"Matched control at each exposure; same {source[0]['num_samples']:,} scenes; {weights.upper()}; TRAIN N={','.join(map(str, train_n))}.\n"
+                 "Only observed 256/512/768 endpoints; no extrapolation or missing-arm estimates.",
+                 ha="center", fontsize=9)
+        fig.tight_layout(rect=(0, .29, 1, .98))
+        info["files"].extend(save_figure(fig, output, "phase1_loss_progression_" + ("R" if key == "R_ratio_of_arm_means" else "R_attr")))
     return info
 
 
@@ -299,7 +376,8 @@ def phase2_plot(rows, artifacts, output, weights, exposure):
 def long_curves(rows, output, weights, train_scenes):
     source = [row for row in rows if row["num_samples"] == 4096 and row["evaluation_weights"] == weights
               and (Path(row["run_path"]).name.startswith("long_") or Path(row["run_path"]).name.startswith("confirm_"))]
-    info = {"status": "skipped", "reason": "No long/confirmation 4096-scene observations yet", "files": [], "cohorts": []}
+    info = {"status": "skipped", "reason": "No long/confirmation 4096-scene observations yet", "files": [], "cohorts": [],
+            "skipped_incomplete_generation_cells": [], "generation_plan_unknown_cells": []}
     if not source:
         return info
     cohorts = defaultdict(list)
@@ -307,18 +385,56 @@ def long_curves(rows, output, weights, train_scenes):
         cohorts[row["cohort_sha256"]].append(row)
     info.pop("reason")
     info["status"] = "actual_observed_curves"
+    generation_plans = {}
+    for row in source:
+        run = row["run_path"]
+        if run not in generation_plans:
+            protocol = read(Path(run) / "protocol.json", {})
+            planned = [protocol.get("eval_seed"), protocol.get("extra_eval_seed")]
+            generation_plans[run] = tuple(sorted({seed for seed in planned if type(seed) is int}))
     for cohort, cells in sorted(cohorts.items()):
         groups = defaultdict(list)
         for row in cells:
             groups[(row["arm_id"], row["seen_training_examples"])].append(row)
         curves = defaultdict(list)
         for (arm, exposure), values in sorted(groups.items()):
-            stat = arm_statistics(values)
+            methods = {(row["train_batch_size"], row["budget"]) for row in values}
+            if len(methods) != 1:
+                raise ValueError("One long-curve arm/exposure has conflicting batch/update methods")
+            per_train = defaultdict(list)
+            for row in values:
+                per_train[row["seed"]].append(row)
+            completed = []
+            for train_seed, repetitions in sorted(per_train.items()):
+                observed = sorted({row["eval_seed"] for row in repetitions})
+                if len(repetitions) != len(observed):
+                    raise ValueError("Conflicting duplicate long-curve TRAIN/GEN cell at identical exposure")
+                plans = {generation_plans[row["run_path"]] for row in repetitions
+                         if generation_plans[row["run_path"]]}
+                if len(plans) > 1:
+                    raise ValueError("Long-curve TRAIN cell has inconsistent planned GEN seeds")
+                planned = list(next(iter(plans))) if plans else None
+                cell = {"arm_id": arm, "training_seed": train_seed, "seen_training_examples": exposure,
+                        "cohort_sha256": cohort, "observed_generation_seeds": observed,
+                        "planned_generation_seeds": planned,
+                        "sources": sorted({row["summary_source"] for row in repetitions})}
+                if planned is not None and observed != planned:
+                    info["skipped_incomplete_generation_cells"].append(cell)
+                    continue
+                if planned is None:
+                    info["generation_plan_unknown_cells"].append(cell)
+                completed.extend(repetitions)
+            if not completed:
+                continue
+            stat = arm_statistics(completed)
             curves[arm].append({"x_observed_training_epochs": exposure / train_scenes,
                                 "seen_training_examples": exposure, "statistics": stat,
                                 "budgets": sorted({row["budget"] for row in values}),
                                 "batch_sizes": sorted({row["train_batch_size"] for row in values}),
-                                "sources": sorted({row["summary_source"] for row in values})})
+                                "sources": sorted({row["summary_source"] for row in completed}),
+                                "generation_pairs_complete_when_plan_known": True})
+        if not curves:
+            continue
         ordered = sorted(curves, key=lambda arm: (curves[arm][0]["statistics"]["variant"] != "new_control", arm))
         files = []
         suffix = "" if len(cohorts) == 1 else "_" + cohort[:10]
@@ -329,7 +445,10 @@ def long_curves(rows, output, weights, train_scenes):
             for index, arm in enumerate(ordered):
                 points = sorted(curves[arm], key=lambda item: item["seen_training_examples"])
                 color = PALETTE[index % len(PALETTE)]
-                name = compact(points[0]["statistics"]["variant"], 22)
+                counts = sorted({point["statistics"]["num_independent_training_seeds"] for point in points})
+                batches = sorted({batch for point in points for batch in point["batch_sizes"]})
+                name = (compact(points[0]["statistics"]["variant"], 22)
+                        + "\nB" + ",".join(map(str, batches)) + "; TRAIN N=" + ",".join(map(str, counts)))
                 x = [item["x_observed_training_epochs"] for item in points]
                 if key == "training_seed_count":
                     values = [item["statistics"]["num_independent_training_seeds"] for item in points]
@@ -357,14 +476,22 @@ def long_curves(rows, output, weights, train_scenes):
             ax.grid(alpha=.2)
             handles, names = ax.get_legend_handles_labels()
             fig.legend(handles, names, loc="lower center", ncol=min(3, len(names)), frameon=False,
-                       bbox_to_anchor=(.5, .065), fontsize=9.5)
-            fig.text(.5, .012, "GEN mean within TRAIN; mean ± sample SD across TRAIN.\n"
-                     "Observed checkpoints only; single TRAIN seed has no SD band.",
+                       bbox_to_anchor=(.5, .09), fontsize=9.5, columnspacing=1.1, handlelength=1.6)
+            seeds = sorted({seed for values in curves.values() for point in values
+                            for seed in point["statistics"]["training_seed_ids"]})
+            fig.text(.5, .012, "Observed TRAIN " + ",".join(map(str, seeds)) + "; GEN mean within TRAIN; sample SD across TRAIN.\n"
+                     "Observed checkpoints; TRAIN membership may vary; N=1 has no SD band.",
                      ha="center", fontsize=9)
-            fig.tight_layout(rect=(0, .24, 1, .98))
+            fig.tight_layout(rect=(0, .29, 1, .98))
             files.extend(save_figure(fig, output, "long_confirmation_" + key + suffix))
         info["files"].extend(files)
-        info["cohorts"].append({"cohort_sha256": cohort, "curves": dict(curves), "files": files})
+        membership_changes = {arm: len({tuple(point["statistics"]["training_seed_ids"]) for point in points}) > 1
+                              for arm, points in curves.items()}
+        info["cohorts"].append({"cohort_sha256": cohort, "curves": dict(curves), "files": files,
+                                "TRAIN_membership_changes_by_arm": membership_changes,
+                                "uncertainty_scope": "Sample SD across independent TRAIN means after GEN averaging; never GEN-as-TRAIN N. A varying-N curve can change TRAIN membership across checkpoints."})
+    if not info["cohorts"]:
+        info.update(status="skipped", reason="No complete planned GEN cells in the observed long/confirmation records")
     return info
 
 
@@ -480,6 +607,7 @@ def main():
         parser.error("--full-variants must contain exactly two distinct names")
     figures = {
         "phase1": phase1_plot(rows, args.artifacts, output, args.weights),
+        "extended_joint_losses": extended_loss_plots(rows, args.artifacts, output, args.weights, exposure),
         "phase2": phase2_plot(rows, args.artifacts, output, args.weights, exposure),
         "long_confirmation": long_curves(rows, output, args.weights, args.train_scenes),
         "full50000": full_histograms(rows, args.artifacts, output, args.weights, requested),

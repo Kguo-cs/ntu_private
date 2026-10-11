@@ -1,0 +1,376 @@
+{
+  "status": "PASS_CPU_NATIVE_READINESS_SEARCH_PENDING",
+  "source_map_sha256": "610c1f94a0f573fd078e251af37c38c73255b969e52154e66546588996ef99fb",
+  "map_tensors": 66,
+  "results": [
+    {
+      "branch": "B512_control_completed_long",
+      "variant": "new_control",
+      "source_checkpoint": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_new_control/new_control/step_4096.ckpt",
+      "source_checkpoint_sha256": "6e0654ad96c2fe1d53d13c96564e35b5d807144aadf5a198f80e2ae0d78926d0",
+      "actual_global_step": 4096,
+      "requested_endpoint": 4096,
+      "branch_compatibility_only_not_final_selection": true,
+      "source_batch": 512,
+      "native_fit_batch": 512,
+      "native_ego_encoding": "angle",
+      "fresh_G1_parameters_match_actual_quick_seed817": true,
+      "native_calibrated_G1_sha256": "76b60774205a4932f50092798cd97ae50fb4863bb5782b9068f010878cebb01c",
+      "quick_default_buffer_initial_G1_sha256": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+      "normalizer_comparison_scope": "Runner initial hash predates calibrate; native constructor loads TRAIN buffers. Compare random parameters separately and exact calibration buffers separately.",
+      "fresh_Adam_slots": 0,
+      "fresh_EMA_updates": 0,
+      "frozen_map66_exact": true,
+      "native_full128_future_not_executed": true,
+      "native_epoch_shuffle": true,
+      "native_eval_strict_tensor_count": 741,
+      "complete_model_normalizer_EMA_exact_restoration": true,
+      "restored_EMA_updates": 4096,
+      "native_eval_source_AIRL_and_normalizer_file_disabled": true,
+      "missing_env_ckpt_requires_explicit_value": true
+    },
+    {
+      "branch": "B256_sincos_intermediate_branch_only",
+      "variant": "combo_batch256_ego_sincos",
+      "source_checkpoint": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_combo_batch256_ego_sincos/combo_batch256_ego_sincos/step_4096.ckpt",
+      "source_checkpoint_sha256": "4e8f2034a2639dfe47fc37fa410bdc07b1273e151b541e328656d8ca16d43e57",
+      "actual_global_step": 4096,
+      "requested_endpoint": 8192,
+      "branch_compatibility_only_not_final_selection": true,
+      "source_batch": 256,
+      "native_fit_batch": 256,
+      "native_ego_encoding": "sincos",
+      "fresh_G1_parameters_match_actual_quick_seed817": true,
+      "native_calibrated_G1_sha256": "335015068e96b99a379aa3257008fca932875c2adefd07c7803cbc84351a6eb9",
+      "quick_default_buffer_initial_G1_sha256": "2e9fbb1e630702cf433acbbd3a9058a411d2781b034d4b5ca17aa5a0b7bd142f",
+      "normalizer_comparison_scope": "Runner initial hash predates calibrate; native constructor loads TRAIN buffers. Compare random parameters separately and exact calibration buffers separately.",
+      "fresh_Adam_slots": 0,
+      "fresh_EMA_updates": 0,
+      "frozen_map66_exact": true,
+      "native_full128_future_not_executed": true,
+      "native_epoch_shuffle": true,
+      "native_eval_strict_tensor_count": 741,
+      "complete_model_normalizer_EMA_exact_restoration": true,
+      "restored_EMA_updates": 4096,
+      "native_eval_source_AIRL_and_normalizer_file_disabled": true,
+      "missing_env_ckpt_requires_explicit_value": true
+    }
+  ],
+  "cuda_initialized": false,
+  "no_actual_best_config_or_final_selection_written": true,
+  "created_utc": "2026-10-11T13:40:57.508664+00:00",
+  "scope": "Actual B512 completed forecast and B256 sincos intermediate branch compatibility. No candidate ranking, final best config, fake final_selection or GPU smoke generated.",
+  "actual_queue": {
+    "stage": "long_seed817_combo_batch256_ego_sincos",
+    "command": [
+      "/home/ke/miniconda3/envs/sim/bin/python",
+      "tools/scratch_component_loss_sweep.py",
+      "--map-checkpoint",
+      "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+      "--batch-size",
+      "256",
+      "--scenes",
+      "4096",
+      "--eval-batch-size",
+      "128",
+      "--workers",
+      "0",
+      "--seed",
+      "817",
+      "--eval-seed",
+      "2817",
+      "--normalizer-json",
+      "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+      "--evaluation-weights",
+      "ema",
+      "--eval-manifest",
+      "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.json",
+      "--extra-eval-seed",
+      "3817",
+      "--steps",
+      "8192",
+      "--checkpoint-steps",
+      "2048,4096,6144",
+      "--lr",
+      "0.0005",
+      "--recipe",
+      "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/long_seed817_combo_batch256_ego_sincos_recipe.json",
+      "--variant-file",
+      "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/long_seed817_combo_batch256_ego_sincos_variants.json",
+      "--variants",
+      "combo_batch256_ego_sincos",
+      "--output",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_combo_batch256_ego_sincos",
+      "--allow-multiple-epochs"
+    ],
+    "controller_pid": 282682,
+    "child_pid": 583540
+  },
+  "final_artifacts_present": {
+    "frozen_confirmation_protocol.json": false,
+    "final_selection.json": false,
+    "queue_complete.json": false,
+    "final_facts.json": false,
+    "native_best_materialization.json": false
+  },
+  "source_tools": {
+    "tools/materialize_frozen_map_best.py": "734cc282bb417e7824c154b84e6e803562be8fb847d2469925db0f26947dd57f",
+    "tools/audit_frozen_map_final_artifacts.py": "f0f9fc46eb0f8719563308934b4c8c53dfce537d35d892153c1606e28a446784",
+    "tools/test_frozen_map_native_selection_helpers.py": "3fd3b8ccce2b70a64153ad3c8681343a4e8e9375219a3694964f016f4d08c300",
+    "tools/continue_frozen_map_search.py": "df8e19bd19bd5ce3c7ece84bb309a6eb57f269617e95909e5486e336dcbcfee8",
+    "tools/scratch_component_loss_sweep.py": "82a4afa01fbd54b8ebd70406d6aebca2cf2e78baead5adafa784619ea87a57ec"
+  },
+  "helper_regression": {
+    "fixture_scope": "Clearly synthetic in-memory unittest fixtures; no file named final_selection or native best config written.",
+    "command": "CUDA_VISIBLE_DEVICES='' PYTHONPATH=/home/ke/code/sim /home/ke/miniconda3/envs/sim/bin/python -m unittest tools.test_frozen_map_native_selection_helpers -v",
+    "passed": 10,
+    "checks": [
+      "equal exposure B2568192/B5124096 = 2,097,048 actual scenes including partial epochs",
+      "cross-batch12cell matrix and TRAIN3 versus fresh post-freezeTRAIN2 roles",
+      "same-batch12cell matrix",
+      "no eligible improvement retains new_control",
+      "onroad gate rejects smaller R",
+      "vehicle-count gate rejects smaller R",
+      "shape gate rejects smaller R",
+      "missing GEN repetition rejected",
+      "B256 wrong4096 endpoint rejected",
+      "row order leaves equalTRAIN aggregation unchanged"
+    ]
+  },
+  "completion_provenance": {
+    "source_file": "tools/continue_frozen_map_search.py",
+    "source_sha256": "df8e19bd19bd5ce3c7ece84bb309a6eb57f269617e95909e5486e336dcbcfee8",
+    "complete_written_only_after": "Both full50000 run() stages return verified success, following actual final12cell matrix selection.",
+    "completion_artifact": "docs/experiments/init_diffusion_frozen_map_search_20261011/queue_complete.json",
+    "required_status": "COMPLETE_ACTUAL_SEARCH",
+    "required_full_set_audits": 2,
+    "independent_auditor_checks": "Actual terminal DONE and summaries/traces/report identities; 6 CPU checkpoint proofs; final12cell matrix; exactly2full50000 evaluation-only TRAIN817/GEN2817 reports. Labels alone do not suffice.",
+    "actual_completion_present": false
+  },
+  "post_completion_checklist": [
+    {
+      "step": 1,
+      "command": "python tools/audit_frozen_map_final_artifacts.py",
+      "require": "Actual queue_complete plus independent final_facts PASS; no synthetic final data."
+    },
+    {
+      "step": 2,
+      "command": "python tools/materialize_frozen_map_best.py",
+      "require": "Actual eligible N3 selection recomputes, selected exact batch/LR/clip/effective config/loss/TRAINnormalizer/source map/full EMA checkpoint is verified."
+    },
+    {
+      "step": 3,
+      "require": "Native fit seed817/actionfit/ckptnull: strict sourceAIRL maponly frozen/eval; fresh G1/Adam/scheduler/EMA; source TRAIN normalizer; selected B preserved. No forecast resume."
+    },
+    {
+      "step": 4,
+      "require": "Native eval seed2817/full initializer ckpt: disable source AIRL reload and TRAIN normalizer file; strict saved map/G1/buffers/EMA restoration."
+    },
+    {
+      "step": 5,
+      "require": "Run native one optimizer update and one integer-limit test batch only after GPU queue completion; use separate logs; keep selected fit batch."
+    },
+    {
+      "step": 6,
+      "require": "Report native full128epoch command as future recommendation; no claim it already completed. Quick fixed full-order repeats versus native shuffleeach epoch disclosed."
+    }
+  ],
+  "smoke_overrides": {
+    "fit": [
+      "trainer.max_steps=1",
+      "trainer.max_epochs=1",
+      "trainer.limit_train_batches=1",
+      "trainer.limit_val_batches=0",
+      "trainer.num_sanity_val_steps=0",
+      "trainer.devices=1",
+      "trainer.precision=32-true",
+      "trainer.log_every_n_steps=1",
+      "++trainer.logger=false",
+      "callbacks.learning_rate_monitor=null",
+      "data.num_workers=0",
+      "data.pin_memory=false",
+      "data.persistent_workers=false"
+    ],
+    "test": [
+      "ckpt_path=<actual selected full forecast checkpoint from materialization metadata>",
+      "trainer.limit_test_batches=1",
+      "trainer.devices=1",
+      "trainer.precision=32-true",
+      "model.model_config.sd_require_full_set=false",
+      "data.num_workers=0",
+      "data.pin_memory=false",
+      "data.persistent_workers=false"
+    ],
+    "details": [
+      "Use int1, not float1.0, for singlebatch limits.",
+      "Use ++trainer.logger=false and remove LRmonitor callback; logger=false at top-level CLI is an invalid Hydra config-group override.",
+      "Onebatch testing requires sd_require_full_set=false; matched reference mode remains unchanged.",
+      "Set separate hydra.run.dir,paths.output_dir,paths.log_dir for fit/test.",
+      "No default baseline experiment file is modified by these overrides.",
+      "CPU readiness does not claim native GPU smoke has run."
+    ]
+  },
+  "native_workers": {
+    "quick": 0,
+    "best_fit": 0,
+    "best_eval": 0,
+    "workerbenchmark": "Do not infer worker speedup/EMA parity from a pilot using different optimizer state; preserve workers0."
+  },
+  "limitations": [
+    "Actual final frozen pair/selection/queuecompletion still absent at audit time.",
+    "B256 step4096 checkpoint is intermediate to planned8192, used only to prove native architecture restoration compatibility.",
+    "No finalwinner or convergence claim. Native128epochs remains a future recommendation."
+  ],
+  "native_metric_interface_audit": {
+    "status": "PASS_STATIC_SHARED_NATIVE_QUICK_BACKEND",
+    "no_GPU_smoke_run": true,
+    "source_sha256": {
+      "src/run.py": "1902fbaae5fe1f074ed28b8ea26cbc57e48ba7f6ea67edd9b488c4b8212f1adc",
+      "src/smart/model/smart.py": "76c9cf51ce5824cba1f64e69bc9af2d3b09e212ff704d40722a8db17692a6e3d",
+      "src/smart/model/smart_gail.py": "ea157ca704aecad732350ef77ac5cc2b5c42425c064fe03d4eabaae4203f6a20",
+      "src/smart/metrics/gen_metrics.py": "4c5bd2a3cee424aeafd219ce618bea220418536c03e50f09f7926e2e639b437f",
+      "src/smart/metrics/metric_core.py": "f34ac0a48d9c1ce6e9e7655341aa44c78072b862e2a809f1ec2cc5ce8b3290a3",
+      "src/smart/metrics/real_cache.py": "efa97bad426624bc7f6a9b80ab50dd0950e77b37a4542813af88c6e5db190a8c",
+      "src/smart/metrics/official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce",
+      "src/smart/metrics/sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+      "src/smart/metrics/sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+      "tools/scratch_component_loss_sweep.py": "82a4afa01fbd54b8ebd70406d6aebca2cf2e78baead5adafa784619ea87a57ec"
+    },
+    "call_graph": [
+      {
+        "source": "src/run.py:91/109",
+        "claim": "Trainer.fit/validate/test receives the instantiated SMART_GAIL model and identical DataModule API."
+      },
+      {
+        "source": "src/smart/model/smart_gail.py",
+        "claim": "SMART_GAIL inherits SMART validation/test/epoch hooks without override."
+      },
+      {
+        "source": "src/smart/model/smart.py:786/831/885",
+        "claim": "test start/step/end delegate to native validation start/step/end."
+      },
+      {
+        "source": "src/smart/model/smart.py:333/371/583",
+        "claim": "ScenarioDreamerEvaluator reset/update/compute/report consumed directly; generated_type replaces GT type for vehicle filtering."
+      },
+      {
+        "source": "src/smart/metrics/gen_metrics.py:293/401",
+        "claim": "Matched reference accumulator only adds cached real histograms for evaluated filenames; generation on reference lanes for InitDiffusion."
+      },
+      {
+        "source": "src/smart/metrics/metric_core.py:14/92",
+        "claim": "Same numerical official helpers and pooled finalize_metrics determine all primary results."
+      },
+      {
+        "source": "tools/scratch_component_loss_sweep.py:323/337",
+        "claim": "Quick runner executes native Trainer.test and reads original sd_agent_metrics.json; coverage/hist/full-reference diagnostics do not change primary agent_metrics."
+      }
+    ],
+    "native_to_raw_JSD_divisor": {
+      "nearest_dist_jsd": 10,
+      "lat_dev_jsd": 10,
+      "ang_dev_jsd": 100,
+      "length_jsd": 100,
+      "width_jsd": 100,
+      "speed_jsd": 100
+    },
+    "collision_rate_unit": "percentage of generated vehicles colliding; native value=100*integer colliding/total vehicles; raw JSD conversion does not apply.",
+    "JSD_definition": "scipy.spatial.distance.jensenshannon(p,q)**2 with default natural logarithm; dimensionless divergence, not square-root JS distance or feature-unit error.",
+    "same_unit_relative_R_note": "Per-metric native or raw ratios give identical R only if each arm uses the same divisor. Do not sum unscaled raw metrics into a score defined using native-value scales.",
+    "reference_contract": [
+      "Same prepared real-cache SQLite and official eval filenames, enforced by cache identity/backend signature.",
+      "world predictions transformed to saved SD center/rotation using per-scene metadata; output snapshot index0 and generation raw frame verified.",
+      "Only generated vehicle type0 enters metrics; generated agents are not pruned by GT validity/crop/offroad mask.",
+      "InitDiffusion conditions on fixed AIRL SMART encoder square50 tokens; metrics use official full reference lane geometry, not these cropped feature tokens.",
+      "GTego position/heading/shape/type fixed; ego velocity generated; input total agentcount; generated non-ego types; one rollout; EMA; initial-scene-only."
+    ],
+    "actual_branch_settings": [
+      {
+        "branch": "B512_control_completed_long",
+        "all_shared_metric_settings_equal": true,
+        "settings": {
+          "sd_use_cached_evaluator": true,
+          "sd_reference_mode": "matched",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_eval_set": "/home/ke/code/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_auto_precompute": false
+        },
+        "preserved_generation_conditions": {
+          "fix_ego_position": true,
+          "fix_ego_heading": true,
+          "fix_ego_shape": true,
+          "fix_ego_velocity": false,
+          "fix_ego_type": true,
+          "generate_type": true,
+          "type_process": "separate",
+          "heading_noise": "circular",
+          "heading_objective": "x0",
+          "velocity_representation": "speed",
+          "size_representation": "linear",
+          "use_ema": true,
+          "sampling_steps": 20,
+          "sampling_steps_source": "InitialDiffusion._make_args deterministic default; no source/native model_args override"
+        },
+        "initial_scene_only": true,
+        "SMART_condition_crop": {
+          "shape": "square",
+          "half_extent_m": 50.0
+        },
+        "quick4096_and_native_fit4096_exact_same_filenames_and_order": true,
+        "native_full_test_full_membership_required": true,
+        "single_test_smoke_guard_override": "sd_require_full_set=false only; matched unchanged"
+      },
+      {
+        "branch": "B256_sincos_intermediate_branch_only",
+        "all_shared_metric_settings_equal": true,
+        "settings": {
+          "sd_use_cached_evaluator": true,
+          "sd_reference_mode": "matched",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_eval_set": "/home/ke/code/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_auto_precompute": false
+        },
+        "preserved_generation_conditions": {
+          "fix_ego_position": true,
+          "fix_ego_heading": true,
+          "fix_ego_shape": true,
+          "fix_ego_velocity": false,
+          "fix_ego_type": true,
+          "generate_type": true,
+          "type_process": "separate",
+          "heading_noise": "circular",
+          "heading_objective": "x0",
+          "velocity_representation": "speed",
+          "size_representation": "linear",
+          "use_ema": true,
+          "sampling_steps": 20,
+          "sampling_steps_source": "InitialDiffusion._make_args deterministic default; no source/native model_args override"
+        },
+        "initial_scene_only": true,
+        "SMART_condition_crop": {
+          "shape": "square",
+          "half_extent_m": 50.0
+        },
+        "quick4096_and_native_fit4096_exact_same_filenames_and_order": true,
+        "native_full_test_full_membership_required": true,
+        "single_test_smoke_guard_override": "sd_require_full_set=false only; matched unchanged"
+      }
+    ],
+    "necessary_interface_limits": [
+      "Native fit monitoring uses matched confirmation4096, while native full test uses complete matched50000; one-batch smoke checks interface and restoration and has smaller matched GT scope. It cannot serve as the final distribution score.",
+      "Partial smoke must override sd_require_full_set=false. Leaving it true intentionally rejects incomplete50k membership.",
+      "Exact checkpoint parameters/buffers/EMA restoration is CPU-verified. Same GEN seed does not guarantee bitwise same generation: native run seeds before constructing its model, quick evaluate seeds after construction/loading and then creates Trainer; their RNG consumption and batching can differ.",
+      "Final GPU native smoke is exactly one batch and must not claim RNG-bit parity or full score equivalence.",
+      "A subset-native loss/log setting must remain sd_reference_mode=matched. Generic init_diffusion_lane_conditioned.yaml has sd_reference_mode=full; frozen_map/nativebest builder explicitly preserves matched.",
+      "Preserve precision32true/float32matmulmedium/EMA/sampling settings. Using a raw historical generic experiment can change conditions and reference mode."
+    ]
+  }
+}

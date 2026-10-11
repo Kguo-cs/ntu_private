@@ -1,0 +1,67 @@
+{
+  "stage": "long_seed817_ego_sincos",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "512",
+    "--scenes",
+    "4096",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "0",
+    "--seed",
+    "817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--eval-manifest",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.json",
+    "--extra-eval-seed",
+    "3817",
+    "--steps",
+    "4096",
+    "--checkpoint-steps",
+    "1024,2048,3072",
+    "--lr",
+    "0.0005",
+    "--recipe",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/long_seed817_ego_sincos_recipe.json",
+    "--variant-file",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/long_seed817_ego_sincos_variants.json",
+    "--variants",
+    "ego_sincos",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_ego_sincos",
+    "--allow-multiple-epochs"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_ego_sincos",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_long_seed817_ego_sincos.log",
+  "controller_pid": 282682,
+  "started_unix": 1791726223.7523751,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 669487,
+  "ended_unix": 1791727885.0401962,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_ego_sincos/protocol.json",
+      "sha256": "30e28e25ba492b4963873b0e7397e4c9c555232692ecbf87eaa23e881ccaa32e"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_ego_sincos/summary.json",
+      "sha256": "9abfea4061a1f0798a46e52f70bc9cf0c06ba83bc0a0f8b0214f2cb884bdcd69"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_long_seed817_ego_sincos.log",
+      "sha256": "fac449c2ea977efda7fd89c6896ca765739d6de945dfff15c52d29d5ad0a3149"
+    }
+  },
+  "last_verified_unix": 1791727885.0448844
+}

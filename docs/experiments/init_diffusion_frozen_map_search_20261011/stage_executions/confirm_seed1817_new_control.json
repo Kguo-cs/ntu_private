@@ -1,0 +1,67 @@
+{
+  "stage": "confirm_seed1817_new_control",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "512",
+    "--scenes",
+    "4096",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "0",
+    "--seed",
+    "1817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--eval-manifest",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.json",
+    "--extra-eval-seed",
+    "3817",
+    "--steps",
+    "4096",
+    "--checkpoint-steps",
+    "2048,3072",
+    "--lr",
+    "0.0005",
+    "--recipe",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/confirm_seed1817_new_control_recipe.json",
+    "--variant-file",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/confirm_seed1817_new_control_variants.json",
+    "--variants",
+    "new_control",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed1817_new_control",
+    "--allow-multiple-epochs"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed1817_new_control",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_confirm_seed1817_new_control.log",
+  "controller_pid": 282682,
+  "started_unix": 1791727885.0485168,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 746624,
+  "ended_unix": 1791729530.1191335,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed1817_new_control/protocol.json",
+      "sha256": "107c03ceea3ef7e4fbda3045959950834454badfcff20026a8a3aa5ca3c2cfd0"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed1817_new_control/summary.json",
+      "sha256": "ca9fcbc35f7652cee95121aff5e27ea86eb614d61b631aa5f4f66287e6ebe7d7"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_confirm_seed1817_new_control.log",
+      "sha256": "f42b0fc7645c75620defb97899eb2fec0afa202657b6e8339c374ff195b18a87"
+    }
+  },
+  "last_verified_unix": 1791729530.1228592
+}

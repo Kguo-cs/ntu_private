@@ -582,7 +582,7 @@ def format_value(value, digits=4):
 def write_csv(path, rows):
     fields = list(dict.fromkeys(key for row in rows for key in row)) or ["variant", "budget", "seed", "eval_seed"]
     with Path(path).open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows({key: json.dumps(value, ensure_ascii=False, sort_keys=True) if isinstance(value, (dict, list)) else value for key, value in row.items()} for row in rows)
 
