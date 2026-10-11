@@ -27,7 +27,7 @@ data:
   val_raw_dir: ${paths.cache_root}/scenario_dreamer_val
   test_raw_dir: ${paths.cache_root}/scenario_dreamer_val
   val_tfrecords_splitted: null
-  num_workers: 0
+  #num_workers: 0
   pin_memory: false
   persistent_workers: false
   shuffle: true
