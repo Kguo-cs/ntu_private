@@ -580,6 +580,7 @@ class SMART(LightningModule):
                     "heading_path": "shortest_arc" if getattr(initial_decoder, "heading_noise", "gaussian") == "circular" else "linear",
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_x0_loss": getattr(initial_decoder, "heading_x0_loss", "vector_mse"),
+                    "component_loss": getattr(initial_decoder, "component_loss", None),
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
                     **{f"fix_ego_{field}": fixed for field, fixed in ego_conditions.items()},
@@ -590,7 +591,11 @@ class SMART(LightningModule):
                     "type_loss_weight": None if initial_decoder.G1.feature_type else getattr(initial_decoder, "type_loss_weight", 1.0),
                     "type_process": getattr(initial_decoder, "type_process", "separate"),
                     "type_match_weight": None if initial_decoder.G1.feature_type else getattr(initial_decoder, "type_match_weight", 1.0),
-                    "type_objective": "shared_state_mse" if initial_decoder.G1.feature_type else "cross_entropy" if initial_decoder.generate_type else None,
+                    "type_objective": (
+                        initial_decoder.component_loss["components"]["type"]["kind"]
+                        if getattr(initial_decoder, "component_loss", None) is not None and initial_decoder.generate_type
+                        else "shared_state_mse" if initial_decoder.G1.feature_type
+                        else "cross_entropy" if initial_decoder.generate_type else None),
                     "type_prediction": "raw_state" if initial_decoder.G1.feature_type else "softmax" if initial_decoder.generate_type else None,
                     **initial_decoder.G1.type_noise_report(),
                     "flow_state_dim": initial_decoder.G1.model.m_delta_dim + (3 if initial_decoder.G1.joint_type else 0),

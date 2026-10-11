@@ -32,11 +32,13 @@ from torch_geometric.data import HeteroData
 
 from src.smart.diffusion.diffusion_utils import (
     get_closest_sum_idx_fast,
-    get_diff_loss,multi_circle_collision_loss_mem_efficient
+    get_diff_loss,multi_circle_collision_loss_mem_efficient,
+    compute_penetration, _within_batch_pairs,
 )
 from src.smart.utils import weight_init, wrap_angle
 import copy
 from .denoiser import InitDenoiser
+from .component_loss import ComponentLoss, heading_angle_residual
 from .ego_conditioning import EGO_FIELDS, resolve_ego_conditioning
 
 
@@ -223,6 +225,27 @@ class Flow(nn.Module):
             getattr(args, "branch_steps", None)
         )
         self.use_refiner = token_processor.use_refiner
+        loss_config = getattr(args, "component_loss", None)
+        self.component_loss = (None if loss_config is None else ComponentLoss(
+            loss_config, type_kind="mse" if self.feature_type else "ce",
+            heading_space="angle" if self.heading_x0_loss == "angle_mse" else "vector",
+            type_weight=self.type_loss_weight, heading_weight=self.heading_flow_loss_weight
+            if self.heading_objective == "angular_velocity" else 1.0,
+            speed_weight=self.speed_loss_weight,
+            speed_scale="data" if self.speed_loss_scale is None else self.speed_loss_scale,
+        ))
+        if self.component_loss is not None:
+            if self.use_sde or getattr(args, "use_rl", False) or self.use_refiner:
+                raise ValueError("component_loss requires supervised InitDiffusion without RL/refiner")
+            components = self.component_loss.config["components"]
+            if components["speed_magnitude"]["weight"] > 0 and self.velocity_representation != "vector":
+                raise ValueError("speed_magnitude requires vector velocity; scalar speed is already supervised by velocity")
+            if self.feature_type and components["type"]["kind"] == "ce":
+                raise ValueError("Feature type state requires type.kind=l1 or mse; CE needs a categorical head")
+            if components["collision"]["scale"] == "data":
+                raise ValueError("Collision has no saved penetration std; use scale=none or a physical numeric scale")
+            if (self.heading_objective == "angular_velocity" or self.component_loss.config["heading_space"] == "angle") and components["heading"]["scale"] == "data":
+                raise ValueError("Angular heading has no saved angular std; use scale=none or a numeric scale")
         if self.generate_type and (self.use_sde or self.use_refiner or getattr(args, "use_rl", False)):
             raise ValueError("generate_type supports supervised deterministic Flow; SDE/RL/refiner is unsupported")
         if not all(conditions[f"fix_ego_{field}"] for field in EGO_FIELDS[:4]) and (
@@ -878,6 +901,129 @@ class Flow(nn.Module):
                 metrics[name] = (pred_size - gt_size).abs().mean()
         return metrics
 
+    def _component_supervised_loss(self, x, x0, noise, time, fixed, tokenized_agent, prediction=None):
+        """Independent, active-agent component means; sampling remains unchanged."""
+        objective = self.component_loss
+        dim = self.model.m_delta_dim
+        active_time = torch.isfinite(time[:, 0]) & (time[:, 0] > 0) & (time[:, 0] < 1)
+        valid = (~fixed) & active_time[:, None]
+        size_valid = tokenized_agent.get("_init_diffusion_size_valid_mask")
+        if size_valid is None:
+            size_valid = torch.isfinite(x[:, 4:6])
+            if self.size_representation == "linear":
+                size_valid = size_valid & (x[:, 4:6] > 0)
+        valid = valid.clone()
+        valid[:, 4:6] &= size_valid
+        metrics, raw = {}, {}
+        contributions = []
+
+        def add(name, predicted, truth, mask, scale=None):
+            value, weighted = objective.regression(
+                name, predicted, truth, time, mask, scale=scale, t_eps=self.t_eps,
+            )
+            raw[name] = value
+            metrics[f"{name}_loss"] = value.detach()
+            metrics[f"{name}_weighted_loss"] = weighted.detach()
+            contributions.append(weighted)
+
+        for name, fields in (("position", slice(0, 2)), ("length", slice(4, 5)),
+                             ("width", slice(5, 6)), ("velocity", slice(6, dim))):
+            add(name, x0[:, fields], x[:, fields], valid[:, fields], self.model.normal_scale[:, fields])
+
+        if self.heading_objective == "angular_velocity":
+            theta0 = torch.atan2(x[:, 3], x[:, 2])
+            theta1 = torch.atan2(noise[:, 3], noise[:, 2])
+            heading_target = wrap_angle(theta1 - theta0)[:, None]
+            add("heading", prediction[:, self.model.feature_dim:self.model.feature_dim + 1],
+                heading_target, valid[:, 2:3])
+        elif objective.config["heading_space"] == "angle":
+            heading_valid = valid[:, 2:4].all(-1, keepdim=True)
+            # Mask before atan2 as well as before the regression operations.
+            clean_pair = torch.where(heading_valid, x[:, 2:4], torch.zeros_like(x[:, 2:4]))
+            predicted_pair = torch.where(heading_valid, x0[:, 2:4], torch.zeros_like(x0[:, 2:4]))
+            error = heading_angle_residual(predicted_pair, clean_pair)[:, None]
+            add("heading", error, torch.zeros_like(error), heading_valid)
+        else:
+            add("heading", x0[:, 2:4], x[:, 2:4], valid[:, 2:4], self.model.normal_scale[:, 2:4])
+
+        if self.generate_type:
+            labels = tokenized_agent["type"].long()
+            type_valid = ~self._conditioned_type_mask(tokenized_agent)
+            if self.feature_type:
+                type_raw, type_weighted = objective.regression(
+                    "type", x0[:, dim:], x[:, dim:], time, valid[:, dim:],
+                    scale=self._type_match_scale(x), t_eps=self.t_eps,
+                )
+                predicted_type = x0[:, dim:].detach().argmax(-1)
+            else:
+                logits = tokenized_agent["_init_diffusion_type_logits"]
+                type_raw, type_weighted = objective.categorical(
+                    logits, labels, time, type_valid, t_eps=self.t_eps,
+                )
+                predicted_type = logits.detach().argmax(-1)
+            active = type_valid & (time[:, 0] > 0) & (time[:, 0] < 1)
+            accuracy = ((predicted_type == labels) & active).sum().float() / active.sum().clamp_min(1)
+            tokenized_agent["_init_diffusion_type_metrics"] = {
+                "loss": type_raw.detach(), "weighted_loss": type_weighted.detach(),
+                "accuracy": accuracy.detach(),
+            }
+            metrics["type_loss"] = type_raw.detach()
+            metrics["type_weighted_loss"] = type_weighted.detach()
+            contributions.append(type_weighted)
+            ego = tokenized_agent["ego_mask"].bool()
+            if ego.any():
+                correct = (predicted_type == labels) | self._conditioned_type_mask(tokenized_agent)
+                tokenized_agent["_init_diffusion_ego_metrics"]["type_accuracy"] = correct[ego].float().mean().detach()
+
+        # Compute excess physical penetration directly. Unlike the legacy expm1
+        # penalty, this residual has metres as units and supports genuine L1/MSE.
+        if objective.config["components"]["collision"]["weight"] == 0:
+            # Do not evaluate ignored geometry (e.g. exp of unconstrained log sizes).
+            penetration = x0.new_zeros((0, 1))
+            pair_time = time.new_zeros((0, 1))
+        else:
+            # Fully fixed ego geometry remains a collision condition at t=0.
+            known_geometry = active_time | fixed[:, :6].all(-1)
+            rows = (size_valid.all(-1) & known_geometry).nonzero(as_tuple=True)[0]
+            physical_prediction = x0[rows, :dim]
+            physical_target = x[rows, :dim].detach()
+            if physical_prediction.dtype in (torch.float16, torch.bfloat16):
+                physical_prediction, physical_target = physical_prediction.float(), physical_target.float()
+            physical_prediction = self.model.state_to_physical(physical_prediction)
+            physical_target = self.model.state_to_physical(physical_target)
+            start, end = _within_batch_pairs(tokenized_agent["batch"][rows])
+            predicted_penetration = compute_penetration(physical_prediction, start, end)
+            with torch.no_grad():
+                allowed = compute_penetration(physical_target, start, end).clamp_min(0)
+            penetration = (predicted_penetration - allowed).clamp_min(0)[:, None]
+            pair_time = torch.maximum(time[rows[start]], time[rows[end]])
+        collision_raw, collision = objective.regression(
+            "collision", penetration, torch.zeros_like(penetration), pair_time,
+            torch.ones_like(penetration, dtype=torch.bool), t_eps=self.t_eps,
+        )
+        metrics["collision_loss"] = collision_raw.detach()
+        metrics["collision_weighted_loss"] = collision.detach()
+        if objective.config["components"]["speed_magnitude"]["weight"] > 0:
+            magnitude_valid = valid[:, 6:8].all(-1, keepdim=True)
+            predicted_velocity = torch.where(magnitude_valid, x0[:, 6:8], torch.zeros_like(x0[:, 6:8]))
+            target_velocity = torch.where(magnitude_valid, x[:, 6:8].detach(), torch.zeros_like(x[:, 6:8]))
+            if predicted_velocity.dtype in (torch.float16, torch.bfloat16):
+                predicted_velocity, target_velocity = predicted_velocity.float(), target_velocity.float()
+            mean = self.model.normal_mean[0, 6:8].detach()
+            std = self.model.normal_scale[0, 6:8].detach()
+            magnitude_scale = (mean.square() + std.square()).sum().sqrt().clamp_min(1.)
+            add("speed_magnitude", torch.linalg.vector_norm(predicted_velocity, dim=-1, keepdim=True),
+                torch.linalg.vector_norm(target_velocity, dim=-1, keepdim=True),
+                magnitude_valid, magnitude_scale)
+            tokenized_agent["_init_diffusion_speed_metrics"] = {
+                "loss": raw["speed_magnitude"].detach(),
+                "weighted_loss": metrics["speed_magnitude_weighted_loss"],
+                "scale": magnitude_scale.detach(),
+            }
+        total = sum(contributions)
+        tokenized_agent["_init_diffusion_component_metrics"] = metrics
+        return total, collision, raw["position"], raw["heading"], (raw["length"] + raw["width"]) / 2, raw["velocity"]
+
     def _supervised_loss(
         self,
         x: Tensor,
@@ -885,6 +1031,7 @@ class Flow(nn.Module):
         map_feature: Mapping[str, Tensor],
     ):
         tokenized_agent.pop("_init_diffusion_ego_metrics", None)
+        tokenized_agent.pop("_init_diffusion_component_metrics", None)
         tokenized_agent.pop("_init_diffusion_speed_metrics", None)
         tokenized_agent.pop("_init_diffusion_type_metrics", None)
         tokenized_agent.pop("_init_diffusion_type_logits", None)
@@ -922,6 +1069,11 @@ class Flow(nn.Module):
         tokenized_agent["_init_diffusion_ego_metrics"] = self._ego_l1_metrics(
             x0, x, tokenized_agent,
         )
+        if getattr(self, "component_loss", None) is not None:
+            return self._component_supervised_loss(
+                x, x0, noise, time, fixed, tokenized_agent,
+                prediction if self.heading_objective == "angular_velocity" else None,
+            )
 
         loss_options = {}
         if self.heading_x0_loss == "angle_mse":
@@ -1446,6 +1598,7 @@ class Flow(nn.Module):
     ) -> Tensor:
 
         tokenized_agent.pop("_init_diffusion_ego_metrics", None)
+        tokenized_agent.pop("_init_diffusion_component_metrics", None)
         agent_batch = tokenized_agent[
             "batch"
         ].long()

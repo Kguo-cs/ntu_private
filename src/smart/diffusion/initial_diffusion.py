@@ -74,6 +74,7 @@ class InitDiffusion(nn.Module):
         fix_ego_type: Optional[bool] = None,
         heading_x0_loss: str = "vector_mse",
         ego_context_heading_encoding: str = "angle",
+        component_loss: Optional[Mapping[str, Any]] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -167,7 +168,9 @@ class InitDiffusion(nn.Module):
         args.heading_objective = heading_objective
         args.heading_flow_loss_weight = self.heading_flow_loss_weight
         self.heading_x0_loss = args.heading_x0_loss = heading_x0_loss
+        args.component_loss = component_loss
         self.G1 = Flow(args, token_processor, gail)
+        self.component_loss = self.G1.component_loss.config if self.G1.component_loss is not None else None
         if map_embedding_type == "scenario_dreamer" and (map_id_source == "metadata" or map_lg_type is None):
             # Forward labels even in the generic Init path where the separate
             # scenario_dreamer_init tokenization flag is disabled.
@@ -210,6 +213,7 @@ class InitDiffusion(nn.Module):
     def get_extra_state(self):
         return {
             "size_representation": self.size_representation,
+            "component_loss": self.component_loss,
             "generate_type": self.generate_type,
             "type_process": self.type_process,
             "type_match_weight": self.type_match_weight,

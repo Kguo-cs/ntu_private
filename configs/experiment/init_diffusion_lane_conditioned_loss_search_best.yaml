@@ -1,0 +1,61 @@
+# @package _global_
+# Tested warm-start recipe and 128-step stopping point; see the search report.
+defaults:
+  - init_diffusion_lane_conditioned_mixed_loss
+  - _self_
+
+#action: finetune
+task_name: init_diffusion_lane_conditioned_loss_search_best
+seed: 2817
+paths:
+  root_dir: ${sim_root:}/src
+#ckpt_path: ${sim_root:}/src/logs/sdinit512_tspeed_theta_posscale_egoVFtypeemd50/2026-10-09_19-24-16/bc/scy2l1f4/checkpoints/last.ckpt
+
+model:
+  model_config:
+    optimizer: default
+#    lr: 0.00002
+#    lr_total_steps: 128
+    token_processor:
+      init_map_crop: square
+      init_map_half_extent: 50.0
+    sd_reference_mode: matched
+    decoder:
+      init_diffusion:
+        component_loss:
+          normalize_time_weights: true
+          std_floor: 0.1
+          heading_space: angle
+          components:
+            position: {kind: l1, time_power: 1, weight: 4.0, scale: data}
+            heading: {kind: mse, time_power: 2, weight: 1.0, scale: none}
+            length: {kind: mse, time_power: 1, weight: 1.0, scale: data}
+            width: {kind: mse, time_power: 2, weight: 1.0, scale: data}
+            velocity: {kind: mse, time_power: 1, weight: 2.0, scale: data}
+            type: {kind: ce, time_power: 0, weight: 1.0, scale: none}
+            collision: {kind: l1, time_power: 1, weight: 5.0, scale: none}
+#
+#data:
+#  train_batch_size: 64
+#  val_batch_size: 128
+#  test_batch_size: 128
+#  num_workers: 0
+#  persistent_workers: false
+#  shuffle: false
+#  scenario_dreamer_train_sample_list: ${sim_root:}/logs/component_loss_quick/confirmation_seed${seed}/train_files.pkl
+#  scenario_dreamer_eval_set: ${sim_root:}/logs/component_loss_quick/confirmation_seed${seed}/eval_files.pkl
+#
+#trainer:
+#  precision: 32-true
+#  max_epochs: 128
+#  max_steps: 128
+#  gradient_clip_val: 0.5
+#  limit_val_batches: 0
+#  num_sanity_val_steps: 0
+#
+#callbacks:
+#  model_checkpoint:
+#    monitor: null
+#    save_top_k: 1
+#    save_on_train_epoch_end: true
+#    filename: loss-search-{epoch}-{step}

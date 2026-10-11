@@ -1,0 +1,24 @@
+# @package _global_
+# First mixed-loss candidate; weights assume normalized residuals/time weights.
+defaults:
+  - init_diffusion_lane_conditioned
+  - _self_
+
+task_name: init_diffusion_lane_conditioned_mixed_loss
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        component_loss:
+          normalize_time_weights: true
+          std_floor: 0.1
+          heading_space: vector  # Retain current cos/sin prediction and sampling.
+          components:
+            position: {kind: l1, time_power: 1, weight: 1.0, scale: data}
+            heading: {kind: l1, time_power: 1, weight: 2.0, scale: none}
+            length: {kind: mse, time_power: 2, weight: 1.0, scale: data}
+            width: {kind: mse, time_power: 2, weight: 1.0, scale: data}
+            velocity: {kind: mse, time_power: 2, weight: 1.0, scale: data}
+            type: {kind: ce, time_power: 0, weight: 1.0, scale: none}
+            collision: {kind: l1, time_power: 1, weight: 0.1, scale: none}

@@ -1,0 +1,22 @@
+{
+  "native_evaluation": {
+    "scenes": 128,
+    "passed": true,
+    "selected_checkpoint": "/home/ke/code/sim/logs/component_loss_quick/confirmation_seed2817/angle_mse_128/last.ckpt",
+    "log": "logs/component_loss_quick/native_entry_smoke/console.log",
+    "excluded_from_ranking": true
+  },
+  "native_training": {
+    "optimizer_steps": 1,
+    "passed": true,
+    "saved_checkpoint": "/home/ke/code/sim/logs/component_loss_quick/native_train_smoke/lightning_logs/version_0/checkpoints/last.ckpt",
+    "ema_num_updates": 34705,
+    "log": "logs/component_loss_quick/native_train_smoke/console.log",
+    "excluded_from_search_count_and_ranking": true
+  },
+  "callback": {
+    "monitor": null,
+    "save_top_k": 1,
+    "save_on_train_epoch_end": true
+  }
+}

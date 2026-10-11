@@ -1,0 +1,21 @@
+# @package _global_
+defaults:
+  - init_diffusion_lane_conditioned_loss_search_best
+  - _self_
+
+action: test
+task_name: init_diffusion_lane_conditioned_loss_search_best_eval
+ckpt_path: ${sim_root:}/logs/component_loss_quick/confirmation_seed2817/angle_mse_128/last.ckpt
+
+model:
+  model_config:
+    sd_require_full_set: true
+    decoder:
+      init_diffusion:
+        use_ema: false  # The search ranks online weights; saved EMA is audited separately.
+
+data:
+  scenario_dreamer_eval_set: null
+
+trainer:
+  limit_test_batches: 1.0

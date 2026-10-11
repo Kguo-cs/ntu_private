@@ -253,6 +253,11 @@ class SMART_GAIL(SMART):
         for name, value in metrics.items():
             self._log_train(f"train/{name}", _safe_mean(value, reference))
 
+        component_metrics = agent.get("_init_diffusion_component_metrics")
+        if component_metrics is not None:
+            for name, value in component_metrics.items():
+                self._log_train(f"train/component/{name}", _safe_mean(value, reference))
+
         ego_metrics = agent.get("_init_diffusion_ego_metrics")
         if ego_metrics is not None:
             for name, value in ego_metrics.items():

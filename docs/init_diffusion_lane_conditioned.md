@@ -2,6 +2,8 @@
 
 [训练配置](../configs/experiment/init_diffusion_lane_conditioned.yaml)使用已有的 `init_decoder=flow`（`InitDiffusion`），复用 SMART 的训练器、损失和采样器。训练读取 `src/waymo_data/full/training_map2_sd`，验证和测试读取 `src/waymo_data/full/scenario_dreamer_val`。
 
+[逐分量 loss 配置与推荐组合](init_diffusion_component_loss.md)支持每项独立选择 L1/MSE、时间权重 power 和系数；默认 `component_loss: null` 保留当前训练行为。[实际 loss 搜索报告](init_diffusion_loss_search_20261011.md)包含短训练、多 seed 确认与 tested-best 配置；其 ego/type 条件、地图范围和训练长度以报告为准。
+
 ## 运行
 
 以下命令均在 `/home/ke/code/sim` 执行，使用现有 `sim` 环境。运行入口显式设置 `paths.root_dir=/home/ke/code/sim/src`，以匹配现有数据和权重目录。
