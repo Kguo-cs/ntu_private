@@ -7,7 +7,7 @@ defaults:
   - init_diffusion_lane_conditioned_frozen_map
   - _self_
 
-task_name: init_diffusion_lane_conditioned_frozen_map_current_best
+task_name: init512_diffusion_lane_conditioned_frozen_map_current_best
 
 model:
   model_config:
@@ -28,5 +28,5 @@ model:
             velocity:
               weight: 4.0
 
-data:
-  train_batch_size: 256
+#data:
+#  train_batch_size: 256
