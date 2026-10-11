@@ -545,7 +545,7 @@ def get_diff_loss(
 
     if not use_l1:
        # weight=weight#.square()#*weight #.square()
-        weight = weight.square(3)
+        weight = weight.square()
         #weight=weight.clamp_max(1000)
 
     if use_match:
