@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-10-11T10:47:31.214324+00:00",
+  "source_map_checkpoint": "src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+  "source_map_sha256": "610c1f94a0f573fd078e251af37c38c73255b969e52154e66546588996ef99fb",
+  "initialization": "only map checkpoint loaded, strictly all map tensors; map eval/frozen; G1/optimizer/scheduler/EMA fresh",
+  "data": "full training_map2_sd seeded full order; native scenario_dreamer_val matched metrics",
+  "conditions": "same fixed GT ego pose/shape/type and generated ego speed; generated non-ego type, reference full lanes; square50 SMART map conditioning; x0 objective retained",
+  "normalizer": "same old TRAIN-only8192, no checkpoint stats",
+  "primary_control": "new_control (previous scratch selected recipe + fixed pretrained map)",
+  "secondary_control": "old_control",
+  "phase1": {
+    "arms": [
+      "new_control",
+      "old_control",
+      "col10",
+      "col5",
+      "shape4",
+      "speed4",
+      "width4",
+      "heading_mse1",
+      "heading_p0",
+      "heading_p2",
+      "shape_p2",
+      "speed_p0",
+      "pos16",
+      "pos_l1_16"
+    ],
+    "batch": 512,
+    "lr": 0.0005,
+    "steps": 512,
+    "checkpoint_steps": [
+      128,
+      256
+    ],
+    "eval_scenes": 1024,
+    "primary_weights": "EMA",
+    "train_seed": 817,
+    "generation_seed": 2817,
+    "early128_role": "failure/stability diagnostic only; no early pruning",
+    "selected4_continuation_budget": 768,
+    "loss_interaction_rule": "Fresh shape_p2_speed4 to768 only if both512 individual arms eligible and R<0.98. Record before combination evaluation; included as potential phase2 anchor."
+  },
+  "phase2": {
+    "role": "adaptive current-loss anchor; LR/batch/source/embedding/log representation one-factor alternatives",
+    "fresh_models": 11,
+    "equal_exposure_to_phase1": 393216,
+    "one_or_two_combinations_only_after_single_factor_evidence": true,
+    "parameter_names": [
+      "lr2e4",
+      "lr1e3",
+      "optimizer_sd",
+      "batch256",
+      "shape_uniform",
+      "speed_uniform",
+      "size_log",
+      "edge_mlp",
+      "ego_sincos",
+      "count_embedding",
+      "clip2"
+    ],
+    "equal_exposure_to_phase1_extended": 393216,
+    "note": "Eleven effective single factors includingoptimizer,clip andsincos. No frequency/capacity or sigma_h placebo scan.",
+    "count_embedding_limits": {
+      "agents": 128,
+      "lanes": 4096,
+      "reason": "Raw map maximum2103 in TRAIN8192 and1879 across validation50k. Crop only removes tokens. WholeTRAIN493542 bound not established. Retain default agent limit; expand lane vocabulary before arm runs."
+    },
+    "clip2_reason": "First completed512-step arms have measured clipfraction1.0 atthreshold0.5; singlefactorclip2 checksoptimization interaction."
+  },
+  "long_forecast": {
+    "fresh_main_models": "baseline and top2 non-equivalent candidates, B512 unless a batch intervention wins",
+    "steps": 4096,
+    "intermediate_steps": [
+      1024,
+      2048,
+      3072
+    ],
+    "control_always_retrained": "new_control",
+    "confirmation_training_seeds": [
+      817,
+      1817,
+      2817
+    ],
+    "confirmation_generation_seeds": [
+      2817,
+      3817
+    ],
+    "manifest": "confirmation4096_files.json",
+    "validation_not_untouched_test": true,
+    "candidate_count": 3
+  },
+  "score": {
+    "primary_relative_R": "First mean GEN within each TRAIN, then equally mean TRAIN per metric; R = mean7(candidate arm metric means / max(control arm metric means,1e-6)). Paired TRAIN R mean/SD is secondary only.",
+    "secondary_legacy_S_scales": {
+      "nearest_dist_jsd": 1,
+      "lat_dev_jsd": 1,
+      "ang_dev_jsd": 10,
+      "length_jsd": 20,
+      "width_jsd": 15,
+      "speed_jsd": 20,
+      "collision_rate": 5
+    },
+    "eligibility": {
+      "road": "control minus0.02 fraction",
+      "vehicle_ratio": [
+        0.9,
+        1.1
+      ],
+      "length_width_speed": "each <=1.15 times control"
+    },
+    "decision": "minimum R eligible; if none improves control retain control and document Pareto tradeoff; freeze finalist recipe before independent seeds; final50k does not reselect",
+    "note": "R and S are auxiliary research scores, not paper metrics; no global128epoch optimum guarantee"
+  },
+  "source_git_commit": "3f9138af933bca752c422933ea141a0df66302c6",
+  "worker_benchmark": "Excluded pilot: workers2 at128 exact tensor+EMA state comparison against phase1; choose2 only if bitwise identical and faster; otherwise keep0.",
+  "controller_sha256": "df8e19bd19bd5ce3c7ece84bb309a6eb57f269617e95909e5486e336dcbcfee8",
+  "controller_restart_policy": "Only exactargv verifiedsuccessful durable stages may skip; partialfailed stages requiremanual checkpoint recovery, never silentreplay."
+}

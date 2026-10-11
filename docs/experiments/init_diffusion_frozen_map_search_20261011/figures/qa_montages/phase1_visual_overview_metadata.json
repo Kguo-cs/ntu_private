@@ -1,0 +1,60 @@
+{
+  "created_utc": "2026-10-11T11:30:24.331407+00:00",
+  "purpose": "Raster contact sheets for visual QA; no PDF creation or completion claim",
+  "full_resolution_individual_inspection_required": true,
+  "sources": [
+    {
+      "ordinal": 1,
+      "path": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_relative_metrics.png",
+      "filename": "phase1_relative_metrics.png",
+      "sha256": "d23d06edad1677a9541cadd4a25aa16c09ae5e6542caeee0b98267ea94bc04ae",
+      "width": 2541,
+      "height": 1481,
+      "format": "PNG",
+      "mode": "RGBA"
+    }
+  ],
+  "sheets": [
+    {
+      "path": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/qa_montages/phase1_visual_overview_01.png",
+      "sha256": "c282a452dc9f9b585b85bde4e816f1e688900ed53c891a3b4e2efef92e0bdf44",
+      "width": 1436,
+      "height": 1212,
+      "placements": [
+        {
+          "ordinal": 1,
+          "source_path": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_relative_metrics.png",
+          "cell_xyxy": [
+            18,
+            84,
+            1418,
+            1134
+          ],
+          "image_xyxy": [
+            36,
+            172,
+            1400,
+            967
+          ],
+          "rendered_labels": [
+            "001  phase1_relative_metrics.png"
+          ],
+          "source_aspect_ratio": 1.7157326130992572,
+          "source_pixels_cropped": false
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "columns": 1,
+    "max_rows_per_sheet": 1,
+    "cell_width": 1400,
+    "cell_height": 1050,
+    "gap": 18,
+    "font_size": 24,
+    "font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "upscale": false,
+    "preserve_aspect_ratio": true,
+    "crop_sources": false
+  }
+}

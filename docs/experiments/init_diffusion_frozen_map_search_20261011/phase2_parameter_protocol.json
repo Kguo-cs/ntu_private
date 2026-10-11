@@ -1,0 +1,61 @@
+{
+  "anchor": "shape_p2_speed4",
+  "parameters": {
+    "lr2e4": {
+      "lr": 0.0002
+    },
+    "lr1e3": {
+      "lr": 0.001
+    },
+    "clip2": {
+      "clip": 2.0
+    },
+    "optimizer_sd": {
+      "config": {
+        "model.model_config.optimizer": "scenario_dreamer",
+        "model.model_config.lr_warmup_steps": 0
+      }
+    },
+    "shape_uniform": {
+      "config": {
+        "model.model_config.decoder.init_diffusion.shape_source": "uniform"
+      }
+    },
+    "speed_uniform": {
+      "config": {
+        "model.model_config.decoder.init_diffusion.velocity_source": "uniform"
+      }
+    },
+    "edge_mlp": {
+      "config": {
+        "model.model_config.decoder.init_diffusion.edge_embedding_type": "mlp"
+      }
+    },
+    "ego_sincos": {
+      "config": {
+        "model.model_config.decoder.init_diffusion.ego_context_heading_encoding": "sincos"
+      }
+    },
+    "count_embedding": {
+      "config": {
+        "model.model_config.decoder.init_diffusion.count_embedding_type": "scenario_dreamer",
+        "model.model_config.decoder.init_diffusion.count_max_num_agents": 128,
+        "model.model_config.decoder.init_diffusion.count_max_num_lanes": 4096
+      }
+    },
+    "size_log": {
+      "config": {
+        "model.model_config.decoder.init_diffusion.size_representation": "log"
+      },
+      "normalizer": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/calibration_log_speed/normalizer.json"
+    },
+    "batch256": {
+      "batch": 256
+    }
+  },
+  "target_training_exposure": 393216,
+  "primary_budget512": 768,
+  "budget256": 1536,
+  "all_from_fresh_G1": true,
+  "normalizers_share_TRAIN8192_manifest": true
+}

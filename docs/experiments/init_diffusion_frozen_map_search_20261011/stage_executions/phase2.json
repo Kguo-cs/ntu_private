@@ -1,0 +1,62 @@
+{
+  "stage": "phase2",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "512",
+    "--scenes",
+    "1024",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "0",
+    "--seed",
+    "817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--steps",
+    "768",
+    "--checkpoint-steps",
+    "256,512",
+    "--lr",
+    "0.0002",
+    "--recipe",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/phase2_recipe.json",
+    "--variant-file",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/phase2_variants.json",
+    "--variants",
+    "lr2e4,lr1e3,clip2,optimizer_sd,shape_uniform,speed_uniform,edge_mlp,ego_sincos,count_embedding",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/phase2"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/phase2",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_phase2.log",
+  "controller_pid": 282682,
+  "started_unix": 1791719244.3175972,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 343246,
+  "ended_unix": 1791721850.046878,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/phase2/protocol.json",
+      "sha256": "52dcbb2e355b3cb3e72ac1486882c3d5de868d909ddbd9b391f0d226f19a8219"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/phase2/summary.json",
+      "sha256": "ecf7cf491ed15cd475368b66fd522e9e70ac527f21bd36a1b6994bfffc1edb36"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_phase2.log",
+      "sha256": "a6d23843cfbe94f7aabe4bac5f0df38168f3a3dbb07ced079146a356ea2a0489"
+    }
+  },
+  "last_verified_unix": 1791721850.0515692
+}

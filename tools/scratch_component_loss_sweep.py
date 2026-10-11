@@ -1,9 +1,11 @@
-"""Train InitDiffusion and its map encoder from random weights, then evaluate.
+"""Train a fresh InitDiffusion, then evaluate using the repository pipeline.
 
 Uses the repository's Lightning model, datamodule and Scenario Dreamer evaluator.
 Training statistics must come from a separate training-only calibration pass.
 All arms share a seeded full training order. Continuations restore optimizer,
 scheduler, EMA and RNG state and start after previously consumed examples.
+By default the map is also random/trainable. --map-checkpoint instead loads
+only the strict map state and freezes it; it never resumes the source model.
 """
 from __future__ import annotations
 
@@ -34,6 +36,19 @@ from omegaconf import OmegaConf, open_dict
 
 from tools.quick_component_loss_sweep import Diagnostics, save_json, summarize_trace
 
+SEARCH_CONFIG_KEYS = {
+    "model.model_config.optimizer", "model.model_config.lr",
+    "model.model_config.lr_warmup_steps", "model.model_config.lr_min_ratio",
+    *{"model.model_config.decoder.init_diffusion." + key for key in (
+        "edge_embedding_type", "time_embedding_type", "time_embedding_scale",
+        "count_embedding_type", "count_lane_source", "count_max_num_agents",
+        "count_max_num_lanes", "ego_context_heading_encoding",
+        "size_representation", "velocity_representation", "invalid_size_policy",
+        "pos_source", "shape_source", "velocity_source", "speed_loss_weight",
+        "speed_loss_scale", "ema_decay",
+    )},
+}
+
 
 def hash_file(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -61,7 +76,7 @@ def apply_variant(loss, changes):
     if changes is None:
         return None
     for name, value in changes.items():
-        if name == "__lr":
+        if name in ("__lr", "__config", "__clip"):
             continue
         if name in ("heading_space", "std_floor", "normalize_time_weights"):
             loss[name] = value
@@ -143,6 +158,8 @@ def parser_for_cli():
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--eval-batch-size", type=int, default=128)
     parser.add_argument("--workers", type=int, default=0)
+    parser.add_argument("--sharing-strategy", choices=("file_descriptor", "file_system"),
+                        help="Optional explicit Torch CPU-tensor worker sharing strategy")
     parser.add_argument("--seed", type=int, default=817)
     parser.add_argument("--eval-seed", type=int, default=2817)
     parser.add_argument("--extra-eval-seed", type=int)
@@ -151,6 +168,9 @@ def parser_for_cli():
                         help="JSON filename list (or {files: [...]}); overrides the sorted slice")
     parser.add_argument("--train-offset", type=int, default=0, help="Initial offset in seeded full order")
     parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--gradient-clip", type=float, default=0.5)
+    parser.add_argument("--map-checkpoint", type=Path,
+                        help="Strict map-only startup; frozen map, fresh generator/optimizer/EMA")
     parser.add_argument("--variants", default="mixed")
     parser.add_argument("--variant-file", type=Path)
     parser.add_argument("--recipe", type=Path)
@@ -171,6 +191,8 @@ def parser_for_cli():
 def main():
     parser = parser_for_cli()
     args = parser.parse_args()
+    if args.sharing_strategy is not None:
+        torch.multiprocessing.set_sharing_strategy(args.sharing_strategy)
     evaluation_modes = ({"online": [False], "ema": [True], "both": [False, True]}[args.evaluation_weights]
                         if args.evaluation_weights else ([False, True] if args.evaluate_ema else [False]))
     variants = json.loads(args.variant_file.read_text()) if args.variant_file else {"mixed": {}}
@@ -187,6 +209,8 @@ def main():
         parser.error("Offsets and workers must be nonnegative")
     if not 0 < args.lr < 1:
         parser.error("Learning rate must be in (0,1)")
+    if not 0 < args.gradient_clip < 1000:
+        parser.error("Gradient clip must be in (0,1000)")
     checkpoint_steps = sorted({int(step) for step in args.checkpoint_steps.split(",") if step})
     if any(step <= 0 or step > args.steps for step in checkpoint_steps):
         parser.error("Checkpoint steps must be positive and at most --steps")
@@ -233,7 +257,9 @@ def main():
         cfg.paths.root_dir = str(ROOT / "src")
         cfg.paths.output_dir = str(output)
         cfg.paths.log_dir = str(output)
-        cfg.model.model_config.finetune = False
+        cfg.model.model_config.finetune = args.map_checkpoint is not None
+        if args.map_checkpoint:
+            cfg.model.model_config.initial_map_checkpoint = str(args.map_checkpoint.resolve())
         cfg.model.model_config.lr = args.lr
         cfg.model.model_config.lr_total_steps = 128
         if args.recipe:
@@ -255,11 +281,18 @@ def main():
     OmegaConf.resolve(cfg)
     torch.set_float32_matmul_precision(cfg.float32_matmul_precision)
     torch.set_num_threads(4)
-    metadata = {"initialization": "random map encoder + G1", "seed": args.seed,
+    initialization_scope = ("frozen_pretrained_map_fresh_G1" if args.map_checkpoint
+                            else "map_encoder_and_G1_from_scratch")
+    metadata = {"initialization": ("frozen pretrained map + random G1" if args.map_checkpoint
+                                   else "random map encoder + G1"), "seed": args.seed,
                 "batch_size": args.batch_size, "base_train_offset": args.train_offset,
                 "train_order_sha256": order_hash, "calibration_sha256": hash_file(args.normalizer_json)}
+    if args.map_checkpoint:
+        metadata.update(map_checkpoint=str(args.map_checkpoint.resolve()),
+                        map_checkpoint_sha256=hash_file(args.map_checkpoint),
+                        map_frozen=True)
     protocol = {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()}
-    protocol.update(metadata, initialization_scope="map_encoder_and_G1_from_scratch",
+    protocol.update(metadata, initialization_scope=initialization_scope,
                     eval_manifest_sha256=eval_hash, map_crop="square", map_half_extent=50.0,
                     reference_mode="matched", evaluation_weight_modes=["ema" if mode else "online" for mode in evaluation_modes],
                     optimizer="AdamW fresh or continued",
@@ -332,18 +365,33 @@ def main():
         source_checkpoint = Path(eval_map.get(name, resume_map.get(name, ""))) if name in eval_map or name in resume_map else None
         checkpoint = torch.load(source_checkpoint, map_location="cpu", weights_only=False) if source_checkpoint else None
         saved_step = int(checkpoint["global_step"]) if checkpoint else 0
+        clip = args.gradient_clip
         with open_dict(arm_cfg):
             arm_cfg.paths.output_dir = str(folder)
             if source_checkpoint and (source_checkpoint.parent / "config.yaml").is_file():
                 source_cfg = OmegaConf.load(source_checkpoint.parent / "config.yaml")
-                source_loss = source_cfg.model.model_config.decoder.init_diffusion.component_loss
-                arm_cfg.model.model_config.decoder.init_diffusion.component_loss = copy.deepcopy(source_loss)
-                arm_cfg.model.model_config.lr = source_cfg.model.model_config.lr
+                # Restore all model settings, including representation, edge
+                # embeddings and optimizer recipe, for exact continuation.
+                arm_cfg.model = copy.deepcopy(source_cfg.model)
+                # Evaluation membership strictness belongs to the current
+                # invocation, not the training checkpoint's monitoring scope.
+                arm_cfg.model.model_config.sd_reference_mode = "matched"
+                arm_cfg.model.model_config.sd_require_full_set = args.require_full_set
+                clip = float(source_cfg.trainer.get("gradient_clip_val", args.gradient_clip))
             elif name not in eval_map:
                 arm_cfg.model.model_config.decoder.init_diffusion.component_loss = apply_variant(
                     arm_cfg.model.model_config.decoder.init_diffusion.component_loss, variants[name])
                 if variants[name] is not None and "__lr" in variants[name]:
                     arm_cfg.model.model_config.lr = float(variants[name]["__lr"])
+                if variants[name] is not None:
+                    clip = float(variants[name].get("__clip", clip))
+                    for key, value in variants[name].get("__config", {}).items():
+                        if key not in SEARCH_CONFIG_KEYS:
+                            raise ValueError(f"Variant __config field is not an authorized search parameter: {key}")
+                        OmegaConf.update(arm_cfg, key, value, force_add=False)
+            if not 0 < clip < 1000:
+                raise ValueError("Variant gradient clip must be in (0,1000)")
+            arm_cfg.trainer.gradient_clip_val = clip
         offset = (args.train_offset if name in eval_map else
                   args.train_offset + saved_step * args.batch_size)
         arm_train = train_order[offset:]
@@ -356,7 +404,15 @@ def main():
         model = hydra.utils.instantiate(arm_cfg.model, _recursive_=False)
         initial_hashes = {"initial_generator_sha256": weights_hash(model, "encoder.init_decoder.G1."),
                           "initial_map_sha256": weights_hash(model, "encoder.map_encoder.")}
-        if not all(parameter.requires_grad for parameter in model.encoder.map_encoder.parameters()):
+        if args.map_checkpoint:
+            if model.initial_map_checkpoint_metadata["file_sha256"] != metadata["map_checkpoint_sha256"]:
+                raise ValueError("Actual fixed map source differs from the invocation protocol")
+            if any(parameter.requires_grad for parameter in model.encoder.map_encoder.parameters()):
+                raise ValueError("Pretrained map must remain frozen")
+            model.train()
+            if model.encoder.map_encoder.training:
+                raise ValueError("Frozen pretrained map must stay in evaluation mode")
+        elif not all(parameter.requires_grad for parameter in model.encoder.map_encoder.parameters()):
             raise ValueError("Scratch map encoder unexpectedly frozen")
         if not all(parameter.requires_grad for parameter in model.encoder.init_decoder.G1.parameters()):
             raise ValueError("Scratch generator unexpectedly frozen")
@@ -377,9 +433,13 @@ def main():
             resume_rng = checkpoint.get("scratch_sweep_rng")
             if name in resume_map and resume_rng is None:
                 raise ValueError("Scratch continuation requires recorded training RNG state")
+        frozen_map_hash = weights_hash(model, "encoder.map_encoder.") if args.map_checkpoint else None
+        if args.map_checkpoint and initial_hashes["initial_map_sha256"] != frozen_map_hash:
+            raise ValueError("Saved training checkpoint changed the fixed source map")
         initialization = dict(metadata, **initial_hashes, train_manifest_sha256=train_hash,
                               eval_manifest_sha256=eval_hash, lr=float(arm_cfg.model.model_config.lr),
-                              initialization_scope="map_encoder_and_G1_from_scratch",
+                              gradient_clip_val=clip,
+                              initialization_scope=initialization_scope,
                               actual_train_offset=None if name in eval_map else offset,
                               resumed_from=str(source_checkpoint) if source_checkpoint else None,
                               resume_global_step=saved_step, optimizer_continued=name in resume_map,
@@ -395,7 +455,7 @@ def main():
                 raise ValueError("Continuation checkpoint must precede requested final --steps")
             trainer = L.Trainer(accelerator="gpu", devices=1, precision="32-true", max_epochs=128,
                                 max_steps=args.steps, limit_val_batches=0, num_sanity_val_steps=0,
-                                gradient_clip_val=0.5, enable_checkpointing=False, enable_model_summary=False,
+                                gradient_clip_val=clip, enable_checkpointing=False, enable_model_summary=False,
                                 enable_progress_bar=False, log_every_n_steps=1,
                                 logger=CSVLogger(str(folder), name="csv"), default_root_dir=str(folder),
                                 callbacks=[diagnostic])
@@ -404,6 +464,11 @@ def main():
             train_seconds = time.monotonic() - started
             if trainer.global_step != args.steps:
                 raise ValueError(f"Training stopped at {trainer.global_step}, expected {args.steps}")
+            if args.map_checkpoint:
+                if weights_hash(model, "encoder.map_encoder.") != frozen_map_hash:
+                    raise ValueError("Frozen map state changed during training")
+                if any(parameter.grad is not None for parameter in model.encoder.map_encoder.parameters()):
+                    raise ValueError("Frozen map unexpectedly accumulated gradients")
             # Preserve the post-update batch-end checkpoint. Lightning advances
             # epoch schedulers at actual loader boundaries, before this hook.
             # Fit teardown can mark an unfinished epoch as processed; retaining
@@ -413,7 +478,11 @@ def main():
                              if saved_step < step <= args.steps and step != args.steps]
             trained_paths.append((args.steps, folder / "last.ckpt"))
             save_json(folder / "train_trace.json", diagnostic.records)
-            save_json(folder / "train_summary.json", summarize_trace(diagnostic.records))
+            trace_summary = summarize_trace(diagnostic.records)
+            trace_summary.update(gradient_clip_val=clip,
+                                 clip_fraction=float(np.mean([row["grad_norm_before_clip"] > clip
+                                                             for row in diagnostic.records])))
+            save_json(folder / "train_summary.json", trace_summary)
             del trainer
         else:
             trained_paths = [(saved_step, source_checkpoint)]

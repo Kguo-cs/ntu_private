@@ -1,0 +1,1504 @@
+{
+  "status": "ELIGIBLE_CONFIG_AND_METADATA_PENDING_FROZEN_2048_CHECKPOINT",
+  "no_gpu_or_modelweights_loaded": true,
+  "comparison_selection_role": "NONE; optional descriptive map-policy audit only",
+  "old_random_map_models": [
+    {
+      "folder": "logs/component_loss_scratch/batch512_seed817/warm_winner",
+      "checkpoint2048": "logs/component_loss_scratch/batch512_seed817/warm_winner/step_2048.ckpt",
+      "checkpoint2048_exists": true,
+      "seed": 817,
+      "train_batch_size": 512,
+      "learning_rate": 0.0005,
+      "train_order_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+      "train_manifest_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_generator_sha256": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+      "initial_map_sha256": "320e3be3890f9390d3d6cd71e947e14ac2d318083d718c11f1ef9f120c0223ea",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "map_checkpoint_sha256": null,
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 4,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 1,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 5,
+            "scale": "none"
+          }
+        }
+      },
+      "canonical_component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 4,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 1,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 5,
+            "scale": "none"
+          }
+        }
+      },
+      "optimizer": "default",
+      "optimizer_settings": {
+        "lr": 0.0005,
+        "lr_warmup_steps": 0,
+        "lr_total_steps": 128,
+        "lr_min_ratio": 0.05
+      },
+      "clip": 0.5,
+      "precision": "32-true",
+      "float32_matmul_precision": "medium",
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "reference_mode": "matched",
+      "ema_decay": 0.9999,
+      "sep_map": false,
+      "num_samples_on_saved_protocol": 1024,
+      "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+      "actual2048_seen_training_examples": [
+        1048524
+      ],
+      "checkpoint2048_ema_metric_rows_in_training_root": 1,
+      "config_sha256": "9a3cf4fe803f6ea030dcde71b8b960d378852a7d0447ea1d7fd7074546a1c978",
+      "initialization_sha256": "32a31c40292a74c74d1b1d44594e024152297399ad114e49d77209a72a781fcf"
+    },
+    {
+      "folder": "logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2",
+      "checkpoint2048": "logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2/step_2048.ckpt",
+      "checkpoint2048_exists": true,
+      "seed": 817,
+      "train_batch_size": 512,
+      "learning_rate": 0.0005,
+      "train_order_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+      "train_manifest_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_generator_sha256": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+      "initial_map_sha256": "320e3be3890f9390d3d6cd71e947e14ac2d318083d718c11f1ef9f120c0223ea",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "map_checkpoint_sha256": null,
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          }
+        }
+      },
+      "canonical_component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          }
+        }
+      },
+      "optimizer": "default",
+      "optimizer_settings": {
+        "lr": 0.0005,
+        "lr_warmup_steps": 0,
+        "lr_total_steps": 128,
+        "lr_min_ratio": 0.05
+      },
+      "clip": 0.5,
+      "precision": "32-true",
+      "float32_matmul_precision": "medium",
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "reference_mode": "matched",
+      "ema_decay": 0.9999,
+      "sep_map": false,
+      "num_samples_on_saved_protocol": 1024,
+      "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+      "actual2048_seen_training_examples": [
+        1048524
+      ],
+      "checkpoint2048_ema_metric_rows_in_training_root": 1,
+      "config_sha256": "43887a801bf35527f7d5f3132572d7971e9579b696d5ba3782bce70229e41342",
+      "initialization_sha256": "32a31c40292a74c74d1b1d44594e024152297399ad114e49d77209a72a781fcf"
+    },
+    {
+      "folder": "logs/component_loss_scratch/batch512_seed1817/warm_winner",
+      "checkpoint2048": "logs/component_loss_scratch/batch512_seed1817/warm_winner/step_2048.ckpt",
+      "checkpoint2048_exists": true,
+      "seed": 1817,
+      "train_batch_size": 512,
+      "learning_rate": 0.0005,
+      "train_order_sha256": "ef8e2c8bfcf2d7f875fa17b602a5b87ab0ac9b052a1320d2e38ee2fc745d0483",
+      "train_manifest_sha256": "ef8e2c8bfcf2d7f875fa17b602a5b87ab0ac9b052a1320d2e38ee2fc745d0483",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_generator_sha256": "39a36cb6474d1600158349b1c1b59edde64dc2b4df9d0a03656bcfe5e2a969cf",
+      "initial_map_sha256": "ad0e456e18665945e6f611f75bd238153dcbaecb166076ba0dae96df5db18e49",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "map_checkpoint_sha256": null,
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 4,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 1,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 5,
+            "scale": "none"
+          }
+        }
+      },
+      "canonical_component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 4,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 1,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 5,
+            "scale": "none"
+          }
+        }
+      },
+      "optimizer": "default",
+      "optimizer_settings": {
+        "lr": 0.0005,
+        "lr_warmup_steps": 0,
+        "lr_total_steps": 128,
+        "lr_min_ratio": 0.05
+      },
+      "clip": 0.5,
+      "precision": "32-true",
+      "float32_matmul_precision": "medium",
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "reference_mode": "matched",
+      "ema_decay": 0.9999,
+      "sep_map": false,
+      "num_samples_on_saved_protocol": 4096,
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "actual2048_seen_training_examples": [
+        1048524
+      ],
+      "checkpoint2048_ema_metric_rows_in_training_root": 2,
+      "config_sha256": "abd4cf8d0b7ab522ace169fe1476debf2e92c6c05697ab512638c885be99a773",
+      "initialization_sha256": "5169c3159c607dddf2c080598fd2fe6475108d66df421fbd03f954f192f58bb2"
+    },
+    {
+      "folder": "logs/component_loss_scratch/batch512_seed1817/geo_mse32_col20_heading_l1_shape2",
+      "checkpoint2048": "logs/component_loss_scratch/batch512_seed1817/geo_mse32_col20_heading_l1_shape2/step_2048.ckpt",
+      "checkpoint2048_exists": true,
+      "seed": 1817,
+      "train_batch_size": 512,
+      "learning_rate": 0.0005,
+      "train_order_sha256": "ef8e2c8bfcf2d7f875fa17b602a5b87ab0ac9b052a1320d2e38ee2fc745d0483",
+      "train_manifest_sha256": "ef8e2c8bfcf2d7f875fa17b602a5b87ab0ac9b052a1320d2e38ee2fc745d0483",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_generator_sha256": "39a36cb6474d1600158349b1c1b59edde64dc2b4df9d0a03656bcfe5e2a969cf",
+      "initial_map_sha256": "ad0e456e18665945e6f611f75bd238153dcbaecb166076ba0dae96df5db18e49",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "map_checkpoint_sha256": null,
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          }
+        }
+      },
+      "canonical_component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          }
+        }
+      },
+      "optimizer": "default",
+      "optimizer_settings": {
+        "lr": 0.0005,
+        "lr_warmup_steps": 0,
+        "lr_total_steps": 128,
+        "lr_min_ratio": 0.05
+      },
+      "clip": 0.5,
+      "precision": "32-true",
+      "float32_matmul_precision": "medium",
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "reference_mode": "matched",
+      "ema_decay": 0.9999,
+      "sep_map": false,
+      "num_samples_on_saved_protocol": 4096,
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "actual2048_seen_training_examples": [
+        1048524
+      ],
+      "checkpoint2048_ema_metric_rows_in_training_root": 2,
+      "config_sha256": "3d6c861ef47cd16fe331a2a3a61f73be2fd5b95eda8ad646b7d4adb3000d85ea",
+      "initialization_sha256": "5169c3159c607dddf2c080598fd2fe6475108d66df421fbd03f954f192f58bb2"
+    },
+    {
+      "folder": "logs/component_loss_scratch/batch512_seed2817/warm_winner",
+      "checkpoint2048": "logs/component_loss_scratch/batch512_seed2817/warm_winner/step_2048.ckpt",
+      "checkpoint2048_exists": true,
+      "seed": 2817,
+      "train_batch_size": 512,
+      "learning_rate": 0.0005,
+      "train_order_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+      "train_manifest_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_generator_sha256": "155de9d26b0804f5248cb04ed290f07f1fdc115b2755c1cde8a0313686289d32",
+      "initial_map_sha256": "f767768b8be057f0e48b17a5f138b7a1b5ac34af14eb760b004213ea973e4c4b",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "map_checkpoint_sha256": null,
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 4,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 1,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 5,
+            "scale": "none"
+          }
+        }
+      },
+      "canonical_component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 4,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 1,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 2,
+            "weight": 1,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 5,
+            "scale": "none"
+          }
+        }
+      },
+      "optimizer": "default",
+      "optimizer_settings": {
+        "lr": 0.0005,
+        "lr_warmup_steps": 0,
+        "lr_total_steps": 128,
+        "lr_min_ratio": 0.05
+      },
+      "clip": 0.5,
+      "precision": "32-true",
+      "float32_matmul_precision": "medium",
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "reference_mode": "matched",
+      "ema_decay": 0.9999,
+      "sep_map": false,
+      "num_samples_on_saved_protocol": 4096,
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "actual2048_seen_training_examples": [
+        1048524
+      ],
+      "checkpoint2048_ema_metric_rows_in_training_root": 2,
+      "config_sha256": "192442fdda9432bbff89e9b440156809cb49968466ea7e4ee728c582828d167c",
+      "initialization_sha256": "3ea482075b28e1a4e2bdcc748db740d70f4dbdc4f02b8da3cfa0d2d31fe3d390"
+    },
+    {
+      "folder": "logs/component_loss_scratch/batch512_seed2817/geo_mse32_col20_heading_l1_shape2",
+      "checkpoint2048": "logs/component_loss_scratch/batch512_seed2817/geo_mse32_col20_heading_l1_shape2/step_2048.ckpt",
+      "checkpoint2048_exists": true,
+      "seed": 2817,
+      "train_batch_size": 512,
+      "learning_rate": 0.0005,
+      "train_order_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+      "train_manifest_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_generator_sha256": "155de9d26b0804f5248cb04ed290f07f1fdc115b2755c1cde8a0313686289d32",
+      "initial_map_sha256": "f767768b8be057f0e48b17a5f138b7a1b5ac34af14eb760b004213ea973e4c4b",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "map_checkpoint_sha256": null,
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          }
+        }
+      },
+      "canonical_component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          }
+        }
+      },
+      "optimizer": "default",
+      "optimizer_settings": {
+        "lr": 0.0005,
+        "lr_warmup_steps": 0,
+        "lr_total_steps": 128,
+        "lr_min_ratio": 0.05
+      },
+      "clip": 0.5,
+      "precision": "32-true",
+      "float32_matmul_precision": "medium",
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "reference_mode": "matched",
+      "ema_decay": 0.9999,
+      "sep_map": false,
+      "num_samples_on_saved_protocol": 4096,
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "actual2048_seen_training_examples": [
+        1048524
+      ],
+      "checkpoint2048_ema_metric_rows_in_training_root": 2,
+      "config_sha256": "6a981069964c5d0a554e89fe07df9ed91e84a6bc7b6a4e62cc5cd2afa5c71abf",
+      "initialization_sha256": "3ea482075b28e1a4e2bdcc748db740d70f4dbdc4f02b8da3cfa0d2d31fe3d390"
+    }
+  ],
+  "current_frozen_map_reference_metadata": {
+    "folder": "logs/component_loss_frozen_map/phase1/new_control",
+    "checkpoint2048": "logs/component_loss_frozen_map/phase1/new_control/step_2048.ckpt",
+    "checkpoint2048_exists": false,
+    "seed": 817,
+    "train_batch_size": 512,
+    "learning_rate": 0.0005,
+    "train_order_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+    "train_manifest_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+    "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+    "initial_generator_sha256": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+    "initial_map_sha256": "09b7f55a4c78816794dd5ffcdce36760af5aa5afe038a1bf8cd34f168c51f720",
+    "initialization_scope": "frozen_pretrained_map_fresh_G1",
+    "map_checkpoint_sha256": "610c1f94a0f573fd078e251af37c38c73255b969e52154e66546588996ef99fb",
+    "component_loss": {
+      "normalize_time_weights": true,
+      "std_floor": 0.1,
+      "heading_space": "angle",
+      "components": {
+        "position": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 32,
+          "scale": "data"
+        },
+        "heading": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "length": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "width": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "velocity": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2,
+          "scale": "data"
+        },
+        "type": {
+          "kind": "ce",
+          "time_power": 0,
+          "weight": 1,
+          "scale": "none"
+        },
+        "collision": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 20.0,
+          "scale": "none"
+        },
+        "speed_magnitude": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      }
+    },
+    "canonical_component_loss": {
+      "normalize_time_weights": true,
+      "std_floor": 0.1,
+      "heading_space": "angle",
+      "components": {
+        "position": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 32,
+          "scale": "data"
+        },
+        "heading": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "length": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "width": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "velocity": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2,
+          "scale": "data"
+        },
+        "type": {
+          "kind": "ce",
+          "time_power": 0,
+          "weight": 1,
+          "scale": "none"
+        },
+        "collision": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 20.0,
+          "scale": "none"
+        }
+      }
+    },
+    "optimizer": "default",
+    "optimizer_settings": {
+      "lr": 0.0005,
+      "lr_warmup_steps": 0,
+      "lr_total_steps": 128,
+      "lr_min_ratio": 0.05
+    },
+    "clip": 0.5,
+    "precision": "32-true",
+    "float32_matmul_precision": "medium",
+    "map_crop": "square",
+    "map_half_extent": 50.0,
+    "reference_mode": "matched",
+    "ema_decay": 0.9999,
+    "sep_map": false,
+    "num_samples_on_saved_protocol": 1024,
+    "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+    "actual2048_seen_training_examples": [],
+    "checkpoint2048_ema_metric_rows_in_training_root": 0,
+    "config_sha256": "6753bf784c2fe0d62d26667101cac33547c5936a01d630479f29bc2508f46466",
+    "initialization_sha256": "a92123a0ecd76588a263f47dc053f924d91b70d440aa7b734f27026b0d24a07f"
+  },
+  "old_new_control_same_loss_pair": {
+    "random": "logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2",
+    "frozen_expected": "logs/component_loss_frozen_map/long_seed817_new_control/new_control",
+    "checks": {
+      "seed": true,
+      "train_batch_size": true,
+      "learning_rate": true,
+      "train_order_sha256": true,
+      "train_manifest_sha256": true,
+      "calibration_sha256": true,
+      "initial_generator_sha256": true,
+      "canonical_component_loss": true,
+      "optimizer": true,
+      "optimizer_settings": true,
+      "clip": true,
+      "precision": true,
+      "float32_matmul_precision": true,
+      "map_crop": true,
+      "map_half_extent": true,
+      "reference_mode": true,
+      "ema_decay": true,
+      "sep_map": true,
+      "model_config_identical_except_intended_map_policy_and_disabled_optional_term": true
+    },
+    "all_checks_pass": true
+  },
+  "metric_and_conditioning_checks": {
+    "metric_scope": true,
+    "generation_task": true,
+    "map_source": true,
+    "reference_mode": true,
+    "official_source_sha256": true,
+    "reference_source_manifest_sha256": true,
+    "conditioning_identical": true
+  },
+  "all_metric_checks_pass": true,
+  "conditioning": [
+    "reference map",
+    "GT ego reference frame",
+    "GT ego position",
+    "GT ego heading",
+    "GT ego shape",
+    "GT ego type",
+    "input total agent count",
+    "ego/non-ego slot"
+  ],
+  "metric_source_hashes": {
+    "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+    "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+    "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+  },
+  "raw_model_config_differences": {
+    "817/warm_winner": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.collision.weight",
+        "old": 5,
+        "new": 20.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.kind",
+        "old": "mse",
+        "new": "l1"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.length.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.kind",
+        "old": "l1",
+        "new": "mse"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.weight",
+        "old": 4,
+        "new": 32
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.speed_magnitude",
+        "old": null,
+        "new": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.finetune",
+        "old": false,
+        "new": true
+      },
+      {
+        "field": "model_config.initial_map_checkpoint",
+        "old": null,
+        "new": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt"
+      }
+    ],
+    "817/geo_mse32_col20_heading_l1_shape2": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.speed_magnitude",
+        "old": null,
+        "new": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      },
+      {
+        "field": "model_config.finetune",
+        "old": false,
+        "new": true
+      },
+      {
+        "field": "model_config.initial_map_checkpoint",
+        "old": null,
+        "new": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt"
+      }
+    ],
+    "1817/warm_winner": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.collision.weight",
+        "old": 5,
+        "new": 20.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.kind",
+        "old": "mse",
+        "new": "l1"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.length.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.kind",
+        "old": "l1",
+        "new": "mse"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.weight",
+        "old": 4,
+        "new": 32
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.speed_magnitude",
+        "old": null,
+        "new": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.finetune",
+        "old": false,
+        "new": true
+      },
+      {
+        "field": "model_config.initial_map_checkpoint",
+        "old": null,
+        "new": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt"
+      }
+    ],
+    "1817/geo_mse32_col20_heading_l1_shape2": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.speed_magnitude",
+        "old": null,
+        "new": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      },
+      {
+        "field": "model_config.finetune",
+        "old": false,
+        "new": true
+      },
+      {
+        "field": "model_config.initial_map_checkpoint",
+        "old": null,
+        "new": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt"
+      }
+    ],
+    "2817/warm_winner": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.collision.weight",
+        "old": 5,
+        "new": 20.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.kind",
+        "old": "mse",
+        "new": "l1"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.length.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.kind",
+        "old": "l1",
+        "new": "mse"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.weight",
+        "old": 4,
+        "new": 32
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.speed_magnitude",
+        "old": null,
+        "new": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.finetune",
+        "old": false,
+        "new": true
+      },
+      {
+        "field": "model_config.initial_map_checkpoint",
+        "old": null,
+        "new": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt"
+      }
+    ],
+    "2817/geo_mse32_col20_heading_l1_shape2": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.speed_magnitude",
+        "old": null,
+        "new": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      },
+      {
+        "field": "model_config.finetune",
+        "old": false,
+        "new": true
+      },
+      {
+        "field": "model_config.initial_map_checkpoint",
+        "old": null,
+        "new": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt"
+      }
+    ]
+  },
+  "semantic_differences_excluding_intended_map_policy": {
+    "817/warm_winner": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.collision.weight",
+        "old": 5,
+        "new": 20.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.kind",
+        "old": "mse",
+        "new": "l1"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.length.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.kind",
+        "old": "l1",
+        "new": "mse"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.weight",
+        "old": 4,
+        "new": 32
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.weight",
+        "old": 1,
+        "new": 2.0
+      }
+    ],
+    "817/geo_mse32_col20_heading_l1_shape2": [],
+    "1817/warm_winner": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.collision.weight",
+        "old": 5,
+        "new": 20.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.kind",
+        "old": "mse",
+        "new": "l1"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.length.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.kind",
+        "old": "l1",
+        "new": "mse"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.weight",
+        "old": 4,
+        "new": 32
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.weight",
+        "old": 1,
+        "new": 2.0
+      }
+    ],
+    "1817/geo_mse32_col20_heading_l1_shape2": [],
+    "2817/warm_winner": [
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.collision.weight",
+        "old": 5,
+        "new": 20.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.kind",
+        "old": "mse",
+        "new": "l1"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.heading.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.length.weight",
+        "old": 1,
+        "new": 2.0
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.kind",
+        "old": "l1",
+        "new": "mse"
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.position.weight",
+        "old": 4,
+        "new": 32
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.time_power",
+        "old": 2,
+        "new": 1
+      },
+      {
+        "field": "model_config.decoder.init_diffusion.component_loss.components.width.weight",
+        "old": 1,
+        "new": 2.0
+      }
+    ],
+    "2817/geo_mse32_col20_heading_l1_shape2": []
+  },
+  "old_heldout_manifest": {
+    "path": "docs/experiments/init_diffusion_scratch_loss_search_20261011/heldout4096_files.json",
+    "json_sha256": "312c2bbbe12b645eb429519db39b5ca5a6155aa58eb7f99a707072d07da04a00",
+    "ordered_lines_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+    "files": 4096
+  },
+  "new_confirmation_manifest": {
+    "path": "docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.json",
+    "json_sha256": "9cef282172231663292f3af362bb96c652a44dc10a55e3b5264fd57fa9576e03",
+    "ordered_lines_sha256": "66e4fb74292d2c5587a6214e70f3ed21f8a2e5d7e26c5687fdc146ca5d623a3b",
+    "files": 4096
+  },
+  "manifest_file_overlap": 0,
+  "proposed_generation_seeds": [
+    2817,
+    3817
+  ],
+  "proposed_training_seed": 817,
+  "proposed_weights": "ema",
+  "proposed_budget": 2048,
+  "proposed_actual_exposure_B512": 1048524,
+  "frozen_checkpoint_expected_path": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_new_control/new_control/step_2048.ckpt",
+  "frozen_checkpoint_exists_now": false,
+  "commands_templates_not_executed": {
+    "frozen2048_on_oldheldout": [
+      "/home/ke/miniconda3/envs/sim/bin/python",
+      "tools/scratch_component_loss_sweep.py",
+      "--steps",
+      "1",
+      "--checkpoint-steps",
+      "",
+      "--variants",
+      "",
+      "--seed",
+      "817",
+      "--batch-size",
+      "512",
+      "--scenes",
+      "4096",
+      "--eval-batch-size",
+      "128",
+      "--workers",
+      "0",
+      "--eval-seed",
+      "2817",
+      "--extra-eval-seed",
+      "3817",
+      "--evaluation-weights",
+      "ema",
+      "--normalizer-json",
+      "docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+      "--eval-manifest",
+      "docs/experiments/init_diffusion_scratch_loss_search_20261011/heldout4096_files.json",
+      "--map-checkpoint",
+      "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+      "--evaluation-checkpoints",
+      "docs/experiments/init_diffusion_frozen_map_search_20261011/optional_map_policy_oldheldout_seed817_checkpoints.json",
+      "--output",
+      "logs/component_loss_optional_map_policy/seed817_frozen_on_oldheldout"
+    ],
+    "recommended_random_geo2048_current_code_replay": [
+      "/home/ke/miniconda3/envs/sim/bin/python",
+      "tools/scratch_component_loss_sweep.py",
+      "--steps",
+      "1",
+      "--checkpoint-steps",
+      "",
+      "--variants",
+      "",
+      "--seed",
+      "817",
+      "--batch-size",
+      "512",
+      "--scenes",
+      "4096",
+      "--eval-batch-size",
+      "128",
+      "--workers",
+      "0",
+      "--eval-seed",
+      "2817",
+      "--extra-eval-seed",
+      "3817",
+      "--evaluation-weights",
+      "ema",
+      "--normalizer-json",
+      "docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+      "--eval-manifest",
+      "docs/experiments/init_diffusion_scratch_loss_search_20261011/heldout4096_files.json",
+      "--evaluation-checkpoints",
+      "docs/experiments/init_diffusion_frozen_map_search_20261011/optional_current_code_random_map_seed817_checkpoints.json",
+      "--output",
+      "logs/component_loss_optional_map_policy/seed817_random_geo_current_code"
+    ]
+  },
+  "limitations_and_required_later_checks": [
+    "Current frozen new_control is only trained to512 at this audit. Future long seed817 baseline must retain the exact loss/model/optimizer/normalizer/G1init/train-order metadata checked here before evaluating its2048 checkpoint.",
+    "All2048 checkpoint metadata and EMA updates/normalizer must be verified before use; this audit deliberately loads no checkpoint tensors.",
+    "Two map policies differ: random map trained jointly vs pretrained map kept fixed. This does not isolate pretraining from freezing, and global clip includes map gradients only for the joint-map policy.",
+    "Warm_winner differs in position loss/weight, heading loss/time power, length/width weights/time power and collision weight. It is a historical context arm, not a clean map-only counterpart to frozen new_control.",
+    "Old heldout4096 was used for previous selection; the optional comparison is descriptive validation, not untouched final testing, and cannot alter this search selection.",
+    "Old reports match official helper hashes and all inspected config semantics, but there is no complete historical hash of every model/training source file. Replaying the random geo2048 checkpoint on current code provides the cleanest numeric code-parity check.",
+    "A seed817 comparison has independent TRAIN N=1 even with two GEN seeds. N=3 requires actual frozen new_control2048 metadata checks and old-heldout evaluation for seeds1817/2817 too.",
+    "Previously reported old heldout metrics cannot be directly compared with the new confirmation4096 metrics because their scene manifests are disjoint."
+  ]
+}

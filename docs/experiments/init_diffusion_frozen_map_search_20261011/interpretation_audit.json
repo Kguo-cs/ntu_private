@@ -1,0 +1,199 @@
+{
+  "created_utc": "2026-10-11T11:35:58.288089+00:00",
+  "status": "PASS_INTERVENTION_INTERPRETATION_AUDIT",
+  "GPU_work": false,
+  "cuda_initialized": false,
+  "saved_actual_config": "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/new_control/config.yaml",
+  "saved_actual_config_sha256": "6753bf784c2fe0d62d26667101cac33547c5936a01d630479f29bc2508f46466",
+  "actual_baseline_flags": {
+    "fix_ego": false,
+    "fix_ego_position": true,
+    "fix_ego_heading": true,
+    "fix_ego_shape": true,
+    "fix_ego_velocity": false,
+    "fix_ego_type": true,
+    "generate_type": true,
+    "type_process": "separate",
+    "type_noise_stats": "standard",
+    "ego_context_heading_encoding": "angle",
+    "count_embedding_type": "none",
+    "count_lane_source": "map_tokens",
+    "count_max_num_agents": 128,
+    "count_max_num_lanes": 1024,
+    "heading_x0_loss": "vector_mse",
+    "heading_objective": "x0"
+  },
+  "all_current_saved_phase1_arms_share_conditioning_and_type_process": {
+    "count": 14,
+    "files": [
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/col10/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/col5/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/heading_mse1/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/heading_p0/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/heading_p2/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/new_control/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/old_control/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/pos16/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/pos_l1_16/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/shape4/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/shape_p2/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/speed4/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/speed_p0/config.yaml",
+      "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/width4/config.yaml"
+    ]
+  },
+  "ego_sincos": {
+    "ego_row_relative_heading_constant": true,
+    "all_agent_context_angles_constant": false,
+    "reason": "GTego pose is fixed in scene frame, but ego context is transformed into each noisy/generated agent local frame. Non-ego local ego heading = wrap(0 − noisy_agent_heading); pos context also depends on noisy agent position/heading.",
+    "continuity_fix_applies_to_non_ego_agents": true,
+    "dimension_change": {
+      "angle_context_input": 12,
+      "sincos_context_input": 15,
+      "G1_added_parameters": 768
+    },
+    "not_a_pure_continuity_only_intervention": "Changing input width changes ego MLP capacity and consumes a different initialization RNG sequence, affecting subsequently initialized tensors. One-factor intervention means one config switch, not identical parameter initialization everywhere.",
+    "CPU_geometry_probe": {
+      "agent_theta_rad": [
+        0.0,
+        3.140592575073242,
+        -3.140592575073242
+      ],
+      "angle_context_relative_heading": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          -3.140592575073242,
+          -3.140592575073242,
+          -3.140592575073242
+        ],
+        [
+          3.1405928134918213,
+          3.1405928134918213,
+          3.1405928134918213
+        ]
+      ],
+      "sincos_heading_features": [
+        [
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          -0.9999995231628418,
+          -0.9999995231628418,
+          -0.9999995231628418,
+          -0.0010000783950090408,
+          -0.0010000783950090408,
+          -0.0010000783950090408
+        ],
+        [
+          -0.9999995231628418,
+          -0.9999995231628418,
+          -0.9999995231628418,
+          0.0009998399764299393,
+          0.0009998399764299393,
+          0.0009998399764299393
+        ]
+      ],
+      "cross_pi_angle_jump": 6.281185150146484,
+      "cross_pi_sincos_feature_distance": 0.003463960252702236
+    },
+    "actual_native_TRAIN_context_CPU_check": {
+      "scenes": 1536,
+      "all_ego_relative_context_positions_and_headings_zero": true,
+      "source": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/worker2_cpu_input_comparison.json"
+    }
+  },
+  "count_embedding": {
+    "input_constant": false,
+    "agent_count_definition": "All per-scene agent rows including ego; no type labels",
+    "lane_count_definition": "Cropped native map tokens, not raw Scenario Dreamer lane graph elements",
+    "max_agents": 128,
+    "max_map_tokens": 4096,
+    "additional_learned_embedding_parameters": 1081856,
+    "baseline_already_has_raw_agent_count_in_ego_context": true,
+    "new_information": "Explicit categorical count embedding/routing for agent count, and explicit map-token count; additional learned parameters/RNG sequence as well. No agent or lane count prediction objective.",
+    "CPU_count_probe": {
+      "agent_counts": [
+        3,
+        2
+      ],
+      "lane_counts": [
+        2,
+        3
+      ]
+    }
+  },
+  "heading_loss": {
+    "reported_legacy_field": "vector_mse",
+    "legacy_field_active_for_current_component_objective": false,
+    "actual_component_heading_space": "angle",
+    "actual_component_heading_options": {
+      "kind": "l1",
+      "time_power": 1,
+      "weight": 1.0,
+      "scale": "none"
+    },
+    "interpretation": "Current base loss uses shortest-angle residual with L1, requested time power and weight. heading_x0_loss vector_mse remains fallback metadata and must not be described as active heading objective. heading_mse1 arm explicitly changes component kind to MSE."
+  },
+  "non_ego_GT_type_conditioning": {
+    "evaluation_leak_found": false,
+    "G1_direct_clean_GTtype_lookup_with_generate_type_true": false,
+    "CPU_same_noisy_type_state_change_only_non_ego_GTlabels_embedding_bitwise_equal": true,
+    "TRAIN_expected_target_use": "GT labels form the supervised noisy type state and CE target and define TRAIN matching groups in separate mode. This is intended training target/coupling use.",
+    "SAMPLE_conditioning": "Non-ego type state starts from independent standard Gaussian; each next state uses generated logits softmax; no GTnon-ego type teacher feedback. Ego type is explicitly GTconditioned.",
+    "type_count_leak_prevented": "Both prepared cached ego_feat and denoiser context use N,0,0 instead of GTclass histogram."
+  },
+  "ego_log_interpretation": {
+    "position_heading_length_width_L1_zero": "Imposed GT fields restored before diagnostic computation; not evidence of ego predictor accuracy.",
+    "ego_type_accuracy_one": "Imposed fixed ego type counted correct via conditioned mask; not learned accuracy.",
+    "ego_velocity": "Not fixed in this experiment; ego speed remains generated and should be assessed separately."
+  },
+  "code_evidence": {
+    "ego_context_construction": [
+      "src/smart/tokens/token_processor.py:920 cached ego pose is loaded or repeated three times",
+      "src/smart/diffusion/initial_diffusion.py:397 _prepare_ego_context transforms ego pose into original GTego scene frame",
+      "src/smart/diffusion/denoiser.py:699 all ego poses are indexed per-agent scene",
+      "src/smart/diffusion/denoiser.py:701 transform_to_local uses each noisy pos_s/theta",
+      "src/smart/utils/rollout.py:168 local heading = wrap(head_global − head_now)",
+      "src/smart/diffusion/denoiser.py:755 theta = atan2(m_delta sin, m_delta cos)"
+    ],
+    "fixed_ego": [
+      "src/smart/diffusion/scale_flow.py:532 field-wise fixed state mask applies to ego only",
+      "src/smart/diffusion/scale_flow.py:587 latent fixed fields restored to clean state",
+      "src/smart/diffusion/scale_flow.py:1505 each sample step restores conditioned fields",
+      "src/smart/diffusion/scale_flow.py:1063 x0 fixed fields replaced by GT before ego logs",
+      "src/smart/diffusion/scale_flow.py:975 ego type accuracy ORs with conditioned mask"
+    ],
+    "count": [
+      "src/smart/diffusion/denoiser.py:607 agent count uses all conditioned scene agents including ego",
+      "src/smart/diffusion/denoiser.py:620 lane source map_tokens uses cropped map-feature batch",
+      "src/smart/diffusion/denoiser.py:1014 learned agent count routed to agents and lane count to map nodes",
+      "src/smart/diffusion/denoiser.py:687 generate_type context already contains scalar scene count N,0,0"
+    ],
+    "active_heading_loss": [
+      "src/smart/diffusion/scale_flow.py:1072 component_loss early return overrides legacy loss",
+      "src/smart/diffusion/scale_flow.py:937 angle branch uses heading_angle_residual",
+      "src/smart/diffusion/component_loss.py:139 l1 regression uses error.abs()",
+      "logs/component_loss_frozen_map/phase1/new_control/config.yaml:74 heading_space angle",
+      "logs/component_loss_frozen_map/phase1/new_control/config.yaml:141 legacy heading_x0_loss vector_mse"
+    ],
+    "non_ego_type": [
+      "src/smart/diffusion/initial_diffusion.py:424 cached type counts sanitized to N,0,0",
+      "src/smart/diffusion/denoiser.py:772 generate_type embedding uses noisy type_state @ table, not agent_type lookup",
+      "src/smart/diffusion/scale_flow.py:595 TRAIN interpolates onehot label with independent source (normal supervised Flow state)",
+      "src/smart/diffusion/scale_flow.py:1651 SAMPLE non-ego type source random; GTonehot override restricted to fixed ego",
+      "src/smart/diffusion/scale_flow.py:1523 type feedback uses model softmax to integrate state",
+      "src/smart/diffusion/scale_flow.py:1770 final non-ego type from generated logits, ego from fixed type source",
+      "src/smart/diffusion/denoiser.py:358 invalid annotation fills avoid generated GTtype groups",
+      "src/smart/diffusion/scale_flow.py:496 GTtype-group Hungarian matching is TRAIN source/target coupling, not SAMPLE condition"
+    ]
+  }
+}

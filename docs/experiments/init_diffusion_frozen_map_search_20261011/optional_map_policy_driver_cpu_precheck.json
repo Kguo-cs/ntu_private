@@ -1,0 +1,234 @@
+{
+  "status": "OLD_ACTUAL_CHECKPOINT_CPU_PRECHECK",
+  "old_three_checkpoints": [
+    {
+      "TRAIN_seed": 817,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2/step_2048.ckpt",
+      "policy": "random",
+      "checks": {
+        "budget2048": true,
+        "epoch2": true,
+        "ema2048": true,
+        "ema_decay9999": true,
+        "saved_provenance": true,
+        "canonical_loss": true,
+        "finite_map_and_generator_parameters": true,
+        "normal_mean": true,
+        "normal_scale": true,
+        "map_policy_checkpoint_state": true,
+        "adam_all_steps2048": true,
+        "adam_defaults": true,
+        "epoch_scheduler2": true,
+        "actual_checkpoint_exposure_recorded": true,
+        "finite_ema_parameters": true
+      },
+      "passed": true,
+      "global_step": 2048,
+      "epoch": 2,
+      "ema_updates": 2048,
+      "ema_decay": 0.9999,
+      "optimizer_state_tensor_count": 316,
+      "optimizer_update_values": [
+        2048
+      ],
+      "optimizer_param_group_settings": [
+        {
+          "lr": 0.0004997139208487285,
+          "betas": [
+            0.9,
+            0.999
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "decoupled_weight_decay": true,
+          "initial_lr": 0.0005
+        }
+      ],
+      "actual_exposure": [
+        1048524
+      ],
+      "saved_map_state_sha256": "5c0c91054be380b87d61fd2ca74f20b20c719f2a4d9e0cdd70731e0309c79723",
+      "saved_G1_state_sha256": "5bff2293bfe6a79db42a0013b3f758bbaf37f25ed291c01c9c3522b1a2a669cf",
+      "normalizer_exact_match": true,
+      "checkpoint_file_sha256": "d5a7384571708f89641a6efae584b8cc87dca06db37f1239cda8f4749ea4475e"
+    },
+    {
+      "TRAIN_seed": 1817,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed1817/geo_mse32_col20_heading_l1_shape2/step_2048.ckpt",
+      "policy": "random",
+      "checks": {
+        "budget2048": true,
+        "epoch2": true,
+        "ema2048": true,
+        "ema_decay9999": true,
+        "saved_provenance": true,
+        "canonical_loss": true,
+        "finite_map_and_generator_parameters": true,
+        "normal_mean": true,
+        "normal_scale": true,
+        "map_policy_checkpoint_state": true,
+        "adam_all_steps2048": true,
+        "adam_defaults": true,
+        "epoch_scheduler2": true,
+        "actual_checkpoint_exposure_recorded": true,
+        "finite_ema_parameters": true
+      },
+      "passed": true,
+      "global_step": 2048,
+      "epoch": 2,
+      "ema_updates": 2048,
+      "ema_decay": 0.9999,
+      "optimizer_state_tensor_count": 316,
+      "optimizer_update_values": [
+        2048
+      ],
+      "optimizer_param_group_settings": [
+        {
+          "lr": 0.0004997139208487285,
+          "betas": [
+            0.9,
+            0.999
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "decoupled_weight_decay": true,
+          "initial_lr": 0.0005
+        }
+      ],
+      "actual_exposure": [
+        1048524
+      ],
+      "saved_map_state_sha256": "e5e1ca9897cd7559fdacd0ff95bee15a51df35657240bf03e7b9a16780672f89",
+      "saved_G1_state_sha256": "97f9b6b1142c7dbfb0bb57caa4d007c7a94b569c52d2b00cc102c739f38839e7",
+      "normalizer_exact_match": true,
+      "checkpoint_file_sha256": "4cd66a6090fb02bca527a7a638da69bd9b2fc017752fb08df9501a090fc12f6c"
+    },
+    {
+      "TRAIN_seed": 2817,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed2817/geo_mse32_col20_heading_l1_shape2/step_2048.ckpt",
+      "policy": "random",
+      "checks": {
+        "budget2048": true,
+        "epoch2": true,
+        "ema2048": true,
+        "ema_decay9999": true,
+        "saved_provenance": true,
+        "canonical_loss": true,
+        "finite_map_and_generator_parameters": true,
+        "normal_mean": true,
+        "normal_scale": true,
+        "map_policy_checkpoint_state": true,
+        "adam_all_steps2048": true,
+        "adam_defaults": true,
+        "epoch_scheduler2": true,
+        "actual_checkpoint_exposure_recorded": true,
+        "finite_ema_parameters": true
+      },
+      "passed": true,
+      "global_step": 2048,
+      "epoch": 2,
+      "ema_updates": 2048,
+      "ema_decay": 0.9999,
+      "optimizer_state_tensor_count": 316,
+      "optimizer_update_values": [
+        2048
+      ],
+      "optimizer_param_group_settings": [
+        {
+          "lr": 0.0004997139208487285,
+          "betas": [
+            0.9,
+            0.999
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "decoupled_weight_decay": true,
+          "initial_lr": 0.0005
+        }
+      ],
+      "actual_exposure": [
+        1048524
+      ],
+      "saved_map_state_sha256": "2acf96816c27b3d7e883acbc6dd0bc4c15dba70fe3e2812acba2b1f4ec99703e",
+      "saved_G1_state_sha256": "d018be929b147218f1dcb03eacc72a2724a09ba92f9948ececd40599462ecf45",
+      "normalizer_exact_match": true,
+      "checkpoint_file_sha256": "8286df8111454d710e4b1f91c5ed7d3f9e2d74e198175b7bc6bad16fbb533d6b"
+    }
+  ],
+  "phase1_seed817_metadata_only_comparability": {
+    "seed": 817,
+    "checks": {
+      "seed": true,
+      "batch_size": true,
+      "lr": true,
+      "train_order_sha256": true,
+      "train_manifest_sha256": true,
+      "calibration_sha256": true,
+      "initial_generator_sha256": true,
+      "base_train_offset": true,
+      "actual_train_offset": true,
+      "expected_seed": true,
+      "expected_B512": true,
+      "expected_lr5e4": true,
+      "expected_calibration_file": true,
+      "random_old_map_policy": true,
+      "fixed_new_map_policy": true,
+      "new_source_map_file_hash": true,
+      "effective_model_config": true,
+      "effective_training_config": true,
+      "old_config_map_unfrozen": true,
+      "new_config_source_map": true,
+      "same_clip": true,
+      "same_precision": true,
+      "same_matmul_precision": true,
+      "same_square50": true
+    },
+    "passed": true,
+    "effective_model_config_differences": [],
+    "effective_training_config_differences": [],
+    "old_num_workers": 0,
+    "new_num_workers": 0,
+    "evaluation_workers": 0,
+    "batch": 512,
+    "TRAIN_order_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+    "initial_G1_sha256": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+    "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23"
+  },
+  "actual_frozen2048_checked": false,
+  "new2048_missing": [
+    "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_new_control/new_control/step_2048.ckpt",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed1817_new_control/new_control/step_2048.ckpt",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed2817_new_control/new_control/step_2048.ckpt"
+  ],
+  "old_heldout_manifest": {
+    "json_sha256": "312c2bbbe12b645eb429519db39b5ca5a6155aa58eb7f99a707072d07da04a00",
+    "ordered_lines_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+    "num_scenes": 4096
+  },
+  "cuda_initialized": false,
+  "commands_executed": false,
+  "selection_role": "NONE",
+  "test_counts": {
+    "analyzer": 19,
+    "driver": 5
+  },
+  "cpu_driver_sha256": "eecc1cf96f9c1e57a04e16217efb4a7b8e2fc98cf9da7f08e58e74b775e847d5"
+}

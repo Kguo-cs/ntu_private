@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "helper_unit_tests_passed": 4,
+  "actual_modes": [
+    {
+      "mode": "calibration_log_speed",
+      "normalizer_sha256": "e510d5b9379eded28a3157ead59b5a0c95902d595bd93faeb729ba2f2e6d7810",
+      "metadata_sha256": "8a6f3f1e171b9ab4c7eccef86b4d8f11e4a227ab2b5317494a2ab3ca2652d6d7",
+      "dimensions": 7,
+      "manifest_and_unchanged_coordinates_match_legacy": true
+    },
+    {
+      "mode": "calibration_linear_vector",
+      "normalizer_sha256": "9fdf4636d0c8d14c1a2575cbc6caf8e535ed871743796e89dd43bf69af0d939e",
+      "metadata_sha256": "b089365eb22a68e624bea5f509168d2de41d12aec75802b6d2ac2401193257a8",
+      "dimensions": 8,
+      "manifest_and_unchanged_coordinates_match_legacy": true
+    }
+  ],
+  "actual_scenes_per_mode": 8192,
+  "actual_agents_per_mode": 76027,
+  "legacy_manifest_sha256": "9617baac2f0a95c92f8d590dd7aeb1068eb577330a214bad60707ecc93e870c1",
+  "source_sample_order_matches_legacy": true,
+  "cuda_initialized": false,
+  "no_checkpoint_loaded": true
+}

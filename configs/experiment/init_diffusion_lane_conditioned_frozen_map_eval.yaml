@@ -1,0 +1,32 @@
+# @package _global_
+# Evaluate a declared baseline training checkpoint on the full matched 50000 set.
+# Pass ckpt_path=/path/to/checkpoint.ckpt or INIT_DIFFUSION_FROZEN_MAP_CKPT.
+# The saved checkpoint restores map/G1/normalizer/EMA; do not initialize AIRL again.
+defaults:
+  - init_diffusion_lane_conditioned_frozen_map
+  - _self_
+
+task_name: init_diffusion_lane_conditioned_frozen_map_eval
+action: test
+ckpt_path: ${oc.env:INIT_DIFFUSION_FROZEN_MAP_CKPT}
+seed: 2817
+
+model:
+  model_config:
+    initial_map_checkpoint: null
+    sd_reference_mode: matched
+    sd_require_full_set: true
+    sd_expected_scenes: 50000
+    decoder:
+      init_diffusion:
+        normalizer_path: null
+
+data:
+  scenario_dreamer_eval_set: null
+
+trainer:
+  limit_test_batches: 1.0
+  logger: false
+
+callbacks: null
+logger: false

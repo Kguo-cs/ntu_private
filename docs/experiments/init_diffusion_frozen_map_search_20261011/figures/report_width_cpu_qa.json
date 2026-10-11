@@ -1,0 +1,124 @@
+{
+  "created_utc": "2026-10-11T11:59:43.362929+00:00",
+  "status": "PASS_ACTUAL_AND_CPU_LAYOUT_GUARDS",
+  "scientific_scope": "Actual report figures only use discovered protocol-root observations. Future-stage fixtures are only in /tmp and are not scientific results.",
+  "tool": "/home/ke/code/sim/tools/plot_frozen_map_search.py",
+  "tool_sha256": "9c3592952370989d33a2285c9a09e6a43db27fde7602d7e5f78ec486210910b0",
+  "actual_metadata_sha256": "f2d0341af50589daa78d06f2a0a51912485a15fecfd9230ec7de097d2ef86be5",
+  "actual_observation_count": 55,
+  "actual_stage_status": {
+    "phase1": "complete",
+    "phase2": "incomplete",
+    "long_confirmation": "skipped",
+    "full50000": "skipped"
+  },
+  "actual_figures": [
+    {
+      "native_width_in": 7.097222222222222,
+      "native_height_in": 6.630000000000001,
+      "native_width_pt": 511.0,
+      "native_height_pt": 477.36000000000007,
+      "PNG_width_px": 1561,
+      "PNG_height_px": 1458,
+      "PNG_DPI": 220,
+      "visible_text_count": 131,
+      "source_font_sizes_pt": [
+        9.0,
+        9.5,
+        10.0,
+        12.0
+      ],
+      "minimum_source_font_pt": 9.0,
+      "report_fit_width_pt": 511.0,
+      "report_fit_max_height_pt": 490.0,
+      "width_fit_scale": 1.0,
+      "minimum_effective_font_at_report_width_pt": 9.0,
+      "report_box_fit_scale": 1.0,
+      "minimum_effective_font_at_report_box_pt": 9.0,
+      "minimum_display_width_for_8pt_font_pt": 454.22222222222223,
+      "minimum_display_height_for_8pt_font_pt": 424.32000000000005,
+      "height_limit_warning": "Any additional height fitting must retain at least the declared minimum display dimensions.",
+      "nonempty_visible_text_outside_canvas": [],
+      "files": [
+        "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_relative_metrics.png",
+        "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_relative_metrics.svg"
+      ],
+      "png_sha256": "82b40f1e1c53dbe7689dbd47ad7e51461c21115223afd552c59e2b327e7df912"
+    },
+    {
+      "native_width_in": 7.097222222222222,
+      "native_height_in": 4.5,
+      "native_width_pt": 511.0,
+      "native_height_pt": 324.0,
+      "PNG_width_px": 1561,
+      "PNG_height_px": 990,
+      "PNG_DPI": 220,
+      "visible_text_count": 19,
+      "source_font_sizes_pt": [
+        9.0,
+        9.5,
+        10.0,
+        12.0
+      ],
+      "minimum_source_font_pt": 9.0,
+      "report_fit_width_pt": 511.0,
+      "report_fit_max_height_pt": 490.0,
+      "width_fit_scale": 1.0,
+      "minimum_effective_font_at_report_width_pt": 9.0,
+      "report_box_fit_scale": 1.0,
+      "minimum_effective_font_at_report_box_pt": 9.0,
+      "minimum_display_width_for_8pt_font_pt": 454.22222222222223,
+      "minimum_display_height_for_8pt_font_pt": 288.0,
+      "height_limit_warning": "Any additional height fitting must retain at least the declared minimum display dimensions.",
+      "nonempty_visible_text_outside_canvas": [],
+      "files": [
+        "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase2_equal_exposure.png",
+        "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase2_equal_exposure.svg"
+      ],
+      "png_sha256": "108fbad743a36e4a915b684e75401b39ed9f81acb412c0f3b927859b580a1249"
+    }
+  ],
+  "actual_visual_qa": "Phase1 all14 arms, numeric ratios, saturation declaration and gate markers readable without text clipping or overlap. Actual partialphase2 two observed arms readable; incompleteness/missing arms remain explicit in metadata.",
+  "PDF_fit_box_pt": [
+    511,
+    490
+  ],
+  "minimum_source_font_pt": 9,
+  "minimum_effective_report_font_pt": 8,
+  "physical_canvas_no_tight_bbox": true,
+  "future_layout_tests": {
+    "scope": "LAYOUT_ONLY_NOT_RESULTS",
+    "fixture_metadata_path": "/tmp/sim_frozen_map_plot_layout_qa/layout_fixture_metadata.json",
+    "fixture_metadata_sha256": "6af3f1ab06782f230cef9e53c84fb108058bdb0d8b608fd2c1f3e83bdea04a77",
+    "figures_tested": 14,
+    "phase2_18arms_page_rows": [
+      13,
+      5
+    ],
+    "phase2_same_x_ranges_across_parts": true,
+    "mixed_batch_exception_label_qa": "Three long 2-line fixture names at B256/1536 now use dagger markers and footer; no label overlap.",
+    "long_metric_figures": 7,
+    "training_N_figures": 1,
+    "full_distribution_figures": 3,
+    "full_coverage_figures": 1,
+    "minimum_effective_report_font_pt_actual": 8.59046283309958,
+    "maximum_native_height_pt": 513.36,
+    "guard_rejections": {
+      "too_wide": "rejected_too_wide: native figure is wider than 511 pt",
+      "source_font_small": "rejected_source_font_small: text would be smaller than the declared report font limit",
+      "height_fit_font_small": "rejected_height_fit_font_small: text would be smaller than the declared report font limit"
+    },
+    "visual_checked": [
+      "phase2_equal_exposure_part01",
+      "phase2_equal_exposure_part02",
+      "long_confirmation_ang_dev_jsd",
+      "long_confirmation_training_seed_count",
+      "full50000_speed_jsd_distribution",
+      "full50000_road_coverage"
+    ]
+  },
+  "torch_imported_by_plotter": false,
+  "py_compile": "PASS",
+  "git_diff_check": "PASS",
+  "PDF_authoring": "Not performed; root owns final PDF and final rendered-page verification."
+}

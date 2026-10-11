@@ -1,5 +1,6 @@
 _target_: src.smart.model.smart.SMART
 model_config:
+  initial_map_checkpoint: null  # Optional strict map-only initialization; finetune=true freezes it, ckpt_path remains null.
   optimizer: default  # Select optimizer=scenario_dreamer for the official LDM recipe.
   lr: 0.0005
   lr_warmup_steps: 0

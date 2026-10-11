@@ -1,0 +1,62 @@
+{
+  "stage": "loss_interaction",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "512",
+    "--scenes",
+    "1024",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "0",
+    "--seed",
+    "817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--steps",
+    "768",
+    "--checkpoint-steps",
+    "256,512",
+    "--lr",
+    "0.0005",
+    "--recipe",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/loss_interaction_recipe.json",
+    "--variant-file",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/loss_interaction_variants.json",
+    "--variants",
+    "shape_p2_speed4",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/loss_interaction"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/loss_interaction",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_loss_interaction.log",
+  "controller_pid": 282682,
+  "started_unix": 1791718929.1684363,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 328359,
+  "ended_unix": 1791719244.2966847,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/loss_interaction/protocol.json",
+      "sha256": "0baee952afdf8d25b6856916909cacc4dc196380de21c6673864fe160173765f"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/loss_interaction/summary.json",
+      "sha256": "0086b09da0d55c95f91ac96cb01ccd7cbd642dbdef063170520c6f7d6fffc925"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_loss_interaction.log",
+      "sha256": "14a277db40d8afafce7b5f4dbbbbb1986232ee295008bc11e2b530bfa4ea73c2"
+    }
+  },
+  "last_verified_unix": 1791719244.3010306
+}

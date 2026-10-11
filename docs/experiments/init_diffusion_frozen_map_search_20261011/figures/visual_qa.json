@@ -1,0 +1,19 @@
+{
+  "created_utc": "2026-10-11T11:59:43.362929+00:00",
+  "status": "PASS_CURRENT_ACTUAL_PHASE1_AND_PARTIAL_PHASE2",
+  "visual_inspection": "Phase1 all14 arms, numeric ratios, saturation declaration and gate markers readable without text clipping or overlap. Actual partialphase2 two observed arms readable; incompleteness/missing arms remain explicit in metadata.",
+  "actual_figure_files": [
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase1_relative_metrics.png",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/phase2_equal_exposure.png"
+  ],
+  "metadata_sha256": "f2d0341af50589daa78d06f2a0a51912485a15fecfd9230ec7de097d2ef86be5",
+  "minimum_source_font_pt": 9,
+  "minimum_effective_font_after_511x490_fit_pt": 9.0,
+  "torch_imported_by_plotter": false,
+  "observations": 55,
+  "completed_phase1_arms_at_plot": 14,
+  "expected_phase1_arms": 14,
+  "observed_phase2_arms_at_plot": 2,
+  "missing_later_stages_not_fabricated": true,
+  "comprehensive_layout_qa": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/figures/report_width_cpu_qa.json"
+}

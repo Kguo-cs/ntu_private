@@ -1,0 +1,67 @@
+{
+  "normal_mean": [
+    [
+      1.9189387777302696,
+      1.364083472300625,
+      0.4086773514423735,
+      -0.005501848496799829,
+      4.296037481186671,
+      1.9575884685249392,
+      4.34224742472876,
+      0.004882522122421195
+    ]
+  ],
+  "normal_scale": [
+    [
+      16.672553895005056,
+      11.943502916226873,
+      0.7719222038762955,
+      0.4869175122116542,
+      1.5381454558430123,
+      0.4944140599014441,
+      5.59900608513817,
+      0.24796711848805192
+    ]
+  ],
+  "scenes": 8192,
+  "agents": 76027,
+  "seed": 4717,
+  "train_manifest": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/calibration_linear_vector/calibration_files.pkl",
+  "source": "training_map2_sd; no checkpoint loaded",
+  "train_manifest_sha256": "9617baac2f0a95c92f8d590dd7aeb1068eb577330a214bad60707ecc93e870c1",
+  "dimensions": [
+    "x",
+    "y",
+    "cos_heading",
+    "sin_heading",
+    "length",
+    "width",
+    "velocity_x",
+    "velocity_y"
+  ],
+  "size_representation": "linear",
+  "velocity_representation": "vector",
+  "workers": 0,
+  "observation_counts": [
+    76027,
+    76027,
+    76027,
+    76027,
+    76027,
+    76027,
+    76027,
+    76027
+  ],
+  "invalid_size_fields": 0,
+  "invalid_size_agents": 0,
+  "invalid_size_statistics": "Log-size nonfinite/nonpositive annotations are excluded per coordinate; finite model input fills never enter statistics. Linear mode preserves the original all-finite-state observation algorithm.",
+  "log_input_fill": "Current InitDenoiser mask policy: same-type log mean, then batch log mean, then nominal token dimensions. generate_type=true uses one common group, preventing type leakage through the fill.",
+  "cpu_only": true,
+  "cuda_initialized": false,
+  "checkpoint_loaded": false,
+  "calibration_tool_sha256": "95c43e79df1945ed5371da05d66162e934652c5bae5885b128afef8b26043586",
+  "source_manifest_sha256": "1fd28194d40e333f3acc7bee9093a6b643cf2f6920aa9391d3a1bf053693633d",
+  "sample_algorithm": "random.Random(seed).sample(original training_map2_sd_files.pkl files, scenes)",
+  "elapsed_seconds": 4.067991358999279,
+  "metadata_sha256": "b089365eb22a68e624bea5f509168d2de41d12aec75802b6d2ac2401193257a8"
+}

@@ -16,8 +16,8 @@ model:
   model_config:
     finetune: false
     optimizer: default
-    lr: 0.0001
-    lr_total_steps: 128  # The existing default scheduler counts real epochs.
+#    lr: 0.0001
+#    lr_total_steps: 128  # The existing default scheduler counts real epochs.
     token_processor:
       init_map_crop: square
       init_map_half_extent: 50.0

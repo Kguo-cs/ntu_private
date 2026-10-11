@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "helper_tests_passed": 9,
+  "final_queue_present": false,
+  "actual_final_facts_written": false,
+  "cuda_initialized": false,
+  "test_scope": "Pure independent helper tests + synthetic /tmp inventory; actual partial metric report and original66 map / step128 checkpoint proof; no final decision fabricated.",
+  "script_sha256": "de9bd6b1296c44721214ae75c6a88b603d428a2f81a32035db176e36ba5e64ec",
+  "test_output": "test_GEN_first_TRAIN_equal (__main__.FinalAuditorTests.test_GEN_first_TRAIN_equal) ... ok\ntest_R_gates (__main__.FinalAuditorTests.test_R_gates) ... ok\ntest_actual_partial_report (__main__.FinalAuditorTests.test_actual_partial_report) ... ok\ntest_actual_source66_and_checkpoint_metadata (__main__.FinalAuditorTests.test_actual_source66_and_checkpoint_metadata) ... ok\ntest_final_matrix_roles (__main__.FinalAuditorTests.test_final_matrix_roles) ... ok\ntest_partial_exposure (__main__.FinalAuditorTests.test_partial_exposure) ... ok\ntest_partial_guard (__main__.FinalAuditorTests.test_partial_guard) ... ok\ntest_reject_missing_scope_wrong_matrix (__main__.FinalAuditorTests.test_reject_missing_scope_wrong_matrix) ... ok\ntest_toy_inventory_stage_deltas (__main__.FinalAuditorTests.test_toy_inventory_stage_deltas) ... ok\n\n----------------------------------------------------------------------\nRan 9 tests in 0.154s\n\nOK\n"
+}

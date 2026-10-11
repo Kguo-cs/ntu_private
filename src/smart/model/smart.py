@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import math
+import hashlib
 import json
 import numbers
 import time
@@ -143,6 +144,10 @@ class SMART(LightningModule):
 
         self.training_rollout_len = int(_cfg(model_config, "training_rollout_len", 10))
         self._configure_finetuning(bool(model_config.finetune))
+        self.initial_map_checkpoint_metadata = None
+        initial_map_checkpoint = _cfg(model_config, "initial_map_checkpoint", None)
+        if initial_map_checkpoint is not None:
+            self._initialize_fixed_map_encoder(initial_map_checkpoint, bool(model_config.finetune))
 
         self.n_vis_batch = int(model_config.n_vis_batch)
         self.n_vis_scenario = int(model_config.n_vis_scenario)
@@ -217,6 +222,56 @@ class SMART(LightningModule):
             self.store = None
 
        # self.wosac_submission.save_sub_file()
+
+    def _initialize_fixed_map_encoder(self, checkpoint_path, finetune: bool) -> None:
+        """Initialize only the frozen map; leave generator, EMA and optimizer fresh."""
+        if (not finetune or self.encoder.init_decoder_name != "flow"
+                or not self.encoder.initial_scene_only or not self.token_processor.learn_init
+                or self.encoder.gail or self.encoder.sep_map):
+            raise ValueError("initial_map_checkpoint requires supervised initial-scene InitDiffusion "
+                             "with finetune=true, learn_init=true and sep_map=false")
+        path = Path(checkpoint_path).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"Initial map checkpoint does not exist: {path}")
+        with path.open("rb") as handle:
+            digest = hashlib.sha256()
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+            handle.seek(0)
+            checkpoint = torch.load(handle, map_location="cpu", weights_only=False)
+        if not isinstance(checkpoint, Mapping) or not isinstance(checkpoint.get("state_dict"), Mapping):
+            raise ValueError("Initial map checkpoint must contain a state_dict mapping")
+        prefix = "encoder.map_encoder."
+        source = {key[len(prefix):]: value for key, value in checkpoint["state_dict"].items()
+                  if isinstance(key, str) and key.startswith(prefix)}
+        target = self.encoder.map_encoder.state_dict()
+        missing, unexpected = set(target) - set(source), set(source) - set(target)
+        if missing or unexpected:
+            raise ValueError("Initial map checkpoint keys do not match: "
+                             f"missing={sorted(missing)}, unexpected={sorted(unexpected)}")
+        # Preflight every tensor before load_state_dict: its own shape error can
+        # otherwise leave a partially copied map. Architecture mismatches fail.
+        for key, value in source.items():
+            expected = target[key]
+            if not torch.is_tensor(value) or value.shape != expected.shape or value.dtype != expected.dtype:
+                raise ValueError(f"Initial map checkpoint tensor does not match: {key}")
+            if not torch.isfinite(value).all():
+                raise ValueError(f"Initial map checkpoint tensor must be finite: {key}")
+        self.encoder.map_encoder.load_state_dict(source, strict=True)
+        _freeze(self.encoder.map_encoder)
+        self.initial_map_checkpoint_metadata = {
+            "path": str(path), "file_sha256": digest.hexdigest(),
+            "source_epoch": checkpoint.get("epoch"), "source_global_step": checkpoint.get("global_step"),
+            "loaded_prefix": prefix, "loaded_tensor_count": len(source),
+        }
+
+    def train(self, mode: bool = True):
+        result = super().train(mode)
+        # requires_grad=False alone does not stop parent train() from turning
+        # dropout back on. A fixed condition encoder must remain deterministic.
+        if getattr(self, "initial_map_checkpoint_metadata", None) is not None:
+            self.encoder.map_encoder.eval()
+        return result
 
     def _configure_finetuning(self, enabled: bool) -> None:
         if not self.token_processor.learn_init:

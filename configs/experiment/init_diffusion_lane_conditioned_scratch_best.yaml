@@ -17,27 +17,27 @@ paths:
   root_dir: ${sim_root:}/src
 model:
   model_config:
-    finetune: false
-    optimizer: default
-    lr: 0.0005
-    lr_total_steps: 128
-    lr_warmup_steps: 0
-    lr_min_ratio: 0.05
-    token_processor:
-      init_map_crop: square
-      init_map_half_extent: 50.0
-      map_token_file: map_traj_token5.pkl
-      agent_token_file: agent_vocab_555_s2.pkl
-      map_token_sampling:
-        num_k: 1
-        temp: 1.0
-      agent_token_sampling:
-        num_k: 1
-        temp: 1.0
-      pred_init: true
-      learn_init: true
-      learn_autoencoder: false
-      scenario_dreamer_init: true
+#    finetune: false
+#    optimizer: default
+#    lr: 0.0005
+#    lr_total_steps: 128
+#    lr_warmup_steps: 0
+#    lr_min_ratio: 0.05
+#    token_processor:
+#      init_map_crop: square
+#      init_map_half_extent: 50.0
+#      map_token_file: map_traj_token5.pkl
+#      agent_token_file: agent_vocab_555_s2.pkl
+#      map_token_sampling:
+#        num_k: 1
+#        temp: 1.0
+#      agent_token_sampling:
+#        num_k: 1
+#        temp: 1.0
+#      pred_init: true
+#      learn_init: true
+#      learn_autoencoder: false
+#      scenario_dreamer_init: true
     decoder:
       init_decoder: flow
       sep_map: false

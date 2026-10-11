@@ -1,0 +1,64 @@
+{
+  "stage": "worker2_benchmark",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "512",
+    "--scenes",
+    "64",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "2",
+    "--seed",
+    "817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--sharing-strategy",
+    "file_system",
+    "--steps",
+    "128",
+    "--checkpoint-steps",
+    "",
+    "--lr",
+    "0.0005",
+    "--recipe",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/worker2_benchmark_recipe.json",
+    "--variant-file",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/worker2_benchmark_variants.json",
+    "--variants",
+    "new_control",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/worker2_benchmark"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/worker2_benchmark",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_worker2_benchmark.log",
+  "controller_pid": 282682,
+  "started_unix": 1791718470.646602,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 306698,
+  "ended_unix": 1791718502.1194153,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/worker2_benchmark/protocol.json",
+      "sha256": "fb673ff22a41ef9a665e9592209f1e45fe16ebe18c24bae4c0b8d5df4574cf83"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/worker2_benchmark/summary.json",
+      "sha256": "cca9ca5e639cc5174628770d25cd550d3b8afb73ee641181bd5a6cfc0c6664a7"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_worker2_benchmark.log",
+      "sha256": "04c19dce17070570a0182a24381f6e7dc213a5a1651e9c5c34ed188efa061326"
+    }
+  },
+  "last_verified_unix": 1791718502.1238666
+}
