@@ -164,48 +164,48 @@ model:
     sd_prediction_frame: world
     sd_require_generation_timestep: true
     n_vis_batch: 0
-data:
-  train_batch_size: 512
-  val_batch_size: 256
-  test_batch_size: 128
-  train_raw_dir: ${paths.cache_root}/training_map2_sd
-  val_raw_dir: ${paths.cache_root}/scenario_dreamer_val
-  test_raw_dir: ${paths.cache_root}/scenario_dreamer_val
-  val_tfrecords_splitted: null
-  num_workers: 0
-  pin_memory: false
-  persistent_workers: false
-  shuffle: true
-  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
-  scenario_dreamer_eval_set: ${sim_root:}/docs/experiments/init_diffusion_scratch_loss_search_20261011/heldout4096_files.pkl
-  scenario_dreamer_preprocessed: false
-  scenario_dreamer_train_non_partitioned_only: false
-  scenario_dreamer_train_latent_cache: null
-  scenario_dreamer_val_latent_cache: null
-  scenario_dreamer_test_latent_cache: null
-trainer:
-  accelerator: gpu
-  devices: 1
-  precision: 32-true
-  max_epochs: 128
-  max_steps: -1
-  gradient_clip_val: 0.5
-  accumulate_grad_batches: 1
-  num_sanity_val_steps: 0
-  limit_train_batches: 1.0
-  limit_val_batches: 1.0
-  limit_test_batches: 1.0
-  val_check_interval: 1.0
-  check_val_every_n_epoch: 4
-callbacks:
-  model_checkpoint:
-    monitor: null
-    save_top_k: -1
-    save_last: true
-    every_n_epochs: 4
-    every_n_train_steps: null
-    train_time_interval: null
-    save_on_train_epoch_end: true
-    save_weights_only: false
-    auto_insert_metric_name: false
-    filename: init-diffusion-scratch-best-{epoch}-{step}
+#data:
+#  train_batch_size: 512
+#  val_batch_size: 256
+#  test_batch_size: 128
+#  train_raw_dir: ${paths.cache_root}/training_map2_sd
+#  val_raw_dir: ${paths.cache_root}/scenario_dreamer_val
+#  test_raw_dir: ${paths.cache_root}/scenario_dreamer_val
+#  val_tfrecords_splitted: null
+#  num_workers: 0
+#  pin_memory: false
+#  persistent_workers: false
+#  shuffle: true
+#  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
+#  scenario_dreamer_eval_set: ${sim_root:}/docs/experiments/init_diffusion_scratch_loss_search_20261011/heldout4096_files.pkl
+#  scenario_dreamer_preprocessed: false
+#  scenario_dreamer_train_non_partitioned_only: false
+#  scenario_dreamer_train_latent_cache: null
+#  scenario_dreamer_val_latent_cache: null
+#  scenario_dreamer_test_latent_cache: null
+#trainer:
+#  accelerator: gpu
+#  devices: 1
+#  precision: 32-true
+#  max_epochs: 128
+#  max_steps: -1
+#  gradient_clip_val: 0.5
+#  accumulate_grad_batches: 1
+#  num_sanity_val_steps: 0
+#  limit_train_batches: 1.0
+#  limit_val_batches: 1.0
+#  limit_test_batches: 1.0
+#  val_check_interval: 1.0
+#  check_val_every_n_epoch: 4
+#callbacks:
+#  model_checkpoint:
+#    monitor: null
+#    save_top_k: -1
+#    save_last: true
+#    every_n_epochs: 4
+#    every_n_train_steps: null
+#    train_time_interval: null
+#    save_on_train_epoch_end: true
+#    save_weights_only: false
+#    auto_insert_metric_name: false
+#    filename: init-diffusion-scratch-best-{epoch}-{step}

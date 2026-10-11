@@ -40,28 +40,28 @@ model:
             speed_magnitude: {kind: mse, time_power: 0, weight: 0.0, scale: data}
     sd_reference_mode: matched
     sd_require_full_set: false
-
-data:
-  train_batch_size: 64  # Match the quick search's effective batch size.
-  val_batch_size: 256
-  test_batch_size: 128
-  num_workers: 0
-  pin_memory: false
-  persistent_workers: false
-  shuffle: true
-  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
-
-trainer:
-  devices: 1
-  max_epochs: 128
-  val_check_interval: 1.0
-  check_val_every_n_epoch: 4
-  limit_val_batches: 16
-
-callbacks:
-  model_checkpoint:
-    monitor: null
-    save_top_k: 1
-    save_last: true
-    save_on_train_epoch_end: true
-    filename: init-diffusion-scratch-{epoch}-{step}
+#
+#data:
+#  train_batch_size: 64  # Match the quick search's effective batch size.
+#  val_batch_size: 256
+#  test_batch_size: 128
+#  num_workers: 0
+#  pin_memory: false
+#  persistent_workers: false
+#  shuffle: true
+#  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
+#
+#trainer:
+#  devices: 1
+#  max_epochs: 128
+#  val_check_interval: 1.0
+#  check_val_every_n_epoch: 4
+#  limit_val_batches: 16
+#
+#callbacks:
+#  model_checkpoint:
+#    monitor: null
+#    save_top_k: 1
+#    save_last: true
+#    save_on_train_epoch_end: true
+#    filename: init-diffusion-scratch-{epoch}-{step}
