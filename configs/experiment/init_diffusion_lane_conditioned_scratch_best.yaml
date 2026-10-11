@@ -1,0 +1,211 @@
+# @package _global_
+# Frozen heldout EMA2048 selection: geo_mse32_col20_heading_l1_shape2.
+# Full native training starts from random map encoder and G1 weights; no checkpoint is loaded.
+# Default AdamW + existing cosine scheduler counts 128 real data epochs.
+# G1 uses adaptive torch_ema; shared map encoder stays online (sep_map=false).
+# Keep every fourth epoch checkpoint; last.ckpt updates every training epoch.
+# Validation uses all 4096 confirmation scenes every four epochs; no metric chooses checkpoints.
+defaults:
+- init_diffusion_lane_conditioned_scratch
+- _self_
+task_name: init_diffusion_lane_conditioned_scratch_best
+action: fit
+ckpt_path: null
+seed: 817
+float32_matmul_precision: medium
+paths:
+  root_dir: ${sim_root:}/src
+model:
+  model_config:
+    finetune: false
+    optimizer: default
+    lr: 0.0005
+    lr_total_steps: 128
+    lr_warmup_steps: 0
+    lr_min_ratio: 0.05
+    token_processor:
+      init_map_crop: square
+      init_map_half_extent: 50.0
+      map_token_file: map_traj_token5.pkl
+      agent_token_file: agent_vocab_555_s2.pkl
+      map_token_sampling:
+        num_k: 1
+        temp: 1.0
+      agent_token_sampling:
+        num_k: 1
+        temp: 1.0
+      pred_init: true
+      learn_init: true
+      learn_autoencoder: false
+      scenario_dreamer_init: true
+    decoder:
+      init_decoder: flow
+      sep_map: false
+      init_diffusion:
+        component_loss:
+          normalize_time_weights: true
+          std_floor: 0.1
+          heading_space: angle
+          components:
+            position:
+              kind: mse
+              time_power: 1
+              weight: 32.0
+              scale: data
+            heading:
+              kind: l1
+              time_power: 1
+              weight: 1.0
+              scale: none
+            length:
+              kind: mse
+              time_power: 1
+              weight: 2.0
+              scale: data
+            width:
+              kind: mse
+              time_power: 1
+              weight: 2.0
+              scale: data
+            velocity:
+              kind: mse
+              time_power: 1
+              weight: 2.0
+              scale: data
+            type:
+              kind: ce
+              time_power: 0
+              weight: 1.0
+              scale: none
+            collision:
+              kind: l1
+              time_power: 1
+              weight: 20.0
+              scale: none
+            speed_magnitude:
+              kind: mse
+              time_power: 0
+              weight: 0.0
+              scale: data
+        normalizer_path: ${sim_root:}/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json
+        fix_ego: false
+        fix_ego_position: true
+        fix_ego_heading: true
+        fix_ego_shape: true
+        fix_ego_velocity: false
+        fix_ego_type: true
+        use_ego_embedding: true
+        ego_context_heading_encoding: angle
+        generate_type: true
+        type_loss_weight: 1.0
+        type_process: separate
+        type_match_weight: 1.0
+        type_noise_stats: standard
+        type_noise_std_floor: 0.01
+        pos_source: gaussian
+        shape_source: gaussian
+        velocity_source: gaussian
+        velocity_representation: speed
+        speed_loss_weight: 0.0
+        speed_loss_scale: null
+        size_representation: linear
+        invalid_size_policy: mask
+        heading_noise: circular
+        heading_objective: x0
+        heading_x0_loss: vector_mse
+        heading_flow_loss_weight: 1.0
+        sigma_h: 5.0
+        edge_embedding_type: fourier
+        time_embedding_type: scenario_dreamer
+        time_embedding_scale: 99.0
+        count_embedding_type: none
+        count_lane_source: map_tokens
+        count_max_num_agents: 128
+        count_max_num_lanes: 1024
+        map_embedding_type: none
+        map_id_source: fixed
+        map_id: 0
+        map_lg_type: 0
+        map_label_dropout: 0.1
+        use_ema: true
+        ema_decay: 0.9999
+      initial_scene_only: true
+      scenario_dreamer: null
+      vectorworld: null
+      hidden_dim: 128
+      num_freq_bands: 64
+      num_heads: 8
+      head_dim: 16
+      dropout: 0
+      hist_drop_prob: 0
+      num_map_layers: 1
+      num_agent_layers: 3
+      pl2pl_radius: 20
+      pl2a_radius: 40
+      a2a_radius: 60
+      time_span: 60
+      num_historical_steps: 11
+      num_future_steps: 80
+      pt2pt_neighbor: 30
+      pt2a_neighbor: 20
+      a2a_neighbor: 20
+      dis_a2a_radius: 0
+      dis_weight: 20
+      dist_decay: 3
+      reward_weight: 0
+      reward_decay: 2.5
+    sd_reference_mode: matched
+    sd_require_full_set: false
+    sd_expected_scenes: 50000
+    sd_use_cached_evaluator: true
+    sd_eval_set: ${paths.root_dir}/waymo_data/waymo_eval_set.pkl
+    sd_real_cache: ${paths.root_dir}/waymo_data/sd_real_metric_cache.sqlite
+    sd_gen_timestep: 0
+    sd_prediction_frame: world
+    sd_require_generation_timestep: true
+    n_vis_batch: 0
+data:
+  train_batch_size: 512
+  val_batch_size: 256
+  test_batch_size: 128
+  train_raw_dir: ${paths.cache_root}/training_map2_sd
+  val_raw_dir: ${paths.cache_root}/scenario_dreamer_val
+  test_raw_dir: ${paths.cache_root}/scenario_dreamer_val
+  val_tfrecords_splitted: null
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  shuffle: true
+  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
+  scenario_dreamer_eval_set: ${sim_root:}/docs/experiments/init_diffusion_scratch_loss_search_20261011/heldout4096_files.pkl
+  scenario_dreamer_preprocessed: false
+  scenario_dreamer_train_non_partitioned_only: false
+  scenario_dreamer_train_latent_cache: null
+  scenario_dreamer_val_latent_cache: null
+  scenario_dreamer_test_latent_cache: null
+trainer:
+  accelerator: gpu
+  devices: 1
+  precision: 32-true
+  max_epochs: 128
+  max_steps: -1
+  gradient_clip_val: 0.5
+  accumulate_grad_batches: 1
+  num_sanity_val_steps: 0
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  val_check_interval: 1.0
+  check_val_every_n_epoch: 4
+callbacks:
+  model_checkpoint:
+    monitor: null
+    save_top_k: -1
+    save_last: true
+    every_n_epochs: 4
+    every_n_train_steps: null
+    train_time_interval: null
+    save_on_train_epoch_end: true
+    save_weights_only: false
+    auto_insert_metric_name: false
+    filename: init-diffusion-scratch-best-{epoch}-{step}

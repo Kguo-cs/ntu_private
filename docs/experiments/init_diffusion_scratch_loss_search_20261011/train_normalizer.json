@@ -1,0 +1,39 @@
+{
+  "normal_mean": [
+    [
+      1.9189387777302696,
+      1.364083472300625,
+      0.4086773514423735,
+      -0.005501848496799829,
+      4.296037481186671,
+      1.9575884685249392,
+      4.3793590289782145
+    ]
+  ],
+  "normal_scale": [
+    [
+      16.672553895005056,
+      11.943502916226873,
+      0.7719222038762955,
+      0.4869175122116542,
+      1.5381454558430123,
+      0.4944140599014441,
+      5.575545520110632
+    ]
+  ],
+  "scenes": 8192,
+  "agents": 76027,
+  "seed": 4717,
+  "train_manifest": "/home/ke/code/sim/logs/component_loss_scratch/calibration/calibration_files.pkl",
+  "source": "training_map2_sd; no checkpoint loaded",
+  "train_manifest_sha256": "9617baac2f0a95c92f8d590dd7aeb1068eb577330a214bad60707ecc93e870c1",
+  "dimensions": [
+    "x",
+    "y",
+    "cos_heading",
+    "sin_heading",
+    "length",
+    "width",
+    "speed"
+  ]
+}

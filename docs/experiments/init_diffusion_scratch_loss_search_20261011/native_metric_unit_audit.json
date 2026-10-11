@@ -1,0 +1,44 @@
+{
+  "scope": "CPU source/filename-only verification; no tensor loading, CUDA, training, evaluation or PDF creation.",
+  "metric_source": "src/smart/metrics/metric_core.py",
+  "metric_source_sha256": "f34ac0a48d9c1ce6e9e7655341aa44c78072b862e2a809f1ec2cc5ce8b3290a3",
+  "multipliers": {
+    "nearest_dist_jsd": 10,
+    "lat_dev_jsd": 10,
+    "ang_dev_jsd": 100,
+    "length_jsd": 100,
+    "width_jsd": 100,
+    "speed_jsd": 100,
+    "collision_rate": 1
+  },
+  "lightning_source": "src/smart/model/smart.py",
+  "logging_behavior": "SMART.on_validation_epoch_end writes compute() return values to agent_metrics JSON and self.log without dividing helper multipliers.",
+  "raw_report_conversion": {
+    "nearest_dist_jsd": "divide_by_10",
+    "lat_dev_jsd": "divide_by_10",
+    "ang_dev_jsd": "divide_by_100",
+    "length_jsd": "divide_by_100",
+    "width_jsd": "divide_by_100",
+    "speed_jsd": "divide_by_100",
+    "collision_rate": "divide_by_1"
+  },
+  "score_raw_scales": {
+    "nearest_dist_jsd": 0.1,
+    "lat_dev_jsd": 0.1,
+    "ang_dev_jsd": 0.1,
+    "length_jsd": 0.2,
+    "width_jsd": 0.15,
+    "speed_jsd": 0.2,
+    "collision_rate": 5
+  },
+  "score_helper_scales": {
+    "nearest_dist_jsd": 1,
+    "lat_dev_jsd": 1,
+    "ang_dev_jsd": 10,
+    "length_jsd": 20,
+    "width_jsd": 15,
+    "speed_jsd": 20,
+    "collision_rate": 5
+  },
+  "history_caveat": "Inspect the corresponding historical code before comparing units across versions."
+}

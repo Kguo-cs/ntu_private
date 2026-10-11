@@ -1,0 +1,29 @@
+{
+  "scales": {
+    "nearest_dist_jsd": 1.0,
+    "lat_dev_jsd": 1.0,
+    "ang_dev_jsd": 10.0,
+    "length_jsd": 20.0,
+    "width_jsd": 15.0,
+    "speed_jsd": 20.0,
+    "collision_rate": 5.0
+  },
+  "score": "mean(metric/scale)",
+  "roots": [
+    "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0",
+    "/home/ke/code/sim/logs/component_loss_scratch/adaptive1024_w0"
+  ],
+  "anchor": "anchor",
+  "num_observations": 66,
+  "num_groups": 66,
+  "warnings": [],
+  "aggregation": "repeats within evaluation seed, then evaluation seeds within training seed, then training seeds",
+  "figures": [
+    "learning_curves_8bcd9b085236.png",
+    "metric_heatmap_8bcd9b085236_step_1024.png",
+    "metric_heatmap_8bcd9b085236_step_256.png",
+    "metric_heatmap_8bcd9b085236_step_512.png",
+    "gradient_training_traces.png"
+  ],
+  "analysis_source_sha256": "e18f3c6260156ef34164387abd57c72ad5c4709ce850a3b5413d455f786de58a"
+}

@@ -1,0 +1,91 @@
+{
+  "status": "PASS",
+  "scope": "First actual completed 1024\u21924096 scratch continuation, legacy arm",
+  "source_checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0/legacy/last.ckpt",
+  "source_budget": 1024,
+  "source_epoch": 0,
+  "source_ema_updates": 1024,
+  "nominal_lr": 0.0001,
+  "batch_size": 64,
+  "train_trace_length": 3072,
+  "train_trace_first_step": 1024,
+  "train_trace_last_step": 4095,
+  "train_trace_steps_exact_contiguous_range": true,
+  "actual_train_offset": 65536,
+  "first_resumed_scene": "4f93cad14ac5cea2_0_32.pt",
+  "expected_first_resumed_scene": "4f93cad14ac5cea2_0_32.pt",
+  "remaining_manifest_scenes": 428006,
+  "consumed_new_scenes": 196608,
+  "consumed_prefix_and_continuation_filenames_disjoint": true,
+  "manifest_exact_remaining_seeded_order": true,
+  "loader_local_counter_reset": true,
+  "lightning_restore_all_states_logged": true,
+  "rng_and_local_reset_logged": true,
+  "stages": [
+    {
+      "budget": 2048,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/legacy/step_2048.ckpt",
+      "epoch": 0,
+      "scheduler_last_epoch": 0,
+      "optimizer_lr": 9.99856938880697e-05,
+      "optimizer_state_parameter_count": 316,
+      "source_optimizer_state_parameter_count": 316,
+      "optimizer_parameter_groups_identical": true,
+      "optimizer_state_parameter_ids_preserved": true,
+      "parameter_step_min": 2048.0,
+      "parameter_step_max": 2048.0,
+      "adam_first_moment_norm_sum": 0.98958734068583,
+      "adam_second_moment_norm_sum": 0.006564746467848437,
+      "ema_updates": 2048,
+      "normalizer_identical_to_source": true,
+      "protocol_hashes_identical_to_source": true,
+      "local_batch_progress": {
+        "ready": 1024,
+        "completed": 1023,
+        "started": 1024,
+        "processed": 1024
+      },
+      "scratch_rng_keys": [
+        "numpy",
+        "python",
+        "torch_cpu",
+        "torch_cuda"
+      ],
+      "saved_at_batch_end_before_epoch_teardown": true
+    },
+    {
+      "budget": 4096,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/legacy/last.ckpt",
+      "epoch": 0,
+      "scheduler_last_epoch": 0,
+      "optimizer_lr": 9.99856938880697e-05,
+      "optimizer_state_parameter_count": 316,
+      "source_optimizer_state_parameter_count": 316,
+      "optimizer_parameter_groups_identical": true,
+      "optimizer_state_parameter_ids_preserved": true,
+      "parameter_step_min": 4096.0,
+      "parameter_step_max": 4096.0,
+      "adam_first_moment_norm_sum": 1.051826501650794,
+      "adam_second_moment_norm_sum": 0.0074787376309775055,
+      "ema_updates": 4096,
+      "normalizer_identical_to_source": true,
+      "protocol_hashes_identical_to_source": true,
+      "local_batch_progress": {
+        "ready": 3072,
+        "completed": 3071,
+        "started": 3072,
+        "processed": 3072
+      },
+      "scratch_rng_keys": [
+        "numpy",
+        "python",
+        "torch_cpu",
+        "torch_cuda"
+      ],
+      "saved_at_batch_end_before_epoch_teardown": true
+    }
+  ],
+  "cuda_initialized": false,
+  "bitwise_training_equivalence_claimed": false,
+  "source_vs_full_continuous_training_note": "CUDA nondeterminism remains; this audit verifies state, data order and continuation counters, not bitwise weights."
+}

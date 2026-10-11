@@ -1,0 +1,467 @@
+"""Train InitDiffusion and its map encoder from random weights, then evaluate.
+
+Uses the repository's Lightning model, datamodule and Scenario Dreamer evaluator.
+Training statistics must come from a separate training-only calibration pass.
+All arms share a seeded full training order. Continuations restore optimizer,
+scheduler, EMA and RNG state and start after previously consumed examples.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import csv
+import gc
+import hashlib
+import json
+import pickle
+import random
+import shutil
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+import hydra
+import lightning as L
+import numpy as np
+import torch
+from hydra import compose, initialize_config_dir
+from lightning.pytorch.loggers import CSVLogger
+from omegaconf import OmegaConf, open_dict
+
+from tools.quick_component_loss_sweep import Diagnostics, save_json, summarize_trace
+
+
+def hash_file(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def weights_hash(model, prefix):
+    digest = hashlib.sha256()
+    for name, tensor in sorted(model.state_dict().items()):
+        if name.startswith(prefix) and torch.is_tensor(tensor):
+            digest.update(name.encode())
+            digest.update(tensor.detach().cpu().contiguous().numpy().tobytes())
+    return digest.hexdigest()
+
+
+def write_manifest(path, files):
+    with path.open("wb") as handle:
+        pickle.dump({"files": files}, handle)
+    text_path = path.with_suffix(".txt")
+    text_path.write_text("\n".join(files) + "\n")
+    return hash_file(text_path)
+
+
+def apply_variant(loss, changes):
+    """Accept component overrides and optional global heading_space settings."""
+    if changes is None:
+        return None
+    for name, value in changes.items():
+        if name == "__lr":
+            continue
+        if name in ("heading_space", "std_floor", "normalize_time_weights"):
+            loss[name] = value
+        elif name == "components":
+            for component, options in value.items():
+                for key, option in options.items():
+                    loss.components[component][key] = option
+        else:
+            for key, option in value.items():
+                loss.components[name][key] = option
+    return loss
+
+
+def calibrate(model, calibration, *, verify=False):
+    denoiser = model.encoder.init_decoder.G1.model
+    for name in ("normal_mean", "normal_scale"):
+        value = torch.as_tensor(calibration[name], dtype=getattr(denoiser, name).dtype).reshape(1, -1)
+        current = getattr(denoiser, name)
+        if current.shape != value.shape or not torch.isfinite(value).all():
+            raise ValueError(f"Invalid training calibration {name}: {tuple(value.shape)}")
+        if name == "normal_scale" and not (value > 0).all():
+            raise ValueError("Training normal_scale must be strictly positive")
+        if verify:
+            if not torch.equal(current.cpu(), value):
+                raise ValueError(f"Continuation/evaluation checkpoint has different {name}")
+        else:
+            current.copy_(value.to(current))
+    if torch.all(denoiser.normal_mean == 0):
+        raise ValueError("All-zero normal_mean would trigger lazy reinitialization")
+
+
+class ScratchDiagnostics(Diagnostics):
+    def __init__(self, checkpoint_steps, folder, metadata, resume_rng=None):
+        super().__init__(checkpoint_steps, folder)
+        self.metadata = metadata
+        self.resume_rng = resume_rng
+
+    def on_before_optimizer_step(self, trainer, pl_module, optimizer):
+        super().on_before_optimizer_step(trainer, pl_module, optimizer)
+        for label, module in (("map", pl_module.encoder.map_encoder),
+                              ("generator", pl_module.encoder.init_decoder.G1)):
+            values = [parameter.grad.detach().float().norm() for parameter in module.parameters()
+                      if parameter.grad is not None]
+            self.current[f"{label}_grad_norm_before_clip"] = (
+                float(torch.stack(values).norm().cpu()) if values else 0.0
+            )
+
+    def on_train_start(self, trainer, pl_module):
+        if self.resume_rng is not None:
+            # The checkpoint's optimizer step is global, but this rebuilt
+            # dataloader starts at the first *unconsumed* scene. Lightning
+            # adds current.ready to its fetch counter and would count old
+            # batches against the shortened loader's length a second time.
+            # Reset only loader-local batch progress; preserve optimizer
+            # progress/global_step, epoch, scheduler and logging counters.
+            trainer.fit_loop.epoch_loop.batch_progress.current.reset()
+            trainer.fit_loop.epoch_loop.batch_progress.is_last_batch = False
+            random.setstate(self.resume_rng["python"])
+            np.random.set_state(self.resume_rng["numpy"])
+            torch.set_rng_state(self.resume_rng["torch_cpu"])
+            if self.resume_rng.get("torch_cuda") is not None:
+                torch.cuda.set_rng_state_all(self.resume_rng["torch_cuda"])
+            print("RESTORED training RNG; reset sliced-loader local batch progress", flush=True)
+
+    def on_save_checkpoint(self, trainer, pl_module, checkpoint):
+        checkpoint["scratch_sweep"] = dict(self.metadata, saved_global_step=trainer.global_step)
+        checkpoint["scratch_sweep_rng"] = {
+            "python": random.getstate(), "numpy": np.random.get_state(),
+            "torch_cpu": torch.get_rng_state(),
+            "torch_cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+        }
+
+
+def parser_for_cli():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--steps", type=int, default=512, help="Absolute final optimizer step")
+    parser.add_argument("--checkpoint-steps", default="128,256", help="Absolute intermediate steps")
+    parser.add_argument("--scenes", type=int, default=512)
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--eval-batch-size", type=int, default=128)
+    parser.add_argument("--workers", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=817)
+    parser.add_argument("--eval-seed", type=int, default=2817)
+    parser.add_argument("--extra-eval-seed", type=int)
+    parser.add_argument("--eval-offset", type=int, default=0)
+    parser.add_argument("--eval-manifest", type=Path,
+                        help="JSON filename list (or {files: [...]}); overrides the sorted slice")
+    parser.add_argument("--train-offset", type=int, default=0, help="Initial offset in seeded full order")
+    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--variants", default="mixed")
+    parser.add_argument("--variant-file", type=Path)
+    parser.add_argument("--recipe", type=Path)
+    parser.add_argument("--normalizer-json", "--calibration", dest="normalizer_json", type=Path, required=True)
+    parser.add_argument("--evaluation-checkpoints", type=Path, help="JSON name -> saved scratch checkpoint")
+    parser.add_argument("--resume-map", type=Path, help="JSON name -> scratch checkpoint to continue")
+    parser.add_argument("--allow-multiple-epochs", action="store_true",
+                        help="Fresh runs only: repeat the seeded full data order across real Lightning epochs")
+    parser.add_argument("--evaluate-ema", action="store_true", help="Also evaluate fresh-history G1 EMA")
+    parser.add_argument("--evaluation-weights", choices=("online", "ema", "both"),
+                        help="Explicit evaluation weights; overrides the legacy --evaluate-ema switch")
+    parser.add_argument("--require-full-set", action="store_true")
+    parser.add_argument("--output", type=Path, default=ROOT / "logs/component_loss_scratch" /
+                        datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    return parser
+
+
+def main():
+    parser = parser_for_cli()
+    args = parser.parse_args()
+    evaluation_modes = ({"online": [False], "ema": [True], "both": [False, True]}[args.evaluation_weights]
+                        if args.evaluation_weights else ([False, True] if args.evaluate_ema else [False]))
+    variants = json.loads(args.variant_file.read_text()) if args.variant_file else {"mixed": {}}
+    eval_map = json.loads(args.evaluation_checkpoints.read_text()) if args.evaluation_checkpoints else {}
+    resume_map = json.loads(args.resume_map.read_text()) if args.resume_map else {}
+    names = [name for name in args.variants.split(",") if name]
+    if set(names) - set(variants) or set(resume_map) - set(names):
+        parser.error("Unknown training variant or resume-map name")
+    if len(set(names + list(eval_map))) != len(names) + len(eval_map):
+        parser.error("Training/evaluation names must be unique")
+    if min(args.steps, args.scenes, args.batch_size, args.eval_batch_size) < 1:
+        parser.error("Steps, scenes and batch sizes must be positive")
+    if min(args.train_offset, args.eval_offset, args.workers) < 0:
+        parser.error("Offsets and workers must be nonnegative")
+    if not 0 < args.lr < 1:
+        parser.error("Learning rate must be in (0,1)")
+    checkpoint_steps = sorted({int(step) for step in args.checkpoint_steps.split(",") if step})
+    if any(step <= 0 or step > args.steps for step in checkpoint_steps):
+        parser.error("Checkpoint steps must be positive and at most --steps")
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    if (output / "protocol.json").exists():
+        parser.error("Output already contains protocol.json; choose a fresh directory")
+    calibration = json.loads(args.normalizer_json.read_text())
+    cache_root = ROOT / "src/waymo_data/full"
+    with (cache_root / "training_map2_sd_files.pkl").open("rb") as handle:
+        train_order = list(pickle.load(handle)["files"])
+    random.Random(args.seed).shuffle(train_order)
+    if args.allow_multiple_epochs and (resume_map or args.train_offset):
+        raise ValueError("Multi-epoch training requires fresh weights and zero training offset")
+    if (not args.allow_multiple_epochs
+            and args.train_offset + args.steps * args.batch_size >= len(train_order)):
+        raise ValueError("Quick budget must remain within one full-data epoch")
+    order_hash = write_manifest(output / "train_order.pkl", train_order)
+    if args.eval_manifest:
+        if args.eval_offset:
+            parser.error("--eval-manifest cannot be combined with --eval-offset")
+        selected = json.loads(args.eval_manifest.read_text())
+        eval_files = selected.get("files") if isinstance(selected, dict) else selected
+        if (not isinstance(eval_files, list)
+                or any(not isinstance(name, str) or Path(name).name != name
+                       or not (cache_root / "scenario_dreamer_val" / name).is_file()
+                       for name in eval_files)
+                or len(set(eval_files)) != len(eval_files)):
+            raise ValueError("Evaluation manifest must contain unique existing cache filenames")
+    else:
+        eval_files = sorted(path.name for path in (cache_root / "scenario_dreamer_val").glob("*.pt"))[
+            args.eval_offset:args.eval_offset + args.scenes]
+    if len(eval_files) != args.scenes:
+        raise ValueError("Insufficient evaluation scenes")
+    eval_hash = write_manifest(output / "eval_files.pkl", eval_files)
+
+    OmegaConf.register_new_resolver("sim_root", lambda: str(ROOT), replace=True)
+    with initialize_config_dir(config_dir=str(ROOT / "configs"), version_base=None):
+        cfg = compose(config_name="run", overrides=["experiment=init_diffusion_lane_conditioned_mixed_loss"])
+    with open_dict(cfg):
+        cfg.action = "fit"
+        cfg.ckpt_path = None
+        cfg.seed = args.seed
+        cfg.paths.root_dir = str(ROOT / "src")
+        cfg.paths.output_dir = str(output)
+        cfg.paths.log_dir = str(output)
+        cfg.model.model_config.finetune = False
+        cfg.model.model_config.lr = args.lr
+        cfg.model.model_config.lr_total_steps = 128
+        if args.recipe:
+            cfg.model.model_config.decoder.init_diffusion.component_loss = json.loads(args.recipe.read_text())
+        cfg.model.model_config.sd_reference_mode = "matched"
+        cfg.model.model_config.sd_require_full_set = args.require_full_set
+        cfg.model.model_config.token_processor.init_map_crop = "square"
+        cfg.model.model_config.token_processor.init_map_half_extent = 50.0
+        cfg.model.model_config.decoder.sep_map = False
+        cfg.model.model_config.decoder.initial_scene_only = True
+        cfg.data.train_batch_size = args.batch_size
+        cfg.data.test_batch_size = args.eval_batch_size
+        cfg.data.val_batch_size = args.eval_batch_size
+        cfg.data.num_workers = args.workers
+        cfg.data.pin_memory = False
+        cfg.data.persistent_workers = False
+        cfg.data.shuffle = False
+        cfg.data.scenario_dreamer_eval_set = str(output / "eval_files.pkl")
+    OmegaConf.resolve(cfg)
+    torch.set_float32_matmul_precision(cfg.float32_matmul_precision)
+    torch.set_num_threads(4)
+    metadata = {"initialization": "random map encoder + G1", "seed": args.seed,
+                "batch_size": args.batch_size, "base_train_offset": args.train_offset,
+                "train_order_sha256": order_hash, "calibration_sha256": hash_file(args.normalizer_json)}
+    protocol = {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()}
+    protocol.update(metadata, initialization_scope="map_encoder_and_G1_from_scratch",
+                    eval_manifest_sha256=eval_hash, map_crop="square", map_half_extent=50.0,
+                    reference_mode="matched", evaluation_weight_modes=["ema" if mode else "online" for mode in evaluation_modes],
+                    optimizer="AdamW fresh or continued",
+                    precision="32-true", float32_matmul_precision=cfg.float32_matmul_precision,
+                    scheduler=("Existing epoch-based cosine, 128 full-data epochs; fresh multi-epoch run counts real epochs"
+                               if args.allow_multiple_epochs else
+                               "Existing epoch-based cosine, 128 full-data epochs; quick stage stays within epoch 0"),
+                    epoch_data_order=("The seeded full manifest repeats in the same order; shuffle=False"
+                                      if args.allow_multiple_epochs else
+                                      "Seeded full order, or its unconsumed suffix for first-epoch continuation; shuffle=False"),
+                    resume_data_rule="base_train_offset + saved_global_step * batch_size; local batch progress reset; no replay",
+                    resume_rng_rule="Checkpoint RNG restored at on_train_start; workers=0 recommended",
+                    torch_version=str(torch.__version__), gpu=torch.cuda.get_device_name(),
+                    shared_map_ema=False, normalizer=calibration)
+    save_json(output / "protocol.json", protocol)
+    OmegaConf.save(cfg, output / "base_config.yaml")
+    shared_evaluator = None
+    summary = []
+
+    def flush_summary():
+        save_json(output / "summary.json", summary)
+        fields = list(dict.fromkeys(key for row in summary for key in row))
+        with (output / "summary.csv").open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(summary)
+
+    def evaluate(model, dm, folder, seed, *, ema=False):
+        nonlocal shared_evaluator
+        folder.mkdir(parents=True, exist_ok=True)
+        model.video_dir = folder / "videos"
+        model.video_dir.mkdir(exist_ok=True)
+        model.encoder.init_decoder.use_ema = ema
+        model.sd_evaluator = shared_evaluator
+        L.seed_everything(seed, workers=True)
+        trainer = L.Trainer(accelerator="gpu", devices=1, precision="32-true", logger=False,
+                            enable_checkpointing=False, enable_model_summary=False,
+                            enable_progress_bar=False, callbacks=[Diagnostics()], default_root_dir=str(folder))
+        started = time.monotonic()
+        trainer.test(model, datamodule=dm, verbose=False)
+        shared_evaluator = model.sd_evaluator
+        report = json.loads((folder / "sd_agent_metrics.json").read_text())
+        if report["num_samples"] != args.scenes or report["num_gt_samples"] != args.scenes:
+            raise ValueError("Evaluation scope differs from protocol")
+        generated_onroad = int(shared_evaluator.generated.totals[1])
+        gt_onroad = int(shared_evaluator.real.totals[1])
+        report.update(num_generated_onroad_vehicles=generated_onroad, num_gt_onroad_vehicles=gt_onroad,
+                      generated_onroad_fraction=generated_onroad / report["num_generated_vehicles"],
+                      gt_onroad_fraction=gt_onroad / report["num_gt_vehicles"])
+        shared_evaluator.reference_mode = "full"
+        report["full_reference_agent_metrics"] = {key: float(value) for key, value in shared_evaluator.compute().items()}
+        shared_evaluator.reference_mode = "matched"
+        from src.smart.metrics.metric_core import SPECS
+        save_json(folder / "feature_histograms.json", {
+            name: {"minimum": lo, "maximum": hi, "bin_width": step,
+                   "generated": shared_evaluator.generated.histograms[i].tolist(),
+                   "matched_gt": shared_evaluator.real.histograms[i].tolist(),
+                   "full_gt": shared_evaluator.store.full_real.histograms[i].tolist()}
+            for i, (name, lo, hi, step, _) in enumerate(SPECS)
+        })
+        save_json(folder / "sd_agent_metrics.json", report)
+        del trainer
+        return report, time.monotonic() - started
+
+    for name in names + list(eval_map):
+        print(f"\nSTART {name}", flush=True)
+        folder = output / name
+        folder.mkdir()
+        arm_cfg = copy.deepcopy(cfg)
+        source_checkpoint = Path(eval_map.get(name, resume_map.get(name, ""))) if name in eval_map or name in resume_map else None
+        checkpoint = torch.load(source_checkpoint, map_location="cpu", weights_only=False) if source_checkpoint else None
+        saved_step = int(checkpoint["global_step"]) if checkpoint else 0
+        with open_dict(arm_cfg):
+            arm_cfg.paths.output_dir = str(folder)
+            if source_checkpoint and (source_checkpoint.parent / "config.yaml").is_file():
+                source_cfg = OmegaConf.load(source_checkpoint.parent / "config.yaml")
+                source_loss = source_cfg.model.model_config.decoder.init_diffusion.component_loss
+                arm_cfg.model.model_config.decoder.init_diffusion.component_loss = copy.deepcopy(source_loss)
+                arm_cfg.model.model_config.lr = source_cfg.model.model_config.lr
+            elif name not in eval_map:
+                arm_cfg.model.model_config.decoder.init_diffusion.component_loss = apply_variant(
+                    arm_cfg.model.model_config.decoder.init_diffusion.component_loss, variants[name])
+                if variants[name] is not None and "__lr" in variants[name]:
+                    arm_cfg.model.model_config.lr = float(variants[name]["__lr"])
+        offset = (args.train_offset if name in eval_map else
+                  args.train_offset + saved_step * args.batch_size)
+        arm_train = train_order[offset:]
+        train_hash = write_manifest(folder / "train_files.pkl", arm_train)
+        with open_dict(arm_cfg):
+            arm_cfg.data.scenario_dreamer_train_sample_list = str(folder / "train_files.pkl")
+        OmegaConf.save(arm_cfg, folder / "config.yaml")
+        L.seed_everything(args.seed, workers=True)
+        dm = hydra.utils.instantiate(arm_cfg.data)
+        model = hydra.utils.instantiate(arm_cfg.model, _recursive_=False)
+        initial_hashes = {"initial_generator_sha256": weights_hash(model, "encoder.init_decoder.G1."),
+                          "initial_map_sha256": weights_hash(model, "encoder.map_encoder.")}
+        if not all(parameter.requires_grad for parameter in model.encoder.map_encoder.parameters()):
+            raise ValueError("Scratch map encoder unexpectedly frozen")
+        if not all(parameter.requires_grad for parameter in model.encoder.init_decoder.G1.parameters()):
+            raise ValueError("Scratch generator unexpectedly frozen")
+        if any(parameter.requires_grad for parameter in model.encoder.agent_encoder.parameters()):
+            raise ValueError("Unused agent policy must be frozen in scratch initialization")
+        calibrate(model, calibration)
+        resume_rng = None
+        if checkpoint:
+            saved_metadata = checkpoint.get("scratch_sweep")
+            if saved_metadata is None:
+                raise ValueError("Only checkpoints produced by scratch sweep may be loaded")
+            for key in metadata:
+                if saved_metadata.get(key) != metadata[key]:
+                    raise ValueError(f"Scratch checkpoint protocol mismatch: {key}")
+            incompatible = model.load_state_dict(checkpoint["state_dict"], strict=True)
+            calibrate(model, calibration, verify=True)
+            print(f"LOADED scratch checkpoint step={saved_step}, {incompatible}", flush=True)
+            resume_rng = checkpoint.get("scratch_sweep_rng")
+            if name in resume_map and resume_rng is None:
+                raise ValueError("Scratch continuation requires recorded training RNG state")
+        initialization = dict(metadata, **initial_hashes, train_manifest_sha256=train_hash,
+                              eval_manifest_sha256=eval_hash, lr=float(arm_cfg.model.model_config.lr),
+                              initialization_scope="map_encoder_and_G1_from_scratch",
+                              actual_train_offset=None if name in eval_map else offset,
+                              resumed_from=str(source_checkpoint) if source_checkpoint else None,
+                              resume_global_step=saved_step, optimizer_continued=name in resume_map,
+                              resume_local_batch_counter_reset=name in resume_map)
+        save_json(folder / "initialization.json", initialization)
+        diagnostic = ScratchDiagnostics(sorted(set(checkpoint_steps + [args.steps])), folder,
+                                        dict(metadata, **initial_hashes), resume_rng)
+        diagnostic.install(model)
+        train_seconds = 0.0
+        trained_paths = []
+        if name not in eval_map:
+            if saved_step >= args.steps:
+                raise ValueError("Continuation checkpoint must precede requested final --steps")
+            trainer = L.Trainer(accelerator="gpu", devices=1, precision="32-true", max_epochs=128,
+                                max_steps=args.steps, limit_val_batches=0, num_sanity_val_steps=0,
+                                gradient_clip_val=0.5, enable_checkpointing=False, enable_model_summary=False,
+                                enable_progress_bar=False, log_every_n_steps=1,
+                                logger=CSVLogger(str(folder), name="csv"), default_root_dir=str(folder),
+                                callbacks=[diagnostic])
+            started = time.monotonic()
+            trainer.fit(model, datamodule=dm, ckpt_path=str(source_checkpoint) if source_checkpoint else None)
+            train_seconds = time.monotonic() - started
+            if trainer.global_step != args.steps:
+                raise ValueError(f"Training stopped at {trainer.global_step}, expected {args.steps}")
+            # Preserve the post-update batch-end checkpoint. Lightning advances
+            # epoch schedulers at actual loader boundaries, before this hook.
+            # Fit teardown can mark an unfinished epoch as processed; retaining
+            # batch-end state preserves that epoch's progress for continuation.
+            shutil.copyfile(folder / f"step_{args.steps}.ckpt", folder / "last.ckpt")
+            trained_paths = [(step, folder / f"step_{step}.ckpt") for step in checkpoint_steps
+                             if saved_step < step <= args.steps and step != args.steps]
+            trained_paths.append((args.steps, folder / "last.ckpt"))
+            save_json(folder / "train_trace.json", diagnostic.records)
+            save_json(folder / "train_summary.json", summarize_trace(diagnostic.records))
+            del trainer
+        else:
+            trained_paths = [(saved_step, source_checkpoint)]
+        del model, checkpoint, diagnostic
+        gc.collect()
+        torch.cuda.empty_cache()
+        for budget, path in trained_paths:
+            # Evaluation never mutates saved optimizer state or training RNG.
+            L.seed_everything(args.seed, workers=True)
+            model = hydra.utils.instantiate(arm_cfg.model, _recursive_=False)
+            stage_checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+            model.load_state_dict(stage_checkpoint["state_dict"], strict=True)
+            calibrate(model, calibration, verify=True)
+            del stage_checkpoint
+            for eval_seed in [args.eval_seed] + ([args.extra_eval_seed] if args.extra_eval_seed is not None else []):
+                for ema in evaluation_modes:
+                    stage_folder = folder / f"eval_step_{budget}"
+                    if eval_seed != args.eval_seed:
+                        stage_folder = stage_folder / f"eval_seed_{eval_seed}"
+                    if ema:
+                        stage_folder = stage_folder / "ema"
+                    report, seconds = evaluate(model, dm, stage_folder, eval_seed, ema=ema)
+                    row = {
+                        **initialization, "variant": name, "budget": budget, "seed": args.seed,
+                        # The native loader retains each epoch's final partial
+                        # batch. Count those actual scene exposures, not step*B.
+                        "seen_training_examples": (
+                            (budget // ((len(train_order) + args.batch_size - 1) // args.batch_size)) * len(train_order)
+                            + (budget % ((len(train_order) + args.batch_size - 1) // args.batch_size)) * args.batch_size),
+                        "eval_seed": eval_seed, "evaluation_only": name in eval_map,
+                        "evaluation_weights": "ema" if ema else "online", "checkpoint": str(path.resolve()),
+                        "metrics_path": str((stage_folder / "sd_agent_metrics.json").resolve()),
+                        "train_seconds": train_seconds, "eval_seconds": seconds,
+                        **{key: float(value) for key, value in report["agent_metrics"].items()},
+                        **{key: report[key] for key in ("num_samples", "num_generated_vehicles", "num_gt_vehicles",
+                            "num_generated_onroad_vehicles", "num_gt_onroad_vehicles", "generated_onroad_fraction",
+                            "gt_onroad_fraction", "num_colliding_vehicles", "full_reference_agent_metrics")},
+                    }
+                    summary.append(row)
+                    flush_summary()
+                    print(f"RESULT {json.dumps(row)}", flush=True)
+            del model
+            gc.collect()
+            torch.cuda.empty_cache()
+        del dm
+        gc.collect()
+    print(f"DONE {output}", flush=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -36,6 +36,7 @@ model_config:
     sep_map: false  # A trainable map encoder dedicated to supervised InitDiffusion.
     init_diffusion:
       component_loss: null  # null: legacy total; mapping: independent objectives, time powers and weights.
+      normalizer_path: null  # Optional JSON fit on TRAIN only; checkpoint normalizer buffers take precedence.
       fix_ego: true  # false: generate and supervise ego along with all other agents.
       fix_ego_position: null  # null inherits fix_ego; explicit bool overrides this field.
       fix_ego_heading: null

@@ -1,0 +1,26 @@
+{
+  "frozen_before_heldout_runs": true,
+  "endpoint_budget": 2048,
+  "primary_weights": "ema",
+  "training_seeds": [
+    817,
+    1817,
+    2817
+  ],
+  "generation_seeds": [
+    2817,
+    3817
+  ],
+  "primary_score_scales": {
+    "nearest_dist_jsd": 1,
+    "lat_dev_jsd": 1,
+    "ang_dev_jsd": 10,
+    "length_jsd": 20,
+    "width_jsd": 15,
+    "speed_jsd": 20,
+    "collision_rate": 5
+  },
+  "aggregation": "Average generation repetitions within each training seed, then equally average the three independent training seeds. Sample SD across training seeds.",
+  "selection_rule": "Lowest mean EMA score among warm_winner and production-confirmed new recipe, subject to mean generated onroad fraction >= warm_winner minus0.02 and mean generated/GT vehicle count ratio in[0.9,1.1]. Inspect every metric, per-seed consistency and1536->2048 trend and disclose tradeoffs; no opportunistic switch to online or another budget.",
+  "full_50000_check": "Selected recipe and control using the same seed817 checkpoint, EMA, generation seed2817. Audit larger scene distribution; do not reselect via these overlapping scenes."
+}

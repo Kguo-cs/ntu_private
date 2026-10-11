@@ -1,0 +1,275 @@
+{
+  "status": "passed",
+  "selected_variant": "geo_mse32_col20_heading_l1_shape2",
+  "decision_file": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/paired_finalists/paired_summary.json",
+  "decision_sha256": "061e0d2fca454689f40f9fa257b64d4d0b96b1e3cdc75b4e4736eb2f333c3667",
+  "execution_scope": "CPU model/data/callback construction and filename verification only; no Trainer/forward/training/evaluation",
+  "materialization_file": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/native_best_materialization.json",
+  "materialization_sha256": "e5eef796437d3a4178343cce5870dcd2e7a4ac0b9c0b417cc9c9617f71b99f67",
+  "source_checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2/last.ckpt",
+  "source_checkpoint_sha256": "d5a7384571708f89641a6efae584b8cc87dca06db37f1239cda8f4749ea4475e",
+  "source_config_sha256": "43887a801bf35527f7d5f3132572d7971e9579b696d5ba3782bce70229e41342",
+  "normalizer_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+  "loss_sha256": "7a50fe2127c1edc17d279bdac8f8eb8d58aef0a0a8b83a6275c7f3361674339b",
+  "configs": {
+    "train": {
+      "path": "/home/ke/code/sim/configs/experiment/init_diffusion_lane_conditioned_scratch_best.yaml",
+      "sha256": "200f2336e0b95732ec2bac20531fef26e56541de67df9facd983efeb0647353e"
+    },
+    "eval": {
+      "path": "/home/ke/code/sim/configs/experiment/init_diffusion_lane_conditioned_scratch_best_eval.yaml",
+      "sha256": "5a8d5c509076108f3be624a8fe2a6c53438e5ccb924d35803415dd75aa1107fd"
+    }
+  },
+  "experiments": {
+    "fit": {
+      "action": "fit",
+      "seed": 817,
+      "resolved_config": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/native_cpu_audit/fit/resolved_config.yaml",
+      "resolved_config_sha256": "1b1632652f97d6a22ba50744ff09756a3b1d6007086b919151e2911b6359b7ff",
+      "checkpoint_path": null,
+      "all_parameters_cpu": true,
+      "map_trainable_parameters": 437312,
+      "G1_trainable_parameters": 8083978,
+      "unused_policy_frozen": true,
+      "shared_map_ema": false,
+      "G1_ema": true,
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "ego_conditioning": {
+        "position": true,
+        "heading": true,
+        "shape": true,
+        "velocity": false,
+        "type": true
+      },
+      "type_process": "separate",
+      "velocity_representation": "speed",
+      "size_representation": "linear",
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32.0,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          },
+          "speed_magnitude": {
+            "kind": "mse",
+            "time_power": 0,
+            "weight": 0.0,
+            "scale": "data"
+          }
+        }
+      },
+      "metric_settings": {
+        "cache_root": null,
+        "eval_set": "/home/ke/code/sim/src/waymo_data/waymo_eval_set.pkl",
+        "expected_scenes": 50000,
+        "gen_timestep": 0,
+        "prediction_frame": "world",
+        "require_generation_timestep": true,
+        "export_dir": null,
+        "real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+        "auto_precompute": false,
+        "require_full_set": false,
+        "reference_mode": "matched",
+        "map_source": "reference"
+      },
+      "callback_classes": [
+        "ModelCheckpoint",
+        "LearningRateMonitor"
+      ],
+      "train_scenes": 493542,
+      "validation_scenes": 4096,
+      "validation_filename_list_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "full_training_manifest": "/home/ke/code/sim/src/waymo_data/full/training_map2_sd_files.pkl",
+      "training_shuffle": true,
+      "initial_parameter_sha256": {
+        "G1": "adea81e9909b6f77afd5e0d1508353b6a6ec131668214b830aaf705a74ac00fc",
+        "map": "7b10b19d251e2425655f9eb9bd0523033a8b52ec6edfed9688327dc77ebfdd06"
+      },
+      "initial_ema_updates": 0,
+      "optimizer": {
+        "class": "AdamW",
+        "nominal_lr": 0.0005,
+        "initial_actual_lr": 0.0004999284694403484,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.01,
+        "trainable_parameter_tensors": 316,
+        "scheduler": "LambdaLR",
+        "scheduler_interval": "epoch (native Lightning default)"
+      },
+      "checkpoint_policy": {
+        "monitor": null,
+        "save_top_k": -1,
+        "every_n_epochs": 4,
+        "save_last": true,
+        "save_on_train_epoch_end": true,
+        "last_update": "every training epoch"
+      },
+      "normalizer_exact": true,
+      "torch_cuda_is_initialized": false
+    },
+    "test": {
+      "action": "test",
+      "seed": 2817,
+      "resolved_config": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/native_cpu_audit/test/resolved_config.yaml",
+      "resolved_config_sha256": "fbe7ee4da2021d5918f2f37863093adf875a7cdfafa7f1252a1751148929f00a",
+      "checkpoint_path": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2/last.ckpt",
+      "all_parameters_cpu": true,
+      "map_trainable_parameters": 437312,
+      "G1_trainable_parameters": 8083978,
+      "unused_policy_frozen": true,
+      "shared_map_ema": false,
+      "G1_ema": true,
+      "map_crop": "square",
+      "map_half_extent": 50.0,
+      "ego_conditioning": {
+        "position": true,
+        "heading": true,
+        "shape": true,
+        "velocity": false,
+        "type": true
+      },
+      "type_process": "separate",
+      "velocity_representation": "speed",
+      "size_representation": "linear",
+      "component_loss": {
+        "normalize_time_weights": true,
+        "std_floor": 0.1,
+        "heading_space": "angle",
+        "components": {
+          "position": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 32.0,
+            "scale": "data"
+          },
+          "heading": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "length": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "width": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "velocity": {
+            "kind": "mse",
+            "time_power": 1,
+            "weight": 2.0,
+            "scale": "data"
+          },
+          "type": {
+            "kind": "ce",
+            "time_power": 0,
+            "weight": 1.0,
+            "scale": "none"
+          },
+          "collision": {
+            "kind": "l1",
+            "time_power": 1,
+            "weight": 20.0,
+            "scale": "none"
+          },
+          "speed_magnitude": {
+            "kind": "mse",
+            "time_power": 0,
+            "weight": 0.0,
+            "scale": "data"
+          }
+        }
+      },
+      "metric_settings": {
+        "cache_root": null,
+        "eval_set": "/home/ke/code/sim/src/waymo_data/waymo_eval_set.pkl",
+        "expected_scenes": 50000,
+        "gen_timestep": 0,
+        "prediction_frame": "world",
+        "require_generation_timestep": true,
+        "export_dir": null,
+        "real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+        "auto_precompute": false,
+        "require_full_set": true,
+        "reference_mode": "matched",
+        "map_source": "reference"
+      },
+      "callback_classes": [],
+      "test_scenes": 50000,
+      "first_test_file": "00000_testing.tfrecord-00063-of-00150_222_0_9.pt",
+      "last_test_file": "49999_testing.tfrecord-00065-of-00150_40_0_0.pt",
+      "restored_ema_updates": 2048,
+      "strict_checkpoint_load": true,
+      "normalizer_exact": true,
+      "torch_cuda_is_initialized": false
+    }
+  },
+  "torch_cuda_is_initialized": false,
+  "limitations": [
+    "No batch forward/backward, GPU precision/kernel check, training, or generated metric evaluation was run.",
+    "Dataset setup verified filename scope/counts; TRAIN file existence checks remain deferred by native datamodule.",
+    "Native full fit reshuffles each epoch; quick confirmation repeated its seeded full TRAIN order.",
+    "Selected loss is supported by the short scratch study; 128-epoch optimum remains unverified."
+  ],
+  "eval_checkpoint_requirement_audit": {
+    "missing_checkpoint_without_env_rejected": true,
+    "literal_required_interpolation": "${oc.env:INIT_DIFFUSION_SCRATCH_BEST_CKPT}",
+    "explicit_cli_checkpoint_override_effective": true,
+    "provided_checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2/last.ckpt",
+    "normalizer_path_none": true,
+    "note": "Literal ??? would preserve inherited null during OmegaConf merge; required interpolation prevents that."
+  }
+}

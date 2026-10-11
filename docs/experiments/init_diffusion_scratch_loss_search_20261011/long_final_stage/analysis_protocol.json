@@ -1,0 +1,48 @@
+{
+  "scales": {
+    "nearest_dist_jsd": 1.0,
+    "lat_dev_jsd": 1.0,
+    "ang_dev_jsd": 10.0,
+    "length_jsd": 20.0,
+    "width_jsd": 15.0,
+    "speed_jsd": 20.0,
+    "collision_rate": 5.0
+  },
+  "score": "mean(metric/scale)",
+  "scale_units": "native helper output units; collision percentage points",
+  "metric_output_multipliers": {
+    "nearest_dist_jsd": 10,
+    "lat_dev_jsd": 10,
+    "ang_dev_jsd": 100,
+    "length_jsd": 100,
+    "width_jsd": 100,
+    "speed_jsd": 100
+  },
+  "roots": [
+    "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0",
+    "/home/ke/code/sim/logs/component_loss_scratch/adaptive1024_w0",
+    "/home/ke/code/sim/logs/component_loss_scratch/extra1024_w0",
+    "/home/ke/code/sim/logs/component_loss_scratch/extra1024_recovery",
+    "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0",
+    "/home/ke/code/sim/logs/component_loss_scratch/targeted4096_w0",
+    "/home/ke/code/sim/logs/component_loss_scratch/extend6144_w0"
+  ],
+  "anchor": "anchor",
+  "num_observations": 167,
+  "num_groups": 167,
+  "distinct_recipe_variants": 37,
+  "completed_4096_variants": 11,
+  "completed_6144_variants": 4,
+  "warnings": [],
+  "plot_variants": [
+    "legacy",
+    "warm_winner",
+    "geo_mse32_col20_heading_l1_shape2",
+    "geometry_strong_heading_l1_width_p2"
+  ],
+  "aggregation": "repeats within generation seed, then generation seeds within training seed, then training seeds",
+  "figures": [],
+  "plot_location": "../long_compact_plots/plot_protocol.json",
+  "analysis_source_sha256": "c1cb4d48d0b73164ec3fce621648d3905c1bf9580378fc6c152338392c9e6be7",
+  "scope": "Analyzer actual-data functions rerun for records, tables and trends only; compact PNGs rendered separately; no new PDFs."
+}

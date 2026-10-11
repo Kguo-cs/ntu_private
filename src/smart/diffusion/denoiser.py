@@ -405,6 +405,8 @@ class InitDenoiser(nn.Module):
         return input * scale + self.normal_mean
 
     def _maybe_init_normalizer(self, diff_output: torch.Tensor, size_valid_mask=None) -> None:
+        if getattr(self, "_normalizer_from_file", False):
+            return
         if not torch.all(self.normal_mean == 0):
             return
 

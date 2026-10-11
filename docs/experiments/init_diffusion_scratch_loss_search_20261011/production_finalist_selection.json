@@ -1,0 +1,53 @@
+{
+  "selection_rule": "At6144 select lowest EMA S new recipe and lowest EMA S control (legacy/warm_winner). Fresh batch512 uses original LR5e-4. Preserve both arms throughout confirmation, never mix batch/LR/weight cohorts.",
+  "ranking6144": [
+    {
+      "variant": "geo_mse32_col20_heading_l1_shape2",
+      "score": 0.24339547882674709,
+      "onroad_fraction": 0.7852262472605389,
+      "count_ratio": 1.0150484166448575,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/extend6144_w0/geo_mse32_col20_heading_l1_shape2/last.ckpt"
+    },
+    {
+      "variant": "geometry_strong_heading_l1_width_p2",
+      "score": 0.25617289018775813,
+      "onroad_fraction": 0.7807374360320168,
+      "count_ratio": 0.9972520282648522,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/extend6144_w0/geometry_strong_heading_l1_width_p2/last.ckpt"
+    },
+    {
+      "variant": "warm_winner",
+      "score": 0.2832558300951669,
+      "onroad_fraction": 0.7796143250688705,
+      "count_ratio": 0.9975137398586758,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/extend6144_w0/warm_winner/last.ckpt"
+    },
+    {
+      "variant": "legacy",
+      "score": 0.37762255556178864,
+      "onroad_fraction": 0.7959870550161813,
+      "count_ratio": 1.0108610311436796,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/extend6144_w0/legacy/last.ckpt"
+    }
+  ],
+  "production_finalists": [
+    "warm_winner",
+    "geo_mse32_col20_heading_l1_shape2"
+  ],
+  "seed": 817,
+  "batch_size": 512,
+  "lr": 0.0005,
+  "steps": 2048,
+  "checkpoint_steps": [
+    768,
+    1536
+  ],
+  "bridge_seen_scenes": 393216,
+  "bridge64_seen_scenes": 393216,
+  "budget_scene_exposures": 1048524,
+  "multiepoch_order": "Full seeded training order repeats across real epochs; no checkpoint loading.",
+  "nominal_steps_times_batch": 1048576,
+  "full_data_epoch_batches": 964,
+  "last_epoch_batch_size": 486,
+  "completed_data_epochs_at_final_budget": 2
+}

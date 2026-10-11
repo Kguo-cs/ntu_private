@@ -1,0 +1,67 @@
+# @package _global_
+# Genuine scratch training: both the map encoder and InitDiffusion are random.
+defaults:
+  - init_diffusion_lane_conditioned_mixed_loss
+  - _self_
+
+task_name: init_diffusion_lane_conditioned_scratch
+action: fit
+ckpt_path: null
+seed: 817
+
+paths:
+  root_dir: ${sim_root:}/src
+
+model:
+  model_config:
+    finetune: false
+    optimizer: default
+    lr: 0.0001
+    lr_total_steps: 128  # The existing default scheduler counts real epochs.
+    token_processor:
+      init_map_crop: square
+      init_map_half_extent: 50.0
+    decoder:
+      sep_map: false
+      init_diffusion:
+        normalizer_path: ${sim_root:}/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json
+        component_loss:
+          normalize_time_weights: true
+          std_floor: 0.1
+          heading_space: angle
+          components:
+            position: {kind: l1, time_power: 1, weight: 2.0, scale: data}
+            heading: {kind: mse, time_power: 1, weight: 1.0, scale: none}
+            length: {kind: mse, time_power: 1, weight: 1.0, scale: data}
+            width: {kind: mse, time_power: 1, weight: 1.0, scale: data}
+            velocity: {kind: mse, time_power: 1, weight: 2.0, scale: data}
+            type: {kind: ce, time_power: 0, weight: 1.0, scale: none}
+            collision: {kind: l1, time_power: 1, weight: 1.0, scale: none}
+            speed_magnitude: {kind: mse, time_power: 0, weight: 0.0, scale: data}
+    sd_reference_mode: matched
+    sd_require_full_set: false
+
+data:
+  train_batch_size: 64  # Match the quick search's effective batch size.
+  val_batch_size: 256
+  test_batch_size: 128
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  shuffle: true
+  scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
+
+trainer:
+  devices: 1
+  max_epochs: 128
+  val_check_interval: 1.0
+  check_val_every_n_epoch: 4
+  limit_val_batches: 16
+
+callbacks:
+  model_checkpoint:
+    monitor: null
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: true
+    filename: init-diffusion-scratch-{epoch}-{step}

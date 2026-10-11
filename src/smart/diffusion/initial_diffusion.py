@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Mapping, Optional
 
@@ -75,6 +77,7 @@ class InitDiffusion(nn.Module):
         heading_x0_loss: str = "vector_mse",
         ego_context_heading_encoding: str = "angle",
         component_loss: Optional[Mapping[str, Any]] = None,
+        normalizer_path: Optional[str] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -170,6 +173,9 @@ class InitDiffusion(nn.Module):
         self.heading_x0_loss = args.heading_x0_loss = heading_x0_loss
         args.component_loss = component_loss
         self.G1 = Flow(args, token_processor, gail)
+        self.normalizer_path = None
+        if normalizer_path is not None:
+            self._load_train_normalizer(normalizer_path)
         self.component_loss = self.G1.component_loss.config if self.G1.component_loss is not None else None
         if map_embedding_type == "scenario_dreamer" and (map_id_source == "metadata" or map_lg_type is None):
             # Forward labels even in the generic Init path where the separate
@@ -191,6 +197,39 @@ class InitDiffusion(nn.Module):
         # Children load after this module's extra state. Bind EMA to the loaded
         # generator only after all its parameters have been restored.
         self.register_load_state_dict_post_hook(self._restore_ema_after_load)
+
+    @torch.no_grad()
+    def _load_train_normalizer(self, normalizer_path: str) -> None:
+        """Initialize physical buffers from explicit TRAIN statistics.
+
+        Values must follow the configured 7D speed or 8D vector state, including
+        its linear/log size representation. A subsequently loaded checkpoint
+        replaces these buffers through normal state_dict restoration.
+        """
+        path = Path(normalizer_path).expanduser()
+        with path.open() as stream:
+            statistics = json.load(stream)
+        if not isinstance(statistics, Mapping):
+            raise ValueError("normalizer JSON must contain normal_mean and normal_scale")
+        values = {}
+        for name in ("normal_mean", "normal_scale"):
+            buffer = getattr(self.G1.model, name)
+            try:
+                value = torch.as_tensor(statistics[name], dtype=buffer.dtype, device=buffer.device)
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(f"normalizer JSON must contain numeric {name}") from error
+            if value.shape != buffer.shape:
+                raise ValueError(f"normalizer {name} must have shape {list(buffer.shape)}, "
+                                 f"got {list(value.shape)} for {self.velocity_representation}")
+            if not torch.isfinite(value).all():
+                raise ValueError(f"normalizer {name} must be finite")
+            if name == "normal_scale" and not (value > 0).all():
+                raise ValueError("normalizer normal_scale must be positive")
+            values[name] = value
+        for name, value in values.items():
+            getattr(self.G1.model, name).copy_(value)
+        self.G1.model._normalizer_from_file = True
+        self.normalizer_path = str(path)
 
     def reset_ema(self):
         """Start averaging from the current generator, without training history."""

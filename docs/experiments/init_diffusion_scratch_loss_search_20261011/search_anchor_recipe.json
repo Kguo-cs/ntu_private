@@ -1,0 +1,49 @@
+{
+  "normalize_time_weights": true,
+  "std_floor": 0.1,
+  "heading_space": "angle",
+  "components": {
+    "position": {
+      "kind": "l1",
+      "time_power": 1,
+      "weight": 2,
+      "scale": "data"
+    },
+    "heading": {
+      "kind": "mse",
+      "time_power": 1,
+      "weight": 1,
+      "scale": "none"
+    },
+    "length": {
+      "kind": "mse",
+      "time_power": 1,
+      "weight": 1,
+      "scale": "data"
+    },
+    "width": {
+      "kind": "mse",
+      "time_power": 1,
+      "weight": 1,
+      "scale": "data"
+    },
+    "velocity": {
+      "kind": "mse",
+      "time_power": 1,
+      "weight": 2,
+      "scale": "data"
+    },
+    "type": {
+      "kind": "ce",
+      "time_power": 0,
+      "weight": 1,
+      "scale": "none"
+    },
+    "collision": {
+      "kind": "l1",
+      "time_power": 1,
+      "weight": 1,
+      "scale": "none"
+    }
+  }
+}
