@@ -1,0 +1,32 @@
+# @package _global_
+# Provisional best seven-metric aggregate after TRAIN seeds 817 and 1817.
+# R=0.945738 vs new_control; speed JSD is 23.42% worse, so the <=15%
+# per-component regression gate is NOT satisfied. Third seed is pending.
+# Fresh G1, optimizer and EMA; only the pretrained map encoder is loaded/frozen.
+defaults:
+  - init_diffusion_lane_conditioned_frozen_map
+  - _self_
+
+task_name: init_diffusion_lane_conditioned_frozen_map_current_best
+
+model:
+  model_config:
+    optimizer: default
+    lr: 0.0005
+    lr_warmup_steps: 0
+    lr_total_steps: 128
+    lr_min_ratio: 0.05
+    decoder:
+      init_diffusion:
+        ego_context_heading_encoding: sincos
+        component_loss:
+          components:
+            length:
+              time_power: 2
+            width:
+              time_power: 2
+            velocity:
+              weight: 4.0
+
+data:
+  train_batch_size: 256

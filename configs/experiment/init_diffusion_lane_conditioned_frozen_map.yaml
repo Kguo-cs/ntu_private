@@ -32,7 +32,7 @@ data:
   persistent_workers: false
   shuffle: true
   scenario_dreamer_train_sample_list: ${paths.cache_root}/training_map2_sd_files.pkl
-  scenario_dreamer_eval_set: ${sim_root:}/docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.pkl
+#  scenario_dreamer_eval_set: ${sim_root:}/docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.pkl
   scenario_dreamer_preprocessed: false
   scenario_dreamer_train_non_partitioned_only: false
   scenario_dreamer_train_latent_cache: null

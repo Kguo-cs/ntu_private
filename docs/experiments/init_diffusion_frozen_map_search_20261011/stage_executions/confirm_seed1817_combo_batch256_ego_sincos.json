@@ -45,7 +45,23 @@
   "log": "/home/ke/code/sim/logs/component_loss_frozen_map_confirm_seed1817_combo_batch256_ego_sincos.log",
   "controller_pid": 282682,
   "started_unix": 1791729530.1257925,
-  "status": "running",
-  "returncode": null,
-  "child_pid": 822337
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 822337,
+  "ended_unix": 1791731307.955866,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed1817_combo_batch256_ego_sincos/protocol.json",
+      "sha256": "e864a40a866135394f7a749424c420b04b7f03c17b445d39043b75b0fe435284"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed1817_combo_batch256_ego_sincos/summary.json",
+      "sha256": "d6518c5da3a22ad4256d8f651fd3e908885c1c67069fa0a289c83fc92e51ec37"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_confirm_seed1817_combo_batch256_ego_sincos.log",
+      "sha256": "0825386096e9cbad18e39d8a6ce818cf549bbb72e8f739a388767720d224ac62"
+    }
+  },
+  "last_verified_unix": 1791731307.9617403
 }
