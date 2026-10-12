@@ -44,7 +44,8 @@ def make(data,out,pdf):
     figures=draw(data,out);r=PDFReport(data,figures,pdf);w=r.width
     final=get_group(data,'long');old=next(a for a in final['arms'] if a['variant']=='control');candidate=next(a for a in final['arms'] if a['variant']=='separate_speed')
     wins=[a for a in final['arms'] if a['status']=='BEATS_657']
-    conclusion='separate_speed 在本次配对短预算比较中满足替换657的条件。' if candidate['status']=='BEATS_657' else 'separate_speed 在本次配对短预算比较中未满足替换657的条件，保留657。'
+    winner=min(wins,key=lambda a:a['R']) if wins else None
+    conclusion=(winner['label']+' 在本次配对短预算比较中得分最低且满足替换657的条件。') if winner else '现有最终预算候选均未满足替换657的条件，保留657。'
     r.page('InitDiffusion 配对复查 | control：657f1bb8')
     r.p('本次已补训 TRAIN4817、5817 的两个657 control，使用原search的固定AIRL地图、TRAIN统计、曝光预算和评价场景。旧候选直接复用原始实测记录，不重新训练。')
     r.p('**结论：'+conclusion+'**')
@@ -58,7 +59,9 @@ def make(data,out,pdf):
     base=candidate['control_values_raw']
     r.table(['指标 raw JSD / Col%','657','旧control','separate_speed','sep变化%'],[[s,f'{base[k]:.6f}',f"{old['candidate_values_raw'][k]:.6f}",f"{candidate['candidate_values_raw'][k]:.6f}",f"{candidate['changed_percent'][k]:+.2f}%"] for s,k in zip(SHORT,KEYS)],[100,80,80,90,w-350])
     r.p('六项JSD为无量纲raw值；Col%为vehicle-weighted百分比。helper原生值Near/Lat乘10，Ang/Length/Width/Speed乘100；固定缩放在比值中抵消。负变化表示改善。')
-    r.table(['TRAIN / sep','R','R_attr','onroad%','V/GT','gate'],[[seed,f"{s['R']:.4f}",f"{s['R_attr']:.4f}",f"{s['metrics']['generated_onroad_fraction']*100:.2f}",f"{s['metrics']['num_generated_vehicles']/s['metrics']['num_gt_vehicles']:.4f}",'PASS' if s['eligible'] else 'FAIL'] for seed,s in candidate['per_training_seed'].items()],[72,60,65,65,65,w-327])
+    control_rows=json.loads((out/'new_control_observations.json').read_text())
+    base_road={str(seed):statistics.fmean(x['generated_onroad_fraction'] for x in control_rows if x['phase']=='long' and x['seen_training_examples']==5242620 and x['seed']==seed) for seed in (4817,5817)}
+    r.table(['TRAIN','R','R_attr','657 road%','sep road%','V/GT','gate'],[[seed,f"{s['R']:.4f}",f"{s['R_attr']:.4f}",f"{base_road[seed]*100:.2f}",f"{s['metrics']['generated_onroad_fraction']*100:.2f}",f"{s['metrics']['num_generated_vehicles']/s['metrics']['num_gt_vehicles']:.4f}",'PASS' if s['eligible'] else 'FAIL'] for seed,s in candidate['per_training_seed'].items()],[55,55,55,75,75,70,w-385])
     r.p('门槛：Length、Width、Speed各自<=657的1.15倍；onroad下降不超过2个百分点；生成vehicle/匹配GT vehicle在[0.9,1.1]。pooled和每个TRAIN均需通过，且pooled R<1。不能用R_attr平均值替代逐项门槛。')
     failures=[k for k,v in candidate['gate_checks'].items() if not v]
     r.p('separate_speed pooled失败项：'+(', '.join(failures) if failures else '无')+'；全部TRAIN门槛：'+('PASS' if candidate['each_training_seed_gates_pass'] else 'FAIL')+'。')
