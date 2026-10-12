@@ -1,0 +1,353 @@
+_wandb:
+    value:
+        cli_version: 0.23.0
+        e:
+            7oitjy47p8ygichbb5zmx95gwqyax2bb:
+                codePath: src/run1.py
+                codePathLocal: run1.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "8124207968256"
+                        used: "6366642503680"
+                email: u3006612@connect.hku.hk
+                executable: /home/ke/miniconda3/envs/sim/bin/python
+                git:
+                    commit: c2aef9ffe0bdf69381e7c2d832c1a46377148a10
+                    remote: https://github.com/Kguo-cs/sim.git
+                gpu: NVIDIA GeForce RTX 5090
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Blackwell
+                      cudaCores: 21760
+                      memoryTotal: "34190917632"
+                      name: NVIDIA GeForce RTX 5090
+                      uuid: GPU-8eb64d88-b334-0531-2915-510cbd1a8c5d
+                host: ke-desay
+                memory:
+                    total: "269504520192"
+                os: Linux-7.0.0-38-generic-x86_64-with-glibc2.39
+                program: /home/ke/keguo/sim/src/run1.py
+                python: CPython 3.11.9
+                root: /home/ke/keguo/sim/src/logs/init_diffusion_lane_conditioned_frozen_map_current_best/2026-10-11_23-19-48
+                startedAt: "2026-10-11T15:19:50.817769Z"
+                writerId: 7oitjy47p8ygichbb5zmx95gwqyax2bb
+        m:
+            - "1": trainer/global_step
+              "6":
+                - 3
+              "7": []
+            - "2": '*'
+              "5": 1
+              "6":
+                - 1
+              "7": []
+        python_version: 3.11.9
+        t:
+            "1":
+                - 1
+                - 2
+                - 3
+                - 5
+                - 12
+                - 50
+                - 53
+                - 77
+                - 106
+            "2":
+                - 1
+                - 2
+                - 3
+                - 5
+                - 12
+                - 50
+                - 53
+                - 77
+                - 106
+            "3":
+                - 2
+                - 7
+                - 13
+                - 15
+                - 66
+            "4": 3.11.9
+            "5": 0.23.0
+            "12": 0.23.0
+            "13": linux-x86_64
+callbacks:
+    value:
+        latest_checkpoint:
+            _target_: lightning.pytorch.callbacks.ModelCheckpoint
+            auto_insert_metric_name: false
+            dirpath: null
+            every_n_epochs: 1
+            every_n_train_steps: null
+            filename: init-diffusion-frozen-map-latest-{epoch}-{step}
+            monitor: null
+            save_last: true
+            save_on_train_epoch_end: true
+            save_top_k: 0
+            save_weights_only: false
+            train_time_interval: null
+        learning_rate_monitor:
+            _target_: lightning.pytorch.callbacks.LearningRateMonitor
+            logging_interval: epoch
+        model_checkpoint:
+            _target_: lightning.pytorch.callbacks.ModelCheckpoint
+            auto_insert_metric_name: false
+            dirpath: null
+            every_n_epochs: 4
+            every_n_train_steps: null
+            filename: init-diffusion-frozen-map-{epoch}-{step}
+            mode: min
+            monitor: null
+            save_last: false
+            save_on_train_epoch_end: true
+            save_top_k: -1
+            save_weights_only: false
+            train_time_interval: null
+            verbose: false
+        model_summary:
+            max_depth: 2
+ckpt_path:
+    value: null
+data:
+    value:
+        _target_: src.smart.datamodules.MultiDataModule
+        num_workers: 6
+        persistent_workers: false
+        pin_memory: false
+        scenario_dreamer_eval_set: null
+        scenario_dreamer_preprocessed: false
+        scenario_dreamer_test_latent_cache: null
+        scenario_dreamer_train_latent_cache: null
+        scenario_dreamer_train_non_partitioned_only: false
+        scenario_dreamer_train_sample_list: null
+        scenario_dreamer_val_latent_cache: null
+        shuffle: true
+        test_batch_size: 128
+        test_raw_dir: ${paths.cache_root}/scenario_dreamer_val
+        train_batch_size: 256
+        train_max_num: 32
+        train_raw_dir: ${paths.cache_root}/training_map2_sd
+        val_batch_size: 256
+        val_raw_dir: ${paths.cache_root}/scenario_dreamer_val
+        val_tfrecords_splitted: null
+extras:
+    value: null
+model:
+    value:
+        _target_: src.smart.model.smart_gail.SMART_GAIL
+        model_config:
+            decoder:
+                a2a_neighbor: 20
+                a2a_radius: 60
+                dis_a2a_radius: 0
+                dis_weight: 20
+                dist_decay: 3
+                dropout: 0
+                head_dim: 16
+                hidden_dim: 128
+                hist_drop_prob: 0
+                init_decoder: flow
+                init_diffusion:
+                    component_loss:
+                        components:
+                            collision:
+                                kind: l1
+                                scale: none
+                                time_power: 1
+                                weight: 20
+                            heading:
+                                kind: l1
+                                scale: none
+                                time_power: 1
+                                weight: 1
+                            length:
+                                kind: mse
+                                scale: data
+                                time_power: 2
+                                weight: 2
+                            position:
+                                kind: mse
+                                scale: data
+                                time_power: 1
+                                weight: 32
+                            speed_magnitude:
+                                kind: mse
+                                scale: data
+                                time_power: 0
+                                weight: 0
+                            type:
+                                kind: ce
+                                scale: none
+                                time_power: 0
+                                weight: 1
+                            velocity:
+                                kind: mse
+                                scale: data
+                                time_power: 1
+                                weight: 4
+                            width:
+                                kind: mse
+                                scale: data
+                                time_power: 2
+                                weight: 2
+                        heading_space: angle
+                        normalize_time_weights: true
+                        std_floor: 0.1
+                    count_embedding_type: none
+                    count_lane_source: map_tokens
+                    count_max_num_agents: 128
+                    count_max_num_lanes: 1024
+                    edge_embedding_type: fourier
+                    ego_context_heading_encoding: sincos
+                    ema_decay: 0.9999
+                    fix_ego: false
+                    fix_ego_heading: true
+                    fix_ego_position: true
+                    fix_ego_shape: true
+                    fix_ego_type: true
+                    fix_ego_velocity: false
+                    generate_type: true
+                    heading_flow_loss_weight: 1
+                    heading_noise: circular
+                    heading_objective: x0
+                    heading_x0_loss: vector_mse
+                    invalid_size_policy: mask
+                    map_embedding_type: none
+                    map_id: 0
+                    map_id_source: fixed
+                    map_label_dropout: 0.1
+                    map_lg_type: 0
+                    normalizer_path: ${sim_root:}/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json
+                    pos_source: gaussian
+                    shape_source: gaussian
+                    sigma_h: 5
+                    size_representation: linear
+                    speed_loss_scale: null
+                    speed_loss_weight: 0
+                    time_embedding_scale: 99
+                    time_embedding_type: scenario_dreamer
+                    type_loss_weight: 1
+                    type_match_weight: 1
+                    type_noise_stats: standard
+                    type_noise_std_floor: 0.01
+                    type_process: separate
+                    use_ego_embedding: true
+                    use_ema: true
+                    velocity_representation: speed
+                    velocity_source: gaussian
+                initial_scene_only: true
+                num_agent_layers: 3
+                num_freq_bands: 64
+                num_future_steps: 80
+                num_heads: 8
+                num_historical_steps: 11
+                num_map_layers: 1
+                pl2a_radius: 40
+                pl2pl_radius: 20
+                pt2a_neighbor: 20
+                pt2pt_neighbor: 30
+                reward_decay: 2.5
+                reward_weight: 0
+                scenario_dreamer: null
+                sep_map: false
+                time_span: 60
+                vectorworld: null
+            finetune: true
+            initial_map_checkpoint: ${paths.root_dir}/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
+            lr: 0.0005
+            lr_min_ratio: 0.05
+            lr_total_steps: 128
+            lr_warmup_steps: 0
+            n_batch_wosac_metric: 1
+            n_rollout_closed_val: 32
+            n_vis_batch: 0
+            n_vis_rollout: 32
+            n_vis_scenario: 40
+            optimizer: default
+            sd_eval_set: ${paths.root_dir}/waymo_data/waymo_eval_set.pkl
+            sd_expected_scenes: 50000
+            sd_gen_timestep: 0
+            sd_prediction_frame: world
+            sd_real_cache: ${paths.root_dir}/waymo_data/sd_real_metric_cache.sqlite
+            sd_reference_mode: matched
+            sd_require_full_set: false
+            sd_require_generation_timestep: true
+            sd_use_cached_evaluator: true
+            token_processor:
+                agent_token_file: agent_vocab_555_s2.pkl
+                agent_token_sampling:
+                    num_k: 1
+                    temp: 1
+                init_map_crop: square
+                init_map_half_extent: 50
+                learn_autoencoder: false
+                learn_init: true
+                map_token_file: map_traj_token5.pkl
+                map_token_sampling:
+                    num_k: 1
+                    temp: 1
+                pred_init: true
+                scenario_dreamer_init: true
+            training_loss:
+                gt_thresh_scale_length: -1
+                label_smoothing: 0.1
+                rollout_as_gt: false
+                use_gt_raw: true
+            training_rollout_sampling:
+                criterium: topk_prob
+                num_k: -1
+                temp: 1
+            val_closed_loop: true
+            val_open_loop: false
+            validation_rollout_sampling:
+                criterium: topk_prob
+                num_k: 5
+                temp: 1
+            wosac_submission:
+                account_name: YOUR_ACCOUNT_NAME
+                affiliation: YOUR_AFFILIATION
+                authors:
+                    - Anonymous
+                description: YOUR_DESCRIPTION
+                is_active: false
+                method_link: YOUR_METHOD_LINK
+                method_name: SMART-tiny-CLSFT
+model/params/non_trainable:
+    value: 3906752
+model/params/total:
+    value: 11991498
+model/params/trainable:
+    value: 8084746
+model_config:
+    value: '{''initial_map_checkpoint'': ''/home/ke/keguo/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'', ''optimizer'': ''default'', ''lr'': 0.0005, ''lr_warmup_steps'': 0, ''lr_total_steps'': 128, ''lr_min_ratio'': 0.05, ''n_rollout_closed_val'': 32, ''n_batch_wosac_metric'': 1, ''n_vis_batch'': 0, ''n_vis_scenario'': 40, ''n_vis_rollout'': 32, ''val_open_loop'': False, ''val_closed_loop'': True, ''token_processor'': {''init_map_crop'': ''square'', ''init_map_half_extent'': 50.0, ''map_token_file'': ''map_traj_token5.pkl'', ''agent_token_file'': ''agent_vocab_555_s2.pkl'', ''map_token_sampling'': {''num_k'': 1, ''temp'': 1.0}, ''agent_token_sampling'': {''num_k'': 1, ''temp'': 1.0}, ''pred_init'': True, ''learn_init'': True, ''learn_autoencoder'': False, ''scenario_dreamer_init'': True}, ''validation_rollout_sampling'': {''criterium'': ''topk_prob'', ''num_k'': 5, ''temp'': 1.0}, ''training_rollout_sampling'': {''criterium'': ''topk_prob'', ''num_k'': -1, ''temp'': 1.0}, ''decoder'': {''init_decoder'': ''flow'', ''sep_map'': False, ''init_diffusion'': {''component_loss'': {''normalize_time_weights'': True, ''std_floor'': 0.1, ''heading_space'': ''angle'', ''components'': {''position'': {''kind'': ''mse'', ''time_power'': 1, ''weight'': 32.0, ''scale'': ''data''}, ''heading'': {''kind'': ''l1'', ''time_power'': 1, ''weight'': 1.0, ''scale'': ''none''}, ''length'': {''kind'': ''mse'', ''time_power'': 2, ''weight'': 2.0, ''scale'': ''data''}, ''width'': {''kind'': ''mse'', ''time_power'': 2, ''weight'': 2.0, ''scale'': ''data''}, ''velocity'': {''kind'': ''mse'', ''time_power'': 1, ''weight'': 4.0, ''scale'': ''data''}, ''type'': {''kind'': ''ce'', ''time_power'': 0, ''weight'': 1.0, ''scale'': ''none''}, ''collision'': {''kind'': ''l1'', ''time_power'': 1, ''weight'': 20.0, ''scale'': ''none''}, ''speed_magnitude'': {''kind'': ''mse'', ''time_power'': 0, ''weight'': 0.0, ''scale'': ''data''}}}, ''normalizer_path'': ''/home/ke/keguo/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json'', ''fix_ego'': False, ''fix_ego_position'': True, ''fix_ego_heading'': True, ''fix_ego_shape'': True, ''fix_ego_velocity'': False, ''fix_ego_type'': True, ''use_ego_embedding'': True, ''ego_context_heading_encoding'': ''sincos'', ''generate_type'': True, ''type_loss_weight'': 1.0, ''type_process'': ''separate'', ''type_match_weight'': 1.0, ''type_noise_stats'': ''standard'', ''type_noise_std_floor'': 0.01, ''pos_source'': ''gaussian'', ''shape_source'': ''gaussian'', ''velocity_source'': ''gaussian'', ''velocity_representation'': ''speed'', ''speed_loss_weight'': 0.0, ''speed_loss_scale'': None, ''size_representation'': ''linear'', ''invalid_size_policy'': ''mask'', ''heading_noise'': ''circular'', ''heading_objective'': ''x0'', ''heading_x0_loss'': ''vector_mse'', ''heading_flow_loss_weight'': 1.0, ''sigma_h'': 5.0, ''edge_embedding_type'': ''fourier'', ''time_embedding_type'': ''scenario_dreamer'', ''time_embedding_scale'': 99.0, ''count_embedding_type'': ''none'', ''count_lane_source'': ''map_tokens'', ''count_max_num_agents'': 128, ''count_max_num_lanes'': 1024, ''map_embedding_type'': ''none'', ''map_id_source'': ''fixed'', ''map_id'': 0, ''map_lg_type'': 0, ''map_label_dropout'': 0.1, ''use_ema'': True, ''ema_decay'': 0.9999}, ''initial_scene_only'': True, ''scenario_dreamer'': None, ''vectorworld'': None, ''hidden_dim'': 128, ''num_freq_bands'': 64, ''num_heads'': 8, ''head_dim'': 16, ''dropout'': 0, ''hist_drop_prob'': 0, ''num_map_layers'': 1, ''num_agent_layers'': 3, ''pl2pl_radius'': 20, ''pl2a_radius'': 40, ''a2a_radius'': 60, ''time_span'': 60, ''num_historical_steps'': 11, ''num_future_steps'': 80, ''pt2pt_neighbor'': 30, ''pt2a_neighbor'': 20, ''a2a_neighbor'': 20, ''dis_a2a_radius'': 0, ''dis_weight'': 20, ''dist_decay'': 3, ''reward_weight'': 0, ''reward_decay'': 2.5}, ''wosac_submission'': {''is_active'': False, ''method_name'': ''SMART-tiny-CLSFT'', ''authors'': [''Anonymous''], ''affiliation'': ''YOUR_AFFILIATION'', ''description'': ''YOUR_DESCRIPTION'', ''method_link'': ''YOUR_METHOD_LINK'', ''account_name'': ''YOUR_ACCOUNT_NAME''}, ''training_loss'': {''use_gt_raw'': True, ''gt_thresh_scale_length'': -1.0, ''label_smoothing'': 0.1, ''rollout_as_gt'': False}, ''finetune'': True, ''sd_use_cached_evaluator'': True, ''sd_eval_set'': ''/home/ke/keguo/sim/src/waymo_data/waymo_eval_set.pkl'', ''sd_real_cache'': ''/home/ke/keguo/sim/src/waymo_data/sd_real_metric_cache.sqlite'', ''sd_expected_scenes'': 50000, ''sd_gen_timestep'': 0, ''sd_prediction_frame'': ''world'', ''sd_require_generation_timestep'': True, ''sd_reference_mode'': ''matched'', ''sd_require_full_set'': False}'
+seed:
+    value: 817
+task_name:
+    value: init_diffusion_lane_conditioned_frozen_map_current_best
+train_job_id:
+    value: null
+trainer:
+    value:
+        _target_: lightning.pytorch.trainer.Trainer
+        accelerator: gpu
+        accumulate_grad_batches: 1
+        check_val_every_n_epoch: 4
+        default_root_dir: ${paths.output_dir}
+        deterministic: false
+        devices: 1
+        gradient_clip_val: 0.5
+        limit_test_batches: 1
+        limit_train_batches: 1
+        limit_val_batches: 1
+        log_every_n_steps: 100
+        max_epochs: 128
+        max_steps: -1
+        num_sanity_val_steps: 0
+        precision: 32-true
+        strategy: auto
+        val_check_interval: 1

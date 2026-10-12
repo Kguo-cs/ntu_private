@@ -4,7 +4,7 @@ defaults:
   - init_diffusion_lane_conditioned
   - _self_
 
-task_name: init_diffusion_lane_conditioned_mixed_loss
+task_name: init_diffusion_lane_conditioned_mixed_loss1e2
 
 model:
   model_config:

@@ -1,9 +1,0 @@
-默认20步采样复现的CPU预审已完成，18个无Torch fixture测试通过；未加载checkpoint或运行GPU。当前driver及锁定loader源码均未修改。
-
-两条评价路径保持实际B128、workers0、4096文件顺序、float32+medium、EMA、固定地图与相同物理matched GT。清空normalizer_path不会在这里重新拟合统计：sweep本身也未设置运行时_normalizer_from_file，checkpoint的normal_mean非全零，lazy初始化会返回。
-
-需保留一项明确限制：主评价在Trainer创建前重置GEN；native hook在DataLoader迭代器创建后重置GEN。因此CPU随机流不同。当前生成源在CUDA上抽样，CUDA流一致是源码支持的预期，不是实测。四组默认20/.05的七项原生JSON指标须全部绝对误差≤1e-6、相对误差容差0，才能继续其他采样选项。不得因少量偏差直接忽略复现失败。
-
-若失败，先保留退出码/原始日志与报告，检查GT计数和来源、文件顺序/B、checkpoint/EMA及模型条件，再在独立诊断进程比较第一batch的CUDA RNG、gen_noise/type source、物理输出与类型hash。种子标识相同不代表随机状态相同。若噪声及输出一致但指标不一致，再查物理参考lane、helper与分箱。诊断partial指标不可排名，不能调宽容差或改变评价定义。
-
-当前主矩阵尚未全部完成，不做候选选择。完整逐项源码hash、已存在长预算证据及失败排查顺序见同名JSON。

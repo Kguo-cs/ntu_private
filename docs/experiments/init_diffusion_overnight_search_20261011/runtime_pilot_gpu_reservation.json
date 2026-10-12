@@ -1,8 +1,0 @@
-{
-  "paused_supervisor_pid": 957660,
-  "active_child_pid": 957668,
-  "stage": "confirm_seed2817_new_control",
-  "reason": "Let current complete run finish; reserve next free GPU slot for memory-safe GC runtime pilot before long jobs",
-  "recorded_unix": 1791735862.9748282,
-  "child_training_continues": true
-}

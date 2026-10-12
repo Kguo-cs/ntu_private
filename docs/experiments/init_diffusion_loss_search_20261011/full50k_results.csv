@@ -1,3 +1,0 @@
-variant,train_seconds,eval_seconds,evaluation_only,checkpoint,nearest_dist_jsd,lat_dev_jsd,ang_dev_jsd,length_jsd,width_jsd,speed_jsd,collision_rate,num_samples,num_generated_vehicles
-warm_start,0.0,228.48060003900173,True,/home/ke/code/sim/src/logs/sdinit512_tspeed_theta_posscale_egoVFtypeemd50/2026-10-09_19-24-16/bc/scy2l1f4/checkpoints/last.ckpt,0.04971930635838609,0.34448802557810254,0.21221491835391174,0.7127492267401306,1.3196780690592316,0.4188017991417059,1.9899838948088338,50000,362616
-best,0.0,231.21595666499888,True,/home/ke/code/sim/logs/component_loss_quick/confirmation_seed2817/angle_mse_128/last.ckpt,0.055298282061924636,0.3113349645996071,0.1630936235683469,0.4540024072739758,0.4864554336908986,0.25815504956185925,2.0798402647666197,50000,365605

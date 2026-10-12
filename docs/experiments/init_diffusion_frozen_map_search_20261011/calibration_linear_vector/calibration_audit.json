@@ -1,8 +1,0 @@
-{
-  "normalizer_sha256": "9fdf4636d0c8d14c1a2575cbc6caf8e535ed871743796e89dd43bf69af0d939e",
-  "metadata_sha256": "b089365eb22a68e624bea5f509168d2de41d12aec75802b6d2ac2401193257a8",
-  "train_manifest_sha256": "9617baac2f0a95c92f8d590dd7aeb1068eb577330a214bad60707ecc93e870c1",
-  "cpu_only": true,
-  "cuda_initialized": false,
-  "checkpoint_loaded": false
-}

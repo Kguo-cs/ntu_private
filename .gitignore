@@ -85,3 +85,4 @@ outputs/scenario_dreamer*/
 !/tests/test_overnight_search_analysis.py
 !/tests/test_overnight_search_protocol.py
 !/tests/test_materialize_overnight_init_diffusion_best.py
+docs

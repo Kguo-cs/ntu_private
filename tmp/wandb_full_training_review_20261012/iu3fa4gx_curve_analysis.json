@@ -1,0 +1,77 @@
+{
+  "speed_jsd": {
+    "minimum": 0.02552780881524086,
+    "minimum_epoch": 63,
+    "final": 0.056670043617486954,
+    "final_epoch": 127,
+    "relative_rise_percent": 121.99337212073314,
+    "evaluations": 32
+  },
+  "width_jsd": {
+    "minimum": 0.07380568981170654,
+    "minimum_epoch": 83,
+    "final": 0.10163068026304245,
+    "final_epoch": 127,
+    "relative_rise_percent": 37.70033248428837,
+    "evaluations": 32
+  },
+  "nearest_dist_jsd": {
+    "minimum": 0.010353835299611092,
+    "minimum_epoch": 67,
+    "final": 0.012667263858020306,
+    "final_epoch": 127,
+    "relative_rise_percent": 22.34368706344123,
+    "evaluations": 32
+  },
+  "collision_rate": {
+    "minimum": 0.5033543705940247,
+    "minimum_epoch": 11,
+    "final": 0.6581717133522034,
+    "final_epoch": 127,
+    "relative_rise_percent": 30.757126947258605,
+    "evaluations": 32
+  },
+  "lat_dev_jsd": {
+    "minimum": 0.0034673092886805534,
+    "minimum_epoch": 91,
+    "final": 0.003731409553438425,
+    "final_epoch": 127,
+    "relative_rise_percent": 7.616864916552402,
+    "evaluations": 32
+  },
+  "ang_dev_jsd": {
+    "minimum": 0.036746419966220856,
+    "minimum_epoch": 99,
+    "final": 0.03722052648663521,
+    "final_epoch": 127,
+    "relative_rise_percent": 1.2902114569260714,
+    "evaluations": 32
+  },
+  "length_jsd": {
+    "minimum": 0.25701358914375305,
+    "minimum_epoch": 99,
+    "final": 0.2647131383419037,
+    "final_epoch": 127,
+    "relative_rise_percent": 2.995775135393375,
+    "evaluations": 32
+  },
+  "source": {
+    "run_id": "iu3fa4gx",
+    "history_read_at_utc": "2026-10-12T03:21:33.940780+00:00",
+    "commit": "657f1bb8c017f39e06e4e5317f734d6799eb1040",
+    "history_file": "iu3fa4gx_history.json",
+    "config_file": "iu3fa4gx/config.yaml"
+  },
+  "training_windows": {
+    "32-63": {
+      "train/loss": 0.8722769165931105,
+      "train/component/velocity_loss": 0.15980677628496878,
+      "train/component/width_loss": 0.22130162745308715
+    },
+    "96-127": {
+      "train/loss": 0.786118952189984,
+      "train/component/velocity_loss": 0.1284417119510725,
+      "train/component/width_loss": 0.2008990833447093
+    }
+  }
+}

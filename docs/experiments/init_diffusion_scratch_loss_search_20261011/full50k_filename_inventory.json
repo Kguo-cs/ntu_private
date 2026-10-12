@@ -1,8 +1,0 @@
-{
-  "cache_files": 50000,
-  "unique_filename_raw_record_keys": 43601,
-  "extra_cache_variants_of_same_raw_record": 6399,
-  "definition": "Cache filename TFRecord shard + original record index; no claim of independent geographic locations.",
-  "official_membership_checked_by": "actual evaluator require_full_set=true will verify membership during full generation",
-  "cache_order_sha256": "d87e834c9ec3f1b3cf83f2086082195eaeb117549f5d6955bc3e6903bdfd3ace"
-}

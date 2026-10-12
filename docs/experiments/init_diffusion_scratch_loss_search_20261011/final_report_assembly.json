@@ -1,9 +1,0 @@
-{
-  "selected": "geo_mse32_col20_heading_l1_shape2",
-  "main_metric_rows": 235,
-  "source_paired_sha256": "061e0d2fca454689f40f9fa257b64d4d0b96b1e3cdc75b4e4736eb2f333c3667",
-  "source_facts_sha256": "07158a64219dfa31f1af097cae4317f3bfc8a7d8c7ac4e06b35bcb16dee2959f",
-  "source_full_summary_sha256": "5c95950f946cedff6e6084be8744c5c4b31062c9b7775457d8656222766abd7f",
-  "main_report_sha256": "a7c7acf6ea8ee3d4e4ae40fd8c570f996d066b12ac04700ba91271889af0f9b1",
-  "layout_edit": "Removed two redundant trailing paragraphs to avoid a sparse orphan final page."
-}

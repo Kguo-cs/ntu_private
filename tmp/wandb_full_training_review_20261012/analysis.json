@@ -1,0 +1,3822 @@
+{
+  "analyzed_at_utc": "2026-10-12T03:36:37.709952+00:00",
+  "history_method": "unsampled scan_history, all columns",
+  "baseline": "iu3fa4gx",
+  "runs": {
+    "iu3fa4gx": {
+      "label": "657 baseline / B512",
+      "commit": "657f1bb8c017f39e06e4e5317f734d6799eb1040",
+      "state_at_snapshot": "finished",
+      "read_at_utc": "2026-10-12T03:21:33.940780+00:00",
+      "history_rows": 1332,
+      "validation_points": 32,
+      "validation": [
+        {
+          "nearest_dist_jsd": 0.09861177206039429,
+          "lat_dev_jsd": 0.7336755990982056,
+          "ang_dev_jsd": 0.44403740763664246,
+          "length_jsd": 0.5862894058227539,
+          "width_jsd": 0.2893552780151367,
+          "speed_jsd": 0.0789865031838417,
+          "collision_rate": 1.33389413356781,
+          "completed_epochs": 4,
+          "trainer_global_step": 3855
+        },
+        {
+          "nearest_dist_jsd": 0.06054725497961044,
+          "lat_dev_jsd": 0.5264011025428772,
+          "ang_dev_jsd": 0.12814585864543915,
+          "length_jsd": 0.49047157168388367,
+          "width_jsd": 0.17343752086162567,
+          "speed_jsd": 0.06794249266386032,
+          "collision_rate": 0.6516609787940979,
+          "completed_epochs": 8,
+          "trainer_global_step": 7711
+        },
+        {
+          "nearest_dist_jsd": 0.04288489371538162,
+          "lat_dev_jsd": 0.3806605637073517,
+          "ang_dev_jsd": 0.0922374576330185,
+          "length_jsd": 0.4543289840221405,
+          "width_jsd": 0.14494207501411438,
+          "speed_jsd": 0.06363033503293991,
+          "collision_rate": 0.5033543705940247,
+          "completed_epochs": 12,
+          "trainer_global_step": 11567
+        },
+        {
+          "nearest_dist_jsd": 0.03243813291192055,
+          "lat_dev_jsd": 0.2420705407857895,
+          "ang_dev_jsd": 0.07471109926700592,
+          "length_jsd": 0.4212779402732849,
+          "width_jsd": 0.1094822809100151,
+          "speed_jsd": 0.05206810683012009,
+          "collision_rate": 0.5330372452735901,
+          "completed_epochs": 16,
+          "trainer_global_step": 15423
+        },
+        {
+          "nearest_dist_jsd": 0.027222758159041405,
+          "lat_dev_jsd": 0.1641203910112381,
+          "ang_dev_jsd": 0.06691860407590866,
+          "length_jsd": 0.40129315853118896,
+          "width_jsd": 0.11125362664461136,
+          "speed_jsd": 0.054585207253694534,
+          "collision_rate": 0.5734850168228149,
+          "completed_epochs": 20,
+          "trainer_global_step": 19279
+        },
+        {
+          "nearest_dist_jsd": 0.018330899998545647,
+          "lat_dev_jsd": 0.09694116562604904,
+          "ang_dev_jsd": 0.05770741403102875,
+          "length_jsd": 0.3940657079219818,
+          "width_jsd": 0.10301730781793594,
+          "speed_jsd": 0.050895873457193375,
+          "collision_rate": 0.6708025932312012,
+          "completed_epochs": 24,
+          "trainer_global_step": 23135
+        },
+        {
+          "nearest_dist_jsd": 0.015661587938666344,
+          "lat_dev_jsd": 0.06198889762163162,
+          "ang_dev_jsd": 0.0577925480902195,
+          "length_jsd": 0.37161874771118164,
+          "width_jsd": 0.10161690413951874,
+          "speed_jsd": 0.04514310881495476,
+          "collision_rate": 0.6318684816360474,
+          "completed_epochs": 28,
+          "trainer_global_step": 26991
+        },
+        {
+          "nearest_dist_jsd": 0.015240217559039593,
+          "lat_dev_jsd": 0.04362334683537483,
+          "ang_dev_jsd": 0.05003390833735466,
+          "length_jsd": 0.3391213119029999,
+          "width_jsd": 0.09642601758241653,
+          "speed_jsd": 0.03454209491610527,
+          "collision_rate": 0.6390870809555054,
+          "completed_epochs": 32,
+          "trainer_global_step": 30847
+        },
+        {
+          "nearest_dist_jsd": 0.013894890435039997,
+          "lat_dev_jsd": 0.031165890395641327,
+          "ang_dev_jsd": 0.056091878563165665,
+          "length_jsd": 0.34529078006744385,
+          "width_jsd": 0.09684664756059647,
+          "speed_jsd": 0.029572615399956703,
+          "collision_rate": 0.6729689240455627,
+          "completed_epochs": 36,
+          "trainer_global_step": 34703
+        },
+        {
+          "nearest_dist_jsd": 0.012906749732792377,
+          "lat_dev_jsd": 0.0226741973310709,
+          "ang_dev_jsd": 0.062135566025972366,
+          "length_jsd": 0.3260400891304016,
+          "width_jsd": 0.08624382317066193,
+          "speed_jsd": 0.02946898713707924,
+          "collision_rate": 0.702390193939209,
+          "completed_epochs": 40,
+          "trainer_global_step": 38559
+        },
+        {
+          "nearest_dist_jsd": 0.01268109492957592,
+          "lat_dev_jsd": 0.017763469368219376,
+          "ang_dev_jsd": 0.05456933751702309,
+          "length_jsd": 0.3256988525390625,
+          "width_jsd": 0.08941096067428589,
+          "speed_jsd": 0.028604986146092415,
+          "collision_rate": 0.7064580321311951,
+          "completed_epochs": 44,
+          "trainer_global_step": 42415
+        },
+        {
+          "nearest_dist_jsd": 0.010426766239106655,
+          "lat_dev_jsd": 0.013467942364513874,
+          "ang_dev_jsd": 0.05830632522702217,
+          "length_jsd": 0.32361745834350586,
+          "width_jsd": 0.08990353345870972,
+          "speed_jsd": 0.029083700850605965,
+          "collision_rate": 0.7461094856262207,
+          "completed_epochs": 48,
+          "trainer_global_step": 46271
+        },
+        {
+          "nearest_dist_jsd": 0.010901402682065964,
+          "lat_dev_jsd": 0.010579574853181839,
+          "ang_dev_jsd": 0.05773074924945831,
+          "length_jsd": 0.3148249685764313,
+          "width_jsd": 0.09008040279150009,
+          "speed_jsd": 0.03475046157836914,
+          "collision_rate": 0.7159910798072815,
+          "completed_epochs": 52,
+          "trainer_global_step": 50127
+        },
+        {
+          "nearest_dist_jsd": 0.010973354801535606,
+          "lat_dev_jsd": 0.008465729653835297,
+          "ang_dev_jsd": 0.053214024752378464,
+          "length_jsd": 0.3127498924732208,
+          "width_jsd": 0.08864956349134445,
+          "speed_jsd": 0.029343025758862495,
+          "collision_rate": 0.6907520890235901,
+          "completed_epochs": 56,
+          "trainer_global_step": 53983
+        },
+        {
+          "nearest_dist_jsd": 0.011927919462323189,
+          "lat_dev_jsd": 0.006442056503146887,
+          "ang_dev_jsd": 0.05163436010479927,
+          "length_jsd": 0.3084993362426758,
+          "width_jsd": 0.08864032477140427,
+          "speed_jsd": 0.02608667127788067,
+          "collision_rate": 0.7219679355621338,
+          "completed_epochs": 60,
+          "trainer_global_step": 57839
+        },
+        {
+          "nearest_dist_jsd": 0.010799998417496681,
+          "lat_dev_jsd": 0.005801163613796234,
+          "ang_dev_jsd": 0.04890564829111099,
+          "length_jsd": 0.3054908812046051,
+          "width_jsd": 0.09162449091672897,
+          "speed_jsd": 0.02552780881524086,
+          "collision_rate": 0.7150025963783264,
+          "completed_epochs": 64,
+          "trainer_global_step": 61695
+        },
+        {
+          "nearest_dist_jsd": 0.010353835299611092,
+          "lat_dev_jsd": 0.004883695859462023,
+          "ang_dev_jsd": 0.045686881989240646,
+          "length_jsd": 0.2918778955936432,
+          "width_jsd": 0.08218547701835632,
+          "speed_jsd": 0.02649812027812004,
+          "collision_rate": 0.6800032258033752,
+          "completed_epochs": 68,
+          "trainer_global_step": 65551
+        },
+        {
+          "nearest_dist_jsd": 0.010799411684274673,
+          "lat_dev_jsd": 0.004726139362901449,
+          "ang_dev_jsd": 0.04285605251789093,
+          "length_jsd": 0.28164616227149963,
+          "width_jsd": 0.0841127410531044,
+          "speed_jsd": 0.026139749214053154,
+          "collision_rate": 0.7093427181243896,
+          "completed_epochs": 72,
+          "trainer_global_step": 69407
+        },
+        {
+          "nearest_dist_jsd": 0.01183499488979578,
+          "lat_dev_jsd": 0.003848668886348605,
+          "ang_dev_jsd": 0.04586859419941902,
+          "length_jsd": 0.2795550525188446,
+          "width_jsd": 0.07933684438467026,
+          "speed_jsd": 0.030552750453352928,
+          "collision_rate": 0.6343227028846741,
+          "completed_epochs": 76,
+          "trainer_global_step": 73263
+        },
+        {
+          "nearest_dist_jsd": 0.010598370805382729,
+          "lat_dev_jsd": 0.003954555373638868,
+          "ang_dev_jsd": 0.04232470318675041,
+          "length_jsd": 0.2653214633464813,
+          "width_jsd": 0.08037682622671127,
+          "speed_jsd": 0.033676158636808395,
+          "collision_rate": 0.6773244142532349,
+          "completed_epochs": 80,
+          "trainer_global_step": 77119
+        },
+        {
+          "nearest_dist_jsd": 0.010713721625506878,
+          "lat_dev_jsd": 0.003922832198441029,
+          "ang_dev_jsd": 0.03991599753499031,
+          "length_jsd": 0.27276501059532166,
+          "width_jsd": 0.07380568981170654,
+          "speed_jsd": 0.0339445099234581,
+          "collision_rate": 0.6949821710586548,
+          "completed_epochs": 84,
+          "trainer_global_step": 80975
+        },
+        {
+          "nearest_dist_jsd": 0.010740945115685463,
+          "lat_dev_jsd": 0.0037552881985902786,
+          "ang_dev_jsd": 0.04467868059873581,
+          "length_jsd": 0.2810707092285156,
+          "width_jsd": 0.08151178807020187,
+          "speed_jsd": 0.03474140539765358,
+          "collision_rate": 0.6723203063011169,
+          "completed_epochs": 88,
+          "trainer_global_step": 84831
+        },
+        {
+          "nearest_dist_jsd": 0.010763037018477917,
+          "lat_dev_jsd": 0.0034673092886805534,
+          "ang_dev_jsd": 0.04461783543229103,
+          "length_jsd": 0.26746487617492676,
+          "width_jsd": 0.08116834610700607,
+          "speed_jsd": 0.04096531495451927,
+          "collision_rate": 0.6331482529640198,
+          "completed_epochs": 92,
+          "trainer_global_step": 88687
+        },
+        {
+          "nearest_dist_jsd": 0.010498966090381145,
+          "lat_dev_jsd": 0.003488240297883749,
+          "ang_dev_jsd": 0.042586855590343475,
+          "length_jsd": 0.26956501603126526,
+          "width_jsd": 0.0845394879579544,
+          "speed_jsd": 0.03764786943793297,
+          "collision_rate": 0.7007991075515747,
+          "completed_epochs": 96,
+          "trainer_global_step": 92543
+        },
+        {
+          "nearest_dist_jsd": 0.011055014096200466,
+          "lat_dev_jsd": 0.003636624664068222,
+          "ang_dev_jsd": 0.036746419966220856,
+          "length_jsd": 0.25701358914375305,
+          "width_jsd": 0.07903508096933365,
+          "speed_jsd": 0.03905826807022095,
+          "collision_rate": 0.6636808514595032,
+          "completed_epochs": 100,
+          "trainer_global_step": 96399
+        },
+        {
+          "nearest_dist_jsd": 0.010354113765060902,
+          "lat_dev_jsd": 0.003489996772259474,
+          "ang_dev_jsd": 0.038905370980501175,
+          "length_jsd": 0.2618252635002136,
+          "width_jsd": 0.08483169972896576,
+          "speed_jsd": 0.04502832144498825,
+          "collision_rate": 0.7031082510948181,
+          "completed_epochs": 104,
+          "trainer_global_step": 100255
+        },
+        {
+          "nearest_dist_jsd": 0.012381989508867264,
+          "lat_dev_jsd": 0.003520137397572398,
+          "ang_dev_jsd": 0.03875111788511276,
+          "length_jsd": 0.2662397027015686,
+          "width_jsd": 0.08794274926185608,
+          "speed_jsd": 0.047362104058265686,
+          "collision_rate": 0.6734820008277893,
+          "completed_epochs": 108,
+          "trainer_global_step": 104111
+        },
+        {
+          "nearest_dist_jsd": 0.012041804380714893,
+          "lat_dev_jsd": 0.0037039394956082106,
+          "ang_dev_jsd": 0.040427643805742264,
+          "length_jsd": 0.26924341917037964,
+          "width_jsd": 0.09456153959035873,
+          "speed_jsd": 0.04857964441180229,
+          "collision_rate": 0.6897918581962585,
+          "completed_epochs": 112,
+          "trainer_global_step": 107967
+        },
+        {
+          "nearest_dist_jsd": 0.01173448096960783,
+          "lat_dev_jsd": 0.0041147745214402676,
+          "ang_dev_jsd": 0.037962913513183594,
+          "length_jsd": 0.26628193259239197,
+          "width_jsd": 0.09896530210971832,
+          "speed_jsd": 0.049806851893663406,
+          "collision_rate": 0.6750552654266357,
+          "completed_epochs": 116,
+          "trainer_global_step": 111823
+        },
+        {
+          "nearest_dist_jsd": 0.011365714482963085,
+          "lat_dev_jsd": 0.0037125470116734505,
+          "ang_dev_jsd": 0.03960366174578667,
+          "length_jsd": 0.2651609778404236,
+          "width_jsd": 0.09829644113779068,
+          "speed_jsd": 0.05783434212207794,
+          "collision_rate": 0.6870817542076111,
+          "completed_epochs": 120,
+          "trainer_global_step": 115679
+        },
+        {
+          "nearest_dist_jsd": 0.011548683978617191,
+          "lat_dev_jsd": 0.004149086307734251,
+          "ang_dev_jsd": 0.040825724601745605,
+          "length_jsd": 0.2774182856082916,
+          "width_jsd": 0.09971777349710464,
+          "speed_jsd": 0.055561792105436325,
+          "collision_rate": 0.6538115739822388,
+          "completed_epochs": 124,
+          "trainer_global_step": 119535
+        },
+        {
+          "nearest_dist_jsd": 0.012667263858020306,
+          "lat_dev_jsd": 0.003731409553438425,
+          "ang_dev_jsd": 0.03722052648663521,
+          "length_jsd": 0.2647131383419037,
+          "width_jsd": 0.10163068026304245,
+          "speed_jsd": 0.056670043617486954,
+          "collision_rate": 0.6581717133522034,
+          "completed_epochs": 128,
+          "trainer_global_step": 123391
+        }
+      ],
+      "latest_validation": {
+        "nearest_dist_jsd": 0.012667263858020306,
+        "lat_dev_jsd": 0.003731409553438425,
+        "ang_dev_jsd": 0.03722052648663521,
+        "length_jsd": 0.2647131383419037,
+        "width_jsd": 0.10163068026304245,
+        "speed_jsd": 0.056670043617486954,
+        "collision_rate": 0.6581717133522034,
+        "completed_epochs": 128,
+        "trainer_global_step": 123391
+      },
+      "actual_config": {
+        "seed": 2817,
+        "batch_size": 512,
+        "precision": "32-true",
+        "model": {
+          "optimizer": "default",
+          "lr": 0.0005,
+          "lr_warmup_steps": 0,
+          "lr_total_steps": 128,
+          "lr_min_ratio": 0.05,
+          "n_rollout_closed_val": 32,
+          "n_batch_wosac_metric": 1,
+          "n_vis_batch": 0,
+          "n_vis_scenario": 40,
+          "n_vis_rollout": 32,
+          "val_open_loop": false,
+          "val_closed_loop": true,
+          "token_processor": {
+            "init_map_crop": "square",
+            "init_map_half_extent": 50.0,
+            "map_token_file": "map_traj_token5.pkl",
+            "agent_token_file": "agent_vocab_555_s2.pkl",
+            "map_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "agent_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "pred_init": true,
+            "learn_init": true,
+            "learn_autoencoder": false,
+            "scenario_dreamer_init": true
+          },
+          "validation_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": 5,
+            "temp": 1.0
+          },
+          "training_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": -1,
+            "temp": 1.0
+          },
+          "decoder": {
+            "init_decoder": "flow",
+            "sep_map": false,
+            "init_diffusion": {
+              "component_loss": {
+                "normalize_time_weights": true,
+                "std_floor": 0.1,
+                "heading_space": "angle",
+                "components": {
+                  "position": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 4.0,
+                    "scale": "data"
+                  },
+                  "heading": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "length": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 1.0,
+                    "scale": "data"
+                  },
+                  "width": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 1.0,
+                    "scale": "data"
+                  },
+                  "velocity": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "type": {
+                    "kind": "ce",
+                    "time_power": 0,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "collision": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 5.0,
+                    "scale": "none"
+                  }
+                }
+              },
+              "fix_ego": false,
+              "fix_ego_position": true,
+              "fix_ego_heading": true,
+              "fix_ego_shape": true,
+              "fix_ego_velocity": false,
+              "fix_ego_type": true,
+              "use_ego_embedding": true,
+              "ego_context_heading_encoding": "angle",
+              "generate_type": true,
+              "type_loss_weight": 1.0,
+              "type_process": "separate",
+              "type_match_weight": 1.0,
+              "type_noise_stats": "standard",
+              "type_noise_std_floor": 0.01,
+              "pos_source": "gaussian",
+              "shape_source": "gaussian",
+              "velocity_source": "gaussian",
+              "velocity_representation": "speed",
+              "speed_loss_weight": 0.0,
+              "speed_loss_scale": null,
+              "size_representation": "linear",
+              "invalid_size_policy": "mask",
+              "heading_noise": "circular",
+              "heading_objective": "x0",
+              "heading_x0_loss": "vector_mse",
+              "heading_flow_loss_weight": 1.0,
+              "sigma_h": 5.0,
+              "edge_embedding_type": "fourier",
+              "time_embedding_type": "scenario_dreamer",
+              "time_embedding_scale": 99.0,
+              "count_embedding_type": "none",
+              "count_lane_source": "map_tokens",
+              "count_max_num_agents": 128,
+              "count_max_num_lanes": 1024,
+              "map_embedding_type": "none",
+              "map_id_source": "fixed",
+              "map_id": 0,
+              "map_lg_type": 0,
+              "map_label_dropout": 0.1,
+              "use_ema": true,
+              "ema_decay": 0.9999
+            },
+            "initial_scene_only": true,
+            "scenario_dreamer": null,
+            "vectorworld": null,
+            "hidden_dim": 128,
+            "num_freq_bands": 64,
+            "num_heads": 8,
+            "head_dim": 16,
+            "dropout": 0,
+            "hist_drop_prob": 0,
+            "num_map_layers": 1,
+            "num_agent_layers": 3,
+            "pl2pl_radius": 20,
+            "pl2a_radius": 40,
+            "a2a_radius": 60,
+            "time_span": 60,
+            "num_historical_steps": 11,
+            "num_future_steps": 80,
+            "pt2pt_neighbor": 30,
+            "pt2a_neighbor": 20,
+            "a2a_neighbor": 20,
+            "dis_a2a_radius": 0,
+            "dis_weight": 20,
+            "dist_decay": 3,
+            "reward_weight": 0,
+            "reward_decay": 2.5
+          },
+          "wosac_submission": {
+            "is_active": false,
+            "method_name": "SMART-tiny-CLSFT",
+            "authors": [
+              "Anonymous"
+            ],
+            "affiliation": "YOUR_AFFILIATION",
+            "description": "YOUR_DESCRIPTION",
+            "method_link": "YOUR_METHOD_LINK",
+            "account_name": "YOUR_ACCOUNT_NAME"
+          },
+          "training_loss": {
+            "use_gt_raw": true,
+            "gt_thresh_scale_length": -1.0,
+            "label_smoothing": 0.1,
+            "rollout_as_gt": false
+          },
+          "finetune": true,
+          "sd_use_cached_evaluator": true,
+          "sd_eval_set": "/home/ke/keguo/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/ke/keguo/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_reference_mode": "matched",
+          "sd_require_full_set": false
+        },
+        "data": {
+          "shuffle": true,
+          "_target_": "src.smart.datamodules.MultiDataModule",
+          "pin_memory": false,
+          "num_workers": 6,
+          "val_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "test_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "train_max_num": 32,
+          "train_raw_dir": "${paths.cache_root}/training_map2_sd",
+          "val_batch_size": 256,
+          "test_batch_size": 256,
+          "train_batch_size": 512,
+          "persistent_workers": true,
+          "val_tfrecords_splitted": null,
+          "scenario_dreamer_eval_set": null,
+          "scenario_dreamer_preprocessed": false,
+          "scenario_dreamer_val_latent_cache": null,
+          "scenario_dreamer_test_latent_cache": null,
+          "scenario_dreamer_train_sample_list": null,
+          "scenario_dreamer_train_latent_cache": null,
+          "scenario_dreamer_train_non_partitioned_only": false
+        },
+        "callbacks": {
+          "model_summary": {
+            "max_depth": 2
+          },
+          "model_checkpoint": {
+            "mode": "min",
+            "dirpath": null,
+            "monitor": "collision_rate",
+            "verbose": false,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init_diffusion-{epoch}-{step}",
+            "save_last": true,
+            "save_top_k": 3,
+            "every_n_epochs": null,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": false
+          },
+          "learning_rate_monitor": {
+            "_target_": "lightning.pytorch.callbacks.LearningRateMonitor",
+            "logging_interval": "epoch"
+          }
+        }
+      },
+      "loss_window": {
+        "log_rows": 100,
+        "epoch_index_range": [
+          117,
+          127
+        ],
+        "weighted_means": {
+          "position": 0.4856277918815613,
+          "heading": 0.014492388013750315,
+          "length": 0.06721368972212076,
+          "width": 0.012111944761127234,
+          "velocity": 0.09461787804961204,
+          "type": 0.09686685845255852,
+          "collision": 0.00498620396014303
+        },
+        "fractions": {
+          "position": 0.6258761508264569,
+          "heading": 0.01867776140073486,
+          "length": 0.08662487219509146,
+          "width": 0.015609850780463144,
+          "velocity": 0.12194333665215992,
+          "type": 0.12484181820822286,
+          "collision": 0.006426209936870885
+        },
+        "caution": "Loss-value shares are not gradient shares; gradients were not logged."
+      },
+      "per_metric_minimum": {
+        "nearest_dist_jsd": {
+          "value": 0.010353835299611092,
+          "completed_epochs": 68
+        },
+        "lat_dev_jsd": {
+          "value": 0.0034673092886805534,
+          "completed_epochs": 92
+        },
+        "ang_dev_jsd": {
+          "value": 0.036746419966220856,
+          "completed_epochs": 100
+        },
+        "length_jsd": {
+          "value": 0.25701358914375305,
+          "completed_epochs": 100
+        },
+        "width_jsd": {
+          "value": 0.07380568981170654,
+          "completed_epochs": 84
+        },
+        "speed_jsd": {
+          "value": 0.02552780881524086,
+          "completed_epochs": 64
+        },
+        "collision_rate": {
+          "value": 0.5033543705940247,
+          "completed_epochs": 12
+        }
+      },
+      "url": "https://forge.coreweave.com/wandb/u3006612/bc/runs/iu3fa4gx",
+      "same_epoch_baseline": {
+        "nearest_dist_jsd": 0.012667263858020306,
+        "lat_dev_jsd": 0.003731409553438425,
+        "ang_dev_jsd": 0.03722052648663521,
+        "length_jsd": 0.2647131383419037,
+        "width_jsd": 0.10163068026304245,
+        "speed_jsd": 0.056670043617486954,
+        "collision_rate": 0.6581717133522034,
+        "completed_epochs": 128,
+        "trainer_global_step": 123391
+      },
+      "same_epoch_change_pct": {
+        "nearest_dist_jsd": 0.0,
+        "lat_dev_jsd": 0.0,
+        "ang_dev_jsd": 0.0,
+        "length_jsd": 0.0,
+        "width_jsd": 0.0,
+        "speed_jsd": 0.0,
+        "collision_rate": 0.0
+      }
+    },
+    "4bedivn1": {
+      "label": "Scratch / B512",
+      "commit": "3f9138af933bca752c422933ea141a0df66302c6",
+      "state_at_snapshot": "finished",
+      "read_at_utc": "2026-10-12T03:28:05.776402+00:00",
+      "history_rows": 1332,
+      "validation_points": 32,
+      "validation": [
+        {
+          "nearest_dist_jsd": 0.14138798415660858,
+          "lat_dev_jsd": 0.9298537373542786,
+          "ang_dev_jsd": 0.26295846700668335,
+          "length_jsd": 0.730010986328125,
+          "width_jsd": 0.4402274787425995,
+          "speed_jsd": 0.06515738368034363,
+          "collision_rate": 0.8717055320739746,
+          "completed_epochs": 4,
+          "trainer_global_step": 3855
+        },
+        {
+          "nearest_dist_jsd": 0.1168288066983223,
+          "lat_dev_jsd": 0.8908988237380981,
+          "ang_dev_jsd": 0.21883712708950043,
+          "length_jsd": 0.5883080959320068,
+          "width_jsd": 0.24904105067253113,
+          "speed_jsd": 0.07200358808040619,
+          "collision_rate": 0.44859468936920166,
+          "completed_epochs": 8,
+          "trainer_global_step": 7711
+        },
+        {
+          "nearest_dist_jsd": 0.0846724659204483,
+          "lat_dev_jsd": 0.8419355750083923,
+          "ang_dev_jsd": 0.1995043009519577,
+          "length_jsd": 0.4699185788631439,
+          "width_jsd": 0.168386310338974,
+          "speed_jsd": 0.053704336285591125,
+          "collision_rate": 0.3110986351966858,
+          "completed_epochs": 12,
+          "trainer_global_step": 11567
+        },
+        {
+          "nearest_dist_jsd": 0.07335159927606583,
+          "lat_dev_jsd": 0.8174514770507812,
+          "ang_dev_jsd": 0.22153721749782562,
+          "length_jsd": 0.4223524034023285,
+          "width_jsd": 0.1311667263507843,
+          "speed_jsd": 0.08388957381248474,
+          "collision_rate": 0.24556513130664825,
+          "completed_epochs": 16,
+          "trainer_global_step": 15423
+        },
+        {
+          "nearest_dist_jsd": 0.06553090363740921,
+          "lat_dev_jsd": 0.7761244773864746,
+          "ang_dev_jsd": 0.22268956899642944,
+          "length_jsd": 0.3768947422504425,
+          "width_jsd": 0.13270790874958038,
+          "speed_jsd": 0.06475633382797241,
+          "collision_rate": 0.2120007574558258,
+          "completed_epochs": 20,
+          "trainer_global_step": 19279
+        },
+        {
+          "nearest_dist_jsd": 0.0614250972867012,
+          "lat_dev_jsd": 0.742114245891571,
+          "ang_dev_jsd": 0.1981509029865265,
+          "length_jsd": 0.41491058468818665,
+          "width_jsd": 0.1417723447084427,
+          "speed_jsd": 0.048149630427360535,
+          "collision_rate": 0.21859332919120789,
+          "completed_epochs": 24,
+          "trainer_global_step": 23135
+        },
+        {
+          "nearest_dist_jsd": 0.058278314769268036,
+          "lat_dev_jsd": 0.7178561687469482,
+          "ang_dev_jsd": 0.16517417132854462,
+          "length_jsd": 0.39778897166252136,
+          "width_jsd": 0.13792014122009277,
+          "speed_jsd": 0.04984096437692642,
+          "collision_rate": 0.1968783438205719,
+          "completed_epochs": 28,
+          "trainer_global_step": 26991
+        },
+        {
+          "nearest_dist_jsd": 0.05534043535590172,
+          "lat_dev_jsd": 0.7002021670341492,
+          "ang_dev_jsd": 0.1375971883535385,
+          "length_jsd": 0.3499756157398224,
+          "width_jsd": 0.13935476541519165,
+          "speed_jsd": 0.06434164941310883,
+          "collision_rate": 0.205659419298172,
+          "completed_epochs": 32,
+          "trainer_global_step": 30847
+        },
+        {
+          "nearest_dist_jsd": 0.05347539857029915,
+          "lat_dev_jsd": 0.6692310571670532,
+          "ang_dev_jsd": 0.16130338609218597,
+          "length_jsd": 0.33824315667152405,
+          "width_jsd": 0.12614724040031433,
+          "speed_jsd": 0.07790986448526382,
+          "collision_rate": 0.18404875695705414,
+          "completed_epochs": 36,
+          "trainer_global_step": 34703
+        },
+        {
+          "nearest_dist_jsd": 0.04995061457157135,
+          "lat_dev_jsd": 0.6510478258132935,
+          "ang_dev_jsd": 0.1464693546295166,
+          "length_jsd": 0.34375235438346863,
+          "width_jsd": 0.11682724207639694,
+          "speed_jsd": 0.05798522010445595,
+          "collision_rate": 0.1736852079629898,
+          "completed_epochs": 40,
+          "trainer_global_step": 38559
+        },
+        {
+          "nearest_dist_jsd": 0.053033437579870224,
+          "lat_dev_jsd": 0.6252760887145996,
+          "ang_dev_jsd": 0.15182523429393768,
+          "length_jsd": 0.34308210015296936,
+          "width_jsd": 0.11645743250846863,
+          "speed_jsd": 0.05147188901901245,
+          "collision_rate": 0.1978573501110077,
+          "completed_epochs": 44,
+          "trainer_global_step": 42415
+        },
+        {
+          "nearest_dist_jsd": 0.04873356595635414,
+          "lat_dev_jsd": 0.5950937867164612,
+          "ang_dev_jsd": 0.17167791724205017,
+          "length_jsd": 0.35634511709213257,
+          "width_jsd": 0.11612124741077423,
+          "speed_jsd": 0.06771032512187958,
+          "collision_rate": 0.1720835566520691,
+          "completed_epochs": 48,
+          "trainer_global_step": 46271
+        },
+        {
+          "nearest_dist_jsd": 0.04745932295918465,
+          "lat_dev_jsd": 0.5905617475509644,
+          "ang_dev_jsd": 0.13925661146640778,
+          "length_jsd": 0.3325369656085968,
+          "width_jsd": 0.09392377734184265,
+          "speed_jsd": 0.06257621198892593,
+          "collision_rate": 0.16729289293289185,
+          "completed_epochs": 52,
+          "trainer_global_step": 50127
+        },
+        {
+          "nearest_dist_jsd": 0.0433027520775795,
+          "lat_dev_jsd": 0.5781289339065552,
+          "ang_dev_jsd": 0.13652950525283813,
+          "length_jsd": 0.3342092037200928,
+          "width_jsd": 0.09179593622684479,
+          "speed_jsd": 0.0702710822224617,
+          "collision_rate": 0.16414327919483185,
+          "completed_epochs": 56,
+          "trainer_global_step": 53983
+        },
+        {
+          "nearest_dist_jsd": 0.044230639934539795,
+          "lat_dev_jsd": 0.5712668895721436,
+          "ang_dev_jsd": 0.15118122100830078,
+          "length_jsd": 0.3247230350971222,
+          "width_jsd": 0.0810442566871643,
+          "speed_jsd": 0.05058511719107628,
+          "collision_rate": 0.17543953657150269,
+          "completed_epochs": 60,
+          "trainer_global_step": 57839
+        },
+        {
+          "nearest_dist_jsd": 0.043244749307632446,
+          "lat_dev_jsd": 0.5532623529434204,
+          "ang_dev_jsd": 0.13869871199131012,
+          "length_jsd": 0.31633779406547546,
+          "width_jsd": 0.07887889444828033,
+          "speed_jsd": 0.06887806951999664,
+          "collision_rate": 0.16705448925495148,
+          "completed_epochs": 64,
+          "trainer_global_step": 61695
+        },
+        {
+          "nearest_dist_jsd": 0.04207710176706314,
+          "lat_dev_jsd": 0.5392349362373352,
+          "ang_dev_jsd": 0.13948972523212433,
+          "length_jsd": 0.3091062009334564,
+          "width_jsd": 0.07109314948320389,
+          "speed_jsd": 0.05723223090171814,
+          "collision_rate": 0.1722099781036377,
+          "completed_epochs": 68,
+          "trainer_global_step": 65551
+        },
+        {
+          "nearest_dist_jsd": 0.040348801761865616,
+          "lat_dev_jsd": 0.5322369933128357,
+          "ang_dev_jsd": 0.14798733592033386,
+          "length_jsd": 0.2979578971862793,
+          "width_jsd": 0.07234787940979004,
+          "speed_jsd": 0.05998638644814491,
+          "collision_rate": 0.14840611815452576,
+          "completed_epochs": 72,
+          "trainer_global_step": 69407
+        },
+        {
+          "nearest_dist_jsd": 0.039928849786520004,
+          "lat_dev_jsd": 0.5238493084907532,
+          "ang_dev_jsd": 0.14508457481861115,
+          "length_jsd": 0.29045385122299194,
+          "width_jsd": 0.0730859711766243,
+          "speed_jsd": 0.06812740862369537,
+          "collision_rate": 0.15567918121814728,
+          "completed_epochs": 76,
+          "trainer_global_step": 73263
+        },
+        {
+          "nearest_dist_jsd": 0.04019320383667946,
+          "lat_dev_jsd": 0.5213463306427002,
+          "ang_dev_jsd": 0.13027502596378326,
+          "length_jsd": 0.2901398241519928,
+          "width_jsd": 0.07516012340784073,
+          "speed_jsd": 0.04523373767733574,
+          "collision_rate": 0.16884100437164307,
+          "completed_epochs": 80,
+          "trainer_global_step": 77119
+        },
+        {
+          "nearest_dist_jsd": 0.038148365914821625,
+          "lat_dev_jsd": 0.5159725546836853,
+          "ang_dev_jsd": 0.13050323724746704,
+          "length_jsd": 0.2867352068424225,
+          "width_jsd": 0.06805550307035446,
+          "speed_jsd": 0.04839220643043518,
+          "collision_rate": 0.17933672666549683,
+          "completed_epochs": 84,
+          "trainer_global_step": 80975
+        },
+        {
+          "nearest_dist_jsd": 0.03901300206780434,
+          "lat_dev_jsd": 0.49577099084854126,
+          "ang_dev_jsd": 0.13073115050792694,
+          "length_jsd": 0.3072740137577057,
+          "width_jsd": 0.0733741894364357,
+          "speed_jsd": 0.06275886297225952,
+          "collision_rate": 0.14987929165363312,
+          "completed_epochs": 88,
+          "trainer_global_step": 84831
+        },
+        {
+          "nearest_dist_jsd": 0.039022643119096756,
+          "lat_dev_jsd": 0.4943524897098541,
+          "ang_dev_jsd": 0.1385791301727295,
+          "length_jsd": 0.29145485162734985,
+          "width_jsd": 0.0791841670870781,
+          "speed_jsd": 0.06831351667642593,
+          "collision_rate": 0.17301413416862488,
+          "completed_epochs": 92,
+          "trainer_global_step": 88687
+        },
+        {
+          "nearest_dist_jsd": 0.039058733731508255,
+          "lat_dev_jsd": 0.4930885434150696,
+          "ang_dev_jsd": 0.1211194396018982,
+          "length_jsd": 0.29173675179481506,
+          "width_jsd": 0.08002778142690659,
+          "speed_jsd": 0.054423630237579346,
+          "collision_rate": 0.1524946689605713,
+          "completed_epochs": 96,
+          "trainer_global_step": 92543
+        },
+        {
+          "nearest_dist_jsd": 0.0375390388071537,
+          "lat_dev_jsd": 0.49066439270973206,
+          "ang_dev_jsd": 0.12858396768569946,
+          "length_jsd": 0.2717558741569519,
+          "width_jsd": 0.07706895470619202,
+          "speed_jsd": 0.06051548942923546,
+          "collision_rate": 0.17577068507671356,
+          "completed_epochs": 100,
+          "trainer_global_step": 96399
+        },
+        {
+          "nearest_dist_jsd": 0.03941364586353302,
+          "lat_dev_jsd": 0.48459136486053467,
+          "ang_dev_jsd": 0.12446144968271255,
+          "length_jsd": 0.29291701316833496,
+          "width_jsd": 0.08255885541439056,
+          "speed_jsd": 0.06363152712583542,
+          "collision_rate": 0.18727858364582062,
+          "completed_epochs": 104,
+          "trainer_global_step": 100255
+        },
+        {
+          "nearest_dist_jsd": 0.03794514015316963,
+          "lat_dev_jsd": 0.47810810804367065,
+          "ang_dev_jsd": 0.11779139190912247,
+          "length_jsd": 0.2839137315750122,
+          "width_jsd": 0.086454376578331,
+          "speed_jsd": 0.05709616467356682,
+          "collision_rate": 0.18121862411499023,
+          "completed_epochs": 108,
+          "trainer_global_step": 104111
+        },
+        {
+          "nearest_dist_jsd": 0.03814602270722389,
+          "lat_dev_jsd": 0.47914594411849976,
+          "ang_dev_jsd": 0.12332019209861755,
+          "length_jsd": 0.28909167647361755,
+          "width_jsd": 0.09147219359874725,
+          "speed_jsd": 0.06457895040512085,
+          "collision_rate": 0.193977490067482,
+          "completed_epochs": 112,
+          "trainer_global_step": 107967
+        },
+        {
+          "nearest_dist_jsd": 0.03742559254169464,
+          "lat_dev_jsd": 0.47399207949638367,
+          "ang_dev_jsd": 0.1267443299293518,
+          "length_jsd": 0.2832241952419281,
+          "width_jsd": 0.0915091261267662,
+          "speed_jsd": 0.06811175495386124,
+          "collision_rate": 0.17229609191417694,
+          "completed_epochs": 116,
+          "trainer_global_step": 111823
+        },
+        {
+          "nearest_dist_jsd": 0.036462441086769104,
+          "lat_dev_jsd": 0.46977606415748596,
+          "ang_dev_jsd": 0.12285800278186798,
+          "length_jsd": 0.29382145404815674,
+          "width_jsd": 0.08757605403661728,
+          "speed_jsd": 0.0697144940495491,
+          "collision_rate": 0.1716989278793335,
+          "completed_epochs": 120,
+          "trainer_global_step": 115679
+        },
+        {
+          "nearest_dist_jsd": 0.037397995591163635,
+          "lat_dev_jsd": 0.46579957008361816,
+          "ang_dev_jsd": 0.12447542697191238,
+          "length_jsd": 0.29048803448677063,
+          "width_jsd": 0.09493879973888397,
+          "speed_jsd": 0.060963839292526245,
+          "collision_rate": 0.18834790587425232,
+          "completed_epochs": 124,
+          "trainer_global_step": 119535
+        },
+        {
+          "nearest_dist_jsd": 0.03738950565457344,
+          "lat_dev_jsd": 0.46666520833969116,
+          "ang_dev_jsd": 0.11669983714818954,
+          "length_jsd": 0.2908858060836792,
+          "width_jsd": 0.09808031469583511,
+          "speed_jsd": 0.07491225004196167,
+          "collision_rate": 0.19232332706451416,
+          "completed_epochs": 128,
+          "trainer_global_step": 123391
+        }
+      ],
+      "latest_validation": {
+        "nearest_dist_jsd": 0.03738950565457344,
+        "lat_dev_jsd": 0.46666520833969116,
+        "ang_dev_jsd": 0.11669983714818954,
+        "length_jsd": 0.2908858060836792,
+        "width_jsd": 0.09808031469583511,
+        "speed_jsd": 0.07491225004196167,
+        "collision_rate": 0.19232332706451416,
+        "completed_epochs": 128,
+        "trainer_global_step": 123391
+      },
+      "actual_config": {
+        "seed": 817,
+        "batch_size": 512,
+        "precision": "32-true",
+        "model": {
+          "optimizer": "default",
+          "lr": 0.0005,
+          "lr_warmup_steps": 0,
+          "lr_total_steps": 128,
+          "lr_min_ratio": 0.05,
+          "n_rollout_closed_val": 32,
+          "n_batch_wosac_metric": 1,
+          "n_vis_batch": 0,
+          "n_vis_scenario": 40,
+          "n_vis_rollout": 32,
+          "val_open_loop": false,
+          "val_closed_loop": true,
+          "token_processor": {
+            "init_map_crop": "square",
+            "init_map_half_extent": 50.0,
+            "map_token_file": "map_traj_token5.pkl",
+            "agent_token_file": "agent_vocab_555_s2.pkl",
+            "map_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "agent_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "pred_init": true,
+            "learn_init": true,
+            "learn_autoencoder": false,
+            "scenario_dreamer_init": true
+          },
+          "validation_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": 5,
+            "temp": 1.0
+          },
+          "training_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": -1,
+            "temp": 1.0
+          },
+          "decoder": {
+            "init_decoder": "flow",
+            "sep_map": false,
+            "init_diffusion": {
+              "component_loss": {
+                "normalize_time_weights": true,
+                "std_floor": 0.1,
+                "heading_space": "angle",
+                "components": {
+                  "position": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 32.0,
+                    "scale": "data"
+                  },
+                  "heading": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "length": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "width": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "velocity": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "type": {
+                    "kind": "ce",
+                    "time_power": 0,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "collision": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 20.0,
+                    "scale": "none"
+                  },
+                  "speed_magnitude": {
+                    "kind": "mse",
+                    "time_power": 0,
+                    "weight": 0.0,
+                    "scale": "data"
+                  }
+                }
+              },
+              "normalizer_path": "/home/guoke/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+              "fix_ego": false,
+              "fix_ego_position": true,
+              "fix_ego_heading": true,
+              "fix_ego_shape": true,
+              "fix_ego_velocity": false,
+              "fix_ego_type": true,
+              "use_ego_embedding": true,
+              "ego_context_heading_encoding": "angle",
+              "generate_type": true,
+              "type_loss_weight": 1.0,
+              "type_process": "separate",
+              "type_match_weight": 1.0,
+              "type_noise_stats": "standard",
+              "type_noise_std_floor": 0.01,
+              "pos_source": "gaussian",
+              "shape_source": "gaussian",
+              "velocity_source": "gaussian",
+              "velocity_representation": "speed",
+              "speed_loss_weight": 0.0,
+              "speed_loss_scale": null,
+              "size_representation": "linear",
+              "invalid_size_policy": "mask",
+              "heading_noise": "circular",
+              "heading_objective": "x0",
+              "heading_x0_loss": "vector_mse",
+              "heading_flow_loss_weight": 1.0,
+              "sigma_h": 5.0,
+              "edge_embedding_type": "fourier",
+              "time_embedding_type": "scenario_dreamer",
+              "time_embedding_scale": 99.0,
+              "count_embedding_type": "none",
+              "count_lane_source": "map_tokens",
+              "count_max_num_agents": 128,
+              "count_max_num_lanes": 1024,
+              "map_embedding_type": "none",
+              "map_id_source": "fixed",
+              "map_id": 0,
+              "map_lg_type": 0,
+              "map_label_dropout": 0.1,
+              "use_ema": true,
+              "ema_decay": 0.9999
+            },
+            "initial_scene_only": true,
+            "scenario_dreamer": null,
+            "vectorworld": null,
+            "hidden_dim": 128,
+            "num_freq_bands": 64,
+            "num_heads": 8,
+            "head_dim": 16,
+            "dropout": 0,
+            "hist_drop_prob": 0,
+            "num_map_layers": 1,
+            "num_agent_layers": 3,
+            "pl2pl_radius": 20,
+            "pl2a_radius": 40,
+            "a2a_radius": 60,
+            "time_span": 60,
+            "num_historical_steps": 11,
+            "num_future_steps": 80,
+            "pt2pt_neighbor": 30,
+            "pt2a_neighbor": 20,
+            "a2a_neighbor": 20,
+            "dis_a2a_radius": 0,
+            "dis_weight": 20,
+            "dist_decay": 3,
+            "reward_weight": 0,
+            "reward_decay": 2.5
+          },
+          "wosac_submission": {
+            "is_active": false,
+            "method_name": "SMART-tiny-CLSFT",
+            "authors": [
+              "Anonymous"
+            ],
+            "affiliation": "YOUR_AFFILIATION",
+            "description": "YOUR_DESCRIPTION",
+            "method_link": "YOUR_METHOD_LINK",
+            "account_name": "YOUR_ACCOUNT_NAME"
+          },
+          "training_loss": {
+            "use_gt_raw": true,
+            "gt_thresh_scale_length": -1.0,
+            "label_smoothing": 0.1,
+            "rollout_as_gt": false
+          },
+          "finetune": false,
+          "sd_use_cached_evaluator": true,
+          "sd_eval_set": "/home/guoke/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/guoke/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_reference_mode": "matched",
+          "sd_require_full_set": false
+        },
+        "data": {
+          "shuffle": true,
+          "_target_": "src.smart.datamodules.MultiDataModule",
+          "pin_memory": false,
+          "num_workers": 6,
+          "val_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "test_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "train_max_num": 32,
+          "train_raw_dir": "${paths.cache_root}/training_map2_sd",
+          "val_batch_size": 256,
+          "test_batch_size": 256,
+          "train_batch_size": 512,
+          "persistent_workers": true,
+          "val_tfrecords_splitted": null,
+          "scenario_dreamer_eval_set": null,
+          "scenario_dreamer_preprocessed": false,
+          "scenario_dreamer_val_latent_cache": null,
+          "scenario_dreamer_test_latent_cache": null,
+          "scenario_dreamer_train_sample_list": null,
+          "scenario_dreamer_train_latent_cache": null,
+          "scenario_dreamer_train_non_partitioned_only": false
+        },
+        "callbacks": {
+          "model_summary": {
+            "max_depth": 2
+          },
+          "model_checkpoint": {
+            "mode": "min",
+            "dirpath": null,
+            "monitor": "collision_rate",
+            "verbose": false,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init_diffusion-{epoch}-{step}",
+            "save_last": true,
+            "save_top_k": 3,
+            "every_n_epochs": null,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": false
+          },
+          "learning_rate_monitor": {
+            "_target_": "lightning.pytorch.callbacks.LearningRateMonitor",
+            "logging_interval": "epoch"
+          }
+        }
+      },
+      "loss_window": {
+        "log_rows": 100,
+        "epoch_index_range": [
+          117,
+          127
+        ],
+        "weighted_means": {
+          "position": 2.0662859058380127,
+          "heading": 0.08694983810186387,
+          "length": 0.1514509253948927,
+          "width": 0.15088034979999065,
+          "velocity": 0.1104748398810625,
+          "type": 0.12018190994858742,
+          "collision": 0.02779645437374711
+        },
+        "fractions": {
+          "position": 0.7613376967753571,
+          "heading": 0.03203728452506459,
+          "length": 0.05580316760079737,
+          "width": 0.05559293497614867,
+          "velocity": 0.04070523827754755,
+          "type": 0.044281877089614154,
+          "collision": 0.010241800755470558
+        },
+        "caution": "Loss-value shares are not gradient shares; gradients were not logged."
+      },
+      "per_metric_minimum": {
+        "nearest_dist_jsd": {
+          "value": 0.036462441086769104,
+          "completed_epochs": 120
+        },
+        "lat_dev_jsd": {
+          "value": 0.46579957008361816,
+          "completed_epochs": 124
+        },
+        "ang_dev_jsd": {
+          "value": 0.11669983714818954,
+          "completed_epochs": 128
+        },
+        "length_jsd": {
+          "value": 0.2717558741569519,
+          "completed_epochs": 100
+        },
+        "width_jsd": {
+          "value": 0.06805550307035446,
+          "completed_epochs": 84
+        },
+        "speed_jsd": {
+          "value": 0.04523373767733574,
+          "completed_epochs": 80
+        },
+        "collision_rate": {
+          "value": 0.14840611815452576,
+          "completed_epochs": 72
+        }
+      },
+      "url": "https://forge.coreweave.com/wandb/u3006612/bc/runs/4bedivn1",
+      "same_epoch_baseline": {
+        "nearest_dist_jsd": 0.012667263858020306,
+        "lat_dev_jsd": 0.003731409553438425,
+        "ang_dev_jsd": 0.03722052648663521,
+        "length_jsd": 0.2647131383419037,
+        "width_jsd": 0.10163068026304245,
+        "speed_jsd": 0.056670043617486954,
+        "collision_rate": 0.6581717133522034,
+        "completed_epochs": 128,
+        "trainer_global_step": 123391
+      },
+      "same_epoch_change_pct": {
+        "nearest_dist_jsd": 195.16639168213263,
+        "lat_dev_jsd": 12406.40546572187,
+        "ang_dev_jsd": 213.53623434126598,
+        "length_jsd": 9.887181235398623,
+        "width_jsd": -3.493399392799712,
+        "speed_jsd": 32.19021066510284,
+        "collision_rate": -70.7791563868687
+      }
+    },
+    "pd7zg04g": {
+      "label": "Scratch replicate / B512",
+      "commit": "76643d45b1dce287ecf835cdfc01fd1b5572f978",
+      "state_at_snapshot": "running",
+      "read_at_utc": "2026-10-12T03:28:05.531262+00:00",
+      "history_rows": 1059,
+      "validation_points": 25,
+      "validation": [
+        {
+          "nearest_dist_jsd": 0.13792884349822998,
+          "lat_dev_jsd": 0.9352278113365173,
+          "ang_dev_jsd": 0.339816689491272,
+          "length_jsd": 0.709137499332428,
+          "width_jsd": 0.48891550302505493,
+          "speed_jsd": 0.15468314290046692,
+          "collision_rate": 0.9001483917236328,
+          "completed_epochs": 4,
+          "trainer_global_step": 3855
+        },
+        {
+          "nearest_dist_jsd": 0.11024504899978638,
+          "lat_dev_jsd": 0.9076200723648071,
+          "ang_dev_jsd": 0.2249387502670288,
+          "length_jsd": 0.6156837940216064,
+          "width_jsd": 0.253490686416626,
+          "speed_jsd": 0.08114797621965408,
+          "collision_rate": 0.4485585391521454,
+          "completed_epochs": 8,
+          "trainer_global_step": 7711
+        },
+        {
+          "nearest_dist_jsd": 0.08498288691043854,
+          "lat_dev_jsd": 0.8592755794525146,
+          "ang_dev_jsd": 0.23406058549880981,
+          "length_jsd": 0.4996458888053894,
+          "width_jsd": 0.19034376740455627,
+          "speed_jsd": 0.06788494437932968,
+          "collision_rate": 0.3430785536766052,
+          "completed_epochs": 12,
+          "trainer_global_step": 11567
+        },
+        {
+          "nearest_dist_jsd": 0.07477836310863495,
+          "lat_dev_jsd": 0.831116795539856,
+          "ang_dev_jsd": 0.24862876534461975,
+          "length_jsd": 0.44758784770965576,
+          "width_jsd": 0.16326460242271423,
+          "speed_jsd": 0.06416913121938705,
+          "collision_rate": 0.2563478946685791,
+          "completed_epochs": 16,
+          "trainer_global_step": 15423
+        },
+        {
+          "nearest_dist_jsd": 0.06188270449638367,
+          "lat_dev_jsd": 0.7940152287483215,
+          "ang_dev_jsd": 0.17325273156166077,
+          "length_jsd": 0.38760483264923096,
+          "width_jsd": 0.13204404711723328,
+          "speed_jsd": 0.10674013942480087,
+          "collision_rate": 0.25075021386146545,
+          "completed_epochs": 20,
+          "trainer_global_step": 19279
+        },
+        {
+          "nearest_dist_jsd": 0.056860752403736115,
+          "lat_dev_jsd": 0.7676581740379333,
+          "ang_dev_jsd": 0.3277679681777954,
+          "length_jsd": 0.40343281626701355,
+          "width_jsd": 0.13283884525299072,
+          "speed_jsd": 0.0664353221654892,
+          "collision_rate": 0.22006122767925262,
+          "completed_epochs": 24,
+          "trainer_global_step": 23135
+        },
+        {
+          "nearest_dist_jsd": 0.049682941287755966,
+          "lat_dev_jsd": 0.7292588353157043,
+          "ang_dev_jsd": 0.16422095894813538,
+          "length_jsd": 0.37947139143943787,
+          "width_jsd": 0.12249816209077835,
+          "speed_jsd": 0.046036627143621445,
+          "collision_rate": 0.21569496393203735,
+          "completed_epochs": 28,
+          "trainer_global_step": 26991
+        },
+        {
+          "nearest_dist_jsd": 0.04818321019411087,
+          "lat_dev_jsd": 0.7032426595687866,
+          "ang_dev_jsd": 0.1682814359664917,
+          "length_jsd": 0.37601161003112793,
+          "width_jsd": 0.11378493160009384,
+          "speed_jsd": 0.12239155173301697,
+          "collision_rate": 0.20087261497974396,
+          "completed_epochs": 32,
+          "trainer_global_step": 30847
+        },
+        {
+          "nearest_dist_jsd": 0.04579782113432884,
+          "lat_dev_jsd": 0.6762956380844116,
+          "ang_dev_jsd": 0.15206456184387207,
+          "length_jsd": 0.35152682662010193,
+          "width_jsd": 0.0953272357583046,
+          "speed_jsd": 0.0733645111322403,
+          "collision_rate": 0.19320647418498993,
+          "completed_epochs": 36,
+          "trainer_global_step": 34703
+        },
+        {
+          "nearest_dist_jsd": 0.043572429567575455,
+          "lat_dev_jsd": 0.6720737814903259,
+          "ang_dev_jsd": 0.18434888124465942,
+          "length_jsd": 0.3254273533821106,
+          "width_jsd": 0.091886006295681,
+          "speed_jsd": 0.04110240936279297,
+          "collision_rate": 0.192860409617424,
+          "completed_epochs": 40,
+          "trainer_global_step": 38559
+        },
+        {
+          "nearest_dist_jsd": 0.04478047788143158,
+          "lat_dev_jsd": 0.6514707803726196,
+          "ang_dev_jsd": 0.18984593451023102,
+          "length_jsd": 0.3180651068687439,
+          "width_jsd": 0.09622523933649063,
+          "speed_jsd": 0.04604370519518852,
+          "collision_rate": 0.1754550188779831,
+          "completed_epochs": 44,
+          "trainer_global_step": 42415
+        },
+        {
+          "nearest_dist_jsd": 0.0421069972217083,
+          "lat_dev_jsd": 0.6318645477294922,
+          "ang_dev_jsd": 0.16794584691524506,
+          "length_jsd": 0.30075132846832275,
+          "width_jsd": 0.09098412841558456,
+          "speed_jsd": 0.04764401540160179,
+          "collision_rate": 0.19329342246055603,
+          "completed_epochs": 48,
+          "trainer_global_step": 46271
+        },
+        {
+          "nearest_dist_jsd": 0.042756110429763794,
+          "lat_dev_jsd": 0.6274004578590393,
+          "ang_dev_jsd": 0.18242989480495453,
+          "length_jsd": 0.27573299407958984,
+          "width_jsd": 0.08027417957782745,
+          "speed_jsd": 0.07551982253789902,
+          "collision_rate": 0.2024378627538681,
+          "completed_epochs": 52,
+          "trainer_global_step": 50127
+        },
+        {
+          "nearest_dist_jsd": 0.03841492161154747,
+          "lat_dev_jsd": 0.6049950122833252,
+          "ang_dev_jsd": 0.13108718395233154,
+          "length_jsd": 0.2866721451282501,
+          "width_jsd": 0.08308624476194382,
+          "speed_jsd": 0.08756851404905319,
+          "collision_rate": 0.17194844782352448,
+          "completed_epochs": 56,
+          "trainer_global_step": 53983
+        },
+        {
+          "nearest_dist_jsd": 0.03859701007604599,
+          "lat_dev_jsd": 0.5960602164268494,
+          "ang_dev_jsd": 0.1438368856906891,
+          "length_jsd": 0.29370492696762085,
+          "width_jsd": 0.09041319042444229,
+          "speed_jsd": 0.0625334307551384,
+          "collision_rate": 0.18864789605140686,
+          "completed_epochs": 60,
+          "trainer_global_step": 57839
+        },
+        {
+          "nearest_dist_jsd": 0.036684729158878326,
+          "lat_dev_jsd": 0.5794581174850464,
+          "ang_dev_jsd": 0.2033340185880661,
+          "length_jsd": 0.28658971190452576,
+          "width_jsd": 0.08005999773740768,
+          "speed_jsd": 0.055855538696050644,
+          "collision_rate": 0.17106293141841888,
+          "completed_epochs": 64,
+          "trainer_global_step": 61695
+        },
+        {
+          "nearest_dist_jsd": 0.036332640796899796,
+          "lat_dev_jsd": 0.5612133145332336,
+          "ang_dev_jsd": 0.13908101618289948,
+          "length_jsd": 0.26882967352867126,
+          "width_jsd": 0.07245979458093643,
+          "speed_jsd": 0.05885985866189003,
+          "collision_rate": 0.17864948511123657,
+          "completed_epochs": 68,
+          "trainer_global_step": 65551
+        },
+        {
+          "nearest_dist_jsd": 0.03700252249836922,
+          "lat_dev_jsd": 0.5600275993347168,
+          "ang_dev_jsd": 0.13581091165542603,
+          "length_jsd": 0.2854328453540802,
+          "width_jsd": 0.08060196042060852,
+          "speed_jsd": 0.056056804955005646,
+          "collision_rate": 0.1926937848329544,
+          "completed_epochs": 72,
+          "trainer_global_step": 69407
+        },
+        {
+          "nearest_dist_jsd": 0.03737415745854378,
+          "lat_dev_jsd": 0.5535684823989868,
+          "ang_dev_jsd": 0.12943045794963837,
+          "length_jsd": 0.2757222652435303,
+          "width_jsd": 0.08095447719097137,
+          "speed_jsd": 0.0711391419172287,
+          "collision_rate": 0.17438019812107086,
+          "completed_epochs": 76,
+          "trainer_global_step": 73263
+        },
+        {
+          "nearest_dist_jsd": 0.034892335534095764,
+          "lat_dev_jsd": 0.5440875291824341,
+          "ang_dev_jsd": 0.14339222013950348,
+          "length_jsd": 0.28085845708847046,
+          "width_jsd": 0.08593756705522537,
+          "speed_jsd": 0.06273651868104935,
+          "collision_rate": 0.1760198026895523,
+          "completed_epochs": 80,
+          "trainer_global_step": 77119
+        },
+        {
+          "nearest_dist_jsd": 0.035326652228832245,
+          "lat_dev_jsd": 0.5360879898071289,
+          "ang_dev_jsd": 0.13052915036678314,
+          "length_jsd": 0.2812470495700836,
+          "width_jsd": 0.0823998898267746,
+          "speed_jsd": 0.04565413296222687,
+          "collision_rate": 0.17475220561027527,
+          "completed_epochs": 84,
+          "trainer_global_step": 80975
+        },
+        {
+          "nearest_dist_jsd": 0.03620937466621399,
+          "lat_dev_jsd": 0.5297226905822754,
+          "ang_dev_jsd": 0.1654576063156128,
+          "length_jsd": 0.2775663733482361,
+          "width_jsd": 0.07237406075000763,
+          "speed_jsd": 0.05823725834488869,
+          "collision_rate": 0.18512213230133057,
+          "completed_epochs": 88,
+          "trainer_global_step": 84831
+        },
+        {
+          "nearest_dist_jsd": 0.03603055328130722,
+          "lat_dev_jsd": 0.5200133919715881,
+          "ang_dev_jsd": 0.1450357884168625,
+          "length_jsd": 0.2729109525680542,
+          "width_jsd": 0.0790906772017479,
+          "speed_jsd": 0.0720674991607666,
+          "collision_rate": 0.2072644829750061,
+          "completed_epochs": 92,
+          "trainer_global_step": 88687
+        },
+        {
+          "nearest_dist_jsd": 0.03456983342766762,
+          "lat_dev_jsd": 0.5180124044418335,
+          "ang_dev_jsd": 0.13793599605560303,
+          "length_jsd": 0.2810678482055664,
+          "width_jsd": 0.0825544223189354,
+          "speed_jsd": 0.0682922899723053,
+          "collision_rate": 0.20418484508991241,
+          "completed_epochs": 96,
+          "trainer_global_step": 92543
+        },
+        {
+          "nearest_dist_jsd": 0.036528486758470535,
+          "lat_dev_jsd": 0.5105845332145691,
+          "ang_dev_jsd": 0.13536661863327026,
+          "length_jsd": 0.27084070444107056,
+          "width_jsd": 0.0894983559846878,
+          "speed_jsd": 0.07086260616779327,
+          "collision_rate": 0.20165996253490448,
+          "completed_epochs": 100,
+          "trainer_global_step": 96399
+        }
+      ],
+      "latest_validation": {
+        "nearest_dist_jsd": 0.036528486758470535,
+        "lat_dev_jsd": 0.5105845332145691,
+        "ang_dev_jsd": 0.13536661863327026,
+        "length_jsd": 0.27084070444107056,
+        "width_jsd": 0.0894983559846878,
+        "speed_jsd": 0.07086260616779327,
+        "collision_rate": 0.20165996253490448,
+        "completed_epochs": 100,
+        "trainer_global_step": 96399
+      },
+      "actual_config": {
+        "seed": 817,
+        "batch_size": 512,
+        "precision": "32-true",
+        "model": {
+          "initial_map_checkpoint": null,
+          "optimizer": "default",
+          "lr": 0.0005,
+          "lr_warmup_steps": 0,
+          "lr_total_steps": 128,
+          "lr_min_ratio": 0.05,
+          "n_rollout_closed_val": 32,
+          "n_batch_wosac_metric": 1,
+          "n_vis_batch": 0,
+          "n_vis_scenario": 40,
+          "n_vis_rollout": 32,
+          "val_open_loop": false,
+          "val_closed_loop": true,
+          "token_processor": {
+            "init_map_crop": "square",
+            "init_map_half_extent": 50.0,
+            "map_token_file": "map_traj_token5.pkl",
+            "agent_token_file": "agent_vocab_555_s2.pkl",
+            "map_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "agent_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "pred_init": true,
+            "learn_init": true,
+            "learn_autoencoder": false,
+            "scenario_dreamer_init": true
+          },
+          "validation_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": 5,
+            "temp": 1.0
+          },
+          "training_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": -1,
+            "temp": 1.0
+          },
+          "decoder": {
+            "init_decoder": "flow",
+            "sep_map": false,
+            "init_diffusion": {
+              "component_loss": {
+                "normalize_time_weights": true,
+                "std_floor": 0.1,
+                "heading_space": "angle",
+                "components": {
+                  "position": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 32.0,
+                    "scale": "data"
+                  },
+                  "heading": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "length": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "width": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "velocity": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "type": {
+                    "kind": "ce",
+                    "time_power": 0,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "collision": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 20.0,
+                    "scale": "none"
+                  },
+                  "speed_magnitude": {
+                    "kind": "mse",
+                    "time_power": 0,
+                    "weight": 0.0,
+                    "scale": "data"
+                  }
+                }
+              },
+              "normalizer_path": "/home/guoke/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+              "fix_ego": false,
+              "fix_ego_position": true,
+              "fix_ego_heading": true,
+              "fix_ego_shape": true,
+              "fix_ego_velocity": false,
+              "fix_ego_type": true,
+              "use_ego_embedding": true,
+              "ego_context_heading_encoding": "angle",
+              "generate_type": true,
+              "type_loss_weight": 1.0,
+              "type_process": "separate",
+              "type_match_weight": 1.0,
+              "type_noise_stats": "standard",
+              "type_noise_std_floor": 0.01,
+              "pos_source": "gaussian",
+              "shape_source": "gaussian",
+              "velocity_source": "gaussian",
+              "velocity_representation": "speed",
+              "speed_loss_weight": 0.0,
+              "speed_loss_scale": null,
+              "size_representation": "linear",
+              "invalid_size_policy": "mask",
+              "heading_noise": "circular",
+              "heading_objective": "x0",
+              "heading_x0_loss": "vector_mse",
+              "heading_flow_loss_weight": 1.0,
+              "sigma_h": 5.0,
+              "edge_embedding_type": "fourier",
+              "time_embedding_type": "scenario_dreamer",
+              "time_embedding_scale": 99.0,
+              "count_embedding_type": "none",
+              "count_lane_source": "map_tokens",
+              "count_max_num_agents": 128,
+              "count_max_num_lanes": 1024,
+              "map_embedding_type": "none",
+              "map_id_source": "fixed",
+              "map_id": 0,
+              "map_lg_type": 0,
+              "map_label_dropout": 0.1,
+              "use_ema": true,
+              "ema_decay": 0.9999
+            },
+            "initial_scene_only": true,
+            "scenario_dreamer": null,
+            "vectorworld": null,
+            "hidden_dim": 128,
+            "num_freq_bands": 64,
+            "num_heads": 8,
+            "head_dim": 16,
+            "dropout": 0,
+            "hist_drop_prob": 0,
+            "num_map_layers": 1,
+            "num_agent_layers": 3,
+            "pl2pl_radius": 20,
+            "pl2a_radius": 40,
+            "a2a_radius": 60,
+            "time_span": 60,
+            "num_historical_steps": 11,
+            "num_future_steps": 80,
+            "pt2pt_neighbor": 30,
+            "pt2a_neighbor": 20,
+            "a2a_neighbor": 20,
+            "dis_a2a_radius": 0,
+            "dis_weight": 20,
+            "dist_decay": 3,
+            "reward_weight": 0,
+            "reward_decay": 2.5
+          },
+          "wosac_submission": {
+            "is_active": false,
+            "method_name": "SMART-tiny-CLSFT",
+            "authors": [
+              "Anonymous"
+            ],
+            "affiliation": "YOUR_AFFILIATION",
+            "description": "YOUR_DESCRIPTION",
+            "method_link": "YOUR_METHOD_LINK",
+            "account_name": "YOUR_ACCOUNT_NAME"
+          },
+          "training_loss": {
+            "use_gt_raw": true,
+            "gt_thresh_scale_length": -1.0,
+            "label_smoothing": 0.1,
+            "rollout_as_gt": false
+          },
+          "finetune": false,
+          "sd_use_cached_evaluator": true,
+          "sd_eval_set": "/home/guoke/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/guoke/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_reference_mode": "matched",
+          "sd_require_full_set": false
+        },
+        "data": {
+          "shuffle": true,
+          "_target_": "src.smart.datamodules.MultiDataModule",
+          "pin_memory": false,
+          "num_workers": 6,
+          "val_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "test_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "train_max_num": 32,
+          "train_raw_dir": "${paths.cache_root}/training_map2_sd",
+          "val_batch_size": 256,
+          "test_batch_size": 256,
+          "train_batch_size": 512,
+          "persistent_workers": true,
+          "val_tfrecords_splitted": null,
+          "scenario_dreamer_eval_set": null,
+          "scenario_dreamer_preprocessed": false,
+          "scenario_dreamer_val_latent_cache": null,
+          "scenario_dreamer_test_latent_cache": null,
+          "scenario_dreamer_train_sample_list": null,
+          "scenario_dreamer_train_latent_cache": null,
+          "scenario_dreamer_train_non_partitioned_only": false
+        },
+        "callbacks": {
+          "model_summary": {
+            "max_depth": 2
+          },
+          "model_checkpoint": {
+            "mode": "min",
+            "dirpath": null,
+            "monitor": "collision_rate",
+            "verbose": false,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init_diffusion-{epoch}-{step}",
+            "save_last": true,
+            "save_top_k": 3,
+            "every_n_epochs": null,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": false
+          },
+          "learning_rate_monitor": {
+            "_target_": "lightning.pytorch.callbacks.LearningRateMonitor",
+            "logging_interval": "epoch"
+          }
+        }
+      },
+      "loss_window": {
+        "log_rows": 100,
+        "epoch_index_range": [
+          90,
+          101
+        ],
+        "weighted_means": {
+          "position": 2.1791925978660585,
+          "heading": 0.0897590984404087,
+          "length": 0.15335553273558616,
+          "width": 0.15398409172892571,
+          "velocity": 0.11159069128334523,
+          "type": 0.12358569502830505,
+          "collision": 0.028806756380945445
+        },
+        "fractions": {
+          "position": 0.7672471889243551,
+          "heading": 0.031602262244386024,
+          "length": 0.05399320900437793,
+          "width": 0.05421451120648028,
+          "velocity": 0.03928869998967138,
+          "type": 0.04351188472032326,
+          "collision": 0.010142243910406119
+        },
+        "caution": "Loss-value shares are not gradient shares; gradients were not logged."
+      },
+      "per_metric_minimum": {
+        "nearest_dist_jsd": {
+          "value": 0.03456983342766762,
+          "completed_epochs": 96
+        },
+        "lat_dev_jsd": {
+          "value": 0.5105845332145691,
+          "completed_epochs": 100
+        },
+        "ang_dev_jsd": {
+          "value": 0.12943045794963837,
+          "completed_epochs": 76
+        },
+        "length_jsd": {
+          "value": 0.26882967352867126,
+          "completed_epochs": 68
+        },
+        "width_jsd": {
+          "value": 0.07237406075000763,
+          "completed_epochs": 88
+        },
+        "speed_jsd": {
+          "value": 0.04110240936279297,
+          "completed_epochs": 40
+        },
+        "collision_rate": {
+          "value": 0.17106293141841888,
+          "completed_epochs": 64
+        }
+      },
+      "url": "https://forge.coreweave.com/wandb/u3006612/bc/runs/pd7zg04g",
+      "same_epoch_baseline": {
+        "nearest_dist_jsd": 0.011055014096200466,
+        "lat_dev_jsd": 0.003636624664068222,
+        "ang_dev_jsd": 0.036746419966220856,
+        "length_jsd": 0.25701358914375305,
+        "width_jsd": 0.07903508096933365,
+        "speed_jsd": 0.03905826807022095,
+        "collision_rate": 0.6636808514595032,
+        "completed_epochs": 100,
+        "trainer_global_step": 96399
+      },
+      "same_epoch_change_pct": {
+        "nearest_dist_jsd": 230.42460589014655,
+        "lat_dev_jsd": 13940.066830635968,
+        "ang_dev_jsd": 268.38042660402294,
+        "length_jsd": 5.379916036106436,
+        "width_jsd": 13.238773070168675,
+        "speed_jsd": 81.4279272198984,
+        "collision_rate": -69.61491926557271
+      }
+    },
+    "0yhfg9ue": {
+      "label": "Frozen map / B256",
+      "commit": "c2aef9ffe0bdf69381e7c2d832c1a46377148a10",
+      "state_at_snapshot": "finished",
+      "read_at_utc": "2026-10-12T03:21:34.567011+00:00",
+      "history_rows": 2566,
+      "validation_points": 32,
+      "validation": [
+        {
+          "nearest_dist_jsd": 0.14656388759613037,
+          "lat_dev_jsd": 0.9230301976203918,
+          "ang_dev_jsd": 0.24283742904663086,
+          "length_jsd": 0.45647549629211426,
+          "width_jsd": 0.24971216917037964,
+          "speed_jsd": 0.10908184945583344,
+          "collision_rate": 1.3990204334259033,
+          "completed_epochs": 4,
+          "trainer_global_step": 7711
+        },
+        {
+          "nearest_dist_jsd": 0.10736775398254395,
+          "lat_dev_jsd": 0.8718926310539246,
+          "ang_dev_jsd": 0.18713411688804626,
+          "length_jsd": 0.39409127831459045,
+          "width_jsd": 0.1987970620393753,
+          "speed_jsd": 0.08821195363998413,
+          "collision_rate": 0.6467346549034119,
+          "completed_epochs": 8,
+          "trainer_global_step": 15423
+        },
+        {
+          "nearest_dist_jsd": 0.08544529974460602,
+          "lat_dev_jsd": 0.8332147598266602,
+          "ang_dev_jsd": 0.18263982236385345,
+          "length_jsd": 0.33564022183418274,
+          "width_jsd": 0.15167972445487976,
+          "speed_jsd": 0.06351794302463531,
+          "collision_rate": 0.3844709098339081,
+          "completed_epochs": 12,
+          "trainer_global_step": 23135
+        },
+        {
+          "nearest_dist_jsd": 0.07468128204345703,
+          "lat_dev_jsd": 0.8017866611480713,
+          "ang_dev_jsd": 0.18367920815944672,
+          "length_jsd": 0.30746468901634216,
+          "width_jsd": 0.13822902739048004,
+          "speed_jsd": 0.05966591462492943,
+          "collision_rate": 0.3307998776435852,
+          "completed_epochs": 16,
+          "trainer_global_step": 30847
+        },
+        {
+          "nearest_dist_jsd": 0.06284000724554062,
+          "lat_dev_jsd": 0.7623701691627502,
+          "ang_dev_jsd": 0.1611320823431015,
+          "length_jsd": 0.33241006731987,
+          "width_jsd": 0.14224183559417725,
+          "speed_jsd": 0.05037842318415642,
+          "collision_rate": 0.30969491600990295,
+          "completed_epochs": 20,
+          "trainer_global_step": 38559
+        },
+        {
+          "nearest_dist_jsd": 0.06096580997109413,
+          "lat_dev_jsd": 0.736274242401123,
+          "ang_dev_jsd": 0.17976020276546478,
+          "length_jsd": 0.3471497893333435,
+          "width_jsd": 0.153416246175766,
+          "speed_jsd": 0.047360800206661224,
+          "collision_rate": 0.24728350341320038,
+          "completed_epochs": 24,
+          "trainer_global_step": 46271
+        },
+        {
+          "nearest_dist_jsd": 0.0581241101026535,
+          "lat_dev_jsd": 0.7120407223701477,
+          "ang_dev_jsd": 0.154515340924263,
+          "length_jsd": 0.334907203912735,
+          "width_jsd": 0.1391909122467041,
+          "speed_jsd": 0.04781559482216835,
+          "collision_rate": 0.27037104964256287,
+          "completed_epochs": 28,
+          "trainer_global_step": 53983
+        },
+        {
+          "nearest_dist_jsd": 0.0565476268529892,
+          "lat_dev_jsd": 0.693762481212616,
+          "ang_dev_jsd": 0.1504170000553131,
+          "length_jsd": 0.3587299585342407,
+          "width_jsd": 0.14181874692440033,
+          "speed_jsd": 0.05388397350907326,
+          "collision_rate": 0.26505061984062195,
+          "completed_epochs": 32,
+          "trainer_global_step": 61695
+        },
+        {
+          "nearest_dist_jsd": 0.052298758178949356,
+          "lat_dev_jsd": 0.666572630405426,
+          "ang_dev_jsd": 0.1538698971271515,
+          "length_jsd": 0.33136609196662903,
+          "width_jsd": 0.12858663499355316,
+          "speed_jsd": 0.04694736748933792,
+          "collision_rate": 0.25750842690467834,
+          "completed_epochs": 36,
+          "trainer_global_step": 69407
+        },
+        {
+          "nearest_dist_jsd": 0.04847431182861328,
+          "lat_dev_jsd": 0.6461272835731506,
+          "ang_dev_jsd": 0.1436963677406311,
+          "length_jsd": 0.321353942155838,
+          "width_jsd": 0.12171897292137146,
+          "speed_jsd": 0.04836682602763176,
+          "collision_rate": 0.25080692768096924,
+          "completed_epochs": 40,
+          "trainer_global_step": 77119
+        },
+        {
+          "nearest_dist_jsd": 0.04741090163588524,
+          "lat_dev_jsd": 0.6328614354133606,
+          "ang_dev_jsd": 0.1427890956401825,
+          "length_jsd": 0.3517525792121887,
+          "width_jsd": 0.13235057890415192,
+          "speed_jsd": 0.04092181846499443,
+          "collision_rate": 0.2375609278678894,
+          "completed_epochs": 44,
+          "trainer_global_step": 84831
+        },
+        {
+          "nearest_dist_jsd": 0.04542592912912369,
+          "lat_dev_jsd": 0.6139770746231079,
+          "ang_dev_jsd": 0.1382850855588913,
+          "length_jsd": 0.34436744451522827,
+          "width_jsd": 0.12156409025192261,
+          "speed_jsd": 0.044919680804014206,
+          "collision_rate": 0.22721046209335327,
+          "completed_epochs": 48,
+          "trainer_global_step": 92543
+        },
+        {
+          "nearest_dist_jsd": 0.043383873999118805,
+          "lat_dev_jsd": 0.5979524254798889,
+          "ang_dev_jsd": 0.13376764953136444,
+          "length_jsd": 0.34479251503944397,
+          "width_jsd": 0.11221407353878021,
+          "speed_jsd": 0.03928621485829353,
+          "collision_rate": 0.20350009202957153,
+          "completed_epochs": 52,
+          "trainer_global_step": 100255
+        },
+        {
+          "nearest_dist_jsd": 0.04020649194717407,
+          "lat_dev_jsd": 0.5818726420402527,
+          "ang_dev_jsd": 0.13696502149105072,
+          "length_jsd": 0.3267633318901062,
+          "width_jsd": 0.1033649742603302,
+          "speed_jsd": 0.03761671483516693,
+          "collision_rate": 0.21147330105304718,
+          "completed_epochs": 56,
+          "trainer_global_step": 107967
+        },
+        {
+          "nearest_dist_jsd": 0.039223480969667435,
+          "lat_dev_jsd": 0.5722533464431763,
+          "ang_dev_jsd": 0.13565769791603088,
+          "length_jsd": 0.3014546036720276,
+          "width_jsd": 0.09228328615427017,
+          "speed_jsd": 0.040789537131786346,
+          "collision_rate": 0.20889511704444885,
+          "completed_epochs": 60,
+          "trainer_global_step": 115679
+        },
+        {
+          "nearest_dist_jsd": 0.0402057059109211,
+          "lat_dev_jsd": 0.5579489469528198,
+          "ang_dev_jsd": 0.12379908561706543,
+          "length_jsd": 0.29462382197380066,
+          "width_jsd": 0.0836968943476677,
+          "speed_jsd": 0.04348321631550789,
+          "collision_rate": 0.22094599902629852,
+          "completed_epochs": 64,
+          "trainer_global_step": 123391
+        },
+        {
+          "nearest_dist_jsd": 0.03828374668955803,
+          "lat_dev_jsd": 0.5452579855918884,
+          "ang_dev_jsd": 0.13266588747501373,
+          "length_jsd": 0.3082866966724396,
+          "width_jsd": 0.08298029005527496,
+          "speed_jsd": 0.040021806955337524,
+          "collision_rate": 0.21235884726047516,
+          "completed_epochs": 68,
+          "trainer_global_step": 131103
+        },
+        {
+          "nearest_dist_jsd": 0.03547506406903267,
+          "lat_dev_jsd": 0.5354815125465393,
+          "ang_dev_jsd": 0.12738151848316193,
+          "length_jsd": 0.31404587626457214,
+          "width_jsd": 0.0891171246767044,
+          "speed_jsd": 0.04571957513689995,
+          "collision_rate": 0.2047378271818161,
+          "completed_epochs": 72,
+          "trainer_global_step": 138815
+        },
+        {
+          "nearest_dist_jsd": 0.03726677596569061,
+          "lat_dev_jsd": 0.5255063772201538,
+          "ang_dev_jsd": 0.12977786362171173,
+          "length_jsd": 0.33027148246765137,
+          "width_jsd": 0.09855334460735321,
+          "speed_jsd": 0.04892471432685852,
+          "collision_rate": 0.21147066354751587,
+          "completed_epochs": 76,
+          "trainer_global_step": 146527
+        },
+        {
+          "nearest_dist_jsd": 0.03687681257724762,
+          "lat_dev_jsd": 0.5159125924110413,
+          "ang_dev_jsd": 0.12695391476154327,
+          "length_jsd": 0.32178395986557007,
+          "width_jsd": 0.10221010446548462,
+          "speed_jsd": 0.04351918771862984,
+          "collision_rate": 0.17883916199207306,
+          "completed_epochs": 80,
+          "trainer_global_step": 154239
+        },
+        {
+          "nearest_dist_jsd": 0.03557521477341652,
+          "lat_dev_jsd": 0.5090913772583008,
+          "ang_dev_jsd": 0.12233351916074753,
+          "length_jsd": 0.3288860321044922,
+          "width_jsd": 0.11069498211145401,
+          "speed_jsd": 0.049357179552316666,
+          "collision_rate": 0.20300479233264923,
+          "completed_epochs": 84,
+          "trainer_global_step": 161951
+        },
+        {
+          "nearest_dist_jsd": 0.03568645194172859,
+          "lat_dev_jsd": 0.49802830815315247,
+          "ang_dev_jsd": 0.12832596898078918,
+          "length_jsd": 0.33954140543937683,
+          "width_jsd": 0.11757315695285797,
+          "speed_jsd": 0.045711927115917206,
+          "collision_rate": 0.22440779209136963,
+          "completed_epochs": 88,
+          "trainer_global_step": 169663
+        },
+        {
+          "nearest_dist_jsd": 0.03534935042262077,
+          "lat_dev_jsd": 0.4876883327960968,
+          "ang_dev_jsd": 0.12748795747756958,
+          "length_jsd": 0.3353368043899536,
+          "width_jsd": 0.1131126806139946,
+          "speed_jsd": 0.053962595760822296,
+          "collision_rate": 0.20229557156562805,
+          "completed_epochs": 92,
+          "trainer_global_step": 177375
+        },
+        {
+          "nearest_dist_jsd": 0.036455605179071426,
+          "lat_dev_jsd": 0.48423194885253906,
+          "ang_dev_jsd": 0.11893156915903091,
+          "length_jsd": 0.3328968584537506,
+          "width_jsd": 0.1048578992486,
+          "speed_jsd": 0.04868973419070244,
+          "collision_rate": 0.21725133061408997,
+          "completed_epochs": 96,
+          "trainer_global_step": 185087
+        },
+        {
+          "nearest_dist_jsd": 0.03507954999804497,
+          "lat_dev_jsd": 0.47725000977516174,
+          "ang_dev_jsd": 0.12804602086544037,
+          "length_jsd": 0.3347119092941284,
+          "width_jsd": 0.10963322222232819,
+          "speed_jsd": 0.054443925619125366,
+          "collision_rate": 0.2156251072883606,
+          "completed_epochs": 100,
+          "trainer_global_step": 192799
+        },
+        {
+          "nearest_dist_jsd": 0.03699915483593941,
+          "lat_dev_jsd": 0.4744076728820801,
+          "ang_dev_jsd": 0.12851357460021973,
+          "length_jsd": 0.33987030386924744,
+          "width_jsd": 0.12384886294603348,
+          "speed_jsd": 0.058266375213861465,
+          "collision_rate": 0.2106247842311859,
+          "completed_epochs": 104,
+          "trainer_global_step": 200511
+        },
+        {
+          "nearest_dist_jsd": 0.03508800268173218,
+          "lat_dev_jsd": 0.4727683961391449,
+          "ang_dev_jsd": 0.12315254658460617,
+          "length_jsd": 0.3330501616001129,
+          "width_jsd": 0.1257285177707672,
+          "speed_jsd": 0.061038434505462646,
+          "collision_rate": 0.22749774158000946,
+          "completed_epochs": 108,
+          "trainer_global_step": 208223
+        },
+        {
+          "nearest_dist_jsd": 0.03764878585934639,
+          "lat_dev_jsd": 0.4709777534008026,
+          "ang_dev_jsd": 0.12271333485841751,
+          "length_jsd": 0.33150815963745117,
+          "width_jsd": 0.11718194931745529,
+          "speed_jsd": 0.06239543855190277,
+          "collision_rate": 0.2327488511800766,
+          "completed_epochs": 112,
+          "trainer_global_step": 215935
+        },
+        {
+          "nearest_dist_jsd": 0.036169394850730896,
+          "lat_dev_jsd": 0.4661044478416443,
+          "ang_dev_jsd": 0.12199681252241135,
+          "length_jsd": 0.3260107934474945,
+          "width_jsd": 0.11469987779855728,
+          "speed_jsd": 0.06165226921439171,
+          "collision_rate": 0.2188219428062439,
+          "completed_epochs": 116,
+          "trainer_global_step": 223647
+        },
+        {
+          "nearest_dist_jsd": 0.037157561630010605,
+          "lat_dev_jsd": 0.4642433226108551,
+          "ang_dev_jsd": 0.12050192803144455,
+          "length_jsd": 0.33058345317840576,
+          "width_jsd": 0.11018059402704239,
+          "speed_jsd": 0.06945435702800751,
+          "collision_rate": 0.23716698586940765,
+          "completed_epochs": 120,
+          "trainer_global_step": 231359
+        },
+        {
+          "nearest_dist_jsd": 0.033960796892642975,
+          "lat_dev_jsd": 0.46385714411735535,
+          "ang_dev_jsd": 0.12679068744182587,
+          "length_jsd": 0.31563785672187805,
+          "width_jsd": 0.1156153604388237,
+          "speed_jsd": 0.06224925071001053,
+          "collision_rate": 0.22713613510131836,
+          "completed_epochs": 124,
+          "trainer_global_step": 239071
+        },
+        {
+          "nearest_dist_jsd": 0.03621865063905716,
+          "lat_dev_jsd": 0.4564448893070221,
+          "ang_dev_jsd": 0.11440207064151764,
+          "length_jsd": 0.3258894085884094,
+          "width_jsd": 0.10951655358076096,
+          "speed_jsd": 0.07025478035211563,
+          "collision_rate": 0.2520410716533661,
+          "completed_epochs": 128,
+          "trainer_global_step": 246783
+        }
+      ],
+      "latest_validation": {
+        "nearest_dist_jsd": 0.03621865063905716,
+        "lat_dev_jsd": 0.4564448893070221,
+        "ang_dev_jsd": 0.11440207064151764,
+        "length_jsd": 0.3258894085884094,
+        "width_jsd": 0.10951655358076096,
+        "speed_jsd": 0.07025478035211563,
+        "collision_rate": 0.2520410716533661,
+        "completed_epochs": 128,
+        "trainer_global_step": 246783
+      },
+      "actual_config": {
+        "seed": 817,
+        "batch_size": 256,
+        "precision": "32-true",
+        "model": {
+          "initial_map_checkpoint": "/home/ke/keguo/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+          "optimizer": "default",
+          "lr": 0.0005,
+          "lr_warmup_steps": 0,
+          "lr_total_steps": 128,
+          "lr_min_ratio": 0.05,
+          "n_rollout_closed_val": 32,
+          "n_batch_wosac_metric": 1,
+          "n_vis_batch": 0,
+          "n_vis_scenario": 40,
+          "n_vis_rollout": 32,
+          "val_open_loop": false,
+          "val_closed_loop": true,
+          "token_processor": {
+            "init_map_crop": "square",
+            "init_map_half_extent": 50.0,
+            "map_token_file": "map_traj_token5.pkl",
+            "agent_token_file": "agent_vocab_555_s2.pkl",
+            "map_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "agent_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "pred_init": true,
+            "learn_init": true,
+            "learn_autoencoder": false,
+            "scenario_dreamer_init": true
+          },
+          "validation_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": 5,
+            "temp": 1.0
+          },
+          "training_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": -1,
+            "temp": 1.0
+          },
+          "decoder": {
+            "init_decoder": "flow",
+            "sep_map": false,
+            "init_diffusion": {
+              "component_loss": {
+                "normalize_time_weights": true,
+                "std_floor": 0.1,
+                "heading_space": "angle",
+                "components": {
+                  "position": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 32.0,
+                    "scale": "data"
+                  },
+                  "heading": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "length": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "width": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "velocity": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 4.0,
+                    "scale": "data"
+                  },
+                  "type": {
+                    "kind": "ce",
+                    "time_power": 0,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "collision": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 20.0,
+                    "scale": "none"
+                  },
+                  "speed_magnitude": {
+                    "kind": "mse",
+                    "time_power": 0,
+                    "weight": 0.0,
+                    "scale": "data"
+                  }
+                }
+              },
+              "normalizer_path": "/home/ke/keguo/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+              "fix_ego": false,
+              "fix_ego_position": true,
+              "fix_ego_heading": true,
+              "fix_ego_shape": true,
+              "fix_ego_velocity": false,
+              "fix_ego_type": true,
+              "use_ego_embedding": true,
+              "ego_context_heading_encoding": "sincos",
+              "generate_type": true,
+              "type_loss_weight": 1.0,
+              "type_process": "separate",
+              "type_match_weight": 1.0,
+              "type_noise_stats": "standard",
+              "type_noise_std_floor": 0.01,
+              "pos_source": "gaussian",
+              "shape_source": "gaussian",
+              "velocity_source": "gaussian",
+              "velocity_representation": "speed",
+              "speed_loss_weight": 0.0,
+              "speed_loss_scale": null,
+              "size_representation": "linear",
+              "invalid_size_policy": "mask",
+              "heading_noise": "circular",
+              "heading_objective": "x0",
+              "heading_x0_loss": "vector_mse",
+              "heading_flow_loss_weight": 1.0,
+              "sigma_h": 5.0,
+              "edge_embedding_type": "fourier",
+              "time_embedding_type": "scenario_dreamer",
+              "time_embedding_scale": 99.0,
+              "count_embedding_type": "none",
+              "count_lane_source": "map_tokens",
+              "count_max_num_agents": 128,
+              "count_max_num_lanes": 1024,
+              "map_embedding_type": "none",
+              "map_id_source": "fixed",
+              "map_id": 0,
+              "map_lg_type": 0,
+              "map_label_dropout": 0.1,
+              "use_ema": true,
+              "ema_decay": 0.9999
+            },
+            "initial_scene_only": true,
+            "scenario_dreamer": null,
+            "vectorworld": null,
+            "hidden_dim": 128,
+            "num_freq_bands": 64,
+            "num_heads": 8,
+            "head_dim": 16,
+            "dropout": 0,
+            "hist_drop_prob": 0,
+            "num_map_layers": 1,
+            "num_agent_layers": 3,
+            "pl2pl_radius": 20,
+            "pl2a_radius": 40,
+            "a2a_radius": 60,
+            "time_span": 60,
+            "num_historical_steps": 11,
+            "num_future_steps": 80,
+            "pt2pt_neighbor": 30,
+            "pt2a_neighbor": 20,
+            "a2a_neighbor": 20,
+            "dis_a2a_radius": 0,
+            "dis_weight": 20,
+            "dist_decay": 3,
+            "reward_weight": 0,
+            "reward_decay": 2.5
+          },
+          "wosac_submission": {
+            "is_active": false,
+            "method_name": "SMART-tiny-CLSFT",
+            "authors": [
+              "Anonymous"
+            ],
+            "affiliation": "YOUR_AFFILIATION",
+            "description": "YOUR_DESCRIPTION",
+            "method_link": "YOUR_METHOD_LINK",
+            "account_name": "YOUR_ACCOUNT_NAME"
+          },
+          "training_loss": {
+            "use_gt_raw": true,
+            "gt_thresh_scale_length": -1.0,
+            "label_smoothing": 0.1,
+            "rollout_as_gt": false
+          },
+          "finetune": true,
+          "sd_use_cached_evaluator": true,
+          "sd_eval_set": "/home/ke/keguo/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/ke/keguo/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_reference_mode": "matched",
+          "sd_require_full_set": false
+        },
+        "data": {
+          "shuffle": true,
+          "_target_": "src.smart.datamodules.MultiDataModule",
+          "pin_memory": false,
+          "num_workers": 6,
+          "val_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "test_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "train_max_num": 32,
+          "train_raw_dir": "${paths.cache_root}/training_map2_sd",
+          "val_batch_size": 256,
+          "test_batch_size": 128,
+          "train_batch_size": 256,
+          "persistent_workers": false,
+          "val_tfrecords_splitted": null,
+          "scenario_dreamer_eval_set": null,
+          "scenario_dreamer_preprocessed": false,
+          "scenario_dreamer_val_latent_cache": null,
+          "scenario_dreamer_test_latent_cache": null,
+          "scenario_dreamer_train_sample_list": null,
+          "scenario_dreamer_train_latent_cache": null,
+          "scenario_dreamer_train_non_partitioned_only": false
+        },
+        "callbacks": {
+          "model_summary": {
+            "max_depth": 2
+          },
+          "model_checkpoint": {
+            "mode": "min",
+            "dirpath": null,
+            "monitor": null,
+            "verbose": false,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init-diffusion-frozen-map-{epoch}-{step}",
+            "save_last": false,
+            "save_top_k": -1,
+            "every_n_epochs": 4,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": true
+          },
+          "latest_checkpoint": {
+            "dirpath": null,
+            "monitor": null,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init-diffusion-frozen-map-latest-{epoch}-{step}",
+            "save_last": true,
+            "save_top_k": 0,
+            "every_n_epochs": 1,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": true
+          },
+          "learning_rate_monitor": {
+            "_target_": "lightning.pytorch.callbacks.LearningRateMonitor",
+            "logging_interval": "epoch"
+          }
+        }
+      },
+      "loss_window": {
+        "log_rows": 100,
+        "epoch_index_range": [
+          122,
+          127
+        ],
+        "weighted_means": {
+          "position": 1.997632111310959,
+          "heading": 0.0851441952586174,
+          "length": 0.02577846897765994,
+          "width": 0.027212164755910637,
+          "velocity": 0.19895876958966255,
+          "type": 0.12333879545331002,
+          "collision": 0.026576522253453732
+        },
+        "fractions": {
+          "position": 0.8039922423887862,
+          "heading": 0.03426820788710703,
+          "length": 0.010375128113603065,
+          "width": 0.010952151418911598,
+          "velocity": 0.08007545853892536,
+          "type": 0.049640488941160396,
+          "collision": 0.010696322711506327
+        },
+        "caution": "Loss-value shares are not gradient shares; gradients were not logged."
+      },
+      "per_metric_minimum": {
+        "nearest_dist_jsd": {
+          "value": 0.033960796892642975,
+          "completed_epochs": 124
+        },
+        "lat_dev_jsd": {
+          "value": 0.4564448893070221,
+          "completed_epochs": 128
+        },
+        "ang_dev_jsd": {
+          "value": 0.11440207064151764,
+          "completed_epochs": 128
+        },
+        "length_jsd": {
+          "value": 0.29462382197380066,
+          "completed_epochs": 64
+        },
+        "width_jsd": {
+          "value": 0.08298029005527496,
+          "completed_epochs": 68
+        },
+        "speed_jsd": {
+          "value": 0.03761671483516693,
+          "completed_epochs": 56
+        },
+        "collision_rate": {
+          "value": 0.17883916199207306,
+          "completed_epochs": 80
+        }
+      },
+      "url": "https://forge.coreweave.com/wandb/u3006612/bc/runs/0yhfg9ue",
+      "same_epoch_baseline": {
+        "nearest_dist_jsd": 0.012667263858020306,
+        "lat_dev_jsd": 0.003731409553438425,
+        "ang_dev_jsd": 0.03722052648663521,
+        "length_jsd": 0.2647131383419037,
+        "width_jsd": 0.10163068026304245,
+        "speed_jsd": 0.056670043617486954,
+        "collision_rate": 0.6581717133522034,
+        "completed_epochs": 128,
+        "trainer_global_step": 123391
+      },
+      "same_epoch_change_pct": {
+        "nearest_dist_jsd": 185.9232352385653,
+        "lat_dev_jsd": 12132.50578019281,
+        "ang_dev_jsd": 207.3628490521112,
+        "length_jsd": 23.11040193535481,
+        "width_jsd": 7.759343238978755,
+        "speed_jsd": 23.971636278107212,
+        "collision_rate": -61.705879098074675
+      }
+    },
+    "vd23g1bq": {
+      "label": "Frozen map / B512",
+      "commit": "059680ccb8bc65c02b0eea476e67efb3557c7d48",
+      "state_at_snapshot": "running",
+      "read_at_utc": "2026-10-12T03:28:05.596233+00:00",
+      "history_rows": 1018,
+      "validation_points": 24,
+      "validation": [
+        {
+          "nearest_dist_jsd": 0.1477271318435669,
+          "lat_dev_jsd": 0.9273545145988464,
+          "ang_dev_jsd": 0.24893762171268463,
+          "length_jsd": 0.49680015444755554,
+          "width_jsd": 0.3029722571372986,
+          "speed_jsd": 0.12836110591888428,
+          "collision_rate": 1.217208981513977,
+          "completed_epochs": 4,
+          "trainer_global_step": 3855
+        },
+        {
+          "nearest_dist_jsd": 0.11238161474466324,
+          "lat_dev_jsd": 0.8796833157539368,
+          "ang_dev_jsd": 0.20804119110107422,
+          "length_jsd": 0.3984563946723938,
+          "width_jsd": 0.19352930784225464,
+          "speed_jsd": 0.11659256368875504,
+          "collision_rate": 0.624866783618927,
+          "completed_epochs": 8,
+          "trainer_global_step": 7711
+        },
+        {
+          "nearest_dist_jsd": 0.0892002210021019,
+          "lat_dev_jsd": 0.8341532349586487,
+          "ang_dev_jsd": 0.1898060142993927,
+          "length_jsd": 0.33841410279273987,
+          "width_jsd": 0.13969770073890686,
+          "speed_jsd": 0.07904303818941116,
+          "collision_rate": 0.4017685353755951,
+          "completed_epochs": 12,
+          "trainer_global_step": 11567
+        },
+        {
+          "nearest_dist_jsd": 0.07283022999763489,
+          "lat_dev_jsd": 0.7964165806770325,
+          "ang_dev_jsd": 0.17636649310588837,
+          "length_jsd": 0.3367738127708435,
+          "width_jsd": 0.13166438043117523,
+          "speed_jsd": 0.07231304794549942,
+          "collision_rate": 0.3030237853527069,
+          "completed_epochs": 16,
+          "trainer_global_step": 15423
+        },
+        {
+          "nearest_dist_jsd": 0.06616823375225067,
+          "lat_dev_jsd": 0.7698391675949097,
+          "ang_dev_jsd": 0.16793401539325714,
+          "length_jsd": 0.3120628595352173,
+          "width_jsd": 0.11508692055940628,
+          "speed_jsd": 0.05879446119070053,
+          "collision_rate": 0.24669702351093292,
+          "completed_epochs": 20,
+          "trainer_global_step": 19279
+        },
+        {
+          "nearest_dist_jsd": 0.05986805260181427,
+          "lat_dev_jsd": 0.7394589781761169,
+          "ang_dev_jsd": 0.18080776929855347,
+          "length_jsd": 0.32572585344314575,
+          "width_jsd": 0.10624745488166809,
+          "speed_jsd": 0.04680371657013893,
+          "collision_rate": 0.24671030044555664,
+          "completed_epochs": 24,
+          "trainer_global_step": 23135
+        },
+        {
+          "nearest_dist_jsd": 0.05859561264514923,
+          "lat_dev_jsd": 0.714419960975647,
+          "ang_dev_jsd": 0.16181164979934692,
+          "length_jsd": 0.30980291962623596,
+          "width_jsd": 0.09286327660083771,
+          "speed_jsd": 0.04768209531903267,
+          "collision_rate": 0.23861537873744965,
+          "completed_epochs": 28,
+          "trainer_global_step": 26991
+        },
+        {
+          "nearest_dist_jsd": 0.052236784249544144,
+          "lat_dev_jsd": 0.6885983347892761,
+          "ang_dev_jsd": 0.15378551185131073,
+          "length_jsd": 0.29846906661987305,
+          "width_jsd": 0.10012224316596985,
+          "speed_jsd": 0.055059339851140976,
+          "collision_rate": 0.2163536548614502,
+          "completed_epochs": 32,
+          "trainer_global_step": 30847
+        },
+        {
+          "nearest_dist_jsd": 0.052570488303899765,
+          "lat_dev_jsd": 0.674527108669281,
+          "ang_dev_jsd": 0.15932142734527588,
+          "length_jsd": 0.30648273229599,
+          "width_jsd": 0.1032729372382164,
+          "speed_jsd": 0.05496947467327118,
+          "collision_rate": 0.22479385137557983,
+          "completed_epochs": 36,
+          "trainer_global_step": 34703
+        },
+        {
+          "nearest_dist_jsd": 0.05035370960831642,
+          "lat_dev_jsd": 0.6534796953201294,
+          "ang_dev_jsd": 0.15378153324127197,
+          "length_jsd": 0.2905832827091217,
+          "width_jsd": 0.1051584929227829,
+          "speed_jsd": 0.04888181388378143,
+          "collision_rate": 0.2203056961297989,
+          "completed_epochs": 40,
+          "trainer_global_step": 38559
+        },
+        {
+          "nearest_dist_jsd": 0.047779954969882965,
+          "lat_dev_jsd": 0.6314576864242554,
+          "ang_dev_jsd": 0.16430266201496124,
+          "length_jsd": 0.28713926672935486,
+          "width_jsd": 0.09816203266382217,
+          "speed_jsd": 0.04562772437930107,
+          "collision_rate": 0.20909088850021362,
+          "completed_epochs": 44,
+          "trainer_global_step": 42415
+        },
+        {
+          "nearest_dist_jsd": 0.04668306186795235,
+          "lat_dev_jsd": 0.6162989735603333,
+          "ang_dev_jsd": 0.16276884078979492,
+          "length_jsd": 0.2831154465675354,
+          "width_jsd": 0.09725832939147949,
+          "speed_jsd": 0.04663054272532463,
+          "collision_rate": 0.2017981857061386,
+          "completed_epochs": 48,
+          "trainer_global_step": 46271
+        },
+        {
+          "nearest_dist_jsd": 0.04775238782167435,
+          "lat_dev_jsd": 0.609792947769165,
+          "ang_dev_jsd": 0.1546000987291336,
+          "length_jsd": 0.27723902463912964,
+          "width_jsd": 0.08591862767934799,
+          "speed_jsd": 0.046985477209091187,
+          "collision_rate": 0.20589128136634827,
+          "completed_epochs": 52,
+          "trainer_global_step": 50127
+        },
+        {
+          "nearest_dist_jsd": 0.04348412901163101,
+          "lat_dev_jsd": 0.5971793532371521,
+          "ang_dev_jsd": 0.1483391523361206,
+          "length_jsd": 0.2925194203853607,
+          "width_jsd": 0.0927172526717186,
+          "speed_jsd": 0.04061800241470337,
+          "collision_rate": 0.2034774124622345,
+          "completed_epochs": 56,
+          "trainer_global_step": 53983
+        },
+        {
+          "nearest_dist_jsd": 0.04378852993249893,
+          "lat_dev_jsd": 0.5778164863586426,
+          "ang_dev_jsd": 0.14905135333538055,
+          "length_jsd": 0.28901469707489014,
+          "width_jsd": 0.09661246091127396,
+          "speed_jsd": 0.03915617614984512,
+          "collision_rate": 0.20808632671833038,
+          "completed_epochs": 60,
+          "trainer_global_step": 57839
+        },
+        {
+          "nearest_dist_jsd": 0.04078076779842377,
+          "lat_dev_jsd": 0.574346125125885,
+          "ang_dev_jsd": 0.1401444524526596,
+          "length_jsd": 0.27982303500175476,
+          "width_jsd": 0.08593288064002991,
+          "speed_jsd": 0.044930581003427505,
+          "collision_rate": 0.22172114253044128,
+          "completed_epochs": 64,
+          "trainer_global_step": 61695
+        },
+        {
+          "nearest_dist_jsd": 0.04195022955536842,
+          "lat_dev_jsd": 0.5574736595153809,
+          "ang_dev_jsd": 0.13613301515579224,
+          "length_jsd": 0.2837580442428589,
+          "width_jsd": 0.07994235306978226,
+          "speed_jsd": 0.04734919220209122,
+          "collision_rate": 0.20433326065540314,
+          "completed_epochs": 68,
+          "trainer_global_step": 65551
+        },
+        {
+          "nearest_dist_jsd": 0.0408872626721859,
+          "lat_dev_jsd": 0.5573092103004456,
+          "ang_dev_jsd": 0.1375572681427002,
+          "length_jsd": 0.2710036337375641,
+          "width_jsd": 0.08356679230928421,
+          "speed_jsd": 0.04727381840348244,
+          "collision_rate": 0.1748378872871399,
+          "completed_epochs": 72,
+          "trainer_global_step": 69407
+        },
+        {
+          "nearest_dist_jsd": 0.04116855934262276,
+          "lat_dev_jsd": 0.5446929335594177,
+          "ang_dev_jsd": 0.13590876758098602,
+          "length_jsd": 0.264198899269104,
+          "width_jsd": 0.0700199082493782,
+          "speed_jsd": 0.051752109080553055,
+          "collision_rate": 0.1977887600660324,
+          "completed_epochs": 76,
+          "trainer_global_step": 73263
+        },
+        {
+          "nearest_dist_jsd": 0.04038677364587784,
+          "lat_dev_jsd": 0.5346229076385498,
+          "ang_dev_jsd": 0.13803765177726746,
+          "length_jsd": 0.2658563256263733,
+          "width_jsd": 0.07995856553316116,
+          "speed_jsd": 0.04753294959664345,
+          "collision_rate": 0.20645175874233246,
+          "completed_epochs": 80,
+          "trainer_global_step": 77119
+        },
+        {
+          "nearest_dist_jsd": 0.03895372524857521,
+          "lat_dev_jsd": 0.5280871987342834,
+          "ang_dev_jsd": 0.1285410076379776,
+          "length_jsd": 0.2683961093425751,
+          "width_jsd": 0.0782996267080307,
+          "speed_jsd": 0.044909585267305374,
+          "collision_rate": 0.21022634208202362,
+          "completed_epochs": 84,
+          "trainer_global_step": 80975
+        },
+        {
+          "nearest_dist_jsd": 0.04121250659227371,
+          "lat_dev_jsd": 0.5251716375350952,
+          "ang_dev_jsd": 0.14078228175640106,
+          "length_jsd": 0.2783449590206146,
+          "width_jsd": 0.07214737683534622,
+          "speed_jsd": 0.04816905036568642,
+          "collision_rate": 0.2059093862771988,
+          "completed_epochs": 88,
+          "trainer_global_step": 84831
+        },
+        {
+          "nearest_dist_jsd": 0.04156571254134178,
+          "lat_dev_jsd": 0.514568030834198,
+          "ang_dev_jsd": 0.1466241180896759,
+          "length_jsd": 0.26463934779167175,
+          "width_jsd": 0.07233474403619766,
+          "speed_jsd": 0.04818010702729225,
+          "collision_rate": 0.21274301409721375,
+          "completed_epochs": 92,
+          "trainer_global_step": 88687
+        },
+        {
+          "nearest_dist_jsd": 0.039780065417289734,
+          "lat_dev_jsd": 0.5139803886413574,
+          "ang_dev_jsd": 0.13870005309581757,
+          "length_jsd": 0.2719557285308838,
+          "width_jsd": 0.07985904812812805,
+          "speed_jsd": 0.04865400865674019,
+          "collision_rate": 0.22850289940834045,
+          "completed_epochs": 96,
+          "trainer_global_step": 92543
+        }
+      ],
+      "latest_validation": {
+        "nearest_dist_jsd": 0.039780065417289734,
+        "lat_dev_jsd": 0.5139803886413574,
+        "ang_dev_jsd": 0.13870005309581757,
+        "length_jsd": 0.2719557285308838,
+        "width_jsd": 0.07985904812812805,
+        "speed_jsd": 0.04865400865674019,
+        "collision_rate": 0.22850289940834045,
+        "completed_epochs": 96,
+        "trainer_global_step": 92543
+      },
+      "actual_config": {
+        "seed": 817,
+        "batch_size": 512,
+        "precision": "32-true",
+        "model": {
+          "initial_map_checkpoint": "/home/guoke/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+          "optimizer": "default",
+          "lr": 0.0005,
+          "lr_warmup_steps": 0,
+          "lr_total_steps": 128,
+          "lr_min_ratio": 0.05,
+          "n_rollout_closed_val": 32,
+          "n_batch_wosac_metric": 1,
+          "n_vis_batch": 0,
+          "n_vis_scenario": 40,
+          "n_vis_rollout": 32,
+          "val_open_loop": false,
+          "val_closed_loop": true,
+          "token_processor": {
+            "init_map_crop": "square",
+            "init_map_half_extent": 50.0,
+            "map_token_file": "map_traj_token5.pkl",
+            "agent_token_file": "agent_vocab_555_s2.pkl",
+            "map_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "agent_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "pred_init": true,
+            "learn_init": true,
+            "learn_autoencoder": false,
+            "scenario_dreamer_init": true
+          },
+          "validation_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": 5,
+            "temp": 1.0
+          },
+          "training_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": -1,
+            "temp": 1.0
+          },
+          "decoder": {
+            "init_decoder": "flow",
+            "sep_map": false,
+            "init_diffusion": {
+              "component_loss": {
+                "normalize_time_weights": true,
+                "std_floor": 0.1,
+                "heading_space": "angle",
+                "components": {
+                  "position": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 32.0,
+                    "scale": "data"
+                  },
+                  "heading": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "length": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "width": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "velocity": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 4.0,
+                    "scale": "data"
+                  },
+                  "type": {
+                    "kind": "ce",
+                    "time_power": 0,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "collision": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 20.0,
+                    "scale": "none"
+                  },
+                  "speed_magnitude": {
+                    "kind": "mse",
+                    "time_power": 0,
+                    "weight": 0.0,
+                    "scale": "data"
+                  }
+                }
+              },
+              "normalizer_path": "/home/guoke/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+              "fix_ego": false,
+              "fix_ego_position": true,
+              "fix_ego_heading": true,
+              "fix_ego_shape": true,
+              "fix_ego_velocity": false,
+              "fix_ego_type": true,
+              "use_ego_embedding": true,
+              "ego_context_heading_encoding": "sincos",
+              "generate_type": true,
+              "type_loss_weight": 1.0,
+              "type_process": "separate",
+              "type_match_weight": 1.0,
+              "type_noise_stats": "standard",
+              "type_noise_std_floor": 0.01,
+              "pos_source": "gaussian",
+              "shape_source": "gaussian",
+              "velocity_source": "gaussian",
+              "velocity_representation": "speed",
+              "speed_loss_weight": 0.0,
+              "speed_loss_scale": null,
+              "size_representation": "linear",
+              "invalid_size_policy": "mask",
+              "heading_noise": "circular",
+              "heading_objective": "x0",
+              "heading_x0_loss": "vector_mse",
+              "heading_flow_loss_weight": 1.0,
+              "sigma_h": 5.0,
+              "edge_embedding_type": "fourier",
+              "time_embedding_type": "scenario_dreamer",
+              "time_embedding_scale": 99.0,
+              "count_embedding_type": "none",
+              "count_lane_source": "map_tokens",
+              "count_max_num_agents": 128,
+              "count_max_num_lanes": 1024,
+              "map_embedding_type": "none",
+              "map_id_source": "fixed",
+              "map_id": 0,
+              "map_lg_type": 0,
+              "map_label_dropout": 0.1,
+              "use_ema": true,
+              "ema_decay": 0.9999
+            },
+            "initial_scene_only": true,
+            "scenario_dreamer": null,
+            "vectorworld": null,
+            "hidden_dim": 128,
+            "num_freq_bands": 64,
+            "num_heads": 8,
+            "head_dim": 16,
+            "dropout": 0,
+            "hist_drop_prob": 0,
+            "num_map_layers": 1,
+            "num_agent_layers": 3,
+            "pl2pl_radius": 20,
+            "pl2a_radius": 40,
+            "a2a_radius": 60,
+            "time_span": 60,
+            "num_historical_steps": 11,
+            "num_future_steps": 80,
+            "pt2pt_neighbor": 30,
+            "pt2a_neighbor": 20,
+            "a2a_neighbor": 20,
+            "dis_a2a_radius": 0,
+            "dis_weight": 20,
+            "dist_decay": 3,
+            "reward_weight": 0,
+            "reward_decay": 2.5
+          },
+          "wosac_submission": {
+            "is_active": false,
+            "method_name": "SMART-tiny-CLSFT",
+            "authors": [
+              "Anonymous"
+            ],
+            "affiliation": "YOUR_AFFILIATION",
+            "description": "YOUR_DESCRIPTION",
+            "method_link": "YOUR_METHOD_LINK",
+            "account_name": "YOUR_ACCOUNT_NAME"
+          },
+          "training_loss": {
+            "use_gt_raw": true,
+            "gt_thresh_scale_length": -1.0,
+            "label_smoothing": 0.1,
+            "rollout_as_gt": false
+          },
+          "finetune": true,
+          "sd_use_cached_evaluator": true,
+          "sd_eval_set": "/home/guoke/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/guoke/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_reference_mode": "matched",
+          "sd_require_full_set": false
+        },
+        "data": {
+          "shuffle": true,
+          "_target_": "src.smart.datamodules.MultiDataModule",
+          "pin_memory": false,
+          "num_workers": 6,
+          "val_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "test_raw_dir": "${paths.cache_root}/scenario_dreamer_val",
+          "train_max_num": 32,
+          "train_raw_dir": "${paths.cache_root}/training_map2_sd",
+          "val_batch_size": 256,
+          "test_batch_size": 128,
+          "train_batch_size": 512,
+          "persistent_workers": false,
+          "val_tfrecords_splitted": null,
+          "scenario_dreamer_eval_set": null,
+          "scenario_dreamer_preprocessed": false,
+          "scenario_dreamer_val_latent_cache": null,
+          "scenario_dreamer_test_latent_cache": null,
+          "scenario_dreamer_train_sample_list": null,
+          "scenario_dreamer_train_latent_cache": null,
+          "scenario_dreamer_train_non_partitioned_only": false
+        },
+        "callbacks": {
+          "model_summary": {
+            "max_depth": 2
+          },
+          "model_checkpoint": {
+            "mode": "min",
+            "dirpath": null,
+            "monitor": null,
+            "verbose": false,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init-diffusion-frozen-map-{epoch}-{step}",
+            "save_last": false,
+            "save_top_k": -1,
+            "every_n_epochs": 4,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": true
+          },
+          "latest_checkpoint": {
+            "dirpath": null,
+            "monitor": null,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init-diffusion-frozen-map-latest-{epoch}-{step}",
+            "save_last": true,
+            "save_top_k": 0,
+            "every_n_epochs": 1,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": true
+          },
+          "learning_rate_monitor": {
+            "_target_": "lightning.pytorch.callbacks.LearningRateMonitor",
+            "logging_interval": "epoch"
+          }
+        }
+      },
+      "loss_window": {
+        "log_rows": 100,
+        "epoch_index_range": [
+          86,
+          97
+        ],
+        "weighted_means": {
+          "position": 2.1084340167045594,
+          "heading": 0.08794151984155178,
+          "length": 0.026709941402077674,
+          "width": 0.02782465647906065,
+          "velocity": 0.21147015631198884,
+          "type": 0.12518758460879326,
+          "collision": 0.03097425140440464
+        },
+        "fractions": {
+          "position": 0.8051938501060045,
+          "heading": 0.033584153160300105,
+          "length": 0.01020030998516103,
+          "width": 0.010626010631942476,
+          "velocity": 0.08075873752478369,
+          "type": 0.04780812320329297,
+          "collision": 0.011828815388515239
+        },
+        "caution": "Loss-value shares are not gradient shares; gradients were not logged."
+      },
+      "per_metric_minimum": {
+        "nearest_dist_jsd": {
+          "value": 0.03895372524857521,
+          "completed_epochs": 84
+        },
+        "lat_dev_jsd": {
+          "value": 0.5139803886413574,
+          "completed_epochs": 96
+        },
+        "ang_dev_jsd": {
+          "value": 0.1285410076379776,
+          "completed_epochs": 84
+        },
+        "length_jsd": {
+          "value": 0.264198899269104,
+          "completed_epochs": 76
+        },
+        "width_jsd": {
+          "value": 0.0700199082493782,
+          "completed_epochs": 76
+        },
+        "speed_jsd": {
+          "value": 0.03915617614984512,
+          "completed_epochs": 60
+        },
+        "collision_rate": {
+          "value": 0.1748378872871399,
+          "completed_epochs": 72
+        }
+      },
+      "url": "https://forge.coreweave.com/wandb/u3006612/bc/runs/vd23g1bq",
+      "same_epoch_baseline": {
+        "nearest_dist_jsd": 0.010498966090381145,
+        "lat_dev_jsd": 0.003488240297883749,
+        "ang_dev_jsd": 0.042586855590343475,
+        "length_jsd": 0.26956501603126526,
+        "width_jsd": 0.0845394879579544,
+        "speed_jsd": 0.03764786943793297,
+        "collision_rate": 0.7007991075515747,
+        "completed_epochs": 96,
+        "trainer_global_step": 92543
+      },
+      "same_epoch_change_pct": {
+        "nearest_dist_jsd": 278.8950747610767,
+        "lat_dev_jsd": 14634.661168646548,
+        "ang_dev_jsd": 225.68747134096384,
+        "length_jsd": 0.8868778800811716,
+        "width_jsd": -5.536394817241108,
+        "speed_jsd": 29.234427825861875,
+        "collision_rate": -67.39395114147972
+      }
+    },
+    "pz8g135r": {
+      "label": "Overnight / B256 + speed head",
+      "commit": "afb762ba01acffc4b08353ad253795564a46b9c0",
+      "state_at_snapshot": "running",
+      "read_at_utc": "2026-10-12T03:28:07.364896+00:00",
+      "history_rows": 468,
+      "validation_points": 5,
+      "validation": [
+        {
+          "nearest_dist_jsd": 0.14146491885185242,
+          "lat_dev_jsd": 0.9187415242195129,
+          "ang_dev_jsd": 0.2551422417163849,
+          "length_jsd": 0.5451239943504333,
+          "width_jsd": 0.4020625650882721,
+          "speed_jsd": 0.09921727329492569,
+          "collision_rate": 1.127398133277893,
+          "completed_epochs": 4,
+          "trainer_global_step": 7711
+        },
+        {
+          "nearest_dist_jsd": 0.10470698028802872,
+          "lat_dev_jsd": 0.877872884273529,
+          "ang_dev_jsd": 0.20139117538928986,
+          "length_jsd": 0.4152906835079193,
+          "width_jsd": 0.27056118845939636,
+          "speed_jsd": 0.08471042662858963,
+          "collision_rate": 0.5519413352012634,
+          "completed_epochs": 8,
+          "trainer_global_step": 15423
+        },
+        {
+          "nearest_dist_jsd": 0.09210082143545151,
+          "lat_dev_jsd": 0.8433408141136169,
+          "ang_dev_jsd": 0.18775688111782074,
+          "length_jsd": 0.3705706000328064,
+          "width_jsd": 0.23781374096870422,
+          "speed_jsd": 0.06617323309183121,
+          "collision_rate": 0.35301798582077026,
+          "completed_epochs": 12,
+          "trainer_global_step": 23135
+        },
+        {
+          "nearest_dist_jsd": 0.07643644511699677,
+          "lat_dev_jsd": 0.8089761137962341,
+          "ang_dev_jsd": 0.18663832545280457,
+          "length_jsd": 0.3681502342224121,
+          "width_jsd": 0.19703683257102966,
+          "speed_jsd": 0.05306314304471016,
+          "collision_rate": 0.2617076635360718,
+          "completed_epochs": 16,
+          "trainer_global_step": 30847
+        },
+        {
+          "nearest_dist_jsd": 0.06595036387443542,
+          "lat_dev_jsd": 0.7822167277336121,
+          "ang_dev_jsd": 0.16277369856834412,
+          "length_jsd": 0.4008897542953491,
+          "width_jsd": 0.24646848440170288,
+          "speed_jsd": 0.05351885035634041,
+          "collision_rate": 0.25376206636428833,
+          "completed_epochs": 20,
+          "trainer_global_step": 38559
+        }
+      ],
+      "latest_validation": {
+        "nearest_dist_jsd": 0.06595036387443542,
+        "lat_dev_jsd": 0.7822167277336121,
+        "ang_dev_jsd": 0.16277369856834412,
+        "length_jsd": 0.4008897542953491,
+        "width_jsd": 0.24646848440170288,
+        "speed_jsd": 0.05351885035634041,
+        "collision_rate": 0.25376206636428833,
+        "completed_epochs": 20,
+        "trainer_global_step": 38559
+      },
+      "actual_config": {
+        "seed": 4817,
+        "batch_size": 256,
+        "precision": "32-true",
+        "model": {
+          "initial_map_checkpoint": "/home/ke/keguo/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+          "optimizer": "default",
+          "lr": 0.0005,
+          "lr_warmup_steps": 0,
+          "lr_total_steps": 128,
+          "lr_min_ratio": 0.05,
+          "n_rollout_closed_val": 32,
+          "n_batch_wosac_metric": 1,
+          "n_vis_batch": 0,
+          "n_vis_scenario": 40,
+          "n_vis_rollout": 32,
+          "val_open_loop": false,
+          "val_closed_loop": true,
+          "token_processor": {
+            "init_map_crop": "square",
+            "init_map_half_extent": 50.0,
+            "map_token_file": "map_traj_token5.pkl",
+            "agent_token_file": "agent_vocab_555_s2.pkl",
+            "map_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "agent_token_sampling": {
+              "num_k": 1,
+              "temp": 1.0
+            },
+            "pred_init": true,
+            "learn_init": true,
+            "learn_autoencoder": false,
+            "scenario_dreamer_init": true
+          },
+          "validation_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": 5,
+            "temp": 1.0
+          },
+          "training_rollout_sampling": {
+            "criterium": "topk_prob",
+            "num_k": -1,
+            "temp": 1.0
+          },
+          "decoder": {
+            "init_decoder": "flow",
+            "sep_map": false,
+            "init_diffusion": {
+              "component_loss": {
+                "normalize_time_weights": true,
+                "std_floor": 0.1,
+                "heading_space": "angle",
+                "components": {
+                  "position": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 32,
+                    "scale": "data"
+                  },
+                  "heading": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 1.0,
+                    "scale": "none"
+                  },
+                  "length": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "width": {
+                    "kind": "mse",
+                    "time_power": 2,
+                    "weight": 2.0,
+                    "scale": "data"
+                  },
+                  "velocity": {
+                    "kind": "mse",
+                    "time_power": 1,
+                    "weight": 4.0,
+                    "scale": "data"
+                  },
+                  "type": {
+                    "kind": "ce",
+                    "time_power": 0,
+                    "weight": 1,
+                    "scale": "none"
+                  },
+                  "collision": {
+                    "kind": "l1",
+                    "time_power": 1,
+                    "weight": 20.0,
+                    "scale": "none"
+                  },
+                  "speed_magnitude": {
+                    "kind": "mse",
+                    "time_power": 0,
+                    "weight": 0.0,
+                    "scale": "data"
+                  }
+                }
+              },
+              "normalizer_path": "/home/ke/keguo/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+              "denoiser_hidden_dim": 256,
+              "denoiser_num_layers": 3,
+              "sampling_steps": 20,
+              "state_feature_normalization": "none",
+              "speed_x0_parameterization": "identity",
+              "speed_head_kind": "separate",
+              "speed_head_detach_context": false,
+              "matching_weights": null,
+              "time_sample_power": 1.0,
+              "distribution_loss": null,
+              "map_condition_types": "road_edges",
+              "fix_ego": false,
+              "fix_ego_position": true,
+              "fix_ego_heading": true,
+              "fix_ego_shape": true,
+              "fix_ego_velocity": false,
+              "fix_ego_type": true,
+              "use_ego_embedding": true,
+              "ego_context_heading_encoding": "sincos",
+              "generate_type": true,
+              "type_loss_weight": 1.0,
+              "type_process": "separate",
+              "type_match_weight": 1.0,
+              "type_noise_stats": "standard",
+              "type_noise_std_floor": 0.01,
+              "pos_source": "gaussian",
+              "shape_source": "gaussian",
+              "velocity_source": "gaussian",
+              "velocity_representation": "speed",
+              "speed_loss_weight": 0.0,
+              "speed_loss_scale": null,
+              "size_representation": "linear",
+              "invalid_size_policy": "mask",
+              "heading_noise": "circular",
+              "heading_objective": "x0",
+              "heading_x0_loss": "vector_mse",
+              "heading_flow_loss_weight": 1.0,
+              "sigma_h": 5.0,
+              "edge_embedding_type": "fourier",
+              "time_embedding_type": "scenario_dreamer",
+              "time_embedding_scale": 99.0,
+              "count_embedding_type": "none",
+              "count_lane_source": "map_tokens",
+              "count_max_num_agents": 128,
+              "count_max_num_lanes": 1024,
+              "map_embedding_type": "none",
+              "map_id_source": "fixed",
+              "map_id": 0,
+              "map_lg_type": 0,
+              "map_label_dropout": 0.1,
+              "use_ema": true,
+              "ema_decay": 0.9999
+            },
+            "initial_scene_only": true,
+            "scenario_dreamer": null,
+            "vectorworld": null,
+            "hidden_dim": 128,
+            "num_freq_bands": 64,
+            "num_heads": 8,
+            "head_dim": 16,
+            "dropout": 0,
+            "hist_drop_prob": 0,
+            "num_map_layers": 1,
+            "num_agent_layers": 3,
+            "pl2pl_radius": 20,
+            "pl2a_radius": 40,
+            "a2a_radius": 60,
+            "time_span": 60,
+            "num_historical_steps": 11,
+            "num_future_steps": 80,
+            "pt2pt_neighbor": 30,
+            "pt2a_neighbor": 20,
+            "a2a_neighbor": 20,
+            "dis_a2a_radius": 0,
+            "dis_weight": 20,
+            "dist_decay": 3,
+            "reward_weight": 0,
+            "reward_decay": 2.5
+          },
+          "wosac_submission": {
+            "is_active": false,
+            "method_name": "SMART-tiny-CLSFT",
+            "authors": [
+              "Anonymous"
+            ],
+            "affiliation": "YOUR_AFFILIATION",
+            "description": "YOUR_DESCRIPTION",
+            "method_link": "YOUR_METHOD_LINK",
+            "account_name": "YOUR_ACCOUNT_NAME"
+          },
+          "training_loss": {
+            "use_gt_raw": true,
+            "gt_thresh_scale_length": -1.0,
+            "label_smoothing": 0.1,
+            "rollout_as_gt": false
+          },
+          "finetune": true,
+          "sd_use_cached_evaluator": true,
+          "sd_eval_set": "/home/ke/keguo/sim/src/waymo_data/waymo_eval_set.pkl",
+          "sd_real_cache": "/home/ke/keguo/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+          "sd_expected_scenes": 50000,
+          "sd_gen_timestep": 0,
+          "sd_prediction_frame": "world",
+          "sd_require_generation_timestep": true,
+          "sd_reference_mode": "matched",
+          "sd_require_full_set": false
+        },
+        "data": {
+          "shuffle": true,
+          "_target_": "src.smart.datamodules.MultiDataModule",
+          "pin_memory": false,
+          "num_workers": 6,
+          "val_raw_dir": "${sim_root:}/src/waymo_data/full/scenario_dreamer_val",
+          "test_raw_dir": "${sim_root:}/src/waymo_data/full/scenario_dreamer_val",
+          "train_max_num": 32,
+          "train_raw_dir": "${sim_root:}/src/waymo_data/full/training_map2_sd",
+          "val_batch_size": 256,
+          "test_batch_size": 128,
+          "train_batch_size": 256,
+          "persistent_workers": false,
+          "val_tfrecords_splitted": null,
+          "scenario_dreamer_eval_set": null,
+          "scenario_dreamer_preprocessed": false,
+          "scenario_dreamer_val_latent_cache": null,
+          "scenario_dreamer_test_latent_cache": null,
+          "scenario_dreamer_train_sample_list": null,
+          "scenario_dreamer_train_latent_cache": null,
+          "scenario_dreamer_train_non_partitioned_only": false
+        },
+        "callbacks": {
+          "model_summary": {
+            "max_depth": 2
+          },
+          "model_checkpoint": {
+            "mode": "min",
+            "dirpath": null,
+            "monitor": null,
+            "verbose": false,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init-diffusion-frozen-map-{epoch}-{step}",
+            "save_last": false,
+            "save_top_k": -1,
+            "every_n_epochs": 4,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": true
+          },
+          "latest_checkpoint": {
+            "dirpath": null,
+            "monitor": null,
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "filename": "init-diffusion-frozen-map-latest-{epoch}-{step}",
+            "save_last": true,
+            "save_top_k": 0,
+            "every_n_epochs": 1,
+            "save_weights_only": false,
+            "every_n_train_steps": null,
+            "train_time_interval": null,
+            "auto_insert_metric_name": false,
+            "save_on_train_epoch_end": true
+          },
+          "learning_rate_monitor": {
+            "_target_": "lightning.pytorch.callbacks.LearningRateMonitor",
+            "logging_interval": "epoch"
+          }
+        }
+      },
+      "loss_window": {
+        "log_rows": 100,
+        "epoch_index_range": [
+          18,
+          23
+        ],
+        "weighted_means": {
+          "position": 2.6028414964675903,
+          "heading": 0.09913005456328391,
+          "length": 0.028751072864979507,
+          "width": 0.03075439212843776,
+          "velocity": 0.2508009949326515,
+          "type": 0.13187808103859425,
+          "collision": 0.04166162256151438
+        },
+        "fractions": {
+          "position": 0.8170089219399933,
+          "heading": 0.031116047258550293,
+          "length": 0.009024707450651169,
+          "width": 0.009653531646807913,
+          "velocity": 0.07872421381382214,
+          "type": 0.041395363091868,
+          "collision": 0.0130772147983071
+        },
+        "caution": "Loss-value shares are not gradient shares; gradients were not logged."
+      },
+      "per_metric_minimum": {
+        "nearest_dist_jsd": {
+          "value": 0.06595036387443542,
+          "completed_epochs": 20
+        },
+        "lat_dev_jsd": {
+          "value": 0.7822167277336121,
+          "completed_epochs": 20
+        },
+        "ang_dev_jsd": {
+          "value": 0.16277369856834412,
+          "completed_epochs": 20
+        },
+        "length_jsd": {
+          "value": 0.3681502342224121,
+          "completed_epochs": 16
+        },
+        "width_jsd": {
+          "value": 0.19703683257102966,
+          "completed_epochs": 16
+        },
+        "speed_jsd": {
+          "value": 0.05306314304471016,
+          "completed_epochs": 16
+        },
+        "collision_rate": {
+          "value": 0.25376206636428833,
+          "completed_epochs": 20
+        }
+      },
+      "url": "https://forge.coreweave.com/wandb/u3006612/bc/runs/pz8g135r",
+      "same_epoch_baseline": {
+        "nearest_dist_jsd": 0.027222758159041405,
+        "lat_dev_jsd": 0.1641203910112381,
+        "ang_dev_jsd": 0.06691860407590866,
+        "length_jsd": 0.40129315853118896,
+        "width_jsd": 0.11125362664461136,
+        "speed_jsd": 0.054585207253694534,
+        "collision_rate": 0.5734850168228149,
+        "completed_epochs": 20,
+        "trainer_global_step": 19279
+      },
+      "same_epoch_change_pct": {
+        "nearest_dist_jsd": 142.2618732794772,
+        "lat_dev_jsd": 376.61154285213104,
+        "ang_dev_jsd": 143.24132401761233,
+        "length_jsd": -0.10052606860191382,
+        "width_jsd": 121.53748316809656,
+        "speed_jsd": -1.9535638884689788,
+        "collision_rate": -55.75088120520311
+      }
+    }
+  },
+  "comparability": {
+    "console_dataset_counts": {
+      "train": 493542,
+      "validation": 50000
+    },
+    "native_scale": {
+      "nearest_dist_jsd": 10,
+      "lat_dev_jsd": 10,
+      "ang_dev_jsd": 100,
+      "length_jsd": 100,
+      "width_jsd": 100,
+      "speed_jsd": 100,
+      "collision_rate": "vehicle-weighted percent"
+    },
+    "shared_settings": [
+      "matched reference",
+      "GT maps",
+      "GT ego position/heading/shape/type",
+      "EMA",
+      "20 steps",
+      "square map half extent 50m",
+      "32-true"
+    ],
+    "source_checkpoint": "Local AIRL contains no encoder.init_decoder keys, so baseline does not warmstart the generator. Remote source checkpoint hashes not available.",
+    "precision": "run1.py hardcodes highest; baseline and frozen B256 both ran run1.py on RTX5090. Short search used medium.",
+    "limitations": [
+      "Remote dataset content hashes not available.",
+      "Baseline has one training seed; losses, seed and statistics changed together.",
+      "Generated histograms and onroad/type counts were not logged.",
+      "Per-metric minima at different epochs are not a single best checkpoint.",
+      "Loss-value fractions are not gradient fractions."
+    ]
+  }
+}
