@@ -38,6 +38,17 @@ model_config:
     init_diffusion:
       component_loss: null  # null: legacy total; mapping: independent objectives, time powers and weights.
       normalizer_path: null  # Optional JSON fit on TRAIN only; checkpoint normalizer buffers take precedence.
+      denoiser_hidden_dim: 256
+      denoiser_num_layers: 3
+      sampling_steps: 20
+      state_feature_normalization: none  # train: normalize size/speed network features with saved TRAIN statistics.
+      speed_x0_parameterization: identity  # identity, softplus or time_residual; all retain clean-state supervision.
+      speed_head_kind: shared  # separate gives scalar speed a dedicated output MLP.
+      speed_head_detach_context: false
+      matching_weights: null  # Optional normalized physical assignment costs per component.
+      time_sample_power: 1.0  # U^power: <1 gives more high-noise training; default Uniform(0,1).
+      distribution_loss: null  # Optional TRAIN-only per-type speed/size marginal transport penalty.
+      map_condition_types: road_edges  # lanes_and_edges also returns centreline queries from the same fixed encoder.
       fix_ego: true  # false: generate and supervise ego along with all other agents.
       fix_ego_position: null  # null inherits fix_ego; explicit bool overrides this field.
       fix_ego_heading: null

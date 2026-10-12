@@ -15,8 +15,10 @@ import csv
 import gc
 import hashlib
 import json
+import os
 import pickle
 import random
+import resource
 import shutil
 import sys
 import time
@@ -35,6 +37,9 @@ from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf, open_dict
 
 from tools.quick_component_loss_sweep import Diagnostics, save_json, summarize_trace
+
+# Preserve the real collector before an opt-in isolated job defers automatic GC.
+_ORIGINAL_GC_COLLECT = gc.collect
 
 SEARCH_CONFIG_KEYS = {
     "model.model_config.optimizer", "model.model_config.lr",
@@ -109,10 +114,28 @@ def calibrate(model, calibration, *, verify=False):
 
 
 class ScratchDiagnostics(Diagnostics):
-    def __init__(self, checkpoint_steps, folder, metadata, resume_rng=None):
+    def __init__(self, checkpoint_steps, folder, metadata, resume_rng=None, runtime_memory=False,
+                 young_gc_interval=0):
         super().__init__(checkpoint_steps, folder)
         self.metadata = metadata
         self.resume_rng = resume_rng
+        self.runtime_memory = runtime_memory
+        self.young_gc_interval = young_gc_interval
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
+        if self.young_gc_interval and trainer.global_step % self.young_gc_interval == 0:
+            torch.cuda.synchronize()
+            collected = _ORIGINAL_GC_COLLECT(0)
+            print(f"RUNTIME_YOUNG_GC step={trainer.global_step} collected={collected}", flush=True)
+        if self.runtime_memory and (trainer.global_step % 256 == 0 or trainer.global_step == 1):
+            print("RUNTIME_MEMORY " + json.dumps({
+                "step": trainer.global_step,
+                "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+                "cuda_allocated_mib": torch.cuda.memory_allocated() / 2**20,
+                "cuda_reserved_mib": torch.cuda.memory_reserved() / 2**20,
+                "gc_counts": gc.get_count(),
+            }), flush=True)
 
     def on_before_optimizer_step(self, trainer, pl_module, optimizer):
         super().on_before_optimizer_step(trainer, pl_module, optimizer)
@@ -123,6 +146,13 @@ class ScratchDiagnostics(Diagnostics):
             self.current[f"{label}_grad_norm_before_clip"] = (
                 float(torch.stack(values).norm().cpu()) if values else 0.0
             )
+
+    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+        super().on_test_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+        if self.young_gc_interval and (batch_idx + 1) % self.young_gc_interval == 0:
+            torch.cuda.synchronize()
+            collected = _ORIGINAL_GC_COLLECT(0)
+            print(f"RUNTIME_YOUNG_GC test_batch={batch_idx + 1} collected={collected}", flush=True)
 
     def on_train_start(self, trainer, pl_module):
         if self.resume_rng is not None:
@@ -158,6 +188,12 @@ def parser_for_cli():
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--eval-batch-size", type=int, default=128)
     parser.add_argument("--workers", type=int, default=0)
+    parser.add_argument("--defer-cyclic-gc", action="store_true",
+                        default=os.environ.get("SIM_SWEEP_DEFER_CYCLIC_GC") == "1",
+                        help="Isolated-job workaround: defer cyclic GC until process exit; reference counting remains active")
+    parser.add_argument("--young-gc-interval", type=int,
+                        default=int(os.environ.get("SIM_SWEEP_YOUNG_GC_INTERVAL", "0")),
+                        help="Opt-in synchronized batch-boundary generation-0 collection; requires deferred automatic GC")
     parser.add_argument("--sharing-strategy", choices=("file_descriptor", "file_system"),
                         help="Optional explicit Torch CPU-tensor worker sharing strategy")
     parser.add_argument("--seed", type=int, default=817)
@@ -191,6 +227,19 @@ def parser_for_cli():
 def main():
     parser = parser_for_cli()
     args = parser.parse_args()
+    if args.young_gc_interval < 0 or (args.young_gc_interval and not args.defer_cyclic_gc):
+        parser.error("Young-generation GC interval must be nonnegative and requires --defer-cyclic-gc")
+    if args.defer_cyclic_gc:
+        gc.disable()
+        # Some native objects in this environment segfault during cyclic GC.
+        # Each sweep job is a separate process; reference counting still frees
+        # ordinary tensors, and the operating system reclaims remaining cycles.
+        gc.collect = lambda *unused_args, **unused_kwargs: 0
+        if args.young_gc_interval:
+            # Freeze the already imported static object graph once. Keep later
+            # short-lived loader classes in generation 0 for safe-boundary GC.
+            gc.freeze()
+        print("RUNTIME cyclic GC deferred for this isolated process", flush=True)
     if args.sharing_strategy is not None:
         torch.multiprocessing.set_sharing_strategy(args.sharing_strategy)
     evaluation_modes = ({"online": [False], "ema": [True], "both": [False, True]}[args.evaluation_weights]
@@ -307,6 +356,10 @@ def main():
                     resume_rng_rule="Checkpoint RNG restored at on_train_start; workers=0 recommended",
                     torch_version=str(torch.__version__), gpu=torch.cuda.get_device_name(),
                     shared_map_ema=False, normalizer=calibration)
+    protocol["cyclic_gc_policy"] = ("deferred in isolated process; reference counting active"
+                                    if args.defer_cyclic_gc else "Python default")
+    if args.young_gc_interval:
+        protocol["cyclic_gc_policy"] += f"; imports frozen once; synchronized generation-0 collection every {args.young_gc_interval} TRAIN steps"
     save_json(output / "protocol.json", protocol)
     OmegaConf.save(cfg, output / "base_config.yaml")
     shared_evaluator = None
@@ -330,7 +383,10 @@ def main():
         L.seed_everything(seed, workers=True)
         trainer = L.Trainer(accelerator="gpu", devices=1, precision="32-true", logger=False,
                             enable_checkpointing=False, enable_model_summary=False,
-                            enable_progress_bar=False, callbacks=[Diagnostics()], default_root_dir=str(folder))
+                            enable_progress_bar=False,
+                            callbacks=[ScratchDiagnostics([], folder, {}, runtime_memory=args.defer_cyclic_gc,
+                                                          young_gc_interval=args.young_gc_interval)],
+                            default_root_dir=str(folder))
         started = time.monotonic()
         trainer.test(model, datamodule=dm, verbose=False)
         shared_evaluator = model.sd_evaluator
@@ -446,7 +502,9 @@ def main():
                               resume_local_batch_counter_reset=name in resume_map)
         save_json(folder / "initialization.json", initialization)
         diagnostic = ScratchDiagnostics(sorted(set(checkpoint_steps + [args.steps])), folder,
-                                        dict(metadata, **initial_hashes), resume_rng)
+                                        dict(metadata, **initial_hashes), resume_rng,
+                                        runtime_memory=args.defer_cyclic_gc,
+                                        young_gc_interval=args.young_gc_interval)
         diagnostic.install(model)
         train_seconds = 0.0
         trained_paths = []
@@ -534,3 +592,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+    if os.environ.get("SIM_SWEEP_DEFER_CYCLIC_GC") == "1" or "--defer-cyclic-gc" in sys.argv:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)

@@ -1,0 +1,525 @@
+{
+  "status": "ACTUAL_DEFAULT20_PARITY_FAILED_STOPPED",
+  "created_utc": "2026-10-12T00:50:09.948692+00:00",
+  "inference_grid_interpretation_allowed": false,
+  "native_parity": {
+    "same_physical_scope_and_units": true,
+    "exact_seven_metrics_identical": false,
+    "native_absolute_tolerance": 1e-06,
+    "within_absolute_tolerance": false,
+    "delta_native_scaled_units": {
+      "nearest_dist_jsd": -0.00014616254160217113,
+      "lat_dev_jsd": -8.844685928011131e-05,
+      "ang_dev_jsd": -6.928991682936259e-05,
+      "length_jsd": -0.0010679089439359912,
+      "width_jsd": -0.0012469769327062563,
+      "speed_jsd": 0.00023779079142396964,
+      "collision_rate": 0.0
+    },
+    "main_endpoint": {
+      "nearest_dist_jsd": 0.08799611530619342,
+      "lat_dev_jsd": 0.8232463358494148,
+      "ang_dev_jsd": 0.25472929967221936,
+      "length_jsd": 0.46241163495140897,
+      "width_jsd": 0.1836812187965952,
+      "speed_jsd": 0.08194905378797833,
+      "collision_rate": 0.38096489211468354
+    },
+    "note": "Actual reproduction check; mismatches require inspection before attributing option effects. No GPU bit identity assumed."
+  },
+  "native_audit": {
+    "seed_reset_hook": "on_test_start, after checkpoint restore, before test epoch/first batch",
+    "requested_steps": 20,
+    "requested_eps": 0.05,
+    "GEN_seed": 2817,
+    "actual_sampling_steps": [
+      20
+    ],
+    "sample_calls": 32,
+    "training_executed": false,
+    "completed_test_batches": 32,
+    "runtime_policy": {
+      "isolated_child_per_cell": true,
+      "automatic_cyclic_gc": "disabled before native imports",
+      "explicit_collection_all_generations": "disabled until process exit",
+      "freeze": "not used",
+      "generation_0_collection": "disabled; actual training collect(0) SIGSEGV observed",
+      "scene_loader": "same public cached pickle_module as recovered main training",
+      "environment_guard": "SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1",
+      "successful_exit": "flush artifacts/stdout/stderr, then os._exit(0)",
+      "failure_exit": "nonzero; partial artifacts never count as a complete cell"
+    },
+    "loaded_sampling_steps": 20,
+    "loaded_t_eps": 0.05,
+    "EMA_num_updates": 20480,
+    "use_ema": true,
+    "actual_evaluation_batch_size": 128,
+    "actual_seed_after_reset": 2817,
+    "effective_steps": 20,
+    "effective_eps": 0.05,
+    "runtime_loader_source_hashes": {
+      "/home/ke/code/sim/tools/runtime_cached_torch_loader_sweep.py": "e4f590c2eb6222a0e475a26bc7fc5330e20cd65fea67fa393b1e53feb9fd0e22",
+      "/home/ke/code/sim/tools/torch_pickle_class_cache.py": "2b48ce50a16bc861e7f34a1ddc6d146dd64aeefb5b1b90bb5216804753f93b96"
+    },
+    "loader_cache_at_test_start": {
+      "classes_created": 1,
+      "class_reuses": 0,
+      "cached_loader_kinds": [
+        "_load"
+      ],
+      "validated_closures": {
+        "_load": [
+          "__class__",
+          "load_module_mapping"
+        ]
+      }
+    },
+    "training_loss_config_unchanged": true,
+    "t_eps_restored_after_test": 0.05,
+    "finished": true,
+    "loader_cache_at_test_end": {
+      "classes_created": 1,
+      "class_reuses": 4096,
+      "cached_loader_kinds": [
+        "_load"
+      ],
+      "validated_closures": {
+        "_load": [
+          "__class__",
+          "load_module_mapping"
+        ]
+      }
+    }
+  },
+  "actual_checks": {
+    "num_samples": {
+      "native": 4096,
+      "main": 4096,
+      "exact": true
+    },
+    "num_gt_samples": {
+      "native": 4096,
+      "main": 4096,
+      "exact": true
+    },
+    "num_generated_vehicles": {
+      "native": 30449,
+      "main": 30449,
+      "exact": true
+    },
+    "num_gt_vehicles": {
+      "native": 29698,
+      "main": 29698,
+      "exact": true
+    },
+    "num_colliding_vehicles": {
+      "native": 116,
+      "main": 116,
+      "exact": true
+    },
+    "feature_counts_generated": {
+      "native": [
+        30167,
+        26237,
+        26237,
+        30449,
+        30449,
+        30449
+      ],
+      "main": [
+        30167,
+        26236,
+        26236,
+        30449,
+        30449,
+        30449
+      ],
+      "exact": false
+    },
+    "feature_counts_gt": {
+      "native": [
+        29414,
+        29526,
+        29526,
+        29698,
+        29698,
+        29698
+      ],
+      "main": [
+        29414,
+        29526,
+        29526,
+        29698,
+        29698,
+        29698
+      ],
+      "exact": true
+    },
+    "reference_mode": {
+      "native": "matched",
+      "main": "matched",
+      "exact": true
+    },
+    "map_source": {
+      "native": "reference",
+      "main": "reference",
+      "exact": true
+    },
+    "eval_set_sha256": {
+      "native": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+      "main": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+      "exact": true
+    },
+    "reference_source_manifest_sha256": {
+      "native": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+      "main": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+      "exact": true
+    },
+    "official_source_sha256": {
+      "native": {
+        "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+        "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+        "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+      },
+      "main": {
+        "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+        "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+        "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+      },
+      "exact": true
+    },
+    "runtime": {
+      "native": {
+        "torch_version": "2.7.0+cu128",
+        "cuda_version": "12.8",
+        "float32_matmul_precision": "medium",
+        "torch_initial_seed": 2817,
+        "trainer_precision": "32-true"
+      },
+      "main": {
+        "torch_version": "2.7.0+cu128",
+        "cuda_version": "12.8",
+        "float32_matmul_precision": "medium",
+        "torch_initial_seed": 2817,
+        "trainer_precision": "32-true"
+      },
+      "exact": true
+    },
+    "decoder": {
+      "native": {
+        "name": "InitDiffusion",
+        "mode": "lane_conditioned",
+        "sigma_h": null,
+        "heading_noise": "circular",
+        "heading_path": "shortest_arc",
+        "heading_objective": "x0",
+        "heading_x0_loss": "vector_mse",
+        "component_loss": {
+          "normalize_time_weights": true,
+          "std_floor": 0.1,
+          "heading_space": "angle",
+          "components": {
+            "position": {
+              "kind": "mse",
+              "time_power": 1,
+              "weight": 32.0,
+              "scale": "data"
+            },
+            "heading": {
+              "kind": "l1",
+              "time_power": 1,
+              "weight": 1.0,
+              "scale": "none"
+            },
+            "length": {
+              "kind": "mse",
+              "time_power": 2,
+              "weight": 2.0,
+              "scale": "data"
+            },
+            "width": {
+              "kind": "mse",
+              "time_power": 2,
+              "weight": 2.0,
+              "scale": "data"
+            },
+            "velocity": {
+              "kind": "mse",
+              "time_power": 1,
+              "weight": 4.0,
+              "scale": "data"
+            },
+            "type": {
+              "kind": "ce",
+              "time_power": 0,
+              "weight": 1.0,
+              "scale": "none"
+            },
+            "collision": {
+              "kind": "l1",
+              "time_power": 1,
+              "weight": 20.0,
+              "scale": "none"
+            },
+            "speed_magnitude": {
+              "kind": "mse",
+              "time_power": 0,
+              "weight": 0.0,
+              "scale": "data"
+            }
+          }
+        },
+        "heading_flow_loss_weight": 1.0,
+        "fix_ego": false,
+        "fix_ego_position": true,
+        "fix_ego_heading": true,
+        "fix_ego_shape": true,
+        "fix_ego_velocity": false,
+        "fix_ego_type": true,
+        "use_ego_embedding": true,
+        "ego_context_heading_encoding": "sincos",
+        "match_ego_separately": true,
+        "generate_type": true,
+        "type_loss_weight": 1.0,
+        "type_process": "separate",
+        "type_match_weight": 1.0,
+        "type_objective": "ce",
+        "type_prediction": "softmax",
+        "type_noise_stats": "standard",
+        "type_noise_std_floor": null,
+        "type_noise_statistics_initialized": false,
+        "type_noise_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "type_noise_std": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "flow_state_dim": 7,
+        "agent_type_source": "generated",
+        "type_source": "gaussian_noisy_one_hot",
+        "matching_groups": "scene_type_and_ego_role",
+        "pos_source": "gaussian",
+        "shape_source": "gaussian",
+        "velocity_source": "gaussian",
+        "uniform_source_standardized_bounds": [
+          -1.7320508075688772,
+          1.7320508075688772
+        ],
+        "velocity_representation": "speed",
+        "speed_loss_weight": 0.0,
+        "speed_loss_scale": null,
+        "speed_loss_normalization": "rms_speed",
+        "size_representation": "linear",
+        "invalid_size_policy": "mask",
+        "initial_scene_only": true,
+        "sampling_steps": 20,
+        "edge_embedding_type": "fourier",
+        "time_embedding_type": "scenario_dreamer",
+        "count_embedding_type": "none",
+        "count_lane_source": "map_tokens",
+        "count_max_num_agents": 128,
+        "count_max_num_lanes": 1024,
+        "map_embedding_type": "none",
+        "map_id_source": "fixed",
+        "map_id": 0,
+        "map_lg_type": 0,
+        "map_label_dropout": 0.1,
+        "time_embedding_scale": 99.0,
+        "use_ema": true,
+        "ema_decay": 0.9999,
+        "ema_num_updates": 20480,
+        "map_source": "SMART tokens",
+        "sep_map": false,
+        "init_map_ema_num_updates": null,
+        "init_map_crop": "square",
+        "init_map_range_m": null,
+        "init_map_half_extent_m": 50.0,
+        "conditioning": [
+          "reference map",
+          "GT ego reference frame",
+          "GT ego position",
+          "GT ego heading",
+          "GT ego shape",
+          "GT ego type",
+          "input total agent count",
+          "ego/non-ego slot"
+        ]
+      },
+      "main": {
+        "name": "InitDiffusion",
+        "mode": "lane_conditioned",
+        "sigma_h": null,
+        "heading_noise": "circular",
+        "heading_path": "shortest_arc",
+        "heading_objective": "x0",
+        "heading_x0_loss": "vector_mse",
+        "component_loss": {
+          "normalize_time_weights": true,
+          "std_floor": 0.1,
+          "heading_space": "angle",
+          "components": {
+            "position": {
+              "kind": "mse",
+              "time_power": 1,
+              "weight": 32.0,
+              "scale": "data"
+            },
+            "heading": {
+              "kind": "l1",
+              "time_power": 1,
+              "weight": 1.0,
+              "scale": "none"
+            },
+            "length": {
+              "kind": "mse",
+              "time_power": 2,
+              "weight": 2.0,
+              "scale": "data"
+            },
+            "width": {
+              "kind": "mse",
+              "time_power": 2,
+              "weight": 2.0,
+              "scale": "data"
+            },
+            "velocity": {
+              "kind": "mse",
+              "time_power": 1,
+              "weight": 4.0,
+              "scale": "data"
+            },
+            "type": {
+              "kind": "ce",
+              "time_power": 0,
+              "weight": 1.0,
+              "scale": "none"
+            },
+            "collision": {
+              "kind": "l1",
+              "time_power": 1,
+              "weight": 20.0,
+              "scale": "none"
+            },
+            "speed_magnitude": {
+              "kind": "mse",
+              "time_power": 0,
+              "weight": 0.0,
+              "scale": "data"
+            }
+          }
+        },
+        "heading_flow_loss_weight": 1.0,
+        "fix_ego": false,
+        "fix_ego_position": true,
+        "fix_ego_heading": true,
+        "fix_ego_shape": true,
+        "fix_ego_velocity": false,
+        "fix_ego_type": true,
+        "use_ego_embedding": true,
+        "ego_context_heading_encoding": "sincos",
+        "match_ego_separately": true,
+        "generate_type": true,
+        "type_loss_weight": 1.0,
+        "type_process": "separate",
+        "type_match_weight": 1.0,
+        "type_objective": "ce",
+        "type_prediction": "softmax",
+        "type_noise_stats": "standard",
+        "type_noise_std_floor": null,
+        "type_noise_statistics_initialized": false,
+        "type_noise_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "type_noise_std": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "flow_state_dim": 7,
+        "agent_type_source": "generated",
+        "type_source": "gaussian_noisy_one_hot",
+        "matching_groups": "scene_type_and_ego_role",
+        "pos_source": "gaussian",
+        "shape_source": "gaussian",
+        "velocity_source": "gaussian",
+        "uniform_source_standardized_bounds": [
+          -1.7320508075688772,
+          1.7320508075688772
+        ],
+        "velocity_representation": "speed",
+        "speed_loss_weight": 0.0,
+        "speed_loss_scale": null,
+        "speed_loss_normalization": "rms_speed",
+        "size_representation": "linear",
+        "invalid_size_policy": "mask",
+        "initial_scene_only": true,
+        "sampling_steps": 20,
+        "edge_embedding_type": "fourier",
+        "time_embedding_type": "scenario_dreamer",
+        "count_embedding_type": "none",
+        "count_lane_source": "map_tokens",
+        "count_max_num_agents": 128,
+        "count_max_num_lanes": 1024,
+        "map_embedding_type": "none",
+        "map_id_source": "fixed",
+        "map_id": 0,
+        "map_lg_type": 0,
+        "map_label_dropout": 0.1,
+        "time_embedding_scale": 99.0,
+        "use_ema": true,
+        "ema_decay": 0.9999,
+        "ema_num_updates": 20480,
+        "map_source": "SMART tokens",
+        "sep_map": false,
+        "init_map_ema_num_updates": null,
+        "init_map_crop": "square",
+        "init_map_range_m": null,
+        "init_map_half_extent_m": 50.0,
+        "conditioning": [
+          "reference map",
+          "GT ego reference frame",
+          "GT ego position",
+          "GT ego heading",
+          "GT ego shape",
+          "GT ego type",
+          "input total agent count",
+          "ego/non-ego slot"
+        ]
+      },
+      "exact": true
+    }
+  },
+  "artifact_sha256": {
+    "logs/init_diffusion_sampler_inference_20261012/grid/train4817_gen2817_n20_eps005/default20_main_endpoint_comparison.json": "d18241143f6941726553fd6ba19fbef92928f2f869f1bf3464557323dafdd679",
+    "logs/init_diffusion_sampler_inference_20261012/grid/train4817_gen2817_n20_eps005/sampler_audit.json": "58e8e629fd6777f5b37cf1c6de763d4e03fdb02e47172c98f95bf9c6d7ebdf77",
+    "logs/init_diffusion_sampler_inference_20261012/grid/train4817_gen2817_n20_eps005/sd_agent_metrics.json": "800714adec94751677e7632c987b75308d699010077aac222ec5c6693720207f",
+    "logs/init_diffusion_sampler_inference_20261012/grid/train4817_gen2817_n20_eps005/config.yaml": "118625124d3bb56aaff6628c189d078f224bbebd972e270b654be096d87b4b13",
+    "logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/eval_step_20480/ema/sd_agent_metrics.json": "21edd7f1b839527dc72f286c3313f8bef6da7e8536e4504cddb7687d4b6442aa"
+  },
+  "source_findings": [
+    "Main final evaluator reconstructs model, loads actual endpoint strict=True on CPU and verifies TRAIN calibration before TEST; it is not an in-memory trained-model evaluation.",
+    "Installed SingleDeviceStrategy restore_checkpoint_after_setup=False: native restore also occurs on CPU before strategy.setup/model_to_device. A suggested GPU-vs-CPU restore difference is excluded.",
+    "Native source config differs only in TEST/runtime callbacks/output/checkpoint/startup-map clearing; all model decoder/token_processor/data semantic settings are otherwise identical. finetune=True freezes map even after startup-map initializer is cleared.",
+    "Main sets torch.set_num_threads(4); native does not explicitly set threads. Actual environment consistency should be logged in root repeat probe.",
+    "The exact custom AttentionLayer uses PyG softmax with scatter reductions and add aggregation; installed PyG sum uses scatter_add_. CUDA floating-point atomic aggregation is a plausible numerical repeatability mechanism, not an established root cause.",
+    "GEN seed reset occurs before Trainer construction in main, after native CPU strict restore and dataloader setup in on_test_start. Agent source noise is drawn on CUDA; exact same seed and batch does not alone prove identical source tensors."
+  ],
+  "facts": [
+    "Generated vehicle and collision counts match exactly; generated onroad differs by one vehicle (native26237 vs main26236).",
+    "All seven report metric units/scopes/source hashes agree, but six feature JSDs fail abs1e-6 and collision equals exactly.",
+    "No cell_summary was accepted. Completed32 TEST batches are preserved as a failed diagnostic, not a successful inference cell."
+  ],
+  "next_probes": [
+    "Independent unchanged native N20 repeat, same checkpoint/TRAIN4817/GEN2817/B128/4096, compare to first native JSON and actual main endpoint.",
+    "Exact frozen original-runner eval-only same checkpoint/manifest/B128/GEN2817 before modifying sampler.",
+    "If still divergent, separate diagnostic first batch hash CUDA RNG immediately before source draw, physical gen_noise, separate type source, effective G1 EMA parameter/map/normalizer buffers, physical outputs/types and edge indices.",
+    "Do not relax tolerance or attribute changed-step effects until guard resolution. Preserve failed execution/log/artifact provenance."
+  ],
+  "limits": "CPU read/source audit only. No CUDA/weights payload run or sampler/source edit; hypotheses remain unproven until actual isolated probes."
+}

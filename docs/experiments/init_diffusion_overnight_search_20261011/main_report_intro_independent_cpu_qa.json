@@ -1,0 +1,270 @@
+{
+  "status": "CURRENT_MARKDOWN_INTRO_NUMERICAL_PASS_STALE_PDF_REGEN_REQUIRED",
+  "created_utc": "2026-10-12T00:57:58.192105+00:00",
+  "checks": [
+    {
+      "key": "selected",
+      "expected_literal": "**separate_speed**",
+      "pass": true
+    },
+    {
+      "key": "complete8",
+      "expected_literal": "8 个 endpoint 已核验",
+      "pass": true
+    },
+    {
+      "key": "R",
+      "expected_literal": "R=0.8975",
+      "pass": true
+    },
+    {
+      "key": "R_attr",
+      "expected_literal": "R_attr=0.8269",
+      "pass": true
+    },
+    {
+      "key": "stages27",
+      "expected_literal": "27 个已核验完成 stage",
+      "pass": true
+    },
+    {
+      "key": "observations76",
+      "expected_literal": "76 个实际预算/TRAIN/GEN/EMA observation",
+      "pass": true
+    },
+    {
+      "key": "TRAIN493542",
+      "expected_literal": "493,542",
+      "pass": true
+    },
+    {
+      "key": "freshmap",
+      "expected_literal": "不恢复它的 G1、optimizer 或 EMA",
+      "pass": true
+    },
+    {
+      "key": "GENrole",
+      "expected_literal": "两 GEN 不增加独立训练 N",
+      "pass": true
+    },
+    {
+      "key": "no128claim",
+      "expected_literal": "此预算结论不等于 128 epoch 的最终收敛效果",
+      "pass": true
+    },
+    {
+      "key": "final_metric_nearest_dist_jsd",
+      "expected_literal": "| Near | 0.009635 | 0.009104 | -5.51 |",
+      "pass": true
+    },
+    {
+      "key": "final_metric_lat_dev_jsd",
+      "expected_literal": "| Lat | 0.084949 | 0.083148 | -2.12 |",
+      "pass": true
+    },
+    {
+      "key": "final_metric_ang_dev_jsd",
+      "expected_literal": "| Ang | 0.002805 | 0.002718 | -3.13 |",
+      "pass": true
+    },
+    {
+      "key": "final_metric_length_jsd",
+      "expected_literal": "| Length | 0.006134 | 0.004596 | -25.07 |",
+      "pass": true
+    },
+    {
+      "key": "final_metric_width_jsd",
+      "expected_literal": "| Width | 0.002612 | 0.001848 | -29.27 |",
+      "pass": true
+    },
+    {
+      "key": "final_metric_speed_jsd",
+      "expected_literal": "| Speed | 0.000997 | 0.001021 | 2.41 |",
+      "pass": true
+    },
+    {
+      "key": "final_metric_collision_rate",
+      "expected_literal": "| Col% | 0.432765 | 0.393698 | -9.03 |",
+      "pass": true
+    },
+    {
+      "key": "TRAIN_4817",
+      "expected_literal": "| 4817 | adaptive | 0.9453 | 9.66 | 22.23 | 86.27 | PASS |",
+      "pass": true
+    },
+    {
+      "key": "TRAIN_5817",
+      "expected_literal": "| 5817 | independent confirmation | 0.8612 | -5.25 | -32.78 | 86.09 | PASS |",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "independent_actual_report_aggregation": {
+    "pooled": {
+      "control_native": {
+        "nearest_dist_jsd": 0.09635062142932714,
+        "lat_dev_jsd": 0.8494863510727172,
+        "ang_dev_jsd": 0.2805399237113695,
+        "length_jsd": 0.6133645482504538,
+        "width_jsd": 0.261200342449041,
+        "speed_jsd": 0.09972528752293072,
+        "collision_rate": 0.43276485956177824,
+        "generated_onroad_fraction": 0.8583139905992415,
+        "num_generated_vehicles": 30384.25,
+        "num_gt_vehicles": 29698.0
+      },
+      "selected_native": {
+        "nearest_dist_jsd": 0.09103705456271152,
+        "lat_dev_jsd": 0.8314795325618053,
+        "ang_dev_jsd": 0.2717511499081968,
+        "length_jsd": 0.4595906011957036,
+        "width_jsd": 0.1847508562070292,
+        "speed_jsd": 0.10213019957960093,
+        "collision_rate": 0.39369817502940757,
+        "generated_onroad_fraction": 0.8618067014821782,
+        "num_generated_vehicles": 30415.75,
+        "num_gt_vehicles": 29698.0
+      },
+      "ratio": {
+        "nearest_dist_jsd": 0.9448517634054586,
+        "lat_dev_jsd": 0.9788026982562189,
+        "ang_dev_jsd": 0.9686719320127324,
+        "length_jsd": 0.7492943674469428,
+        "width_jsd": 0.7073147549302055,
+        "speed_jsd": 1.0241153684928432,
+        "collision_rate": 0.9097276877518892
+      },
+      "R": 0.8975397960423274,
+      "R_attr": 0.8269081636233304,
+      "gates": {
+        "onroad": true,
+        "vehicle_ratio": true,
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true
+      }
+    },
+    "4817": {
+      "control_native": {
+        "nearest_dist_jsd": 0.09404805227275892,
+        "lat_dev_jsd": 0.8602010725512301,
+        "ang_dev_jsd": 0.2880214041391557,
+        "length_jsd": 0.6284521281836868,
+        "width_jsd": 0.26516698420709983,
+        "speed_jsd": 0.10249412741755173,
+        "collision_rate": 0.37373298313174563,
+        "generated_onroad_fraction": 0.8570954167603129,
+        "num_generated_vehicles": 30370.0,
+        "num_gt_vehicles": 29698.0
+      },
+      "selected_native": {
+        "nearest_dist_jsd": 0.09506887118610113,
+        "lat_dev_jsd": 0.8360500868907061,
+        "ang_dev_jsd": 0.25548584765013693,
+        "length_jsd": 0.4554701998188717,
+        "width_jsd": 0.18662883435651922,
+        "speed_jsd": 0.11239889805010803,
+        "collision_rate": 0.4568071649368052,
+        "generated_onroad_fraction": 0.8626757856213092,
+        "num_generated_vehicles": 30431.5,
+        "num_gt_vehicles": 29698.0
+      },
+      "ratio": {
+        "nearest_dist_jsd": 1.0108542270538643,
+        "lat_dev_jsd": 0.9719240228463146,
+        "ang_dev_jsd": 0.8870377130954495,
+        "length_jsd": 0.7247492360877882,
+        "width_jsd": 0.7038162571957262,
+        "speed_jsd": 1.0966374453065506,
+        "collision_rate": 1.222282178867191
+      },
+      "R": 0.9453287257789835,
+      "R_attr": 0.841734312863355,
+      "gates": {
+        "onroad": true,
+        "vehicle_ratio": true,
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true
+      }
+    },
+    "5817": {
+      "control_native": {
+        "nearest_dist_jsd": 0.09865319058589536,
+        "lat_dev_jsd": 0.8387716295942043,
+        "ang_dev_jsd": 0.2730584432835833,
+        "length_jsd": 0.5982769683172209,
+        "width_jsd": 0.2572337006909822,
+        "speed_jsd": 0.09695644762830972,
+        "collision_rate": 0.49179673599181084,
+        "generated_onroad_fraction": 0.8595325644381702,
+        "num_generated_vehicles": 30398.5,
+        "num_gt_vehicles": 29698.0
+      },
+      "selected_native": {
+        "nearest_dist_jsd": 0.08700523793932191,
+        "lat_dev_jsd": 0.8269089782329044,
+        "ang_dev_jsd": 0.28801645216625676,
+        "length_jsd": 0.46371100257253556,
+        "width_jsd": 0.18287287805753916,
+        "speed_jsd": 0.09186150110909384,
+        "collision_rate": 0.33058918512200997,
+        "generated_onroad_fraction": 0.8609376173430472,
+        "num_generated_vehicles": 30400.0,
+        "num_gt_vehicles": 29698.0
+      },
+      "ratio": {
+        "nearest_dist_jsd": 0.8819302996953574,
+        "lat_dev_jsd": 0.9858571142099323,
+        "ang_dev_jsd": 1.0547795142417145,
+        "length_jsd": 0.7750774760339174,
+        "width_jsd": 0.7109211490030477,
+        "speed_jsd": 0.9474511840744437,
+        "collision_rate": 0.672206952442065
+      },
+      "R": 0.861174812814354,
+      "R_attr": 0.8111499363704696,
+      "gates": {
+        "onroad": true,
+        "vehicle_ratio": true,
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true
+      }
+    }
+  },
+  "current_report_sha256": "e55ecee58a236dab27e3ed38974fb96a9f318351f590cef675eaf65b37d167e8",
+  "current_report_generated_time": "2026-10-12 08:53:06 UTC+8",
+  "independent_final_population_status": "PASS_ACTUAL8_PLUS_FULL4",
+  "independent_histogram_status": "PASS_ACTUAL8_PLUS_FULL4",
+  "actual_final8_plus_full4": true,
+  "stale_pdf": {
+    "path": "/home/ke/code/sim/output/pdf/init_diffusion_overnight_search_20261011.pdf",
+    "sha256": "1404ba153e261b460d882d16fd6447d8a2045239d96bb7964704648ef4ab7a09",
+    "rendered_pages": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "inspected_page3_visual": true,
+    "creationtime": "2026-10-12 05:50:53 CST",
+    "pages": 21,
+    "current_compatible": false,
+    "facts": [
+      "Old first4pages state partial22stage/54obs/final2of8/no full. These were legitimate historical snapshot facts but cannot be delivered as final current result.",
+      "Rendered page3 units/scope/statistical table is legible without clipping; final regenerated PDF needs fresh visual QA."
+    ],
+    "visually_inspected_pages": [
+      3
+    ]
+  },
+  "limits": [
+    "Native historical same-seed replay failed1e-6; report should retain actual failedoldgrid+new-cohort decision in appendix; do not imply bitwise metric reproduction.",
+    "Main final matched4096 gain is pooled25.07%length/29.27%width butspeed worsens2.41%; TRAIN4817 collision worsens22.23% while5817 improves32.78%. Intro records these tradeoffs correctly.",
+    "Full50k raw scores andmainmatched4096 cannot be mixed inranking; fullTRAIN4817only with2GEN cannotclaimnewindependentTRAINconfirmation."
+  ],
+  "torch_imported": false,
+  "GPU_started": false,
+  "report_modified": false
+}

@@ -1,0 +1,5 @@
+纯CPU临时Hydra composition通过20组：control/separate_speed × 5个采样设置 × 2GEN。模型/物理条件、TEST数据、B128/worker0、32true/medium、TEST-only hook参数均与旧driver语义一致，未创建真实sampler YAML。
+
+真实配置必须等待新的独立native推理cohort选择冻结和选定sampler full50k成功，随后按新driver实际生命周期重新compose。建议继承 overnight_best_eval，构造seed4817，单独sampler_eval_seed2817/3817在strictload后重置；startup map/normalizer保持null。仅sampling_steps和hook中的Flow.t_eps用于推理，训练recipe仍20/.05。
+
+CLI使用safe launcher并设置SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1；future128 checkpoint必须显式填写实际EMA_num_updates，不能沿用20480。safe内存guard不会保证自动保存或精确恢复。GPU数值复跑已经不满足历史1e-6，因此compose一致不能等同指标bit identity。

@@ -149,6 +149,15 @@ def table_flowable(rows: list[list[str]], width: float):
         widths = [width]
     elif columns == 2:
         widths = [width * .26, width * .74]
+    elif columns == 9 and rows[0][1].strip().upper() == "TRAIN N":
+        # The seven mean/SD columns need enough room for a complete
+        # "±0.000548" line; a seed/count column does not need equal width.
+        widths = [width * .21, width * .05] + [width * .74 / 7] * 7
+    elif columns == 12 and [cell.upper() for cell in rows[0][:2]] == ["TRAIN", "GEN"]:
+        # Full audit rows have four-digit seeds and plain eight-character
+        # metric values. Keep those numbers intact instead of allocating
+        # a quarter of the page to a four-digit TRAIN seed.
+        widths = [width * .055, width * .055, width * .12] + [width * .09] * 7 + [width * .065, width * .075]
     elif columns >= 7:
         # Long variant names receive a wider first column and can break at
         # any character. Numeric metric columns stay uniformly readable.

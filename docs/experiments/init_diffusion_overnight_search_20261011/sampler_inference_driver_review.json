@@ -1,0 +1,169 @@
+{
+  "created_UTC": "2026-10-11T20:35:37.217961+00:00",
+  "task": "separate inference-only sampler evaluation feasibility and CPU proof",
+  "CPU_only_this_task": true,
+  "GPU_started": false,
+  "actual_checkpoint_deserialized": false,
+  "frozen_src_runner_controller_modified": false,
+  "driver": "tools/evaluate_init_diffusion_sampler.py",
+  "driver_sha256": "01ba87568542e8c26e6459f9d0c3094b04e6ca8998a29861bac01910d822aa8d",
+  "tests": "tools/test_init_diffusion_sampler_evaluation.py",
+  "tests_sha256": "064badb4bc48e85aa3a91777eb1db6fdfc150a2aa0097d38235a75fad3e8d897",
+  "CPU_tests": {
+    "command": "sim Python3.11 isolated GC-off unittest; see sampler_runtime_parity_cpu_review.json",
+    "passed": 18,
+    "failed": 0,
+    "torch_imported": false
+  },
+  "source_evidence": {
+    "src/run.py": "1902fbaae5fe1f074ed28b8ea26cbc57e48ba7f6ea67edd9b488c4b8212f1adc",
+    "src/smart/diffusion/initial_diffusion.py": "1e81582e5444fbe7f210d8b451bf640d59342ec2507d01f20859b0fad61d5fe4",
+    "src/smart/diffusion/scale_flow.py": "829634ce03409f782c69c2758812f04c87c20ef172d4bb84ecfc194c27169c09",
+    "src/smart/model/smart.py": "76c9cf51ce5824cba1f64e69bc9af2d3b09e212ff704d40722a8db17692a6e3d"
+  },
+  "source_facts": {
+    "steps_config": "InitDiffusion.sampling_steps supports a positive integer constructor override",
+    "checkpoint_restore": "sampling_steps and Flow.t_eps are absent from InitDiffusion extra_state; strict load preserves constructor sampling_steps",
+    "actual_tiny_CPU_checkpoint_fixture": "sampling_steps_CPU_probe.json: 8 shared/separate-head synthetic strict state_dict roundtrips, tensor/EMA state identical, requested10/20/40/80 retained",
+    "t_eps": "Flow constructor hardcodes0.05; it is not an accepted InitDiffusion constructor/Hydra option",
+    "EUCLIDEAN_step": "x_next=x+(next_t-t)*(x-x0)/max(t,t_eps)",
+    "CIRCULAR_heading_step": "uses real positive t with machine epsilon floor; not the .05 Euclidean floor",
+    "type_state": "separate type integration uses the same t_eps floor, final type decoded from final clean logits",
+    "terminal": "sample returns integrated Euclidean latent, not a final x0 projection",
+    "use_sde": "driver requires false: supervised deterministic ODE after the shared initial random source",
+    "t_eps_in_training": "also used in loss weighting; driver edits only after TEST checkpoint restore and forbids fit/train/validation hooks"
+  },
+  "toy_terminal_residual": {
+    "constant_clean_prediction_only": true,
+    "not_learned_performance_evidence": true,
+    "10_steps_eps005": 0.0,
+    "20_steps_eps005": 0.0,
+    "40_steps_eps005_per_unit_source_minus_clean": 0.0125,
+    "80_steps_eps005_per_unit_source_minus_clean": 0.0158203125,
+    "more_steps_do_not_automatically_fix_the_floor": true,
+    "40_or80_steps_eps0001": "all grid times before final step exceed1e-4; ideal constant-target last step reaches x0",
+    "cannot_explain_main_20step_rank": "main20-step sampler final t=.05 reaches x0; floor finding does not establish a cause for current training recipe differences"
+  },
+  "cohort": {
+    "role": "auxiliary inference intervention after main model selection; never pooled with main model-selection ranking",
+    "TRAIN_seeds": [
+      4817,
+      5817
+    ],
+    "GEN_seeds": [
+      2817,
+      3817
+    ],
+    "training_seed_roles": {
+      "4817": "adaptive discovery reused final TRAIN",
+      "5817": "held main confirmation TRAIN"
+    },
+    "new_training_runs": 0,
+    "new_training_updates": 0,
+    "GEN_not_independent_TRAIN_N": true,
+    "same_actual_selected_checkpoints": "2 checkpoints, each reused for2GEN and all5options",
+    "same_input": "exact main4096 manifest/order and matched native physical GT, saved map/normalizer restored from checkpoint",
+    "same_model_conditions": "deep-copy actual fit config, change only TEST startup fields and sampling_steps; t_eps changed by test-only runtime hook",
+    "same_precision": "EMA, native32-true, float32 matmul medium, actualsourceTESTbatch (currently128),workers0",
+    "options": [
+      {
+        "name": "n10_eps005",
+        "steps": 10,
+        "eps": 0.05
+      },
+      {
+        "name": "n20_eps005",
+        "steps": 20,
+        "eps": 0.05
+      },
+      {
+        "name": "n40_eps005",
+        "steps": 40,
+        "eps": 0.05
+      },
+      {
+        "name": "n40_eps0001",
+        "steps": 40,
+        "eps": 0.0001
+      },
+      {
+        "name": "n80_eps0001",
+        "steps": 80,
+        "eps": 0.0001
+      }
+    ],
+    "grid_cells": 20,
+    "baseline_for_sampler_comparison": "n20_eps005, same selected model weights and exact TRAIN/GEN pairing",
+    "metric_units": "native JSD squared JS-distance, scaled as before; seven-component ratios cancel scale; never convert inputs to sqrtJSD",
+    "full50000_role": "requires explicit frozen sampler decision citing actual complete grid SHA; only verify chosen option, no reselect",
+    "full50000_default": "TRAIN4817 x2GEN; --full-train-seeds4817 5817 explicitly enables bothTRAIN x2GEN",
+    "no_unseen_claim": "4096 was used for main discovery/selection; reused TRAIN weights and GEN draws are auxiliary paired comparisons, full50k includes audited/selected samples"
+  },
+  "rng_policy": {
+    "native_default": "src.run.run seeds cfg.seed before model construction",
+    "driver": "cfg.seed=TRAIN, then callback reset GEN on_test_start after strict checkpoint restore before test epoch/first batch",
+    "batch_noise": "native initial sampler and native type/circular noise unchanged, no random draws added by the audit hook",
+    "recorded": "actual torch.initial_seed in hook and native report, each exact GEN expected",
+    "main_20step_identity": "Mandatory4cellsfirst: seven native-scaled metrics absdelta<=1e-6; otherwise stop and preserve diagnostics before sampling intervention"
+  },
+  "completion_guards": [
+    "main queue COMPLETE, actual final8cell eligibility/source validation, complete main full50k, existing actual native materializer proof",
+    "checkpoint/config byte SHA matches materializer proof; completed training execution artifacts and endpoint rows verified",
+    "effective loaded steps, observed sample steps, effectiveeps, EMAupdate count and GENseed certified",
+    "complete matched4096 or full50000 counts, physical reference map, unverified generation timestep0, EMA/32true/medium",
+    "parent counts only returncode0 plus exactDONE marker plus immutable native report/audit/summary hashes",
+    "failed or incomplete child cannot reuse written partial reports or masquerade as completed cell",
+    "full decision must cite all20 successful actual grid cells with the current driver/model/source/checkpoints/order"
+  ],
+  "runtime_policy": {
+    "parent": "stdlib-only planning/coordinator; noTorch import/checkpoint deserialization",
+    "child": "one isolated process per cell; env SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1",
+    "GC": "Before any native imports, disable automatic GC and all explicit generations; no freeze/manual collection. Install current locked runtime_cached_torch_loader_sweep.install_cached_loader(torch). Each inference cell flushes and hard-exits only after completed native report/parity certification.",
+    "exit": "flush all JSON/stdout/stderr, successful os._exit(0); exceptions retain nonzero and parent marksfailed",
+    "not_root_cause_proof": "CPU cached-loader probe does not prove all Lightning/PyG training/evaluation memory is bounded or the original native SIGSEGV root cause."
+  },
+  "analytic_compute_cost_not_runtime_estimate": {
+    "grid_scene_steps": 3112960,
+    "grid_denoiser_forwards_at_B128": 24320,
+    "relative_to_repeating_baseline_4cells_N20": 9.5,
+    "full2GEN_denoiser_forwards_N20": 15640,
+    "full2GEN_denoiser_forwards_N80": 62560,
+    "wall_time": "not measured; constructor/checkpoint hashing/loading/evaluator costs do not scale only with N"
+  },
+  "commands_not_executed": {
+    "plan": "/home/ke/miniconda3/envs/sim/bin/python tools/evaluate_init_diffusion_sampler.py",
+    "grid": "/home/ke/miniconda3/envs/sim/bin/python tools/evaluate_init_diffusion_sampler.py --execute --deadline-utc 2026-10-12T01:35:00+00:00",
+    "full": "/home/ke/miniconda3/envs/sim/bin/python tools/evaluate_init_diffusion_sampler.py --stage full --frozen-sampler /absolute/path/to/frozen_sampler.json --execute",
+    "full_with_both_TRAIN": "add --full-train-seeds 4817 5817"
+  },
+  "frozen_sampler_JSON_schema_not_created": {
+    "selection_is_frozen": true,
+    "selected_option": "<one of5 options, chosen only after complete actual grid>",
+    "grid_summary": "<absolute path to logs/init_diffusion_sampler_inference_20261012/grid/summary.json>",
+    "grid_summary_sha256": "<actual complete summarySHA>"
+  },
+  "extra_inputs_needed": "No new data/weights. Requires completed main artifacts and actual materializer evidence; full requires one explicit frozen sampler decision JSON.",
+  "remaining_integration_limitations": "No actual native/GPU smoke performed yet. CPU fixtures and8 tiny state roundtrips establish feasibility only; do not claim measured sampler performance or final128epoch optimum.",
+  "later_runtime_parity_review": "sampler_runtime_parity_cpu_review.json",
+  "runtime_recovery_update": {
+    "reason": "Actual main training collect(0) SIGSEGV at step5760 invalidated synchronized young-generation GC policy.",
+    "policy": "Before any native imports, disable automatic GC and all explicit generations; no freeze/manual collection. Install current locked runtime_cached_torch_loader_sweep.install_cached_loader(torch). Each inference cell flushes and hard-exits only after completed native report/parity certification.",
+    "source_hashes": {
+      "tools/evaluate_init_diffusion_sampler.py": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+      "tools/runtime_cached_torch_loader_sweep.py": "e4f590c2eb6222a0e475a26bc7fc5330e20cd65fea67fa393b1e53feb9fd0e22",
+      "tools/torch_pickle_class_cache.py": "2b48ce50a16bc861e7f34a1ddc6d146dd64aeefb5b1b90bb5216804753f93b96",
+      "tools/runtime_completion.py": "a721afd2ba1e9ca99379b825d025d2241988f9d38bbdef6b6daeb92beaeae9c3"
+    },
+    "CPU_tests": {
+      "sampler_fixtures_passed": 18,
+      "loader_native_entrypoint_contracts_passed": 13,
+      "100_real_scene_bitwise": true,
+      "20000_cached_scene_load_memory_stable": true
+    },
+    "main_completion": "Strict runtime_completion.verify_completion authenticates terminal original DONE plus exactly one policy suffix, preserves raw log bytes and adds policy sidecar SHA; legacy DONE remains original contract.",
+    "parity_guard": "All four default20 repeats first; each seven native scaled metrics must match its actual main endpoint within absolute1e-6 or whole inference grid stops.",
+    "no_GPU_execution": true,
+    "no_main_or_model_source_modification": true,
+    "caveat": "CPU cached-loader probe does not prove all Lightning/PyG training/evaluation memory is bounded or the original native SIGSEGV root cause."
+  }
+}

@@ -43,9 +43,25 @@
   ],
   "output": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed2817_new_control",
   "log": "/home/ke/code/sim/logs/component_loss_frozen_map_confirm_seed2817_new_control.log",
-  "controller_pid": 282682,
-  "started_unix": 1791731307.9654047,
-  "status": "running",
-  "returncode": null,
-  "child_pid": 906269
+  "controller_pid": 957660,
+  "started_unix": 1791734619.4687636,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 957668,
+  "ended_unix": 1791736520.1856008,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed2817_new_control/protocol.json",
+      "sha256": "57cb5eb1f48a819fe490e7b83913190a8b80e447b20dbf67e2a2f982b6200568"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed2817_new_control/summary.json",
+      "sha256": "f0f71ab55e24d14b0df5129425a13ad2cd60d1d8fb2a4a1aea176520c2e0cd43"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_confirm_seed2817_new_control.log",
+      "sha256": "bcec8b9487529c91c85c626cb3c408d33aa1fe659a8a9b03f28911ca1e24c6f4"
+    }
+  },
+  "last_verified_unix": 1791736520.188065
 }

@@ -1,0 +1,133 @@
+{
+  "status": "stopped_by_signal",
+  "final_report_run": {
+    "tool": "tools/build_overnight_search_report.py",
+    "returncode": 0,
+    "output_tail": "{\"status\": \"ACTUAL_FINAL_MATRIX_VERIFIED\", \"actual_regenerated\": true, \"report\": \"/home/ke/code/sim/docs/init_diffusion_overnight_search_20261011.md\", \"report_sha256\": \"51af7d8b4fb4e88d5b6cc47b29fb8a7a4299693aceb632bd8eb5e9902e478003\", \"verified_stage_count\": 27, \"actual_observations\": 76, \"torch_imported\": false}\n"
+  },
+  "source_audit": {
+    "source_freeze_sha256": "86cc6642018f6b8bd9ed37dac4093a6448093ef26f53af15116a16cb06a5aeb6",
+    "frozen_file_count": 18,
+    "current_source_mismatches": [],
+    "stage_recorded_source_comparisons": {
+      "full50000_seed4817_control": {
+        "status": "success",
+        "mismatches": []
+      },
+      "full50000_seed4817_separate_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "long_seed4817_control": {
+        "status": "success",
+        "mismatches": []
+      },
+      "long_seed4817_separate_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "long_seed5817_control": {
+        "status": "success",
+        "mismatches": []
+      },
+      "long_seed5817_separate_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "medium_control": {
+        "status": "success",
+        "mismatches": []
+      },
+      "medium_lane_center_context": {
+        "status": "success",
+        "mismatches": []
+      },
+      "medium_separate_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_combo_reference": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_control": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_depth5": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_detached_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_high_noise": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_lane_center_context": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_lane_center_normalized": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_match_speed4": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_normalized_speed_p0": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_residual_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_separate_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_softplus_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_speed_l1_p0": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_speed_p0": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_train_features": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_transport_attributes": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_transport_speed": {
+        "status": "success",
+        "mismatches": []
+      },
+      "screen_width384": {
+        "status": "success",
+        "mismatches": []
+      }
+    },
+    "all_current_and_stage_recorded_frozen_sources_equal": true
+  },
+  "pid": 2,
+  "started_utc": "2026-10-11T17:23:10.364253+00:00",
+  "recorded_utc": "2026-10-12T01:32:02.685488+00:00",
+  "stop_utc": "2026-10-12T01:40:00+00:00",
+  "refreshes": 64,
+  "GPU_started": false,
+  "PDF_generated": false,
+  "completion_marker_created": false,
+  "watcher_source": "/tmp/sim_overnight_report_watcher_20261012.py"
+}

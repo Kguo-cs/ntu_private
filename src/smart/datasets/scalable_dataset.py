@@ -12,6 +12,7 @@
 # its affiliates is strictly prohibited.
 
 import pickle
+import gc
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -23,6 +24,23 @@ from random import shuffle
 import os
 import torch
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+def load_torch_scene(source):
+    """Defer cyclic collection until tensor deserialization has finished.
+
+    A long workers=0 run crashed in Torch's tensor rebuild while automatic GC
+    was traversing objects. Refcount cleanup remains active, and the caller's
+    GC setting is restored even when a cache cannot be read.
+    """
+    enabled = gc.isenabled()
+    if enabled:
+        gc.disable()
+    try:
+        return torch.load(source, map_location="cpu", weights_only=False)
+    finally:
+        if enabled:
+            gc.enable()
 working_dir = os.getcwd()
 import torch
 
@@ -110,12 +128,12 @@ class MultiDataset(Dataset):
             raw = Path(self.raw_paths[idx]).read_bytes()
             source_hash = hashlib.sha256(raw).hexdigest()
             data = (pickle.loads(raw) if Path(self.raw_paths[idx]).suffix == ".pkl" else
-                    torch.load(io.BytesIO(raw), map_location="cpu", weights_only=False))
+                    load_torch_scene(io.BytesIO(raw)))
         elif '.pkl' in self.raw_paths[idx]:
             with open(self.raw_paths[idx], "rb") as handle:
                 data = pickle.load(handle)
         else:
-            data = torch.load(self.raw_paths[idx], map_location="cpu", weights_only=False)
+            data = load_torch_scene(self.raw_paths[idx])
 
         if self.scenario_dreamer_preprocessed:
             if self.non_partitioned_only:

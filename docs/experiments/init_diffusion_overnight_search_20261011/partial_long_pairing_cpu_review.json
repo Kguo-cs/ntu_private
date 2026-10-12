@@ -1,0 +1,79 @@
+{
+  "recorded_utc": "2026-10-11T23:34:44.397696+00:00",
+  "status": "ACTUAL_PARTIAL_PAIRING_AUDIT_PASS",
+  "verified_stage_count": 24,
+  "actual_observations": 66,
+  "actual_final_cells": 6,
+  "planned_final_cells": 8,
+  "checks": [
+    {
+      "exposure": 1747378,
+      "cohort": "98709b04289b321b76eea59e62a0da6565d38013cc2d715f0851a03badce4cdf",
+      "control_TRAIN": [
+        4817,
+        5817
+      ],
+      "candidate": "separate_speed",
+      "candidate_TRAIN": [
+        4817
+      ],
+      "paired_TRAIN_set_complete": false,
+      "candidate_R": null,
+      "has_ratios": false,
+      "ranking_eligible": false,
+      "reason": "No complete matched TRAIN seed set; no partial pairing/padding"
+    },
+    {
+      "exposure": 3494730,
+      "cohort": "98709b04289b321b76eea59e62a0da6565d38013cc2d715f0851a03badce4cdf",
+      "control_TRAIN": [
+        4817,
+        5817
+      ],
+      "candidate": "separate_speed",
+      "candidate_TRAIN": [
+        4817
+      ],
+      "paired_TRAIN_set_complete": false,
+      "candidate_R": null,
+      "has_ratios": false,
+      "ranking_eligible": false,
+      "reason": "No complete matched TRAIN seed set; no partial pairing/padding"
+    },
+    {
+      "exposure": 5242620,
+      "cohort": "98709b04289b321b76eea59e62a0da6565d38013cc2d715f0851a03badce4cdf",
+      "control_TRAIN": [
+        4817,
+        5817
+      ],
+      "candidate": "separate_speed",
+      "candidate_TRAIN": [
+        4817
+      ],
+      "paired_TRAIN_set_complete": false,
+      "candidate_R": null,
+      "has_ratios": false,
+      "ranking_eligible": false,
+      "reason": "No complete matched TRAIN seed set; no partial pairing/padding"
+    }
+  ],
+  "paired_R_for_unmatched_sets_suppressed": true,
+  "report_headline_unpaired_R_suppressed": true,
+  "raw_own_arm_means_retained": true,
+  "long_figure_is_descriptive_with_TRAIN_memberships": true,
+  "same_source_freeze18": true,
+  "source_freeze_sha256": "86cc6642018f6b8bd9ed37dac4093a6448093ef26f53af15116a16cb06a5aeb6",
+  "frozen_source_mismatches": [],
+  "consumer_source_hashes": {
+    "tools/build_overnight_search_report.py": "622920a351e31d3c691869dcb8b96dbf266a7f757c41a30bd4bc92eee7978441",
+    "tools/overnight_search_analysis.py": "b92534682ec7e5419ce19a6e59bdb3a6257b52f295ac89f5810dfd0a288082c3"
+  },
+  "report_sha256": "5390d30740a0baef402af1f51a4ff95c640fbbf0ef0e2e313062ce06199e7155",
+  "report_tool_regression_tests_passed": 27,
+  "sampler_selector_preregistered_source_unchanged": true,
+  "torch_imported": false,
+  "GPU_started": false,
+  "PDF_generated": false,
+  "final_selection_created": false
+}

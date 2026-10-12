@@ -1,0 +1,42 @@
+{
+  "status": "PASS_READ_ONLY_NEW_NATIVE_COHORT_PROTOCOL",
+  "created_utc": "2026-10-12T00:58:46.090333+00:00",
+  "checks": {
+    "protocol_exact_criteria_and_current_source_SHA": true,
+    "six_CPU_selector_tests_pass": true,
+    "exact_unique_16_plan_cells": true,
+    "all_first_four_fresh_default20": true,
+    "same_physical_4096_names_order": true,
+    "all_source_steps20480_EMA_eval_B128": true,
+    "old_main_parity_not_claimed": true,
+    "main_selection_unchanged": true,
+    "no_torch_import": true,
+    "preregistered_before_actual_new_execution": true
+  },
+  "tests_run": 6,
+  "source_protocol_SHA": "af605e94e115f9ac481b3a973d208ac430a608d78f9d6b32ea370dfa6992c077",
+  "source_hashes": {
+    "/home/ke/code/sim/tools/select_init_diffusion_native_sampler.py": "eb00283362afb72fc457f918721524fca7cb32f649f49484f3a3dcbbd4ff0236",
+    "/home/ke/code/sim/tools/evaluate_init_diffusion_native_sampler.py": "9a42018571fa36d385ab76a839c36b43a333979653ae9f35dd1bf228d4fe424b",
+    "/home/ke/code/sim/tools/evaluate_init_diffusion_sampler.py": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+    "/home/ke/code/sim/tools/runtime_completion.py": "59825756172ddcf454ce9125d20342710dba82402a83ea02dfaee55e3c65f45c",
+    "/home/ke/code/sim/tools/continue_overnight_init_diffusion.py": "d57fcad9f2dad02a958eb02d0d3c9a6b5b794a314115b77b5a74caae19f6e3c2"
+  },
+  "plan_actual_cells": 16,
+  "protocol_created_utc": "2026-10-12T00:56:36.784553+00:00",
+  "actual_first_execution_unix": 1791766674.98098,
+  "eligibility_rule": "pooledR<=.98 AND pooled+eachTRAIN L/W/speed<=1.15, onroad>=baseline-.02, veh/GT .9..1.1; freshnativeN20 only",
+  "inference_scope": "same two reused trained checkpoints, two generation seeds; no newtraining or independentTRAINcount; not same oldmain numerical cohort",
+  "strictguards_reviewed": [
+    "exact16uniqueactualcells beforeselection",
+    "row==actualhashedcellsummary, rawreports/audit/executionSHA+rc0/DONE",
+    "protocolsources and reconstructeddata/checkpoint/configplan",
+    "fullonlyimmutablecomplete16criterionproof, nofullreselection",
+    "partial/failure cannotselect; interruptedchildselfownedcleanup"
+  ],
+  "limitations": [
+    "Original default20 absolute1e-6 replay guard remains FAILED; this protocol does not relax or relabel it.",
+    "R<=.98 numericalmargin is a descriptive guard, not a statistical confidence interval.",
+    "GPUscatter/add path can be numerically non-repeatable; actual operator-level/noise proof unavailable."
+  ]
+}

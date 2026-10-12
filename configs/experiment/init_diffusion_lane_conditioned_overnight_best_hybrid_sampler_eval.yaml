@@ -1,0 +1,15 @@
+# @package _global_
+# Inference-only hybrid choice: N40/base t_eps0.05; only final positive low-time position floor1e-4.
+# Independenthybrid8 selection; training objective and earlier40 decision remain unchanged.
+# Write only after chosenhybridfull50k twoGEN complete with scopeauditPASS.
+# Old historical N20 strictparityFAILED; no bitwise replay claim.
+# Use OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1.
+# Future checkpoint: override ckpt_path and sampler_expected_updates with its actual saved EMA count.
+defaults:
+- init_diffusion_lane_conditioned_overnight_best_sampler_eval
+- _self_
+task_name: init_diffusion_lane_conditioned_overnight_best_hybrid_sampler_eval
+callbacks:
+  sampler_audit:
+    _target_: tools.hybrid_position_sampler_hook.make_hybrid_hook
+    hybrid_position: true

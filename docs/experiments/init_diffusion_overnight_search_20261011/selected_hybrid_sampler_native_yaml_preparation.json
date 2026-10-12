@@ -1,0 +1,63 @@
+{
+  "status": "PREPARED_SELECTED_HYBRID_NATIVE_YAML_CPU_COMPOSE_PASS_FULL_SUCCESS_PENDING",
+  "created_utc": "2026-10-12T01:21:19.531882+00:00",
+  "selected_option": "hybrid_pos0001",
+  "frozen_selection_sha256": "bb20fc8041cdd923e13422b42242c65bbc3b64363459df131b573a9b009eeb15",
+  "full_success_verified": false,
+  "actual_configuration_written": false,
+  "write_requires": "Actualfull2successfulstrictscopePASS;do notwritepartial",
+  "actual_sampler_yaml_target": "/home/ke/code/sim/configs/experiment/init_diffusion_lane_conditioned_overnight_best_hybrid_sampler_eval.yaml",
+  "prepared_YAML_text": "# @package _global_\n# Inference-only hybrid choice: N40/base t_eps0.05; only final positive low-time position floor1e-4.\n# Independenthybrid8 selection; training objective and earlier40 decision remain unchanged.\n# Write only after chosenhybridfull50k twoGEN complete with scopeauditPASS.\n# Old historical N20 strictparityFAILED; no bitwise replay claim.\n# Use OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1.\n# Future checkpoint: override ckpt_path and sampler_expected_updates with its actual saved EMA count.\ndefaults:\n- init_diffusion_lane_conditioned_overnight_best_sampler_eval\n- _self_\ntask_name: init_diffusion_lane_conditioned_overnight_best_hybrid_sampler_eval\ncallbacks:\n  sampler_audit:\n    _target_: tools.hybrid_position_sampler_hook.make_hybrid_hook\n    hybrid_position: true\n",
+  "prepared_YAML_sha256": "35488c77808d4b6883b94fa505b15f2d362b68fdd7eee1cf0c631c652b994f95",
+  "CPU_composition_checks": [
+    {
+      "GEN_seed": 2817,
+      "passed": true,
+      "model_conditions_exact": true,
+      "actual_hybrid_builder_callback_exact": true,
+      "TEST_data_and_trainer_exact": true,
+      "sorted_native_full_manifest_exact": true,
+      "full_manifest_sha256": "d87e834c9ec3f1b3cf83f2086082195eaeb117549f5d6955bc3e6903bdfd3ace",
+      "EMA_updates": 20480,
+      "steps": 40,
+      "base_eps": 0.05,
+      "position_only_lowtime_eps": 0.0001,
+      "constructor_TRAIN_seed": 4817,
+      "GEN_reset_after_checkpoint_restore": 2817,
+      "checkpoint": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt"
+    },
+    {
+      "GEN_seed": 3817,
+      "passed": true,
+      "model_conditions_exact": true,
+      "actual_hybrid_builder_callback_exact": true,
+      "TEST_data_and_trainer_exact": true,
+      "sorted_native_full_manifest_exact": true,
+      "full_manifest_sha256": "d87e834c9ec3f1b3cf83f2086082195eaeb117549f5d6955bc3e6903bdfd3ace",
+      "EMA_updates": 20480,
+      "steps": 40,
+      "base_eps": 0.05,
+      "position_only_lowtime_eps": 0.0001,
+      "constructor_TRAIN_seed": 4817,
+      "GEN_reset_after_checkpoint_restore": 3817,
+      "checkpoint": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt"
+    }
+  ],
+  "sources": {
+    "configs/experiment/init_diffusion_lane_conditioned_overnight_best.yaml": "33f80bff920e5e87655a62ef8d69f53730ff06f730fe00a13bf22a9c74252ccb",
+    "configs/experiment/init_diffusion_lane_conditioned_overnight_best_eval.yaml": "6317395ffa0c8bd6bc9615ae14e0f377c945e731f2f61def46a921a6159c169d",
+    "configs/experiment/init_diffusion_lane_conditioned_overnight_best_sampler_eval.yaml": "418eaf7826b5308386b737e5d178cd8b20c1ecb5764ad448819e221009f7a8f7",
+    "tools/evaluate_init_diffusion_hybrid_sampler.py": "3993ce0e56a04389a5e51ed7a0cb4f20e04fcae8de61051b34f6231cb2d29f23",
+    "tools/select_init_diffusion_hybrid_sampler.py": "86ae65fc11da80f6ebffa953f830d8bf580b7c3deabfe1736ee17d6bfb032d13",
+    "tools/hybrid_position_sampler_hook.py": "892dcbd3371c702ec592599a74c3f6ecae2197aa41fd17dd0e5fa0824c148fd2",
+    "tools/evaluate_init_diffusion_sampler.py": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+    "tools/run_init_diffusion_safe.py": "49b43c7929d69bfff4b1f5363609c7991c471d14515d8651438afdae603c0b5b"
+  },
+  "shell_command": "OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1 python tools/run_init_diffusion_safe.py experiment=init_diffusion_lane_conditioned_overnight_best_hybrid_sampler_eval ckpt_path=/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt sampler_expected_updates=20480 sampler_eval_seed=2817",
+  "future_checkpoint": "Overrideckpt_pathandactualsavedEMA_n;no128metricclaim",
+  "full_comparison_limit": "Earlier40nativefullsameweightscomparisonisdiagnosticacrossfreshcallbackcohorts;nocurrentfreshfullanchor/nofullreselection",
+  "main_model_and_native16_decisions_unchanged": true,
+  "native40_yaml_untouched": true,
+  "no_GPU_started": true,
+  "Torch_imported": false
+}

@@ -80,3 +80,8 @@ outputs/scenario_dreamer*/
 !/tests/test_init_diffusion_feature_type.py
 !/tests/test_init_diffusion_feature_loss.py
 !/tests/test_init_diffusion_component_loss.py
+!/tests/test_init_diffusion_speed_heads.py
+!/tests/test_init_diffusion_map_condition.py
+!/tests/test_overnight_search_analysis.py
+!/tests/test_overnight_search_protocol.py
+!/tests/test_materialize_overnight_init_diffusion_best.py

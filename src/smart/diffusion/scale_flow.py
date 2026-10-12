@@ -38,6 +38,7 @@ from src.smart.diffusion.diffusion_utils import (
 from src.smart.utils import weight_init, wrap_angle
 import copy
 from .denoiser import InitDenoiser
+from .distribution_loss import AttributeDistributionLoss
 from .component_loss import ComponentLoss, heading_angle_residual
 from .ego_conditioning import EGO_FIELDS, resolve_ego_conditioning
 
@@ -149,6 +150,19 @@ class Flow(nn.Module):
         if self.speed_loss_weight > 0 and self.velocity_representation != "vector":
             raise ValueError("speed magnitude loss requires velocity_representation=vector; scalar speed is already directly supervised")
         state_dim = 7 if self.velocity_representation == "speed" else args.input_dim
+        self.time_sample_power = float(getattr(args, "time_sample_power", 1.0))
+        if not math.isfinite(self.time_sample_power) or self.time_sample_power <= 0:
+            raise ValueError("time_sample_power must be finite and positive")
+        matching = getattr(args, "matching_weights", None)
+        if matching is not None:
+            if not isinstance(matching, Mapping) or set(matching) - {"position", "heading", "length", "width", "velocity"}:
+                raise ValueError("matching_weights must contain physical component names")
+            matching = {key: float(matching.get(key, 1.)) for key in ("position", "heading", "length", "width", "velocity")}
+            if any(not math.isfinite(v) or v < 0 for v in matching.values()) or not any(matching.values()):
+                raise ValueError("matching_weights must be finite, nonnegative and not all zero")
+        self.matching_weights = matching
+        distribution = getattr(args, "distribution_loss", None)
+        self.attribute_distribution_loss = AttributeDistributionLoss(distribution) if distribution is not None else None
         for name in ("pos_source", "shape_source", "velocity_source"):
             source = getattr(args, name, "gaussian")
             if source not in ("gaussian", "uniform"):
@@ -186,6 +200,10 @@ class Flow(nn.Module):
             edge_embedding_type=getattr(args, "edge_embedding_type", "fourier"),
             heading_velocity=self.heading_objective == "angular_velocity",
             velocity_representation=self.velocity_representation,
+            state_feature_normalization=getattr(args, "state_feature_normalization", "none"),
+            speed_x0_parameterization=getattr(args, "speed_x0_parameterization", "identity"),
+            speed_head_kind=getattr(args, "speed_head_kind", "shared"),
+            speed_head_detach_context=getattr(args, "speed_head_detach_context", False),
             size_representation=self.size_representation,
             fix_ego=self.fix_ego,
             **conditions,
@@ -489,6 +507,13 @@ class Flow(nn.Module):
         else:
             match_noise = movable_noise / self.model.normal_scale
             match_target = x[movable] / self.model.normal_scale
+        if getattr(self, "matching_weights", None) is not None:
+            weights = x.new_ones(x.shape[-1])
+            for name, fields in (("position", slice(0, 2)), ("heading", slice(2, 4)),
+                                 ("length", slice(4, 5)), ("width", slice(5, 6)),
+                                 ("velocity", slice(6, self.model.m_delta_dim))):
+                weights[fields] = math.sqrt(self.matching_weights[name])
+            match_noise, match_target = match_noise * weights, match_target * weights
         matched_index = get_closest_sum_idx_fast(
             match_noise, match_target,
             {"batch": tokenized_agent["batch"][movable],
@@ -513,6 +538,8 @@ class Flow(nn.Module):
             device=x.device,
             dtype=x.dtype,
         )
+        if getattr(self, "time_sample_power", 1.) != 1.:
+            scene_time = scene_time.pow(self.time_sample_power)
 
         return scene_time[batch]
 
@@ -1020,6 +1047,14 @@ class Flow(nn.Module):
                 "weighted_loss": metrics["speed_magnitude_weighted_loss"],
                 "scale": magnitude_scale.detach(),
             }
+        if getattr(self, "attribute_distribution_loss", None) is not None:
+            auxiliary, distribution_metrics = self.attribute_distribution_loss(
+                x0[:, :dim], x[:, :dim], time, valid[:, :dim],
+                tokenized_agent["type"].long(), self.model.normal_scale,
+                scalar_speed=self.velocity_representation == "speed",
+            )
+            contributions.append(auxiliary)
+            metrics.update(distribution_metrics)
         total = sum(contributions)
         tokenized_agent["_init_diffusion_component_metrics"] = metrics
         return total, collision, raw["position"], raw["heading"], (raw["length"] + raw["width"]) / 2, raw["velocity"]

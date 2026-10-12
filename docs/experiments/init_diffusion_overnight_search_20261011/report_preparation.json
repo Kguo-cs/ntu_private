@@ -1,0 +1,33 @@
+{
+  "status": "PREPARATION_ONLY_NOT_REPORT_COMPLETE",
+  "GPU_used": false,
+  "author": "Root creates final PDF; this agent only CPU statistical/figure protocol",
+  "artifacts_before_PDF": [
+    "Controller frozen_long_protocol/final_selection, every actual successful stage protocol+summary+execution",
+    "Independent analysis actual observations with cohort/source SHA, no incomplete rows",
+    "Explicit elapsed stage timing and chosen actual exposure, source/calibration/map fingerprints",
+    "Full50000 botharms bothGEN complete or explicitmissing audit",
+    "Per-metric ratios, allgates, perTRAIN5817 direction and sampleSD; actual N displayed",
+    "Speed/length/width normalized bin hist with physical matchedGT and separate roadcoverage/count panel",
+    "Tables show losses/timepowers/component weights, network width/layers, magnitude/distribution losses, optimizer/LR/clip/EMA and runtime"
+  ],
+  "figures": {
+    "content_width_pt": 511,
+    "max_image_height_pt": 490,
+    "source_font_pt_min": 9,
+    "effective_font_pt_min": 8,
+    "scale_rule": "min(1,511/source_width_pt,490/source_height_pt)",
+    "curve_x": "actual TRAIN scene exposures /493542; B256 andB512 bridge only exact equal exposures",
+    "curve_SD": "GEN average within TRAIN; sampleSD across independentTRAIN only, N1 no band",
+    "screen_and_medium": "Display only observed and verified successful endpoints; gates highlighted, missing arms explicitly listed",
+    "full50000": "No fullset hist when scope/physicalreference/GEN provenance mismatch"
+  },
+  "final_quality_checks": [
+    "Render each PDFpage with Poppler and inspect all pageimages; usemontage onlyfornavigation thenfullsize page inspection",
+    "No tiny labels/clipped glyphs/tableoverflow/unexplained mixed units; show native JSD scale and collision percent",
+    "Source/sourceSHA/tablevalues independently match actualanalysis; no narrativeinference of future128epoch quality",
+    "If any jobdeadlineinterrupted, write partial status and show achieved budget, never pad missing seed/checkpoint",
+    "Create completion marker only after actualfinalPDFrenderQA passes"
+  ],
+  "completion_marker_created": false
+}

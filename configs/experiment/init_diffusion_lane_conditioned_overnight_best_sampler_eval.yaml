@@ -1,0 +1,43 @@
+# @package _global_
+# Inference-only choice: 40 steps, t_eps=0.05. Training remains20/0.05.
+# Requires actual frozen native16 comparison and successful chosen-sampler full50k audit.
+# Old historical-main default20 parity FAILED; no bitwise replay claim.
+# Run with OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 and SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1.
+# Restore explicit checkpoint. For future checkpoints override sampler_expected_updates with its actual saved EMA count.
+defaults:
+- init_diffusion_lane_conditioned_overnight_best_eval
+- _self_
+task_name: init_diffusion_lane_conditioned_overnight_best_sampler_eval
+action: test
+seed: 4817
+sampler_eval_seed: 2817
+sampler_expected_updates: 20480
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_steps: 40
+data:
+  test_batch_size: 128
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  scenario_dreamer_eval_set: null
+trainer:
+  accelerator: gpu
+  devices: 1
+  precision: 32-true
+  limit_test_batches: 1.0
+  logger: false
+  enable_checkpointing: false
+callbacks:
+  sampler_audit:
+    _target_: tools.evaluate_init_diffusion_sampler.make_inference_hook
+    seed: ${sampler_eval_seed}
+    steps: 40
+    eps: 0.05
+    expected_updates: ${sampler_expected_updates}
+    audit_path: ${paths.output_dir}/sampler_audit.json
+    expected_batch_size: 128
+    defer_gc: true
+logger: false

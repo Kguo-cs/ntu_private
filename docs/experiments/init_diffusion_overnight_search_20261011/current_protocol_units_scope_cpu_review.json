@@ -1,0 +1,275 @@
+{
+  "status": "CPU_READ_ONLY_PROTOCOL_UNIT_SCOPE_REVIEW",
+  "review_UTC": "2026-10-11 17:21:24 UTC",
+  "GPU_used": false,
+  "active_sources_modified": false,
+  "real_best_native_configs_created": false,
+  "plan_evidence": {
+    "search_protocol_sha256": "08c649c5d1b911bae43361aefd8d0733bd02619f11d03dca0effc1a91c117581",
+    "source_freeze_sha256": "86cc6642018f6b8bd9ed37dac4093a6448093ef26f53af15116a16cb06a5aeb6",
+    "source_freeze_all_hashes_match_current": true,
+    "source_freeze_recorded_UTC": "2026-10-11T17:18:49.698948+00:00",
+    "source_freeze_recorded_Beijing": "2026-10-12T01:18:49.698948+08:00",
+    "active_stage_at_review": {
+      "stage": "screen_combo_reference",
+      "child_pid": 965355,
+      "controller_pid": 964680,
+      "log": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/screen_combo_reference.log"
+    },
+    "native_best_configs_present": [
+      false,
+      false
+    ]
+  },
+  "time_budget": {
+    "GPU_cutoff_UTC": "2026-10-12 01:35:00",
+    "GPU_cutoff_Beijing": "2026-10-12 09:35:00 +08:00",
+    "report_deadline_UTC": "2026-10-12 02:00:00",
+    "report_deadline_Beijing": "2026-10-12 10:00:00 +08:00",
+    "report_reserve_minutes": 25,
+    "final_budget_is_adaptive": true,
+    "final_control_update_options": [
+      12288,
+      10240,
+      8192
+    ],
+    "final_candidate_B256_update_options": [
+      24576,
+      20480,
+      16384
+    ],
+    "final_exposure_approx_is_maximum_plan_not_actual_completion": 6291144,
+    "forecast": "Uses actual medium fit seconds/update and worst measured eval seconds/scene; includes24 long evaluations and4 full50k evaluations,15percent fit/long margin, full-audit=max20min or measured full cost times1.25. If minimum does not fit, explicitly attempts minimum with deadline_risk; no completion guarantee."
+  },
+  "sample_budget": {
+    "TRAIN_manifest_entries": 493542,
+    "loader_B512": {
+      "batches_per_epoch": 964,
+      "last_batch_size": 486
+    },
+    "loader_B256": {
+      "batches_per_epoch": 1928,
+      "last_batch_size": 230
+    },
+    "formula": "q,r=divmod(updates,ceil493542/B); exposure=q*493542+r*B",
+    "table": [
+      {
+        "stage": "screen_mid_B512",
+        "batch": 512,
+        "optimizer_updates": 384,
+        "completed_epochs": 0,
+        "within_epoch_updates": 384,
+        "actual_exposure": 196608,
+        "equivalent_full_data_epochs": 0.39836123369439685,
+        "step_times_batch_overcount": 0
+      },
+      {
+        "stage": "screen_end_B512",
+        "batch": 512,
+        "optimizer_updates": 768,
+        "completed_epochs": 0,
+        "within_epoch_updates": 768,
+        "actual_exposure": 393216,
+        "equivalent_full_data_epochs": 0.7967224673887937,
+        "step_times_batch_overcount": 0
+      },
+      {
+        "stage": "screen_mid_B256",
+        "batch": 256,
+        "optimizer_updates": 768,
+        "completed_epochs": 0,
+        "within_epoch_updates": 768,
+        "actual_exposure": 196608,
+        "equivalent_full_data_epochs": 0.39836123369439685,
+        "step_times_batch_overcount": 0
+      },
+      {
+        "stage": "screen_end_B256",
+        "batch": 256,
+        "optimizer_updates": 1536,
+        "completed_epochs": 0,
+        "within_epoch_updates": 1536,
+        "actual_exposure": 393216,
+        "equivalent_full_data_epochs": 0.7967224673887937,
+        "step_times_batch_overcount": 0
+      },
+      {
+        "stage": "medium_B512",
+        "batch": 512,
+        "optimizer_updates": 4096,
+        "completed_epochs": 4,
+        "within_epoch_updates": 240,
+        "actual_exposure": 2097048,
+        "equivalent_full_data_epochs": 4.248975771058998,
+        "step_times_batch_overcount": 104
+      },
+      {
+        "stage": "medium_B256",
+        "batch": 256,
+        "optimizer_updates": 8192,
+        "completed_epochs": 4,
+        "within_epoch_updates": 480,
+        "actual_exposure": 2097048,
+        "equivalent_full_data_epochs": 4.248975771058998,
+        "step_times_batch_overcount": 104
+      },
+      {
+        "stage": "final_min_B512",
+        "batch": 512,
+        "optimizer_updates": 8192,
+        "completed_epochs": 8,
+        "within_epoch_updates": 480,
+        "actual_exposure": 4194096,
+        "equivalent_full_data_epochs": 8.497951542117995,
+        "step_times_batch_overcount": 208
+      },
+      {
+        "stage": "final_min_B256",
+        "batch": 256,
+        "optimizer_updates": 16384,
+        "completed_epochs": 8,
+        "within_epoch_updates": 960,
+        "actual_exposure": 4194096,
+        "equivalent_full_data_epochs": 8.497951542117995,
+        "step_times_batch_overcount": 208
+      },
+      {
+        "stage": "final_mid_B512",
+        "batch": 512,
+        "optimizer_updates": 10240,
+        "completed_epochs": 10,
+        "within_epoch_updates": 600,
+        "actual_exposure": 5242620,
+        "equivalent_full_data_epochs": 10.622439427647494,
+        "step_times_batch_overcount": 260
+      },
+      {
+        "stage": "final_mid_B256",
+        "batch": 256,
+        "optimizer_updates": 20480,
+        "completed_epochs": 10,
+        "within_epoch_updates": 1200,
+        "actual_exposure": 5242620,
+        "equivalent_full_data_epochs": 10.622439427647494,
+        "step_times_batch_overcount": 260
+      },
+      {
+        "stage": "final_max_B512",
+        "batch": 512,
+        "optimizer_updates": 12288,
+        "completed_epochs": 12,
+        "within_epoch_updates": 720,
+        "actual_exposure": 6291144,
+        "equivalent_full_data_epochs": 12.746927313176995,
+        "step_times_batch_overcount": 312
+      },
+      {
+        "stage": "final_max_B256",
+        "batch": 256,
+        "optimizer_updates": 24576,
+        "completed_epochs": 12,
+        "within_epoch_updates": 1440,
+        "actual_exposure": 6291144,
+        "equivalent_full_data_epochs": 12.746927313176995,
+        "step_times_batch_overcount": 312
+      }
+    ],
+    "screen_arms": 18,
+    "screen_B512_arms": 1,
+    "screen_B256_arms": 17,
+    "screen_total_fresh_fit_updates": 26880,
+    "screen_total_training_sample_exposures": 7077888,
+    "medium_max_promoted_arms": 3,
+    "medium_max_training_sample_exposures": 6291144,
+    "long_final_pair_fresh_fit_count": 4,
+    "long_final_pair_max_training_sample_exposures": 25164576,
+    "fresh_at_promotion": true,
+    "same_exposure_is_not_same_update_count": true,
+    "native128epoch_optimum_proven": false
+  },
+  "metric_units": {
+    "nearest_dist_jsd": {
+      "multiplier": 10,
+      "raw_unit": "natural-log Jensen-Shannon divergence"
+    },
+    "lat_dev_jsd": {
+      "multiplier": 10,
+      "raw_unit": "natural-log Jensen-Shannon divergence"
+    },
+    "ang_dev_jsd": {
+      "multiplier": 100,
+      "raw_unit": "natural-log Jensen-Shannon divergence"
+    },
+    "length_jsd": {
+      "multiplier": 100,
+      "raw_unit": "natural-log Jensen-Shannon divergence"
+    },
+    "width_jsd": {
+      "multiplier": 100,
+      "raw_unit": "natural-log Jensen-Shannon divergence"
+    },
+    "speed_jsd": {
+      "multiplier": 100,
+      "raw_unit": "natural-log Jensen-Shannon divergence"
+    },
+    "collision_rate": {
+      "multiplier": 100,
+      "raw_unit": "fraction of generated vehicles involved in at least one overlap",
+      "display_unit": "percent"
+    },
+    "definition": "distance.jensenshannon(p,q)**2; distance returns sqrtJSD; evaluator explicitly squares it, default logarithm base is natural. Histogram counts are pooled across vehicles then divergence computed.",
+    "do_not_call_scaled_JSD_percent": true,
+    "native_example": "speed_jsd=2 means rawJSD0.02; lat_dev_jsd=0.2 also means rawJSD0.02. Neither is square-root distance."
+  },
+  "selection_formula": {
+    "primary": "M_arm,k=(1/2)sum_TRAIN [(1/2)sum_GEN metric_arm,TRAIN,GEN,k]; r_k=M_candidate,k/M_control,k; R=(1/7)sum_k r_k; R_attr=(r_length+r_width+r_speed)/3",
+    "units": "dimensionless; each component scale10/100 cancels within its own ratio",
+    "interpretation": "R=.95 means5percent lower mean normalized metric ratios, not5percent gain on every component or5percent accuracy. Means of paired TRAIN ratios are auxiliary and need not equal primary. GEN2 repeats do not make N_TRAIN4.",
+    "sqrt_warning": "Changing JSD to sqrtJSD changes ratios to approximatelysqrt(r) at a single observation and can change average-ratio ranks; no square-root transformation is authorized in selection. Native raw or scaledJSD preserves same per-component ratios.",
+    "gates": "Pooled arm means AND each TRAIN mean: onroad_fraction>=control-.02, generated_vehicle/GT_vehicle in[.9,1.1], each L/W/speed ratio<=1.15. R<1 alone does not suffice.",
+    "TRAIN_roles": {
+      "4817": "adaptive discovery and long-selection seed",
+      "5817": "one independently held TRAIN confirmation seed"
+    },
+    "full50k_no_reselection": true
+  },
+  "evaluation_scope": {
+    "matched_in_both_4096_and50000": true,
+    "4096_unique_manifest_entries": 4096,
+    "4096_unique_original_scenarios_prior_metadata_audit": 4096,
+    "full_native_manifest_entries": 50000,
+    "full_native_unique_cache_names": 50000,
+    "full_unique_raw_keys_prior_actual_metadata_audit": 43601,
+    "full_native_canonical_official_filename_set_matches_DB": true,
+    "4096_canonical_official_filename_membership": true,
+    "canonicalization_evidence": "Native numeric index prefix and .pt wrapper map to original .pkl filename; prior actual metadata audit verified filenames/timesteps. Do not parse terminal suffix as map_id/timestep.",
+    "GT_real_cache": {
+      "num_scenes": 50000,
+      "num_vehicles": 362309,
+      "source_manifest_sha256": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+      "metric_core_sha_matches_current": true
+    },
+    "same_metric_definition_not_same_target_distribution": "4096 matched uses only those selected GT entries;50000 matched pools all official GT entries. On complete membership matched GT histograms/counts equal full_real exactly. Cannot mix rankings across scopes.",
+    "auxiliary_full_reference_field": "full_reference_agent_metrics compares subset generated data against full50kGT when evaluation is partial. It is diagnostic and not the primary matched agent_metrics used for selection.",
+    "population": "Generated type0 vehicles; fixed ego included if vehicle. GT map geometry is used for lane-conditioned metrics; current initialization does not generate lanes. Nearest/L/W/speed/collision use all vehicles, lat/angle only onroad vehicles at lane distance<=1.5m. Generated agents are not culled by GT validity/FOV/offroad filters; optional model existence can apply.",
+    "collision": "Count colliding vehicles, not collision pairs; vehicle-weighted global percentage, not mean scene collision rates. Five-circle overlap helper.",
+    "histograms": "Fixed bins, clipped physical tails; speed1m/s bins cannot identify an exact stationary mass. Ego fixed values contribute to histograms; JSD includes population/type changes.",
+    "full50k_audit_reused_TRAIN": "4817 only,2GEN per arm, not second independent TRAIN test",
+    "full50k_not_strict_unseen": "It includes all4096 selection entries; corpus previously inspected.50k entries are43601 unique original raw keys.4096 is also reused by medium/long selection. Report broader-scope audit, not unseen confirmation."
+  },
+  "metric_source_sha256": {
+    "src/smart/metrics/metric_core.py": "f34ac0a48d9c1ce6e9e7655341aa44c78072b862e2a809f1ec2cc5ce8b3290a3",
+    "src/smart/metrics/gen_metrics.py": "4c5bd2a3cee424aeafd219ce618bea220418536c03e50f09f7926e2e639b437f",
+    "src/smart/metrics/real_cache.py": "efa97bad426624bc7f6a9b80ab50dd0950e77b37a4542813af88c6e5db190a8c",
+    "src/smart/metrics/sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+    "src/smart/metrics/sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+    "src/smart/metrics/official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+  },
+  "source_chain_note": "source_freeze stores model/data/runner hashes. Metric helper source appears in per-GEN official_source_sha256; metric_core SHA is recorded in GT database backend_signature and verified against current source. Current CPU review records remaining evaluator/real-cache file hashes; do not claim their bytes were originally in source_freeze when absent.",
+  "limitations": [
+    "No actual final matrix yet; no winner verified or materialized by this review",
+    "18-arm selection is adaptive; best short-budget result may regress at longer budgets or128epochs",
+    "Equal exposure still allows B/update/EMA dynamics to differ, and novel arms inherit joint-loss+sincos anchor; do not attribute candidate-vs-control change to one added speed feature",
+    "Interrupted stages, prior SIGSEGV attempts, CPU preflight and384-step GPU runtime pilot are excluded from model-selection evidence"
+  ]
+}

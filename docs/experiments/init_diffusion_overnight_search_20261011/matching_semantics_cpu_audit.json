@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "CPU_only": true,
+  "cuda_initialized": false,
+  "separate_type_source_assignment": [
+    0,
+    1,
+    3,
+    2
+  ],
+  "all_type_source_assignment": [
+    1,
+    0,
+    3,
+    2
+  ],
+  "real_targets_unmodified": true,
+  "interpretation": "Complete physical source rows are assigned into unchanged target row order. Separate mode respects scene and GT-type groups; all-type mode mixes class groups only within each scene. Ego exclusion occurs before this function in Flow._sample_noise, verified separately from source."
+}

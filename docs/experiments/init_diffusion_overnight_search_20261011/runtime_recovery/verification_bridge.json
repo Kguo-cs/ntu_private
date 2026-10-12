@@ -1,0 +1,48 @@
+{
+  "status": "VERIFICATION_BRIDGE_EXECUTION",
+  "source_hashes": {
+    "/home/ke/code/sim/tools/bridge_overnight_runtime_completion.py": "f556d677caf0c5ed6fd3e3117a3fca279ce7befef40a946d6de075c7fd746064",
+    "/home/ke/code/sim/tools/runtime_completion.py": "59825756172ddcf454ce9125d20342710dba82402a83ea02dfaee55e3c65f45c"
+  },
+  "original_recovery_protocol_sha256": "d997839675b92d1187de1f3fa90d06c07e59eac2178c1532c018fc56689b6950",
+  "original_recovery_controller_sha256": "4a0024efc4980a37ea250538ddda00ef7956619814639404d26259cafcec61b0",
+  "frozen_long_protocol_sha256": "db21dcfe91c2798b38da0bfbac85e14aac25d876f6994f6f244204d802d01ffa",
+  "repair": "Authenticate DONE + exact runtime success suffix/policy; preserve raw log hash. No objective/runtime/data/budget changes.",
+  "no_training_or_evaluation_fabricated": true,
+  "fresh_remaining_training": true,
+  "actual_stages": [
+    {
+      "stage": "long_seed4817_control",
+      "status": "success",
+      "actual_completion_certifiable": false
+    },
+    {
+      "stage": "long_seed4817_separate_speed",
+      "status": "completed",
+      "actual_completion_certifiable": true
+    },
+    {
+      "stage": "long_seed5817_control",
+      "status": "not_started",
+      "actual_completion_certifiable": false
+    },
+    {
+      "stage": "long_seed5817_separate_speed",
+      "status": "not_started",
+      "actual_completion_certifiable": false
+    },
+    {
+      "stage": "full50000_seed4817_control",
+      "status": "not_started",
+      "actual_completion_certifiable": false
+    },
+    {
+      "stage": "full50000_seed4817_separate_speed",
+      "status": "not_started",
+      "actual_completion_certifiable": false
+    }
+  ],
+  "certifiable_stages": [
+    "long_seed4817_separate_speed"
+  ]
+}

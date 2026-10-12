@@ -1,0 +1,564 @@
+{
+  "created_utc": "2026-10-11T21:11:24.808898+00:00",
+  "purpose": "Raster contact sheets for visual QA; no PDF creation or completion claim",
+  "full_resolution_individual_inspection_required": true,
+  "sources": [
+    {
+      "ordinal": 1,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-01.png",
+      "filename": "page-01.png",
+      "sha256": "eef468fc38a3348bf1e722d68b826dff33e30a7e53fa8ccac201c566fc00fc65",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 2,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-02.png",
+      "filename": "page-02.png",
+      "sha256": "455c0135a0ec82e975d6f0a55cbfac9d14bc632bdda8bc7e406ee0c943a80a0d",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 3,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-03.png",
+      "filename": "page-03.png",
+      "sha256": "19d4e172f7b0cafe38a506f113573f0d1203c973c9804f87ac6514e6f96de6ad",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 4,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-04.png",
+      "filename": "page-04.png",
+      "sha256": "c6d0f420158bd0724ad89ac41430af4a45a4853eb99e41fd031ead4026c33986",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 5,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-05.png",
+      "filename": "page-05.png",
+      "sha256": "76666b8b09b4024a873aaca14a61d5300ff199b4f7e9c7d94ed1771df396ee4a",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 6,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-06.png",
+      "filename": "page-06.png",
+      "sha256": "ea451c356b02b0a415c16457f3345437e720efd9724b3594b57b87d9709d3029",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 7,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-07.png",
+      "filename": "page-07.png",
+      "sha256": "e7992441315c5ca1f0c6c240868b47948cd6c97ec9b51852f08b25b26b1c8791",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 8,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-08.png",
+      "filename": "page-08.png",
+      "sha256": "76f321720f6b080386cd54c5d462e883ec87213f7e67d3662a5c35eadc8f0657",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 9,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-09.png",
+      "filename": "page-09.png",
+      "sha256": "7da957515206a2f9569103c8dc4d7976d9ee9d9726ced8b97336e512e5f1dde0",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 10,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-10.png",
+      "filename": "page-10.png",
+      "sha256": "04565559a9db8ce06dedad1cffea231c96f5ef9b48b809c9015bb95552c453a8",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 11,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-11.png",
+      "filename": "page-11.png",
+      "sha256": "f3e1f305de63a17a3845d573d40c752766ff4a0d501a98384e938e563c99ffac",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 12,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-12.png",
+      "filename": "page-12.png",
+      "sha256": "ae4aa87c8f2cdcbc09dbfbd853d5fac963c03c061a79cbf09f5a355555688f1c",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 13,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-13.png",
+      "filename": "page-13.png",
+      "sha256": "b53b667e44ab648b408ac40169282155dd87ba32694f26f68c752b912564fd53",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 14,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-14.png",
+      "filename": "page-14.png",
+      "sha256": "d3a3337e6ecd0e9884bf3f7be4a50bd39b59ae5584d27a1433f96722ad500148",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 15,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-15.png",
+      "filename": "page-15.png",
+      "sha256": "b96e5c6a17b80b77bdcf7e0585a2c9be68a3439e556cffce48822583dcf03a84",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 16,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-16.png",
+      "filename": "page-16.png",
+      "sha256": "fe8aa861162210cb2a3bbc62e1e9df740982cb48a1a97719a6af69030b7deb1c",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    },
+    {
+      "ordinal": 17,
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-17.png",
+      "filename": "page-17.png",
+      "sha256": "70f58ed0c207bf977a3d62a41f2f7b7aef298cd6ad95dcee744cfe70c1d4550a",
+      "width": 827,
+      "height": 1170,
+      "format": "PNG",
+      "mode": "RGB"
+    }
+  ],
+  "sheets": [
+    {
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft_montages/montage_01.png",
+      "sha256": "97b44301105641c75cd64ce4382640816dbe7f8f503e591110497dfb87919272",
+      "width": 1272,
+      "height": 1870,
+      "placements": [
+        {
+          "ordinal": 1,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-01.png",
+          "cell_xyxy": [
+            18,
+            80,
+            418,
+            640
+          ],
+          "image_xyxy": [
+            57,
+            98,
+            378,
+            552
+          ],
+          "rendered_labels": [
+            "001  page-01.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 2,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-02.png",
+          "cell_xyxy": [
+            436,
+            80,
+            836,
+            640
+          ],
+          "image_xyxy": [
+            475,
+            98,
+            796,
+            552
+          ],
+          "rendered_labels": [
+            "002  page-02.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 3,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-03.png",
+          "cell_xyxy": [
+            854,
+            80,
+            1254,
+            640
+          ],
+          "image_xyxy": [
+            893,
+            98,
+            1214,
+            552
+          ],
+          "rendered_labels": [
+            "003  page-03.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 4,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-04.png",
+          "cell_xyxy": [
+            18,
+            658,
+            418,
+            1218
+          ],
+          "image_xyxy": [
+            57,
+            676,
+            378,
+            1130
+          ],
+          "rendered_labels": [
+            "004  page-04.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 5,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-05.png",
+          "cell_xyxy": [
+            436,
+            658,
+            836,
+            1218
+          ],
+          "image_xyxy": [
+            475,
+            676,
+            796,
+            1130
+          ],
+          "rendered_labels": [
+            "005  page-05.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 6,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-06.png",
+          "cell_xyxy": [
+            854,
+            658,
+            1254,
+            1218
+          ],
+          "image_xyxy": [
+            893,
+            676,
+            1214,
+            1130
+          ],
+          "rendered_labels": [
+            "006  page-06.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 7,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-07.png",
+          "cell_xyxy": [
+            18,
+            1236,
+            418,
+            1796
+          ],
+          "image_xyxy": [
+            57,
+            1254,
+            378,
+            1708
+          ],
+          "rendered_labels": [
+            "007  page-07.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 8,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-08.png",
+          "cell_xyxy": [
+            436,
+            1236,
+            836,
+            1796
+          ],
+          "image_xyxy": [
+            475,
+            1254,
+            796,
+            1708
+          ],
+          "rendered_labels": [
+            "008  page-08.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 9,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-09.png",
+          "cell_xyxy": [
+            854,
+            1236,
+            1254,
+            1796
+          ],
+          "image_xyxy": [
+            893,
+            1254,
+            1214,
+            1708
+          ],
+          "rendered_labels": [
+            "009  page-09.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        }
+      ]
+    },
+    {
+      "path": "/home/ke/code/sim/tmp/pdfs/overnight_draft_montages/montage_02.png",
+      "sha256": "6e00e09e4e4845a17eb7691a7b214ad38d511026292ca8af1ec6d73262f254d8",
+      "width": 1272,
+      "height": 1870,
+      "placements": [
+        {
+          "ordinal": 10,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-10.png",
+          "cell_xyxy": [
+            18,
+            80,
+            418,
+            640
+          ],
+          "image_xyxy": [
+            57,
+            98,
+            378,
+            552
+          ],
+          "rendered_labels": [
+            "010  page-10.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 11,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-11.png",
+          "cell_xyxy": [
+            436,
+            80,
+            836,
+            640
+          ],
+          "image_xyxy": [
+            475,
+            98,
+            796,
+            552
+          ],
+          "rendered_labels": [
+            "011  page-11.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 12,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-12.png",
+          "cell_xyxy": [
+            854,
+            80,
+            1254,
+            640
+          ],
+          "image_xyxy": [
+            893,
+            98,
+            1214,
+            552
+          ],
+          "rendered_labels": [
+            "012  page-12.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 13,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-13.png",
+          "cell_xyxy": [
+            18,
+            658,
+            418,
+            1218
+          ],
+          "image_xyxy": [
+            57,
+            676,
+            378,
+            1130
+          ],
+          "rendered_labels": [
+            "013  page-13.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 14,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-14.png",
+          "cell_xyxy": [
+            436,
+            658,
+            836,
+            1218
+          ],
+          "image_xyxy": [
+            475,
+            676,
+            796,
+            1130
+          ],
+          "rendered_labels": [
+            "014  page-14.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 15,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-15.png",
+          "cell_xyxy": [
+            854,
+            658,
+            1254,
+            1218
+          ],
+          "image_xyxy": [
+            893,
+            676,
+            1214,
+            1130
+          ],
+          "rendered_labels": [
+            "015  page-15.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 16,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-16.png",
+          "cell_xyxy": [
+            18,
+            1236,
+            418,
+            1796
+          ],
+          "image_xyxy": [
+            57,
+            1254,
+            378,
+            1708
+          ],
+          "rendered_labels": [
+            "016  page-16.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        },
+        {
+          "ordinal": 17,
+          "source_path": "/home/ke/code/sim/tmp/pdfs/overnight_draft/page-17.png",
+          "cell_xyxy": [
+            436,
+            1236,
+            836,
+            1796
+          ],
+          "image_xyxy": [
+            475,
+            1254,
+            796,
+            1708
+          ],
+          "rendered_labels": [
+            "017  page-17.png"
+          ],
+          "source_aspect_ratio": 0.7068376068376069,
+          "source_pixels_cropped": false
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "columns": 3,
+    "max_rows_per_sheet": 3,
+    "cell_width": 400,
+    "cell_height": 560,
+    "gap": 18,
+    "font_size": 20,
+    "font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "upscale": false,
+    "preserve_aspect_ratio": true,
+    "crop_sources": false
+  }
+}

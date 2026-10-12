@@ -1,0 +1,26 @@
+{
+  "recorded_utc": "2026-10-11T21:42:42.576659+00:00",
+  "scope": "Read-only actual consumer audit; synthetic regressions excluded from search evidence",
+  "actual_verified_stages": 22,
+  "actual_observations": 54,
+  "all7_native_metrics_exact_equal_actual_summary": true,
+  "semantic_policy": "Remove only runtime cyclic_gc_policy; preserve metric/helper/manifest/model_data_source/precision/sampling/conditioning scope",
+  "completed_actual_runtime_cohorts": [
+    "b31f8e05a84274768d99fb80df8709ee94ca1beef0aed4773656b4aadd2452d3"
+  ],
+  "current_cached_recovery_stage_included": false,
+  "cpu_regressions_passed": 3,
+  "regressions": [
+    "twoGCpolicies same semantics cancompare butruntimeIDs retained",
+    "different model source/data/precision split",
+    "extra loader/helper/entrypoint SHAs retained"
+  ],
+  "source_sha256": {
+    "/home/ke/code/sim/tools/overnight_search_analysis.py": "763a73bb976bc5343818cee3fd273888e45026274420a29726b5af6570f0c401",
+    "/home/ke/code/sim/tools/runtime_completion.py": "59825756172ddcf454ce9125d20342710dba82402a83ea02dfaee55e3c65f45c",
+    "/home/ke/code/sim/tools/build_overnight_search_report.py": "310f1a546319ded15f5e556f21b55b318cbf8bbbcb760549fcb496eb57bed9ca"
+  },
+  "warnings": [],
+  "torch_imported": false,
+  "GPU_started": false
+}

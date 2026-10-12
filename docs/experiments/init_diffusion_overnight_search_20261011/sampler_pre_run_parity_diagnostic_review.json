@@ -1,0 +1,414 @@
+{
+  "created_UTC": "2026-10-11T22:37:47.802889+00:00",
+  "CPU_only": true,
+  "GPU_started": false,
+  "checkpoint_payload_loaded": false,
+  "model_instantiated": false,
+  "main_source_or_locked_wrapper_modified": false,
+  "sampler_driver_modified": false,
+  "status": "SOURCE_AND_CPU_FIXTURES_READY; ACTUAL_DEFAULT20_PARITY_NOT_YET_MEASURED",
+  "source_sha256": {
+    "tools/evaluate_init_diffusion_sampler.py": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+    "tools/test_init_diffusion_sampler_evaluation.py": "a9e0888b4023d7b60c22d48653681b83f9f58167d0fed22eab6aee51c1358ef3",
+    "tools/runtime_completion.py": "59825756172ddcf454ce9125d20342710dba82402a83ea02dfaee55e3c65f45c",
+    "tools/runtime_cached_torch_loader_sweep.py": "e4f590c2eb6222a0e475a26bc7fc5330e20cd65fea67fa393b1e53feb9fd0e22",
+    "tools/torch_pickle_class_cache.py": "2b48ce50a16bc861e7f34a1ddc6d146dd64aeefb5b1b90bb5216804753f93b96",
+    "src/run.py": "1902fbaae5fe1f074ed28b8ea26cbc57e48ba7f6ea67edd9b488c4b8212f1adc",
+    "src/smart/diffusion/initial_diffusion.py": "1e81582e5444fbe7f210d8b451bf640d59342ec2507d01f20859b0fad61d5fe4",
+    "src/smart/diffusion/denoiser.py": "b79ab73603b4975d5337567b84c7eed69a8367804214c12ad172b4ddc6274de7",
+    "src/smart/diffusion/scale_flow.py": "829634ce03409f782c69c2758812f04c87c20ef172d4bb84ecfc194c27169c09",
+    "src/smart/model/smart.py": "76c9cf51ce5824cba1f64e69bc9af2d3b09e212ff704d40722a8db17692a6e3d",
+    "src/smart/model/smart_gail.py": "ea157ca704aecad732350ef77ac5cc2b5c42425c064fe03d4eabaae4203f6a20",
+    "src/smart/modules/smart_decoder.py": "a81bc87f96d873aa0c9d56912e38299805d7a9ec031abb81325b105251585ee3",
+    "src/smart/datamodules/scalable_datamodule.py": "47315762bcd1ed623d4f23697c6cd97c6d4a553f86ee3e7a7a89c580a49c339b",
+    "src/smart/datamodules/target_builder.py": "83a49d0bb79fe1c562205333d601ed5489e644ab656316bb6603785ace549f1e",
+    "src/smart/datasets/scalable_dataset.py": "2599f5bc7bb60d3a799fb8d18f37fe4c7125292aa96a80bec78183904750bb7f",
+    "src/smart/tokens/token_processor.py": "bf6ecf954f1f1db97da82229dde4aee2c15cce5a661eca9e077574c1a0c9435b",
+    "src/smart/tokens/map_traj_token5.pkl": "efc4aa79d57cd60aba257bbb2cc2262e13043d545f5e02d9b483a5c1d1926d8a",
+    "src/smart/tokens/agent_vocab_555_s2.pkl": "e6bf8eff32497eaefca66f488dda1edefe97ed2696d1d23c01839dc27422408e",
+    "src/smart/metrics/gen_metrics.py": "4c5bd2a3cee424aeafd219ce618bea220418536c03e50f09f7926e2e639b437f",
+    "src/smart/metrics/metric_core.py": "f34ac0a48d9c1ce6e9e7655341aa44c78072b862e2a809f1ec2cc5ce8b3290a3",
+    "src/smart/metrics/metadata_adapter.py": "ccdaba4868ca70c4953943431683cc8a5b9a000bf79bd83466d27592c3eb4ba6"
+  },
+  "CPU_fixture_tests": {
+    "count": 18,
+    "PASS": true,
+    "Torch_imported": false,
+    "GC_policy": "automatic/explicit GC off in isolated CPU fixture process; successful hardexit"
+  },
+  "manifest": {
+    "path": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.json",
+    "json_SHA256": "9cef282172231663292f3af362bb96c652a44dc10a55e3b5264fd57fa9576e03",
+    "canonical_order_SHA256": "66e4fb74292d2c5587a6214e70f3ed21f8a2e5d7e26c5687fdc146ca5d623a3b",
+    "unique_scenes": 4096
+  },
+  "actual_long_evidence": [
+    {
+      "TRAIN_seed": 4817,
+      "arm": "control",
+      "expected_endpoint_updates": 10240,
+      "folder": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_control",
+      "config_present": true,
+      "execution_status": "success",
+      "config_sha256": "5ef7fdb25c86e9e102515a7e8cb4070268de2c51c7d2ab731f370534f4ca0c6c",
+      "evaluation_batch_size": 128,
+      "workers": 0,
+      "pin_memory": false,
+      "persistent_workers": false,
+      "CPU_builder_all_other_model_and_conditioning_options_exactly_inherited": true,
+      "actual_summary_row_count": 6,
+      "actual_endpoint_GEN_seeds": [
+        2817,
+        3817
+      ],
+      "endpoint_reports": [
+        {
+          "GEN_seed": 2817,
+          "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_control/control/eval_step_10240/ema/sd_agent_metrics.json",
+          "SHA256": "dcbe4cbda792910e02ba3680206ddfdef2dc0fdf08ab57f41892ed2ed5c2c29e",
+          "manifest_SHA256": "66e4fb74292d2c5587a6214e70f3ed21f8a2e5d7e26c5687fdc146ca5d623a3b",
+          "reference_metadata": {
+            "reference_mode": "matched",
+            "map_source": "reference",
+            "eval_set_sha256": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+            "official_source_sha256": {
+              "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+              "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+              "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+            },
+            "reference_source_manifest_sha256": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+            "real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+            "num_samples": 4096,
+            "num_gt_samples": 4096,
+            "num_gt_vehicles": 29698,
+            "feature_counts_gt": [
+              29414,
+              29526,
+              29526,
+              29698,
+              29698,
+              29698
+            ],
+            "unverified_generation_timestep_count": 0,
+            "gt_feature_recomputations_this_epoch": 0
+          },
+          "runtime": {
+            "torch_version": "2.7.0+cu128",
+            "cuda_version": "12.8",
+            "float32_matmul_precision": "medium",
+            "torch_initial_seed": 2817,
+            "trainer_precision": "32-true"
+          },
+          "EMA_num_updates": 10240,
+          "use_ema": true,
+          "sampling_steps": 20
+        },
+        {
+          "GEN_seed": 3817,
+          "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_control/control/eval_step_10240/eval_seed_3817/ema/sd_agent_metrics.json",
+          "SHA256": "f7966f3d81440d0e8cac145433cd8c537dc7e38415cabbb204cf43203c406599",
+          "manifest_SHA256": "66e4fb74292d2c5587a6214e70f3ed21f8a2e5d7e26c5687fdc146ca5d623a3b",
+          "reference_metadata": {
+            "reference_mode": "matched",
+            "map_source": "reference",
+            "eval_set_sha256": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+            "official_source_sha256": {
+              "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+              "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+              "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+            },
+            "reference_source_manifest_sha256": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+            "real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+            "num_samples": 4096,
+            "num_gt_samples": 4096,
+            "num_gt_vehicles": 29698,
+            "feature_counts_gt": [
+              29414,
+              29526,
+              29526,
+              29698,
+              29698,
+              29698
+            ],
+            "unverified_generation_timestep_count": 0,
+            "gt_feature_recomputations_this_epoch": 0
+          },
+          "runtime": {
+            "torch_version": "2.7.0+cu128",
+            "cuda_version": "12.8",
+            "float32_matmul_precision": "medium",
+            "torch_initial_seed": 3817,
+            "trainer_precision": "32-true"
+          },
+          "EMA_num_updates": 10240,
+          "use_ema": true,
+          "sampling_steps": 20
+        }
+      ]
+    },
+    {
+      "TRAIN_seed": 4817,
+      "arm": "separate_speed",
+      "expected_endpoint_updates": 20480,
+      "folder": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed",
+      "config_present": true,
+      "execution_status": "success",
+      "config_sha256": "fb8b77636e5ccf439f7a9c76543743ce9316aef535274bd1bbd5b58d40b434a5",
+      "evaluation_batch_size": 128,
+      "workers": 0,
+      "pin_memory": false,
+      "persistent_workers": false,
+      "CPU_builder_all_other_model_and_conditioning_options_exactly_inherited": true,
+      "actual_summary_row_count": 6,
+      "actual_endpoint_GEN_seeds": [
+        2817,
+        3817
+      ],
+      "endpoint_reports": [
+        {
+          "GEN_seed": 2817,
+          "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/eval_step_20480/ema/sd_agent_metrics.json",
+          "SHA256": "21edd7f1b839527dc72f286c3313f8bef6da7e8536e4504cddb7687d4b6442aa",
+          "manifest_SHA256": "66e4fb74292d2c5587a6214e70f3ed21f8a2e5d7e26c5687fdc146ca5d623a3b",
+          "reference_metadata": {
+            "reference_mode": "matched",
+            "map_source": "reference",
+            "eval_set_sha256": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+            "official_source_sha256": {
+              "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+              "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+              "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+            },
+            "reference_source_manifest_sha256": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+            "real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+            "num_samples": 4096,
+            "num_gt_samples": 4096,
+            "num_gt_vehicles": 29698,
+            "feature_counts_gt": [
+              29414,
+              29526,
+              29526,
+              29698,
+              29698,
+              29698
+            ],
+            "unverified_generation_timestep_count": 0,
+            "gt_feature_recomputations_this_epoch": 0
+          },
+          "runtime": {
+            "torch_version": "2.7.0+cu128",
+            "cuda_version": "12.8",
+            "float32_matmul_precision": "medium",
+            "torch_initial_seed": 2817,
+            "trainer_precision": "32-true"
+          },
+          "EMA_num_updates": 20480,
+          "use_ema": true,
+          "sampling_steps": 20
+        },
+        {
+          "GEN_seed": 3817,
+          "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/eval_step_20480/eval_seed_3817/ema/sd_agent_metrics.json",
+          "SHA256": "6bdf645a5d5894ba1b772c7bfb0a8c6915b16777210cb2b8ee4a70c34f871c74",
+          "manifest_SHA256": "66e4fb74292d2c5587a6214e70f3ed21f8a2e5d7e26c5687fdc146ca5d623a3b",
+          "reference_metadata": {
+            "reference_mode": "matched",
+            "map_source": "reference",
+            "eval_set_sha256": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+            "official_source_sha256": {
+              "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+              "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+              "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+            },
+            "reference_source_manifest_sha256": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+            "real_cache": "/home/ke/code/sim/src/waymo_data/sd_real_metric_cache.sqlite",
+            "num_samples": 4096,
+            "num_gt_samples": 4096,
+            "num_gt_vehicles": 29698,
+            "feature_counts_gt": [
+              29414,
+              29526,
+              29526,
+              29698,
+              29698,
+              29698
+            ],
+            "unverified_generation_timestep_count": 0,
+            "gt_feature_recomputations_this_epoch": 0
+          },
+          "runtime": {
+            "torch_version": "2.7.0+cu128",
+            "cuda_version": "12.8",
+            "float32_matmul_precision": "medium",
+            "torch_initial_seed": 3817,
+            "trainer_precision": "32-true"
+          },
+          "EMA_num_updates": 20480,
+          "use_ema": true,
+          "sampling_steps": 20
+        }
+      ]
+    },
+    {
+      "TRAIN_seed": 5817,
+      "arm": "control",
+      "expected_endpoint_updates": 10240,
+      "folder": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed5817_control",
+      "config_present": true,
+      "execution_status": "running",
+      "config_sha256": "597e2b8de45b22f88835d879780b6b818949b2e330e67538ede39488fc3600eb",
+      "evaluation_batch_size": 128,
+      "workers": 0,
+      "pin_memory": false,
+      "persistent_workers": false,
+      "CPU_builder_all_other_model_and_conditioning_options_exactly_inherited": true
+    },
+    {
+      "TRAIN_seed": 5817,
+      "arm": "separate_speed",
+      "expected_endpoint_updates": 20480,
+      "folder": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed5817_separate_speed",
+      "config_present": false,
+      "execution_status": null
+    }
+  ],
+  "normalizer": {
+    "TRAIN_statistics_path": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "file_SHA256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+    "normal_mean": [
+      [
+        1.9189387777302696,
+        1.364083472300625,
+        0.4086773514423735,
+        -0.005501848496799829,
+        4.296037481186671,
+        1.9575884685249392,
+        4.3793590289782145
+      ]
+    ],
+    "normal_scale": [
+      [
+        16.672553895005056,
+        11.943502916226873,
+        0.7719222038762955,
+        0.4869175122116542,
+        1.5381454558430123,
+        0.4944140599014441,
+        5.575545520110632
+      ]
+    ],
+    "all_zero_mean": false,
+    "source_verified": {
+      "sweep_calibrate": "copies persistent normal_mean/normal_scale and verifies nonzero mean; does not set _normalizer_from_file",
+      "native_startup": "builder clears normalizer_path; strict trained checkpoint restores persistent normalizer buffers",
+      "lazy_init_guard": "Denoiser._maybe_init_normalizer first tests _normalizer_from_file then returns when not all normal_mean==0",
+      "conclusion": "The runtime-only _normalizer_from_file flag is not a known main/native mismatch for this nonzero calibrated mean. Actual checkpoint calibration equality is checked by materializer; source reading does not substitute for actual final metadata."
+    }
+  },
+  "native_main_parity_conditions": {
+    "checkpoint_and_EMA": [
+      "Use selected actual saved last.ckpt matching source model config and final endpoint budget; file/config SHA checked against actual materializer proof.",
+      "Native src.run.test restores state_dict via Lightning strict_loading=True by default; InitDiffusion post-load validates parameter names/shapes and restores EMA shadow params and num_updates. TEST never loads training optimizer/scheduler/RNG.",
+      "Hook refuses wrong EMA budget/use_ema=false/non-TEST/fit/use_sde=true. Evaluation average_parameters swaps actual G1 parameters only; shared frozen map and normalizer buffers remain checkpoint state.",
+      "Sampling steps are a constructor scalar absent from persistent state/extra_state; t_eps override happens after checkpoint load and only inside TEST. component_loss and EMA count must remain unchanged."
+    ],
+    "random_stream": [
+      "Main reseeds GEN after instantiate+strict load/calibration before new Trainer.test; native src.run initially seeds TRAIN, then hook resets GEN postload on_test_start.",
+      "Installed Lightning creates DataLoader iterator before on_test_start. Its CPU base_seed draw therefore occurs before native reset, but after main reset. Python/NumPy/CPU RNG state cannot be claimed equal.",
+      "Current eval transform and tokenization paths have no random source draw; current physical/type noise and circular-heading torch.rand_like are on agent latent CUDA device. Same B128/order implies expected same CUDA Philox shape/sequence, not an observed proof.",
+      "torch_initial_seed is a seed identifier, not actual RNG state. Equal identifier alone cannot certify source noise identity."
+    ],
+    "data_and_physical_metrics": [
+      "Exact ordered4096 canonical filename manifest, MultiDataset list order, deterministic WaymoTargetBuilderVal, workers0/testshuffle=false/drop_last=false.",
+      "Same actual batch128 is inherited and hook verifies32 completed batches; same seed with different batch splitting would not imply equal CUDA noise.",
+      "Matched GT, reference physical map, raw timestep verified, official SQL GT metadata/source identity, generated vehicle-type filtering including ego, identical source histogram bins/scales.",
+      "Native report lacks wrapper-added full_reference_agent_metrics and feature_histograms.json; derive onroad fractions from native feature_counts. This is no primary metric-definition change.",
+      "Ratios and parity use native scaled Jensen-Shannon divergence: scipy jensenshannon(p,q)**2 times10/100. Use actual JSON values directly; never square or square-root them again."
+    ],
+    "precision": [
+      "Same singleGPU/32-true/medium float32 matmul settings; frozen modelconfig/weights/conditioning inherited. Native model eval mode disables dropout.",
+      "Source main deterministic=false; nondeterministic geometry/matmul reductions are not categorically bitwise guaranteed. Actual <=1e-6 numerical parity gate is authoritative."
+    ],
+    "default20_gate": {
+      "default_option": "n20_eps005",
+      "actual_GEN_cells_required": 4,
+      "run_before_changed_options": true,
+      "absolute_tolerance_native_units": 1e-06,
+      "relative_tolerance": 0,
+      "action_if_any_failure": "Stop grid; preserve native sd_agent_metrics.json/sampler_audit.json/default20_main_endpoint_comparison.json + raw log + failed execution.json. Never interpret or select changed-step rows until cause and parity are resolved.",
+      "statement_if_PASS": "Practical seven-metric reproduction within the prespecified tolerance; not proof of bitwise source noise identity."
+    }
+  },
+  "failure_triage_order": [
+    {
+      "priority": 1,
+      "check": "Verify actual failed child returncode/logmarker and artifact hashes; do not treat incomplete output/exit139 as metric result.",
+      "evidence": "cell .execution.json/.log and native report/audit/parity JSON; source/helper/entry SHA locked."
+    },
+    {
+      "priority": 2,
+      "check": "Compare exact main versus native reference report fields and feature_counts_gt/num_gt_vehicles.",
+      "interpretation": "Any GT count/source/timestep/membership mismatch identifies an input/reference issue before studying generated noise."
+    },
+    {
+      "priority": 3,
+      "check": "Compare source config, checkpoint SHA, native EMA budget/conditioning, generated vehicle count and per-feature counts.",
+      "interpretation": "Changed type/count output can arise from RNG/batch/model condition differences; count mismatch alone does not locate the cause."
+    },
+    {
+      "priority": 4,
+      "check": "Inspect actual CUDA RNG sequence and first-batch tensors only in a separate diagnostic child, no frozen source edits: hashes of RNG state immediately postreset/pre-first-sample, gen_noise, separate type source, generated physical states/types, effective G1 EMA parameters/map/normalizer buffers.",
+      "interpretation": "Use same selected checkpoint and128 ordered first batch in existing sweep eval-only plus native hook; do not enter first-batch metrics into model or sampler ranking."
+    },
+    {
+      "priority": 5,
+      "check": "If noise/weights/input hashes match but outputs differ, inspect dtype/device/matmul flags and nonlinear geometry boundary amplification; if physical output hashes match but metrics differ, inspect reference lanes and local helper/bin/accumulation hashes.",
+      "interpretation": "Do not infer that only heading/shape or only collision deltas establish a specific bug; histogram bins/onroad boundaries can amplify small output differences."
+    },
+    {
+      "priority": 6,
+      "check": "Resolve by one documented inference-only runtime adjustment and restart under a new driver hash/output cohort if necessary; never silently loosen1e-6 tolerance, alter main metrics/filters, or count failed/partial cells as complete.",
+      "interpretation": "Frozen training recipe/objective/mainselection stay unchanged; any new inference cohort gets explicit source/provenance."
+    }
+  ],
+  "nonpersistent_resource_watchlist": {
+    "note": "Main stage source_freeze does not enumerate all metric/helper or token-library files. Current hashes and actual report official-source/GT fingerprints are recorded here; source equality should be checked if native parity fails. No metric/data filtering change is proposed.",
+    "metric_files": [
+      "src/smart/metrics/gen_metrics.py",
+      "src/smart/metrics/metric_core.py",
+      "src/smart/metrics/metadata_adapter.py"
+    ],
+    "token_library_files": [
+      "src/smart/tokens/map_traj_token5.pkl",
+      "src/smart/tokens/agent_vocab_555_s2.pkl"
+    ]
+  },
+  "old_native_review_source_hash_match": {
+    "src/run.py": true,
+    "src/smart/model/smart.py": true,
+    "src/smart/model/smart_gail.py": true,
+    "src/smart/diffusion/initial_diffusion.py": true,
+    "src/smart/diffusion/scale_flow.py": true,
+    "src/smart/diffusion/denoiser.py": true,
+    "src/smart/modules/smart_decoder.py": true,
+    "src/smart/metrics/gen_metrics.py": true,
+    "src/smart/datamodules/scalable_datamodule.py": true,
+    "src/smart/datasets/scalable_dataset.py": true
+  },
+  "main_completion_not_assumed": {
+    "final_selection_present": false,
+    "native_materialization_present": false,
+    "queue_complete_content": {
+      "status": "RECOVERING",
+      "complete_final_matrix": false,
+      "complete_full50000_audit": false,
+      "recovery_ledger": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/runtime_recovery/protocol.json"
+    },
+    "no_partial_ranking_made": true,
+    "sampler_actual_rows_present": false
+  },
+  "wording_correction": {
+    "UTC": "2026-10-12T00:22:54.315833+00:00",
+    "scope": "This artifact previously called native values sqrtJSD; source finalize_metrics explicitly squares the distance. Wording corrected only; no model/metrics/selection code or reported numbers changed."
+  }
+}

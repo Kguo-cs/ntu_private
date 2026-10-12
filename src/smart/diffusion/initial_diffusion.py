@@ -78,6 +78,17 @@ class InitDiffusion(nn.Module):
         ego_context_heading_encoding: str = "angle",
         component_loss: Optional[Mapping[str, Any]] = None,
         normalizer_path: Optional[str] = None,
+        matching_weights: Optional[Mapping[str, float]] = None,
+        time_sample_power: float = 1.0,
+        distribution_loss: Optional[Mapping[str, Any]] = None,
+        denoiser_hidden_dim: Optional[int] = None,
+        denoiser_num_layers: Optional[int] = None,
+        sampling_steps: Optional[int] = None,
+        state_feature_normalization: str = "none",
+        speed_x0_parameterization: str = "identity",
+        speed_head_kind: str = "shared",
+        speed_head_detach_context: bool = False,
+        map_condition_types: str = "road_edges",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -86,6 +97,11 @@ class InitDiffusion(nn.Module):
             raise ValueError("edge_embedding_type must be 'fourier' or 'mlp'.")
 
         self.token_processor = token_processor
+        if map_condition_types not in ("road_edges", "lanes_and_edges"):
+            raise ValueError("map_condition_types must be road_edges or lanes_and_edges")
+        # The same fixed encoder can expose lane-centre queries as well as
+        # road-edge queries. Its weights and attention keys remain unchanged.
+        token_processor.init_map_output_types = map_condition_types
         self.edge_embedding_type = edge_embedding_type
         if velocity_representation not in ("vector", "speed"):
             raise ValueError("velocity_representation must be vector or speed")
@@ -102,6 +118,26 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
 
         args = self._make_args( )
+        denoiser_hidden_dim = args.hidden_dim if denoiser_hidden_dim is None else denoiser_hidden_dim
+        denoiser_num_layers = args.num_denoiser_layers if denoiser_num_layers is None else denoiser_num_layers
+        sampling_steps = args.sampling_steps if sampling_steps is None else sampling_steps
+        for name, value in (("denoiser_hidden_dim", denoiser_hidden_dim),
+                            ("denoiser_num_layers", denoiser_num_layers),
+                            ("sampling_steps", sampling_steps)):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+        if denoiser_hidden_dim % args.num_heads:
+            raise ValueError("denoiser_hidden_dim must be divisible by the attention head count")
+        args.hidden_dim = denoiser_hidden_dim
+        args.num_denoiser_layers = denoiser_num_layers
+        args.sampling_steps = sampling_steps
+        args.matching_weights = matching_weights
+        args.time_sample_power = time_sample_power
+        args.distribution_loss = distribution_loss
+        args.state_feature_normalization = state_feature_normalization
+        args.speed_x0_parameterization = speed_x0_parameterization
+        args.speed_head_kind = speed_head_kind
+        args.speed_head_detach_context = speed_head_detach_context
         args.velocity_representation = velocity_representation
         args.size_representation = size_representation
         if not isinstance(fix_ego, bool):
@@ -173,6 +209,13 @@ class InitDiffusion(nn.Module):
         self.heading_x0_loss = args.heading_x0_loss = heading_x0_loss
         args.component_loss = component_loss
         self.G1 = Flow(args, token_processor, gail)
+        self.denoiser_options = {
+            "denoiser_hidden_dim": denoiser_hidden_dim, "denoiser_num_layers": denoiser_num_layers,
+            "state_feature_normalization": state_feature_normalization,
+            "speed_x0_parameterization": speed_x0_parameterization,
+            "speed_head_kind": speed_head_kind, "speed_head_detach_context": speed_head_detach_context,
+            "map_condition_types": map_condition_types,
+        }
         self.normalizer_path = None
         if normalizer_path is not None:
             self._load_train_normalizer(normalizer_path)
@@ -252,6 +295,7 @@ class InitDiffusion(nn.Module):
     def get_extra_state(self):
         return {
             "size_representation": self.size_representation,
+            "denoiser_options": self.denoiser_options,
             "component_loss": self.component_loss,
             "generate_type": self.generate_type,
             "type_process": self.type_process,
@@ -270,6 +314,13 @@ class InitDiffusion(nn.Module):
         if not isinstance(state, Mapping):
             raise ValueError("InitDiffusion extra state must be a mapping")
         saved_size_mode = state.get("size_representation", "linear")
+        legacy_options = {"denoiser_hidden_dim": 256, "denoiser_num_layers": 3,
+                          "state_feature_normalization": "none", "speed_x0_parameterization": "identity",
+                          "speed_head_kind": "shared", "speed_head_detach_context": False,
+                          "map_condition_types": "road_edges"}
+        saved_options = dict(legacy_options, **state.get("denoiser_options", {}))
+        if saved_options != self.denoiser_options:
+            raise ValueError("Checkpoint denoiser options differ from configured x0 model; use its saved config")
         if saved_size_mode != self.size_representation:
             raise ValueError(f"InitDiffusion checkpoint size_representation={saved_size_mode!r} "
                              f"does not match configured {self.size_representation!r}; "

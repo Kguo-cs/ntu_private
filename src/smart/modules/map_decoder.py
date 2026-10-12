@@ -32,6 +32,19 @@ from src.smart.utils import (
 from src.smart.layers import MLPLayer
 from src.smart.utils.map_crop import square_map_mask
 
+
+def initial_map_output_mask(map_type: torch.Tensor, output_types: str) -> torch.Tensor:
+    """Select geometric query nodes while preserving every attention source."""
+    road_edges = (map_type == 4) | (map_type == 5)
+    if output_types == "road_edges":
+        return road_edges
+    if output_types == "lanes_and_edges":
+        # 2 is a stop-sign lane centerline; 3 is a bike lane. Road lines and
+        # crosswalks remain attention sources, not returned vehicle queries.
+        return road_edges | (map_type == 0) | (map_type == 1) | (map_type == 2)
+    raise ValueError("init_map_output_types must be road_edges or lanes_and_edges")
+
+
 class SMARTMapDecoder(nn.Module):
 
     def __init__(
@@ -86,11 +99,12 @@ class SMARTMapDecoder(nn.Module):
         orient_pt = tokenized_map["orientation"]
         token_idx=tokenized_map["token_idx"].long()
         light_type=tokenized_map["light_type"].long()
+        output_types = getattr(self.token_processor, "init_map_output_types", "road_edges")
         square_crop = (tokenized_agent is not None
                        and getattr(self.token_processor, "init_map_crop", "circle") == "square")
 
         if tokenized_agent is None:
-            mask = (map_type == 4) | (map_type == 5)
+            mask = initial_map_output_mask(map_type, output_types)
         else:
             gt_initial_pos = tokenized_agent["initial_pos"]
             ego_mask = tokenized_agent["ego_mask"]
@@ -114,7 +128,7 @@ class SMARTMapDecoder(nn.Module):
             token_idx=token_idx[dist_mask]
             light_type=light_type[dist_mask]
             map_type=map_type[dist_mask]
-            mask = (map_type == 4) | (map_type == 5)
+            mask = initial_map_output_mask(map_type, output_types)
             if not square_crop:
                 mask = (dist[dist_mask]<self.token_processor.init_map_range) & mask
 
@@ -183,7 +197,7 @@ class SMARTMapDecoder(nn.Module):
             orient_pt=orient_edge
             batch=batch_edge
 
-        elif square_crop:
+        elif square_crop or output_types == "lanes_and_edges":
             # With no attention layers, retain the same returned map types and
             # square bounds as the one/multiple-layer initialization path.
             x_pt, pos_pt, orient_pt, batch = x_pt[mask], pos_pt[mask], orient_pt[mask], batch[mask]

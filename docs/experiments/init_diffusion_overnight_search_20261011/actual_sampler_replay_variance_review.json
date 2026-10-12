@@ -1,0 +1,336 @@
+{
+  "status": "ACTUAL_SAME_SEED_REPLAY_NONREPEATABILITY_DEMONSTRATED",
+  "created_utc": "2026-10-12T00:52:25.591142+00:00",
+  "historical_main_metrics_path": "logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/eval_step_20480/ema/sd_agent_metrics.json",
+  "checkpoint_sha256": "416208df8a20f44338190fd694ea5ffcf74381586adf6d16bf425f5e9d8c405b",
+  "TRAIN_seed": 4817,
+  "GEN_seed": 2817,
+  "EMA_updates": 20480,
+  "evaluation_batch_size": 128,
+  "scenes": 4096,
+  "sampling_steps": 20,
+  "t_eps": 0.05,
+  "diagnostics": [
+    {
+      "diagnostic": "native_first",
+      "metrics_path": "/home/ke/code/sim/logs/init_diffusion_sampler_inference_20261012/grid/train4817_gen2817_n20_eps005/sd_agent_metrics.json",
+      "metrics_sha256": "800714adec94751677e7632c987b75308d699010077aac222ec5c6693720207f",
+      "native_scaled_JSD_and_collision_percent": {
+        "nearest_dist_jsd": 0.08784995276459125,
+        "lat_dev_jsd": 0.8231578889901346,
+        "ang_dev_jsd": 0.25466000975539,
+        "length_jsd": 0.461343726007473,
+        "width_jsd": 0.18243424186388896,
+        "speed_jsd": 0.0821868445794023,
+        "collision_rate": 0.38096489211468354
+      },
+      "delta_vs_historical_main": {
+        "nearest_dist_jsd": -0.00014616254160217113,
+        "lat_dev_jsd": -8.844685928011131e-05,
+        "ang_dev_jsd": -6.928991682936259e-05,
+        "length_jsd": -0.0010679089439359912,
+        "width_jsd": -0.0012469769327062563,
+        "speed_jsd": 0.00023779079142396964,
+        "collision_rate": 0.0
+      },
+      "percent_change_vs_historical_main": {
+        "nearest_dist_jsd": -0.16610112968462346,
+        "lat_dev_jsd": -0.010743668745133618,
+        "ang_dev_jsd": -0.027201392583626416,
+        "length_jsd": -0.23094335505814187,
+        "width_jsd": -0.6788810205397934,
+        "speed_jsd": 0.2901690506875051,
+        "collision_rate": 0.0
+      },
+      "mean_seven_metric_ratio_vs_historical_main": 0.9988232835486802,
+      "population": {
+        "num_samples": 4096,
+        "num_gt_samples": 4096,
+        "num_generated_vehicles": 30449,
+        "num_gt_vehicles": 29698,
+        "num_colliding_vehicles": 116,
+        "feature_counts_generated": [
+          30167,
+          26237,
+          26237,
+          30449,
+          30449,
+          30449
+        ],
+        "feature_counts_gt": [
+          29414,
+          29526,
+          29526,
+          29698,
+          29698,
+          29698
+        ]
+      },
+      "all_reference_provenance_exact": true,
+      "runtime_exact": true,
+      "decoder_exact": true,
+      "test_completed": true,
+      "old_default20_parity_pass": false,
+      "successful_inference_grid_cell": false,
+      "accepted_search_observation": false
+    },
+    {
+      "diagnostic": "native_repeat",
+      "metrics_path": "/home/ke/code/sim/logs/init_diffusion_sampler_inference_20261012/diagnostic_repeat/grid/train4817_gen2817_n20_eps005/sd_agent_metrics.json",
+      "metrics_sha256": "3ea5cf1208ea1000ff1ac8abd2e80fd163676a86e319a153b1b9a74a613659fa",
+      "native_scaled_JSD_and_collision_percent": {
+        "nearest_dist_jsd": 0.08781488222145763,
+        "lat_dev_jsd": 0.8229736042488525,
+        "ang_dev_jsd": 0.25310769551556805,
+        "length_jsd": 0.4609308171652353,
+        "width_jsd": 0.18402605274081865,
+        "speed_jsd": 0.08203733204480188,
+        "collision_rate": 0.38096489211468354
+      },
+      "delta_vs_historical_main": {
+        "nearest_dist_jsd": -0.0001812330847357907,
+        "lat_dev_jsd": -0.0002727316005622926,
+        "ang_dev_jsd": -0.0016216041566513018,
+        "length_jsd": -0.0014808177861736493,
+        "width_jsd": 0.00034483394422343827,
+        "speed_jsd": 8.827825682354573e-05,
+        "collision_rate": 0.0
+      },
+      "percent_change_vs_historical_main": {
+        "nearest_dist_jsd": -0.20595577896270495,
+        "lat_dev_jsd": -0.03312879616778273,
+        "ang_dev_jsd": -0.63659899302434,
+        "length_jsd": -0.32023800316556833,
+        "width_jsd": 0.18773500441833427,
+        "speed_jsd": 0.10772333876110705,
+        "collision_rate": 0.0
+      },
+      "mean_seven_metric_ratio_vs_historical_main": 0.9987136239597987,
+      "population": {
+        "num_samples": 4096,
+        "num_gt_samples": 4096,
+        "num_generated_vehicles": 30449,
+        "num_gt_vehicles": 29698,
+        "num_colliding_vehicles": 116,
+        "feature_counts_generated": [
+          30167,
+          26236,
+          26236,
+          30449,
+          30449,
+          30449
+        ],
+        "feature_counts_gt": [
+          29414,
+          29526,
+          29526,
+          29698,
+          29698,
+          29698
+        ]
+      },
+      "all_reference_provenance_exact": true,
+      "runtime_exact": true,
+      "decoder_exact": true,
+      "test_completed": true,
+      "old_default20_parity_pass": false,
+      "successful_inference_grid_cell": false,
+      "accepted_search_observation": false
+    },
+    {
+      "diagnostic": "original_runner_repeat",
+      "metrics_path": "/home/ke/code/sim/logs/init_diffusion_sampler_inference_20261012/diagnostic_original_runner/separate_speed/eval_step_20480/ema/sd_agent_metrics.json",
+      "metrics_sha256": "dfa4f5e289e02a1091dfb620f06376e6bf85ef4c54df38e5522a587a9dc8f24a",
+      "native_scaled_JSD_and_collision_percent": {
+        "nearest_dist_jsd": 0.08780481776230001,
+        "lat_dev_jsd": 0.8233795646890413,
+        "ang_dev_jsd": 0.2543007044974742,
+        "length_jsd": 0.45946183595978446,
+        "width_jsd": 0.183496943124392,
+        "speed_jsd": 0.08204429920275534,
+        "collision_rate": 0.38096489211468354
+      },
+      "delta_vs_historical_main": {
+        "nearest_dist_jsd": -0.00019129754389340947,
+        "lat_dev_jsd": 0.0001332288396265202,
+        "ang_dev_jsd": -0.00042859517474513886,
+        "length_jsd": -0.002949798991624508,
+        "width_jsd": -0.00018427567220322127,
+        "speed_jsd": 9.52454147770121e-05,
+        "collision_rate": 0.0
+      },
+      "percent_change_vs_historical_main": {
+        "nearest_dist_jsd": -0.2173931692640816,
+        "lat_dev_jsd": 0.016183350453550023,
+        "ang_dev_jsd": -0.1682551537246193,
+        "length_jsd": -0.6379162565696423,
+        "width_jsd": -0.10032363320023717,
+        "speed_jsd": 0.11622515498889666,
+        "collision_rate": 0.0
+      },
+      "mean_seven_metric_ratio_vs_historical_main": 0.9985836004181198,
+      "population": {
+        "num_samples": 4096,
+        "num_gt_samples": 4096,
+        "num_generated_vehicles": 30449,
+        "num_gt_vehicles": 29698,
+        "num_colliding_vehicles": 116,
+        "feature_counts_generated": [
+          30167,
+          26238,
+          26238,
+          30449,
+          30449,
+          30449
+        ],
+        "feature_counts_gt": [
+          29414,
+          29526,
+          29526,
+          29698,
+          29698,
+          29698
+        ]
+      },
+      "all_reference_provenance_exact": true,
+      "runtime_exact": true,
+      "decoder_exact": true,
+      "test_completed": true,
+      "old_default20_parity_pass": false,
+      "successful_inference_grid_cell": false,
+      "accepted_search_observation": false
+    }
+  ],
+  "pairwise_repeat_differences": [
+    {
+      "a": "native_first",
+      "b": "native_repeat",
+      "delta_b_minus_a": {
+        "nearest_dist_jsd": -3.507054313361957e-05,
+        "lat_dev_jsd": -0.0001842847412821813,
+        "ang_dev_jsd": -0.0015523142398219392,
+        "length_jsd": -0.0004129088422376581,
+        "width_jsd": 0.0015918108769296946,
+        "speed_jsd": -0.0001495125346004239,
+        "collision_rate": 0.0
+      }
+    },
+    {
+      "a": "native_first",
+      "b": "original_runner_repeat",
+      "delta_b_minus_a": {
+        "nearest_dist_jsd": -4.5135002291238346e-05,
+        "lat_dev_jsd": 0.00022167569890663152,
+        "ang_dev_jsd": -0.0003593052579157763,
+        "length_jsd": -0.001881890047688517,
+        "width_jsd": 0.001062701260503035,
+        "speed_jsd": -0.00014254537664695754,
+        "collision_rate": 0.0
+      }
+    },
+    {
+      "a": "native_repeat",
+      "b": "original_runner_repeat",
+      "delta_b_minus_a": {
+        "nearest_dist_jsd": -1.0064459157618777e-05,
+        "lat_dev_jsd": 0.00040596044018881283,
+        "ang_dev_jsd": 0.0011930089819061629,
+        "length_jsd": -0.0014689812054508589,
+        "width_jsd": -0.0005291096164266595,
+        "speed_jsd": 6.967157953466363e-06,
+        "collision_rate": 0.0
+      }
+    }
+  ],
+  "original_runner_vs_historical_histogram_differences": [
+    {
+      "metric": "nearest_dist_jsd",
+      "bins_exact": true,
+      "matched_GT_histograms_exact": true,
+      "historical_generated_sum": 30167,
+      "repeated_generated_sum": 30167,
+      "changed_bins": 9,
+      "histogram_L1_count_difference": 18,
+      "max_absolute_single_bin_count_change": 4,
+      "half_L1_net_histogram_shift_count": 9.0,
+      "warning": "Half-L1 is aggregate histogram mass displacement, not raw count of agents crossing bins; cancelling moves/changed onroad membership cannot be recovered from histograms."
+    },
+    {
+      "metric": "lat_dev_jsd",
+      "bins_exact": true,
+      "matched_GT_histograms_exact": true,
+      "historical_generated_sum": 26236,
+      "repeated_generated_sum": 26238,
+      "changed_bins": 12,
+      "histogram_L1_count_difference": 28,
+      "max_absolute_single_bin_count_change": 7,
+      "half_L1_net_histogram_shift_count": 14.0,
+      "warning": "Half-L1 is aggregate histogram mass displacement, not raw count of agents crossing bins; cancelling moves/changed onroad membership cannot be recovered from histograms."
+    },
+    {
+      "metric": "ang_dev_jsd",
+      "bins_exact": true,
+      "matched_GT_histograms_exact": true,
+      "historical_generated_sum": 26236,
+      "repeated_generated_sum": 26238,
+      "changed_bins": 13,
+      "histogram_L1_count_difference": 16,
+      "max_absolute_single_bin_count_change": 3,
+      "half_L1_net_histogram_shift_count": 8.0,
+      "warning": "Half-L1 is aggregate histogram mass displacement, not raw count of agents crossing bins; cancelling moves/changed onroad membership cannot be recovered from histograms."
+    },
+    {
+      "metric": "length_jsd",
+      "bins_exact": true,
+      "matched_GT_histograms_exact": true,
+      "historical_generated_sum": 30449,
+      "repeated_generated_sum": 30449,
+      "changed_bins": 24,
+      "histogram_L1_count_difference": 34,
+      "max_absolute_single_bin_count_change": 5,
+      "half_L1_net_histogram_shift_count": 17.0,
+      "warning": "Half-L1 is aggregate histogram mass displacement, not raw count of agents crossing bins; cancelling moves/changed onroad membership cannot be recovered from histograms."
+    },
+    {
+      "metric": "width_jsd",
+      "bins_exact": true,
+      "matched_GT_histograms_exact": true,
+      "historical_generated_sum": 30449,
+      "repeated_generated_sum": 30449,
+      "changed_bins": 12,
+      "histogram_L1_count_difference": 14,
+      "max_absolute_single_bin_count_change": 2,
+      "half_L1_net_histogram_shift_count": 7.0,
+      "warning": "Half-L1 is aggregate histogram mass displacement, not raw count of agents crossing bins; cancelling moves/changed onroad membership cannot be recovered from histograms."
+    },
+    {
+      "metric": "speed_jsd",
+      "bins_exact": true,
+      "matched_GT_histograms_exact": true,
+      "historical_generated_sum": 30449,
+      "repeated_generated_sum": 30449,
+      "changed_bins": 11,
+      "histogram_L1_count_difference": 12,
+      "max_absolute_single_bin_count_change": 2,
+      "half_L1_net_histogram_shift_count": 6.0,
+      "warning": "Half-L1 is aggregate histogram mass displacement, not raw count of agents crossing bins; cancelling moves/changed onroad membership cannot be recovered from histograms."
+    }
+  ],
+  "source_and_restore_evidence": "Independent sibling protocol CPU actual source/native strictload map/G1/EMA/normalizer bitwise hashes equal; see actual_native_default20_parity_failure_review.json and protocol CPU artifact. Installed native CPUrestore before model_to_device verified.",
+  "interpretation": [
+    "Native first and native repeat differ beyond1e-6; original frozen runner also differs from its historical metric output. This excludes a discrepancy confined solely to native integration.",
+    "All three repeats preserve generated vehicle30449/collision116, native physical scopes/reference hashes/GT histograms/decoder conditions. Onroad subset varies by one/two vehicle; report exact values.",
+    "Original-runner shape histogram differs by only34 L1 counts in length/14 in width among30449 vehicles; narrow .1m bins and nonlinear JSD turn a few boundary changes into observable metric shifts. This is an aggregate-bin observation, not proof all shifted agents had tiny physical errors.",
+    "Exact CUDA noise/source tensor identity has not yet been measured. Equal seeds/shape/counts or identical aggregate generated type population cannot establish per-agent noise/type identities.",
+    "Custom CUDA scatter_add_ aggregation is a plausible nondeterminism source; no isolated operation proof is available and no causal fix is claimed."
+  ],
+  "selection_boundary": {
+    "old_grid": "Remains failed; no cell_summary accepted, no sampler selection or changed-step effect interpretation. Preserve original driver/source hashes and failure returncode1.",
+    "new_native_cohort": "Parent authorized a separately versioned fresh native inference cohort with its own complete4 default20 cells. It must not relax or retroactively pass old1e-6 guard or substitute diagnostics into primary rows.",
+    "proposed_conservative_improvement_threshold": "Parent proposal R<=.98 against new native baseline, plus stated gates/perTRAIN constraints; selection formula and options must be frozen before any new option result is used. This threshold is not a formal statistical confidence bound from these few probes.",
+    "statistics": "These are repeated evaluations of one same trained seed/checkpoint/GEN. They do not increase TRAIN N or independent confirmation count."
+  },
+  "cpu_only": true,
+  "torch_imported": false,
+  "main_source_or_sampler_edits": false
+}

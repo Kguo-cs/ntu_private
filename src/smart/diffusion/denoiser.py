@@ -92,6 +92,10 @@ class InitDenoiser(nn.Module):
         fix_ego_velocity: Optional[bool] = None,
         fix_ego_type: Optional[bool] = None,
         ego_context_heading_encoding: str = "angle",
+        state_feature_normalization: str = "none",
+        speed_x0_parameterization: str = "identity",
+        speed_head_kind: str = "shared",
+        speed_head_detach_context: bool = False,
     ) -> None:
         super().__init__()
 
@@ -142,6 +146,25 @@ class InitDenoiser(nn.Module):
             raise ValueError("speed representation requires a 7D x0 state predictor")
         if heading_velocity and (not x_pred or output_dim != state_dim):
             raise ValueError("heading_velocity requires an x0 state predictor matching the representation")
+        if state_feature_normalization not in ("none", "train"):
+            raise ValueError("state_feature_normalization must be none or train")
+        if state_feature_normalization != "none" and not x_pred:
+            raise ValueError("TRAIN state feature normalization requires an x0 predictor")
+        if speed_x0_parameterization not in ("identity", "softplus", "time_residual"):
+            raise ValueError("speed_x0_parameterization must be identity, softplus or time_residual")
+        if speed_head_kind not in ("shared", "separate"):
+            raise ValueError("speed_head_kind must be shared or separate")
+        if not isinstance(speed_head_detach_context, bool):
+            raise ValueError("speed_head_detach_context must be boolean")
+        if speed_head_detach_context and speed_head_kind != "separate":
+            raise ValueError("speed_head_detach_context requires a separate speed head")
+        if (speed_x0_parameterization != "identity" or speed_head_kind != "shared") and (
+                not x_pred or velocity_representation != "speed"):
+            raise ValueError("Speed head/parameterization options require scalar-speed x0 prediction")
+        self.state_feature_normalization = state_feature_normalization
+        self.speed_x0_parameterization = speed_x0_parameterization
+        self.speed_head_kind = speed_head_kind
+        self.speed_head_detach_context = speed_head_detach_context
         self.token_processor = token_processor
         self.edge_embedding_type = edge_embedding_type
         if time_embedding_type not in ("legacy", "scenario_dreamer"):
@@ -290,6 +313,11 @@ class InitDenoiser(nn.Module):
 
         self.apply(weight_init)
         self.reset_time_embedding_parameters()
+        if self.speed_head_kind == "separate":
+            # Create the opt-in head after initializing the legacy network so
+            # adding this branch preserves the same seeded shared parameters.
+            self.to_out_speed = MLPLayer(hidden_dim, hidden_dim, 1)
+            self.to_out_speed.apply(weight_init)
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
@@ -731,7 +759,17 @@ class InitDenoiser(nn.Module):
         unlike a clean heading, the linearly noised pair need not have unit norm.
         """
         if self.x_pred:
-            feat_a = self.proj_in_m_delta(m_delta[:, 4:])
+            continuous = m_delta[:, 4:]
+            if self.state_feature_normalization == "train":
+                # Geometry still uses physical position/heading. Normalize only
+                # the continuous attributes projected here; preserve a possible
+                # one-hot type tail rather than applying physical statistics.
+                continuous = torch.cat((
+                    (m_delta[:, 4:self.m_delta_dim] - self.normal_mean[:, 4:])
+                    / self.normal_scale[:, 4:].clamp_min(1e-6),
+                    m_delta[:, self.m_delta_dim:],
+                ), dim=-1)
+            feat_a = self.proj_in_m_delta(continuous)
         else:
             feat_a = self.proj_in_m_delta(m_delta)
         feat_a = feat_a + self._embed_time(beta, m_delta.shape[0])
@@ -937,11 +975,29 @@ class InitDenoiser(nn.Module):
         if self.generate_type and not self.type_as_feature:
             tokenized_agent["_init_diffusion_type_logits"] = self.to_out_type(feat_a)
         state = self.to_out_m_delta(feat_a)
+        if self.speed_head_kind == "separate":
+            context = feat_a.detach() if self.speed_head_detach_context else feat_a
+            speed = self.to_out_speed(context)
+            state = torch.cat((state[:, :6], speed, state[:, 7:]), dim=-1)
         if self.type_as_feature:
             tokenized_agent["_init_diffusion_type_prediction"] = state[:, self.m_delta_dim:]
         if self.heading_velocity:
             return torch.cat((state, self.to_out_heading_velocity(feat_a)), dim=-1)
         return state
+
+    def _parameterize_speed_x0(self, prediction, latent, beta):
+        """Change only clean-speed output coordinates; keep the x0 objective."""
+        if self.speed_x0_parameterization == "identity":
+            return prediction
+        speed = prediction[:, 6:7]
+        if self.speed_x0_parameterization == "softplus":
+            # Positive x0 participates in both reconstruction and Flow's
+            # velocity conversion, rather than clipping only final output.
+            speed = F.softplus(speed)
+        else:
+            time = self._format_beta(beta, len(prediction))[:, 6:7]
+            speed = latent[:, 6:7] + time * speed
+        return torch.cat((prediction[:, :6], speed, prediction[:, 7:]), dim=-1)
 
     def output_transform(self,res,cur_pos,cur_theta):
         # Flow reconstructs heading from theta_t - t * omega. Do not evaluate
@@ -1050,6 +1106,7 @@ class InitDenoiser(nn.Module):
 
         if self.x_pred :
             res =self.output_transform(res, pos_s, theta)
+            res = self._parameterize_speed_x0(res, m_delta, beta)
 
         #ego_mask = tokenized_agent.get("ego_mask", None)
         #if not self.training and len(beta)==len(ego_mask): #and torch.all(beta[~ego_mask] == 0):

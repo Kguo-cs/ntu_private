@@ -1,0 +1,119 @@
+{
+  "mode": "cached_actual",
+  "CUDA_initialized": false,
+  "TensorFlow_imported": false,
+  "gc_collect_called": false,
+  "GC_enabled": false,
+  "actual_loads": 20000,
+  "paths": [
+    "/home/ke/code/sim/src/waymo_data/full/training_map2_sd/838fe19a74e86f7_0_30.pt",
+    "/home/ke/code/sim/src/waymo_data/full/training_map2_sd/cde07f7b21a9ba80_0_36.pt"
+  ],
+  "records": [
+    {
+      "loads": 0,
+      "rss_kib": 471372,
+      "tracked_objects": 228832,
+      "local_classes": 0,
+      "torch_tensors": 0,
+      "elapsed_seconds": 0.01606329600326717,
+      "class_cache": {
+        "classes_created": 0,
+        "class_reuses": 0,
+        "cached_loader_kinds": [],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      }
+    },
+    {
+      "loads": 5000,
+      "rss_kib": 472652,
+      "tracked_objects": 228921,
+      "local_classes": 1,
+      "torch_tensors": 0,
+      "elapsed_seconds": 1.0181659730005777,
+      "class_cache": {
+        "classes_created": 1,
+        "class_reuses": 4999,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      }
+    },
+    {
+      "loads": 10000,
+      "rss_kib": 472652,
+      "tracked_objects": 228925,
+      "local_classes": 1,
+      "torch_tensors": 0,
+      "elapsed_seconds": 2.036479822010733,
+      "class_cache": {
+        "classes_created": 1,
+        "class_reuses": 9999,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      }
+    },
+    {
+      "loads": 15000,
+      "rss_kib": 472652,
+      "tracked_objects": 228928,
+      "local_classes": 1,
+      "torch_tensors": 0,
+      "elapsed_seconds": 3.2618282600014936,
+      "class_cache": {
+        "classes_created": 1,
+        "class_reuses": 14999,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      }
+    },
+    {
+      "loads": 20000,
+      "rss_kib": 472652,
+      "tracked_objects": 228931,
+      "local_classes": 1,
+      "torch_tensors": 0,
+      "elapsed_seconds": 4.259791412012419,
+      "class_cache": {
+        "classes_created": 1,
+        "class_reuses": 19999,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      }
+    }
+  ],
+  "root_instruction": "20kCPU real native scene loads, discard each raw object, no collector, success hardexit",
+  "limited_scope": "Repeated2 native caches; noPyG/Lightning/model/TF forward; class/RSS slopes not full training proof"
+}

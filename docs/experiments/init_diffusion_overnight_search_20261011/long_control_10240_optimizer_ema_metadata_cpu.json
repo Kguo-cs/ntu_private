@@ -1,0 +1,62 @@
+{
+  "checkpoint": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_control/control/last.ckpt",
+  "checkpoint_sha256": "93db4d1f9a858cf318d28f8375ce64856eab76e949c04081a4828952a7114076",
+  "global_step": 10240,
+  "epoch": 10,
+  "ema_num_updates": 10240,
+  "ema_nominal_decay": 0.9999,
+  "ema_shadow_count": 252,
+  "optimizer_groups": [
+    {
+      "lr": 0.0004928824226337042,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "eps": 1e-08,
+      "weight_decay": 0.01,
+      "amsgrad": false,
+      "maximize": false,
+      "foreach": null,
+      "capturable": false,
+      "differentiable": false,
+      "fused": null,
+      "decoupled_weight_decay": true,
+      "initial_lr": 0.0005
+    }
+  ],
+  "optimizer_state_step_min": 10240,
+  "optimizer_state_step_max": 10240,
+  "lr_schedulers": [
+    {
+      "base_lrs": [
+        0.0005
+      ],
+      "last_epoch": 10,
+      "_step_count": 11,
+      "_get_lr_called_within_step": false,
+      "_last_lr": [
+        0.0004928824226337042
+      ]
+    }
+  ],
+  "scratch_sweep": {
+    "initialization": "frozen pretrained map + random G1",
+    "seed": 4817,
+    "batch_size": 512,
+    "base_train_offset": 0,
+    "train_order_sha256": "a22e7e65ecc575a1a7960584a5941ba86b94dd872d284e6306046dd05d045c18",
+    "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+    "map_checkpoint": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "map_checkpoint_sha256": "610c1f94a0f573fd078e251af37c38c73255b969e52154e66546588996ef99fb",
+    "map_frozen": true,
+    "initial_generator_sha256": "6904c65125654e52dff4facf7be8d2c033df86d7422a65fb77f15dddad7e5f67",
+    "initial_map_sha256": "09b7f55a4c78816794dd5ffcdce36760af5aa5afe038a1bf8cd34f168c51f720",
+    "saved_global_step": 10240
+  },
+  "CUDA_initialized": false,
+  "Torch_version": "2.7.0+cu128",
+  "GC_enabled": false,
+  "CPU_read_only": true,
+  "model_instantiated": false
+}
