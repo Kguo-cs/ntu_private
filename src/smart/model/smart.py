@@ -32,6 +32,7 @@ from waymo_open_dataset.utils.sim_agents.submission_specs import ChallengeType
 from src.smart.model.optimizers import build_scenario_dreamer_optimizer
 from src.smart.metrics import CrossEntropy, TokenCls, WOSACSubmission, minADE
 from src.smart.metrics.gen_metrics import ScenarioDreamerEvaluator
+from src.smart.metrics.relative_score import load_r_reference, relative_score
 from src.smart.metrics.wosac_metrics import WOSACMetrics
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.tokens.token_processor import TokenProcessor
@@ -119,6 +120,8 @@ class SMART(LightningModule):
     def __init__(self, model_config) -> None:
         super().__init__()
         self.save_hyperparameters()
+        self.sd_r_reference_path = _cfg(model_config, "sd_r_reference", None)
+        self.sd_r_reference = load_r_reference(self.sd_r_reference_path)
 
         self.lr = float(model_config.lr)
         self.lr_warmup_steps = int(model_config.lr_warmup_steps)
@@ -583,6 +586,10 @@ class SMART(LightningModule):
         if self.scenario_dreamer_init and self.use_sd_evaluator:
             metrics = self.sd_evaluator.compute()
             report = self.sd_evaluator.report()
+            if self.sd_r_reference is not None:
+                metrics["R"], report["relative_score"] = relative_score(
+                    metrics, self.sd_r_reference, report)
+                report["relative_score"]["reference_path"] = str(self.sd_r_reference_path)
             report["agent_metrics"] = metrics
             report["runtime"] = {
                 "torch_version": str(torch.__version__),
@@ -636,6 +643,10 @@ class SMART(LightningModule):
                     "heading_objective": getattr(initial_decoder, "heading_objective", "x0"),
                     "heading_x0_loss": getattr(initial_decoder, "heading_x0_loss", "vector_mse"),
                     "component_loss": getattr(initial_decoder, "component_loss", None),
+                    "denoiser_options": dict(initial_decoder.denoiser_options),
+                    "matching_weights": initial_decoder.G1.matching_weights,
+                    "time_sample_power": initial_decoder.G1.time_sample_power,
+                    "collision_reduction": initial_decoder.G1.collision_reduction,
                     "heading_flow_loss_weight": getattr(initial_decoder, "heading_flow_loss_weight", 1.0),
                     "fix_ego": getattr(initial_decoder, "fix_ego", True),
                     **{f"fix_ego_{field}": fixed for field, fixed in ego_conditions.items()},

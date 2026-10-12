@@ -398,6 +398,88 @@ class InitDiffusionComponentFlowTest(unittest.TestCase):
         self.assertTrue(torch.isfinite(prediction.grad).all())
         self.assertGreater(prediction.grad[:, :2].abs().sum().item(), 0.)
 
+    def test_collision_already_blocks_size_gradient_but_keeps_repulsion(self):
+        config = self.config(collision={'kind': 'l1', 'time_power': 1, 'weight': 20.})
+        for representation in ('linear', 'log'):
+            with self.subTest(representation=representation):
+                clean, agent, feature = self.fixtures.inputs()
+                clean = clean.clone()
+                clean[:, :2] = torch.tensor([[0., 0.], [12., 0.], [24., 0.]])
+                clean[:, 2:4] = torch.tensor([1., 0.])
+                clean[:, 4:6] = torch.tensor([4.8, 2.])
+                if representation == 'log':
+                    clean[:, 4:6] = clean[:, 4:6].log()
+                sample = clean.clone()
+                sample[1, :2] = torch.tensor([.8, .7])
+                angle = torch.tensor(.35)
+                sample[1, 2:4] = torch.stack((angle.cos(), angle.sin()))
+                flow = self.flow(config, fix_ego=False, size_representation=representation)
+                prediction = sample.clone().requires_grad_()
+                losses = self.mocked_loss(flow, clean, agent, feature, prediction, torch.full((3, 1), .4))
+                losses[1].backward()
+                self.assertGreater(losses[1].item(), 0.)
+                self.assertTrue(torch.isfinite(prediction.grad).all())
+                torch.testing.assert_close(prediction.grad[:, 4:6], torch.zeros((3, 2)), atol=0, rtol=0)
+                self.assertGreater(prediction.grad[:, :2].abs().sum().item(), 0.)
+                self.assertGreater(prediction.grad[:, 2:4].abs().sum().item(), 0.)
+
+    def test_agent_max_counts_each_colliding_actor_instead_of_all_pairs(self):
+        config = self.config(collision={'kind': 'l1', 'time_power': 0, 'weight': 1.})
+        clean, agent, feature = self.fixtures.inputs()
+        clean = clean.clone()
+        clean[:, :2] = torch.tensor([[0., 0.], [12., 0.], [24., 0.]])
+        clean[:, 2:4] = torch.tensor([1., 0.])
+        clean[:, 4:6] = torch.tensor([4.8, 2.])
+        sample = clean.clone()
+        sample[1, :2] = torch.tensor([.8, .7])
+        results = []
+        for reduction in ('pair_mean', 'agent_max'):
+            flow = self.flow(config, fix_ego=False, collision_reduction=reduction)
+            prediction = sample.clone().requires_grad_()
+            losses = self.mocked_loss(flow, clean, copy.deepcopy(agent), feature,
+                                     prediction, torch.full((3, 1), .4))
+            losses[1].backward()
+            self.assertTrue(torch.isfinite(prediction.grad).all())
+            results.append((losses[1].detach(), prediction.grad))
+        # Only one of three pairs collides, so 2/3 actors vs 1/3 pairs.
+        torch.testing.assert_close(results[1][0], 2.*results[0][0])
+        torch.testing.assert_close(results[1][1][:, :4], 2.*results[0][1][:, :4])
+        torch.testing.assert_close(results[1][1][:, 4:6], torch.zeros((3, 2)), atol=0, rtol=0)
+
+    def test_agent_max_retains_fixed_ego_zero_time_collision_condition(self):
+        config = self.config(collision={'kind': 'l1', 'time_power': 1, 'weight': 1.})
+        clean, agent, feature = self.fixtures.inputs()
+        clean = clean.clone()
+        clean[:, :2] = torch.tensor([[0., 0.], [12., 0.], [24., 0.]])
+        clean[:, 2:4] = torch.tensor([1., 0.])
+        clean[:, 4:6] = torch.tensor([4.8, 2.])
+        sample = clean.clone()
+        sample[0, :2] = torch.tensor([12.8, .7])
+        observed = []
+        for reduction in ('pair_mean', 'agent_max'):
+            flow = self.flow(config, fix_ego=True, fix_ego_velocity=False,
+                             collision_reduction=reduction)
+            prediction = sample.clone().requires_grad_()
+            losses = self.mocked_loss(flow, clean, copy.deepcopy(agent), feature,
+                                     prediction, torch.tensor([[.4], [0.], [.4]]))
+            losses[1].backward()
+            self.assertGreater(losses[1].item(), 0.)
+            torch.testing.assert_close(prediction.grad[1, :6], torch.zeros(6), atol=0, rtol=0)
+            self.assertGreater(prediction.grad[0, :2].abs().sum().item(), 0.)
+            observed.append(losses[1].detach())
+        torch.testing.assert_close(observed[1], 2.*observed[0])
+
+    def test_agent_max_single_actor_is_finite_zero(self):
+        flow = self.flow(self.config(collision={'weight': 1.}), fix_ego=False,
+                         collision_reduction='agent_max')
+        clean, agent, feature = self.fixtures.inputs()
+        agent['batch'] = torch.arange(3)
+        prediction = clean.clone().requires_grad_()
+        losses = self.mocked_loss(flow, clean, agent, feature, prediction, torch.full((3, 1), .4))
+        self.assertEqual(losses[1].item(), 0.)
+        (losses[0]+losses[1]).backward()
+        self.assertTrue(torch.isfinite(prediction.grad).all())
+
     def test_disabled_collision_skips_geometry_and_log_size_exponentiation(self):
         flow = self.flow(self.config(length={'kind': 'mse', 'time_power': 0, 'weight': 1.}),
                          fix_ego=False, size_representation='log').train()

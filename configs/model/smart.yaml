@@ -1,5 +1,6 @@
 _target_: src.smart.model.smart.SMART
 model_config:
+  sd_r_reference: null  # JSON baseline with seven native agent_metrics; null disables R.
   initial_map_checkpoint: null  # Optional strict map-only initialization; finetune=true freezes it, ckpt_path remains null.
   optimizer: default  # Select optimizer=scenario_dreamer for the official LDM recipe.
   lr: 0.0005
@@ -41,6 +42,8 @@ model_config:
       denoiser_hidden_dim: 256
       denoiser_num_layers: 3
       sampling_steps: 20
+      collision_reduction: pair_mean  # agent_max averages each actor's worst excess overlap.
+      time_conditioning: input  # every_layer reuses timestep conditions at subsequent attention layers.
       state_feature_normalization: none  # train: normalize size/speed network features with saved TRAIN statistics.
       speed_x0_parameterization: identity  # identity, softplus or time_residual; all retain clean-state supervision.
       speed_head_kind: shared  # separate gives scalar speed a dedicated output MLP.

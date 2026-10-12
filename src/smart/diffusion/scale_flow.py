@@ -161,6 +161,11 @@ class Flow(nn.Module):
             if any(not math.isfinite(v) or v < 0 for v in matching.values()) or not any(matching.values()):
                 raise ValueError("matching_weights must be finite, nonnegative and not all zero")
         self.matching_weights = matching
+        self.collision_reduction = getattr(args, "collision_reduction", "pair_mean")
+        if self.collision_reduction not in ("pair_mean", "agent_max"):
+            raise ValueError("collision_reduction must be pair_mean or agent_max")
+        if self.collision_reduction != "pair_mean" and getattr(args, "component_loss", None) is None:
+            raise ValueError("collision_reduction requires component_loss")
         distribution = getattr(args, "distribution_loss", None)
         self.attribute_distribution_loss = AttributeDistributionLoss(distribution) if distribution is not None else None
         for name in ("pos_source", "shape_source", "velocity_source"):
@@ -201,6 +206,7 @@ class Flow(nn.Module):
             heading_velocity=self.heading_objective == "angular_velocity",
             velocity_representation=self.velocity_representation,
             state_feature_normalization=getattr(args, "state_feature_normalization", "none"),
+            time_conditioning=getattr(args, "time_conditioning", "input"),
             speed_x0_parameterization=getattr(args, "speed_x0_parameterization", "identity"),
             speed_head_kind=getattr(args, "speed_head_kind", "shared"),
             speed_head_detach_context=getattr(args, "speed_head_detach_context", False),
@@ -1024,6 +1030,19 @@ class Flow(nn.Module):
                 allowed = compute_penetration(physical_target, start, end).clamp_min(0)
             penetration = (predicted_penetration - allowed).clamp_min(0)[:, None]
             pair_time = torch.maximum(time[rows[start]], time[rows[end]])
+            if getattr(self, "collision_reduction", "pair_mean") == "agent_max":
+                # Mean the worst added overlap of each actor, including actors
+                # without neighbours. Pair means dilute isolated collisions as
+                # the number of non-colliding pairs grows quadratically.
+                endpoints = torch.cat((start, end))[:, None]
+                penetration = penetration.new_zeros((len(rows), 1)).scatter_reduce(
+                    0, endpoints, penetration.repeat(2, 1), "amax", include_self=True,
+                )
+                # Fixed ego geometry can have t=0; keep the active neighbour's
+                # timestep, as the existing pair objective does.
+                pair_time = time[rows].scatter_reduce(
+                    0, endpoints, pair_time.repeat(2, 1), "amax", include_self=True,
+                )
         collision_raw, collision = objective.regression(
             "collision", penetration, torch.zeros_like(penetration), pair_time,
             torch.ones_like(penetration, dtype=torch.bool), t_eps=self.t_eps,

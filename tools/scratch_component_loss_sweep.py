@@ -313,6 +313,8 @@ def main():
         cfg.model.model_config.lr_total_steps = 128
         if args.recipe:
             cfg.model.model_config.decoder.init_diffusion.component_loss = json.loads(args.recipe.read_text())
+        # Quick sweeps score against their exposure/cohort-matched controls.
+        cfg.model.model_config.sd_r_reference = None
         cfg.model.model_config.sd_reference_mode = "matched"
         cfg.model.model_config.sd_require_full_set = args.require_full_set
         cfg.model.model_config.token_processor.init_map_crop = "square"

@@ -1,0 +1,26 @@
+{
+  "metric_scope": "Scenario Dreamer initial-scene vehicle metrics",
+  "map_source": "reference",
+  "num_samples": 50000,
+  "num_gt_samples": 50000,
+  "full_membership": true,
+  "eval_set_sha256": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+  "official_source_sha256": {
+    "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+    "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+    "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+  },
+  "reference_source_manifest_sha256": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+  "name": "657 control, frozen AIRL map, 10.6224 epochs, TRAIN4817, mean GEN2817/3817, full50000",
+  "agent_metrics": {
+    "nearest_dist_jsd": 0.04172799657872697,
+    "lat_dev_jsd": 0.41393082126602476,
+    "ang_dev_jsd": 0.10283336882783484,
+    "length_jsd": 0.4394263919607722,
+    "width_jsd": 0.15137192109841002,
+    "speed_jsd": 0.06527957876642831,
+    "collision_rate": 0.5082054925583266
+  },
+  "source": "output/reports/control657_paired_20261012/comparison.json",
+  "control_commit": "657f1bb8c017f39e06e4e5317f734d6799eb1040"
+}

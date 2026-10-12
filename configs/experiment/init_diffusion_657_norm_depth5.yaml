@@ -1,0 +1,13 @@
+# @package _global_
+# Short-budget candidate, not a proven128epoch winner. Longer confirmation is running.
+defaults:
+- init_diffusion_657_full_base
+- _self_
+task_name: init_diffusion_657_norm_depth5
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        denoiser_num_layers: 5
+        state_feature_normalization: train
+        time_conditioning: input

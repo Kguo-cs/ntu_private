@@ -93,6 +93,7 @@ class InitDenoiser(nn.Module):
         fix_ego_type: Optional[bool] = None,
         ego_context_heading_encoding: str = "angle",
         state_feature_normalization: str = "none",
+        time_conditioning: str = "input",
         speed_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
         speed_head_detach_context: bool = False,
@@ -161,6 +162,9 @@ class InitDenoiser(nn.Module):
         if (speed_x0_parameterization != "identity" or speed_head_kind != "shared") and (
                 not x_pred or velocity_representation != "speed"):
             raise ValueError("Speed head/parameterization options require scalar-speed x0 prediction")
+        if time_conditioning not in ("input", "every_layer"):
+            raise ValueError("time_conditioning must be input or every_layer")
+        self.time_conditioning = time_conditioning
         self.state_feature_normalization = state_feature_normalization
         self.speed_x0_parameterization = speed_x0_parameterization
         self.speed_head_kind = speed_head_kind
@@ -861,6 +865,7 @@ class InitDenoiser(nn.Module):
             num_graphs: int,
             use_map_condition: bool = True,
             ego_role_embedding: Optional[torch.Tensor] = None,
+            layer_time_embedding: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         head_vector_s = torch.stack(
             [theta.cos(), theta.sin()],
@@ -955,6 +960,8 @@ class InitDenoiser(nn.Module):
             )
 
         for layer_i in range(self.num_layers):
+            if layer_i > 0 and layer_time_embedding is not None:
+                feat_a = feat_a + layer_time_embedding
             # The first layer already receives the role embedding from
             # _embed_agents. Reuse it before each subsequent attention block.
             # if layer_i > 0 and ego_role_embedding is not None:
@@ -1102,6 +1109,8 @@ class InitDenoiser(nn.Module):
             num_graphs=num_graphs,
             use_map_condition=use_map_condition,
             ego_role_embedding=ego_role_embedding,
+            layer_time_embedding=(self._embed_time(beta, m_delta.shape[0])
+                                  if self.time_conditioning == "every_layer" else None),
         )
 
         if self.x_pred :

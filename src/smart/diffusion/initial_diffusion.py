@@ -85,6 +85,8 @@ class InitDiffusion(nn.Module):
         denoiser_num_layers: Optional[int] = None,
         sampling_steps: Optional[int] = None,
         state_feature_normalization: str = "none",
+        time_conditioning: str = "input",
+        collision_reduction: str = "pair_mean",
         speed_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
         speed_head_detach_context: bool = False,
@@ -135,6 +137,7 @@ class InitDiffusion(nn.Module):
         args.time_sample_power = time_sample_power
         args.distribution_loss = distribution_loss
         args.state_feature_normalization = state_feature_normalization
+        args.time_conditioning = time_conditioning
         args.speed_x0_parameterization = speed_x0_parameterization
         args.speed_head_kind = speed_head_kind
         args.speed_head_detach_context = speed_head_detach_context
@@ -208,10 +211,12 @@ class InitDiffusion(nn.Module):
         args.heading_flow_loss_weight = self.heading_flow_loss_weight
         self.heading_x0_loss = args.heading_x0_loss = heading_x0_loss
         args.component_loss = component_loss
+        args.collision_reduction = collision_reduction
         self.G1 = Flow(args, token_processor, gail)
         self.denoiser_options = {
             "denoiser_hidden_dim": denoiser_hidden_dim, "denoiser_num_layers": denoiser_num_layers,
             "state_feature_normalization": state_feature_normalization,
+            "time_conditioning": time_conditioning,
             "speed_x0_parameterization": speed_x0_parameterization,
             "speed_head_kind": speed_head_kind, "speed_head_detach_context": speed_head_detach_context,
             "map_condition_types": map_condition_types,
@@ -315,7 +320,8 @@ class InitDiffusion(nn.Module):
             raise ValueError("InitDiffusion extra state must be a mapping")
         saved_size_mode = state.get("size_representation", "linear")
         legacy_options = {"denoiser_hidden_dim": 256, "denoiser_num_layers": 3,
-                          "state_feature_normalization": "none", "speed_x0_parameterization": "identity",
+                          "state_feature_normalization": "none", "time_conditioning": "input",
+                          "speed_x0_parameterization": "identity",
                           "speed_head_kind": "shared", "speed_head_detach_context": False,
                           "map_condition_types": "road_edges"}
         saved_options = dict(legacy_options, **state.get("denoiser_options", {}))

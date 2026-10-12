@@ -25,7 +25,7 @@ model:
     decoder:
       init_decoder: flow  # Existing InitDiffusion, with the existing loss/sampler.
       init_diffusion:
-        denoiser_hidden_dim: 512
+       # denoiser_hidden_dim: 512
         fix_ego: false  # Default for fields without an explicit override.
         fix_ego_position: true
         fix_ego_heading: true
@@ -60,6 +60,7 @@ model:
         #edge_embedding_type: mlp
       initial_scene_only: true
       sep_map: false
+    sd_r_reference: ${sim_root:}/configs/metrics/control657_full50000.json
     sd_use_cached_evaluator: true
     sd_eval_set: ${paths.root_dir}/waymo_data/waymo_eval_set.pkl
     sd_real_cache: ${paths.root_dir}/waymo_data/sd_real_metric_cache.sqlite

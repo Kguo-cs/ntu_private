@@ -1,0 +1,26 @@
+# @package _global_
+# Pass ckpt_path=/absolute/path/to/last.ckpt; require the complete50000-scene evaluation.
+defaults:
+- init_diffusion_657_norm_depth5
+- _self_
+task_name: init_diffusion_657_norm_depth5_eval
+action: test
+ckpt_path: ???
+seed: 2817
+model:
+  model_config:
+    initial_map_checkpoint: null
+    sd_reference_mode: matched
+    sd_require_full_set: true
+    sd_expected_scenes: 50000
+    decoder:
+      init_diffusion:
+        normalizer_path: null
+data:
+  scenario_dreamer_eval_set: null
+trainer:
+  limit_test_batches: 1.0
+  logger: false
+  enable_checkpointing: false
+callbacks: null
+logger: false
