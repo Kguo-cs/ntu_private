@@ -80,6 +80,9 @@ def main():
                       num_generated_vehicles=report["num_generated_vehicles"],
                       num_gt_vehicles=report["num_gt_vehicles"],
                       num_samples=report["num_samples"])
+        evaluator = model.sd_evaluator
+        record["histograms"] = dict(generated=[h.tolist() for h in evaluator.generated.histograms],
+                                    real=[h.tolist() for h in evaluator.real.histograms])
         with open(args.out, "a") as handle:
             handle.write(json.dumps(record) + "\n")
         print("RESULT", json.dumps(record), flush=True)
