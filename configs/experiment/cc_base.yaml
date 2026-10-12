@@ -1,0 +1,14 @@
+# @package _global_
+# Exact recipe of wandb run iu3fa4gx (init_diffusion_lane_conditioned_loss_search_best),
+# pinned so later edits to the parent experiment do not change this baseline.
+defaults:
+  - init_diffusion_lane_conditioned_loss_search_best
+  - _self_
+
+task_name: cc_base
+seed: 2817
+
+model:
+  model_config:
+    lr: 0.0005
+    lr_min_ratio: 0.05

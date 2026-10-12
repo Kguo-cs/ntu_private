@@ -204,6 +204,8 @@ class Flow(nn.Module):
             speed_x0_parameterization=getattr(args, "speed_x0_parameterization", "identity"),
             speed_head_kind=getattr(args, "speed_head_kind", "shared"),
             speed_head_detach_context=getattr(args, "speed_head_detach_context", False),
+            agent_neighbors=getattr(args, "agent_neighbors", 30),
+            map_neighbors=getattr(args, "map_neighbors", 30),
             size_representation=self.size_representation,
             fix_ego=self.fix_ego,
             **conditions,
@@ -227,6 +229,19 @@ class Flow(nn.Module):
 
         self.t_eps = 0.05
         self.token_processor=token_processor
+        # Inference-only sampler options; defaults reproduce uniform Euler.
+        self.sampling_time_power = float(getattr(args, "sampling_time_power", 1.0))
+        self.sampling_exact_x0 = bool(getattr(args, "sampling_exact_x0", False))
+        if not math.isfinite(self.sampling_time_power) or self.sampling_time_power <= 0:
+            raise ValueError("sampling_time_power must be finite and positive")
+        guidance = dict(getattr(args, "collision_guidance", None) or {})
+        unknown = set(guidance) - {"scale", "t_max", "iters", "margin", "vehicles_only"}
+        if unknown:
+            raise ValueError(f"Unknown collision_guidance options: {sorted(unknown)}")
+        self.collision_guidance = dict(
+            scale=float(guidance.get("scale", 0.0)), t_max=float(guidance.get("t_max", 0.0)),
+            iters=int(guidance.get("iters", 1)), margin=float(guidance.get("margin", 0.0)),
+            vehicles_only=bool(guidance.get("vehicles_only", True)))
 
         # --------------------------------------------------------------
         # Initial-state policy optimization
@@ -1517,6 +1532,66 @@ class Flow(nn.Module):
         )
 
     @torch.no_grad()
+    @torch.no_grad()
+    def _collision_guided_x0(self, x0: Tensor, tokenized_agent: HeteroData) -> Tensor:
+        """Separate overlapping clean-state predictions using the metric's
+        five-circle geometry (threshold (w_i + w_j) / sqrt(3.8) + margin).
+
+        Each iteration moves positions by ``scale`` times the gradient of
+        0.5 * sum(relu(penetration)^2), where a pair's penetration is that of its
+        deepest circle pair; fixed (conditioned) positions stay put.
+        """
+        from torch_cluster import radius_graph
+
+        options = self.collision_guidance
+        batch = tokenized_agent["batch"].long()
+        physical = self.model.state_to_physical(x0[:, :self.model.m_delta_dim])
+        heading = torch.atan2(physical[:, 3], physical[:, 2])
+        length, width = physical[:, 4].clamp_min(0.1), physical[:, 5].clamp_min(0.1)
+        movable = ~self._conditioned_state_mask(tokenized_agent, x0)[:, 0]
+        active = torch.ones_like(movable)
+        if options["vehicles_only"] and getattr(self, "generate_type", False) and not self.joint_type:
+            active = tokenized_agent["_init_diffusion_type_logits"].argmax(-1) == 0
+            active |= tokenized_agent["ego_mask"].bool() & (tokenized_agent["type"] == 0)
+        index = active.nonzero(as_tuple=True)[0]
+        if index.numel() < 2:
+            return x0
+        pos = physical[index, :2].clone()
+        reach = float((length[index].max() + width[index].max()).item()) + options["margin"] + 1.0
+        edge = radius_graph(pos, r=reach, batch=batch[index], loop=False, max_num_neighbors=64)
+        start, end = edge[0], edge[1]
+        keep = start < end
+        start, end = start[keep], end[keep]
+        if start.numel() == 0:
+            return x0
+        offsets = torch.linspace(-0.5, 0.5, 5, device=x0.device, dtype=x0.dtype)
+        sub_heading, sub_length, sub_width = heading[index], length[index], width[index]
+        relative = offsets[None] * (sub_length - sub_width)[:, None]
+        direction = torch.stack((sub_heading.cos(), sub_heading.sin()), -1)
+        threshold = ((sub_width[start] + sub_width[end]) / math.sqrt(3.8) + options["margin"])[:, None, None]
+        weight = movable[index].to(x0.dtype)[:, None]
+        for _ in range(options["iters"]):
+            # Closed-form gradient (inference_mode forbids autograd): the
+            # deepest circle pair defines each pair's penetration and direction.
+            centers = pos[:, None] + relative[..., None] * direction[:, None]
+            delta = centers[start, :, None] - centers[end, None, :]
+            distance = (delta.square().sum(-1) + 1e-8).sqrt()
+            depth = (threshold - distance).flatten(1)
+            penetration, deepest = depth.max(-1)
+            hit = penetration > 0
+            if not bool(hit.any()):
+                break
+            unit = (delta.flatten(1, 2)[torch.arange(len(deepest), device=x0.device), deepest]
+                    / distance.flatten(1)[torch.arange(len(deepest), device=x0.device), deepest, None])
+            push = (penetration.clamp_min(0)[:, None] * unit)[hit]
+            grad = torch.zeros_like(pos)
+            grad.index_add_(0, start[hit], -push)
+            grad.index_add_(0, end[hit], push)
+            pos = pos - options["scale"] * grad * weight
+        result = x0.clone()
+        result[index, :2] = pos.to(result.dtype)
+        return result
+
     def _sample_step(
         self,
         latent: Tensor,
@@ -1553,11 +1628,23 @@ class Flow(nn.Module):
             tokenized_agent,
             map_feature,
         )
+        guidance = getattr(self, "collision_guidance", None)
+        if (guidance is not None and guidance["scale"] > 0 and not self.training
+                and float(time_scalar) <= guidance["t_max"] + 1e-6):
+            x0 = self._collision_guided_x0(x0, tokenized_agent)
+            position = (latent[:, :2] - x0[:, :2]) / time.clamp_min(self.t_eps)
+            velocity = torch.cat((position, velocity[:, 2:]), dim=-1)
+        # The training floor t_eps also clamps sampling velocities, so steps
+        # ending below t_eps stop short of x0. Exact mode lands on x0 at t=0.
+        floor = 1e-4 if getattr(self, "sampling_exact_x0", False) else self.t_eps
+        if floor != self.t_eps and not self.joint_type:
+            exact = (latent - x0) / time.clamp_min(floor)
+            velocity = torch.cat((exact[:, :2], velocity[:, 2:4], exact[:, 4:]), dim=-1)
 
         if getattr(self, "generate_type", False) and not self.joint_type:
             type_state = tokenized_agent["_init_diffusion_type_state"]
             type_clean = tokenized_agent["_init_diffusion_type_logits"].float().softmax(-1).to(type_state)
-            type_velocity = (type_state - type_clean) / time.clamp_min(self.t_eps)
+            type_velocity = (type_state - type_clean) / time.clamp_min(floor)
             next_type = type_state + (next_time - time) * type_velocity
             fixed_type = self._conditioned_type_mask(tokenized_agent)
             next_type[fixed_type] = tokenized_agent["_init_diffusion_type_source"][fixed_type]
@@ -1700,6 +1787,8 @@ class Flow(nn.Module):
             device=agent_batch.device,
             dtype=latent.dtype,
         )
+        if getattr(self, "sampling_time_power", 1.0) != 1.0:
+            timesteps = timesteps.pow(self.sampling_time_power)
 
         if self.use_sde:
             graph_branch_steps = (

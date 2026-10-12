@@ -1,0 +1,18 @@
+# @package _global_
+# cc_base training recipe + improved sampler (validated on iu3fa4gx last.ckpt, 50k matched eval):
+#   40 Euler steps that land exactly on x0 at t=0 (the t_eps=0.05 velocity floor
+#   otherwise stops steps below t=0.05 short of x0), plus collision guidance that
+#   separates overlapping vehicles in the predicted x0 for t <= 0.3.
+defaults:
+  - cc_base
+  - _self_
+
+task_name: cc_best
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_steps: 40
+        sampling_exact_x0: true
+        collision_guidance: {scale: 0.5, t_max: 0.3, iters: 5, margin: 0.1, vehicles_only: true}

@@ -89,6 +89,11 @@ class InitDiffusion(nn.Module):
         speed_head_kind: str = "shared",
         speed_head_detach_context: bool = False,
         map_condition_types: str = "road_edges",
+        sampling_time_power: float = 1.0,
+        sampling_exact_x0: bool = False,
+        agent_neighbors: int = 30,
+        map_neighbors: int = 30,
+        collision_guidance: Optional[Mapping[str, Any]] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -131,6 +136,11 @@ class InitDiffusion(nn.Module):
         args.hidden_dim = denoiser_hidden_dim
         args.num_denoiser_layers = denoiser_num_layers
         args.sampling_steps = sampling_steps
+        args.sampling_time_power = sampling_time_power
+        args.sampling_exact_x0 = bool(sampling_exact_x0)
+        args.agent_neighbors = int(agent_neighbors)
+        args.map_neighbors = int(map_neighbors)
+        args.collision_guidance = None if collision_guidance is None else dict(collision_guidance)
         args.matching_weights = matching_weights
         args.time_sample_power = time_sample_power
         args.distribution_loss = distribution_loss

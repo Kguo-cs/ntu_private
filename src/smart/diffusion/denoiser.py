@@ -96,8 +96,12 @@ class InitDenoiser(nn.Module):
         speed_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
         speed_head_detach_context: bool = False,
+        agent_neighbors: int = 30,
+        map_neighbors: int = 30,
     ) -> None:
         super().__init__()
+        self.agent_neighbors = int(agent_neighbors)
+        self.map_neighbors = int(map_neighbors)
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -874,7 +878,7 @@ class InitDenoiser(nn.Module):
             batch_s=batch,
             mask=None,
             max_radius=300,
-            max_num_neighbors=30,
+            max_num_neighbors=self.agent_neighbors,
             agent_train_mask=None,
             layer_num=self.num_layers,
         )
@@ -949,7 +953,7 @@ class InitDenoiser(nn.Module):
                 batch_s=batch_for_map,
                 batch_pl=batch_pl,
                 pl2a_radius=300,
-                max_num_neighbors=30,
+                max_num_neighbors=self.map_neighbors,
                 agent_train_mask=None,
                 layer_num=self.num_layers,
             )
