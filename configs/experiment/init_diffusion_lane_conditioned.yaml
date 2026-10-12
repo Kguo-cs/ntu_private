@@ -25,6 +25,7 @@ model:
     decoder:
       init_decoder: flow  # Existing InitDiffusion, with the existing loss/sampler.
       init_diffusion:
+        denoiser_hidden_dim: 512
         fix_ego: false  # Default for fields without an explicit override.
         fix_ego_position: true
         fix_ego_heading: true
