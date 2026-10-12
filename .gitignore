@@ -88,3 +88,6 @@ outputs/scenario_dreamer*/
 docs
 tmp
 logs
+tests
+output
+outputs
