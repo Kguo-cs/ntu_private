@@ -88,7 +88,7 @@ outputs/scenario_dreamer*/
 docs
 tmp
 logs
-tests
+#tests
 output
 outputs
-tools
+#tools
