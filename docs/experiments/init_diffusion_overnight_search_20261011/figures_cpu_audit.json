@@ -1,0 +1,36 @@
+{
+  "status": "PASS_CPU_PREPARATION_ACTUAL_NEW_RESULTS_PENDING",
+  "utc": "2026-10-11T15:52:31.184824+00:00",
+  "actual_completed_overnight_stages": 0,
+  "actual_overnight_figures": 0,
+  "synthetic_fixture_scope": "/tmp only; no synthetic data written to overnight observations/report figures",
+  "tests": 22,
+  "test_command": "CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python -m unittest discover -s tests -p 'test_overnight_search*.py' -v",
+  "rendering": {
+    "native_content_width_pt": 511,
+    "max_image_height_pt": 490,
+    "minimum_source_font_pt": 9,
+    "minimum_effective_font_pt": 8,
+    "actual_fixture_minimum_effective_font_pt": 9,
+    "heatmap_max_arms_per_page": 8,
+    "fixture18arm_pages": [
+      8,
+      8,
+      2
+    ],
+    "separate_long_figures": 8,
+    "numericalchecks": [
+      "GENmean withinTRAIN; sampleSD TRAIN N1 undefined; N1/N2 membership checked",
+      "actual equalexposure B256/B512 update pairs tracked",
+      "speed rawJSD conversion /100 and collision percent unchanged",
+      "4full50k observations =2arms x2GEN but TRAIN N1",
+      "full histogram is equalmean of eachGEN normalized histogram, not count-pooling",
+      "different exampleGEN counts20/40 gives (.25,.375,.375), instead of pooled (.167,.333,.5)",
+      "missing full4cell matrix produces nohist plots"
+    ],
+    "visual_qa": "Viewed representative8arm heatmap and long speed chart at full PNG resolution; readable/no clip. Full chart sizing and sources verified by CPU fixture test; actual full QA deferred until actualdata."
+  },
+  "entrypoint": "tools/overnight_search_analysis.py --figures",
+  "tool_sha256": "ea9444ca4b711fba27752e9a2a9eb2fb9cc0f45d5efffae727fca4fcc6af8750",
+  "pending": "Waiting for actual successful main stages, then refresh/visually inspectactual PNGs. No new PDF/report completion marker created."
+}

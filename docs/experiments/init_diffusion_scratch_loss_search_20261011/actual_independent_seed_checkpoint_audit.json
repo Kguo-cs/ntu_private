@@ -1,0 +1,672 @@
+{
+  "status": "PASS",
+  "scope": "Actual fresh production checkpoints for2 frozen recipes and2 additional training seeds; compared to previously audited seed817",
+  "cuda_initialized": false,
+  "within_seed_initial_weights_and_train_order_equal": true,
+  "across_training_seeds_initial_weights_and_train_order_distinct": true,
+  "shared_train_only_calibration": true,
+  "cohort_hashes": {
+    "1817": {
+      "initial_map_sha256": "ad0e456e18665945e6f611f75bd238153dcbaecb166076ba0dae96df5db18e49",
+      "initial_generator_sha256": "39a36cb6474d1600158349b1c1b59edde64dc2b4df9d0a03656bcfe5e2a969cf",
+      "train_order_sha256": "ef8e2c8bfcf2d7f875fa17b602a5b87ab0ac9b052a1320d2e38ee2fc745d0483",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1"
+    },
+    "2817": {
+      "initial_map_sha256": "f767768b8be057f0e48b17a5f138b7a1b5ac34af14eb760b004213ea973e4c4b",
+      "initial_generator_sha256": "155de9d26b0804f5248cb04ed290f07f1fdc115b2755c1cde8a0313686289d32",
+      "train_order_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1"
+    },
+    "817": {
+      "initial_map_sha256": "320e3be3890f9390d3d6cd71e947e14ac2d318083d718c11f1ef9f120c0223ea",
+      "initial_generator_sha256": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+      "train_order_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23"
+    }
+  },
+  "arms": [
+    {
+      "variant": "warm_winner",
+      "status": "PASS",
+      "full_train_manifest_count": 493542,
+      "all_trainable_parameters_within_map_and_G1": true,
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_map_sha256": "ad0e456e18665945e6f611f75bd238153dcbaecb166076ba0dae96df5db18e49",
+      "initial_generator_sha256": "39a36cb6474d1600158349b1c1b59edde64dc2b4df9d0a03656bcfe5e2a969cf",
+      "initial_hashes_reproduced_cpu": true,
+      "seed": 1817,
+      "batch_size": 512,
+      "steps": 2048,
+      "completed_real_epochs": 2,
+      "actual_seen_training_examples": 1048524,
+      "last_is_exact_batch_end_step2048_checkpoint": true,
+      "train_trace_steps": 2048,
+      "train_trace_range": [
+        0,
+        2047
+      ],
+      "all_training_losses_finite": true,
+      "first_and_last_recorded_map_grad_norm": [
+        133.58631896972656,
+        0.11103207617998123
+      ],
+      "stages": [
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed1817/warm_winner/step_1536.ckpt",
+          "global_step": 1536,
+          "epoch": 1,
+          "scheduler_last_epoch": 1,
+          "optimizer_learning_rates": [
+            0.0004999284694403484
+          ],
+          "actual_seen_examples": 786406,
+          "optimizer_step_values": [
+            1536,
+            1536
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 1536,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9941785252263907,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 572,
+            "completed": 571,
+            "started": 572,
+            "processed": 572
+          },
+          "optimizer_total_completed": 1536,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 14.44722346856848,
+              "initial_parameters_sha256": "9b66f72bd99d259c4032e8662635e9601531546a5d6e59fecfed6c2bf86e97fa",
+              "saved_parameters_sha256": "7256970c9410acc68e48b2f9fc65afbb296fa755988857e86a55a92761347cf0",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 45.250076902140165,
+              "initial_parameters_sha256": "4d3032db36983a6c54b32c44628b475af9f4e3ded57c6a45a2a0df8ff4b9a50b",
+              "saved_parameters_sha256": "f08988a266b3b304050724865eca195983d1a21d2681c9a588041f80bb2ae1a4",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        },
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed1817/warm_winner/last.ckpt",
+          "global_step": 2048,
+          "epoch": 2,
+          "scheduler_last_epoch": 2,
+          "optimizer_learning_rates": [
+            0.0004997139208487285
+          ],
+          "actual_seen_examples": 1048524,
+          "optimizer_step_values": [
+            2048,
+            2048
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 2048,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9956268221574344,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 120,
+            "completed": 119,
+            "started": 120,
+            "processed": 120
+          },
+          "optimizer_total_completed": 2048,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 16.32103139797668,
+              "initial_parameters_sha256": "9b66f72bd99d259c4032e8662635e9601531546a5d6e59fecfed6c2bf86e97fa",
+              "saved_parameters_sha256": "f8c39be48435de83996e97a8de28392b25f9850789d0dd51ecaee36d07cc391b",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 52.333461578677294,
+              "initial_parameters_sha256": "4d3032db36983a6c54b32c44628b475af9f4e3ded57c6a45a2a0df8ff4b9a50b",
+              "saved_parameters_sha256": "357c1ecb648e25717e262a5c792c91a06db88b1a14c09ee62090d5e46d6aa5b5",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        }
+      ],
+      "final_epoch_progress": {
+        "total": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        },
+        "current": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        }
+      },
+      "train_order_sha256": "ef8e2c8bfcf2d7f875fa17b602a5b87ab0ac9b052a1320d2e38ee2fc745d0483",
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "production_learning_rate": 0.0005,
+      "no_pretrained_source_or_resume": true,
+      "loss_recipe_matches_frozen_seed817_config_and_checkpoint": true,
+      "loss_recipe_sha256": "fd97c65933e3078a22dc725426556703bd01de4beaa281c0da8445be20720223"
+    },
+    {
+      "variant": "geo_mse32_col20_heading_l1_shape2",
+      "status": "PASS",
+      "full_train_manifest_count": 493542,
+      "all_trainable_parameters_within_map_and_G1": true,
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_map_sha256": "ad0e456e18665945e6f611f75bd238153dcbaecb166076ba0dae96df5db18e49",
+      "initial_generator_sha256": "39a36cb6474d1600158349b1c1b59edde64dc2b4df9d0a03656bcfe5e2a969cf",
+      "initial_hashes_reproduced_cpu": true,
+      "seed": 1817,
+      "batch_size": 512,
+      "steps": 2048,
+      "completed_real_epochs": 2,
+      "actual_seen_training_examples": 1048524,
+      "last_is_exact_batch_end_step2048_checkpoint": true,
+      "train_trace_steps": 2048,
+      "train_trace_range": [
+        0,
+        2047
+      ],
+      "all_training_losses_finite": true,
+      "first_and_last_recorded_map_grad_norm": [
+        269.2244873046875,
+        0.5142541527748108
+      ],
+      "stages": [
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed1817/geo_mse32_col20_heading_l1_shape2/step_1536.ckpt",
+          "global_step": 1536,
+          "epoch": 1,
+          "scheduler_last_epoch": 1,
+          "optimizer_learning_rates": [
+            0.0004999284694403484
+          ],
+          "actual_seen_examples": 786406,
+          "optimizer_step_values": [
+            1536,
+            1536
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 1536,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9941785252263907,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 572,
+            "completed": 571,
+            "started": 572,
+            "processed": 572
+          },
+          "optimizer_total_completed": 1536,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 13.747976384779498,
+              "initial_parameters_sha256": "9b66f72bd99d259c4032e8662635e9601531546a5d6e59fecfed6c2bf86e97fa",
+              "saved_parameters_sha256": "474bc6bd483ca03026b0510595fed0d638b68301d69203a849f7fd2df637158d",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 47.77660679777063,
+              "initial_parameters_sha256": "4d3032db36983a6c54b32c44628b475af9f4e3ded57c6a45a2a0df8ff4b9a50b",
+              "saved_parameters_sha256": "907b5dce519f7d7ba431d5bdb97591efe1fb1c58e2aaf98c4b4bf8624ae26df3",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        },
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed1817/geo_mse32_col20_heading_l1_shape2/last.ckpt",
+          "global_step": 2048,
+          "epoch": 2,
+          "scheduler_last_epoch": 2,
+          "optimizer_learning_rates": [
+            0.0004997139208487285
+          ],
+          "actual_seen_examples": 1048524,
+          "optimizer_step_values": [
+            2048,
+            2048
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 2048,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9956268221574344,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 120,
+            "completed": 119,
+            "started": 120,
+            "processed": 120
+          },
+          "optimizer_total_completed": 2048,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 15.944258983232379,
+              "initial_parameters_sha256": "9b66f72bd99d259c4032e8662635e9601531546a5d6e59fecfed6c2bf86e97fa",
+              "saved_parameters_sha256": "1e1901ba613177032707689401fcd0511333bcb5c9ba6bdbd6a807713c9de62a",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 55.73853730889313,
+              "initial_parameters_sha256": "4d3032db36983a6c54b32c44628b475af9f4e3ded57c6a45a2a0df8ff4b9a50b",
+              "saved_parameters_sha256": "978640175cce17d8627145622b2b716c6d0afa91e32e9bd6973c7785a842fb79",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        }
+      ],
+      "final_epoch_progress": {
+        "total": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        },
+        "current": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        }
+      },
+      "train_order_sha256": "ef8e2c8bfcf2d7f875fa17b602a5b87ab0ac9b052a1320d2e38ee2fc745d0483",
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "production_learning_rate": 0.0005,
+      "no_pretrained_source_or_resume": true,
+      "loss_recipe_matches_frozen_seed817_config_and_checkpoint": true,
+      "loss_recipe_sha256": "7a50fe2127c1edc17d279bdac8f8eb8d58aef0a0a8b83a6275c7f3361674339b"
+    },
+    {
+      "variant": "warm_winner",
+      "status": "PASS",
+      "full_train_manifest_count": 493542,
+      "all_trainable_parameters_within_map_and_G1": true,
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_map_sha256": "f767768b8be057f0e48b17a5f138b7a1b5ac34af14eb760b004213ea973e4c4b",
+      "initial_generator_sha256": "155de9d26b0804f5248cb04ed290f07f1fdc115b2755c1cde8a0313686289d32",
+      "initial_hashes_reproduced_cpu": true,
+      "seed": 2817,
+      "batch_size": 512,
+      "steps": 2048,
+      "completed_real_epochs": 2,
+      "actual_seen_training_examples": 1048524,
+      "last_is_exact_batch_end_step2048_checkpoint": true,
+      "train_trace_steps": 2048,
+      "train_trace_range": [
+        0,
+        2047
+      ],
+      "all_training_losses_finite": true,
+      "first_and_last_recorded_map_grad_norm": [
+        195.72735595703125,
+        0.11168834567070007
+      ],
+      "stages": [
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed2817/warm_winner/step_1536.ckpt",
+          "global_step": 1536,
+          "epoch": 1,
+          "scheduler_last_epoch": 1,
+          "optimizer_learning_rates": [
+            0.0004999284694403484
+          ],
+          "actual_seen_examples": 786406,
+          "optimizer_step_values": [
+            1536,
+            1536
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 1536,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9941785252263907,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 572,
+            "completed": 571,
+            "started": 572,
+            "processed": 572
+          },
+          "optimizer_total_completed": 1536,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 14.275341522885128,
+              "initial_parameters_sha256": "445112ce968f354311dd171ef0ffb8edc9588fa4132d111e6775b9957398a9b9",
+              "saved_parameters_sha256": "a918f2598eccd78640370a7c9f8745559c9e495dce4624c715cb07cf6a7ce8ee",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 46.20196563173992,
+              "initial_parameters_sha256": "4119497a6f74a689d1eaee45eb8eb4837c6ae2546e2c71da593b63e5ba67fd8a",
+              "saved_parameters_sha256": "d21252dfea8ed184e1707e133e6d0b1e475ffacf9e7699f3bfe20430eb98bea7",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        },
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed2817/warm_winner/last.ckpt",
+          "global_step": 2048,
+          "epoch": 2,
+          "scheduler_last_epoch": 2,
+          "optimizer_learning_rates": [
+            0.0004997139208487285
+          ],
+          "actual_seen_examples": 1048524,
+          "optimizer_step_values": [
+            2048,
+            2048
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 2048,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9956268221574344,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 120,
+            "completed": 119,
+            "started": 120,
+            "processed": 120
+          },
+          "optimizer_total_completed": 2048,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 16.252027574272095,
+              "initial_parameters_sha256": "445112ce968f354311dd171ef0ffb8edc9588fa4132d111e6775b9957398a9b9",
+              "saved_parameters_sha256": "b3f6b3c987ea9eeb580a1b4efe5fe0a64efac849449fd4a94ce131c36bcaedb9",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 53.194864743735785,
+              "initial_parameters_sha256": "4119497a6f74a689d1eaee45eb8eb4837c6ae2546e2c71da593b63e5ba67fd8a",
+              "saved_parameters_sha256": "ee3693456343e016b57b296b3a6015fcea9d317a90f872a22497a2e7f36f9fc6",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        }
+      ],
+      "final_epoch_progress": {
+        "total": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        },
+        "current": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        }
+      },
+      "train_order_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "production_learning_rate": 0.0005,
+      "no_pretrained_source_or_resume": true,
+      "loss_recipe_matches_frozen_seed817_config_and_checkpoint": true,
+      "loss_recipe_sha256": "fd97c65933e3078a22dc725426556703bd01de4beaa281c0da8445be20720223"
+    },
+    {
+      "variant": "geo_mse32_col20_heading_l1_shape2",
+      "status": "PASS",
+      "full_train_manifest_count": 493542,
+      "all_trainable_parameters_within_map_and_G1": true,
+      "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+      "initial_map_sha256": "f767768b8be057f0e48b17a5f138b7a1b5ac34af14eb760b004213ea973e4c4b",
+      "initial_generator_sha256": "155de9d26b0804f5248cb04ed290f07f1fdc115b2755c1cde8a0313686289d32",
+      "initial_hashes_reproduced_cpu": true,
+      "seed": 2817,
+      "batch_size": 512,
+      "steps": 2048,
+      "completed_real_epochs": 2,
+      "actual_seen_training_examples": 1048524,
+      "last_is_exact_batch_end_step2048_checkpoint": true,
+      "train_trace_steps": 2048,
+      "train_trace_range": [
+        0,
+        2047
+      ],
+      "all_training_losses_finite": true,
+      "first_and_last_recorded_map_grad_norm": [
+        374.5122375488281,
+        0.7010754346847534
+      ],
+      "stages": [
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed2817/geo_mse32_col20_heading_l1_shape2/step_1536.ckpt",
+          "global_step": 1536,
+          "epoch": 1,
+          "scheduler_last_epoch": 1,
+          "optimizer_learning_rates": [
+            0.0004999284694403484
+          ],
+          "actual_seen_examples": 786406,
+          "optimizer_step_values": [
+            1536,
+            1536
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 1536,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9941785252263907,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 572,
+            "completed": 571,
+            "started": 572,
+            "processed": 572
+          },
+          "optimizer_total_completed": 1536,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 13.90722642403829,
+              "initial_parameters_sha256": "445112ce968f354311dd171ef0ffb8edc9588fa4132d111e6775b9957398a9b9",
+              "saved_parameters_sha256": "c1ee2f056402917debb85129b11bfc8ed7c3312f6692d074799b3a9859cf3b69",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 49.9039696504031,
+              "initial_parameters_sha256": "4119497a6f74a689d1eaee45eb8eb4837c6ae2546e2c71da593b63e5ba67fd8a",
+              "saved_parameters_sha256": "ee564d22066f0b6f4fb1183f3324c2e6e228d155025f64610f3f493ff0f24708",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        },
+        {
+          "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed2817/geo_mse32_col20_heading_l1_shape2/last.ckpt",
+          "global_step": 2048,
+          "epoch": 2,
+          "scheduler_last_epoch": 2,
+          "optimizer_learning_rates": [
+            0.0004997139208487285
+          ],
+          "actual_seen_examples": 1048524,
+          "optimizer_step_values": [
+            2048,
+            2048
+          ],
+          "optimizer_states_missing_for_trainable_parameters": [],
+          "ema_updates": 2048,
+          "ema_nominal_decay": 0.9999,
+          "ema_effective_decay": 0.9956268221574344,
+          "rng_fields_recorded": [
+            "python",
+            "numpy",
+            "torch_cpu",
+            "torch_cuda"
+          ],
+          "training_normalizer_exact_match": true,
+          "local_batch_progress": {
+            "ready": 120,
+            "completed": 119,
+            "started": 120,
+            "processed": 120
+          },
+          "optimizer_total_completed": 2048,
+          "parameter_updates": {
+            "map": {
+              "trainable_parameter_tensors": 64,
+              "changed_parameter_tensors": 64,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 15.91934484046167,
+              "initial_parameters_sha256": "445112ce968f354311dd171ef0ffb8edc9588fa4132d111e6775b9957398a9b9",
+              "saved_parameters_sha256": "38c751ac2caee927f345dfd2445f8281cef39c27b89a43e54697b8cbd87e7594",
+              "adam_state_count": 64,
+              "nonzero_first_moment_count": 64
+            },
+            "G1": {
+              "trainable_parameter_tensors": 252,
+              "changed_parameter_tensors": 252,
+              "unchanged_names": [],
+              "parameter_delta_l2_from_initial": 57.06593976597556,
+              "initial_parameters_sha256": "4119497a6f74a689d1eaee45eb8eb4837c6ae2546e2c71da593b63e5ba67fd8a",
+              "saved_parameters_sha256": "53c9d5a1b4946d4de6258882ce1159a3e50203a6f093f348292b5fff909e5e15",
+              "adam_state_count": 252,
+              "nonzero_first_moment_count": 252
+            }
+          }
+        }
+      ],
+      "final_epoch_progress": {
+        "total": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        },
+        "current": {
+          "ready": 3,
+          "completed": 2,
+          "started": 3,
+          "processed": 2
+        }
+      },
+      "train_order_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+      "eval_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "production_learning_rate": 0.0005,
+      "no_pretrained_source_or_resume": true,
+      "loss_recipe_matches_frozen_seed817_config_and_checkpoint": true,
+      "loss_recipe_sha256": "7a50fe2127c1edc17d279bdac8f8eb8d58aef0a0a8b83a6275c7f3361674339b"
+    }
+  ],
+  "limits": "Saved-state audit only; does not establish full-training convergence or make generation seeds independent training seeds. Reference checkpoint recipes include constructor defaults absent from YAML.",
+  "heldout_evaluation_protocol_consistency": {
+    "status": "PASS",
+    "evaluation_list_sha256_by_run": {
+      "heldout_seed817": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "batch512_seed1817": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+      "batch512_seed2817": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1"
+    },
+    "scene_count": 4096,
+    "generation_seeds": [
+      2817,
+      3817
+    ],
+    "precision": "32-true",
+    "note": "Seed817 training source selection evaluated search1024, but its separate heldout eval-only protocol uses exactly same list as independent trainingseeds1817/2817."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "program": "/home/ke/keguo/sim/src/run1.py",
+  "codePath": "src/run1.py",
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "gpu_count": 1,
+  "python": "CPython 3.11.9",
+  "startedAt": "2026-10-11T15:19:50.817769Z",
+  "cuda": null,
+  "os": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39"
+}

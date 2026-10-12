@@ -1,0 +1,41 @@
+{
+  "status": "ISOLATED_CPU_REPORT_REGENERATION_EXIT139_WITH_SUCCESSFUL_REPEAT",
+  "recorded_utc": "2026-10-11T17:29:41.291490+00:00",
+  "scope": "CPU report builder only; excluded from model/search failures and observations",
+  "original_tool_chunk_id": "5dfc55",
+  "command": "CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH=/home/ke/code/sim /home/ke/miniconda3/envs/sim/bin/python tools/build_overnight_search_report.py",
+  "returncode": 139,
+  "wall_time_seconds": 0.549364357,
+  "stdout_stderr": "",
+  "crash_trace_available": false,
+  "builder_source_sha256_at_failed_and_successful_repeat": "9a607f8d95a2c371f2002d10fcd252cc8b68649f22d83c1d3501a4bf295ffeef",
+  "successful_repeat_tool_chunk_id": "ad2a02",
+  "successful_repeat_extra_environment": {
+    "PYTHONFAULTHANDLER": "1"
+  },
+  "successful_repeat_returncode": 0,
+  "successful_repeat_torch_imported": false,
+  "cause": "not established; no inference about Torch/CUDA/GC or model code",
+  "watcher_process_exited": false,
+  "GPU_started": false,
+  "PDF_generated": false,
+  "completion_marker_created": false,
+  "diagnostic_not_performance_evidence": true,
+  "additional_observed_events": [
+    {
+      "original_tool_chunk_id": "f559b2",
+      "returncode": 139,
+      "wall_time_seconds": 0.125,
+      "stdout_stderr": "",
+      "crash_trace_available": false,
+      "successful_repeat_returncode": 0,
+      "successful_repeat_report_sha256": "646e5ab7d5b003b81b63cc05f525265c556e32e5267c2c0ba8b077127727ffa4",
+      "successful_repeat_verified_stages": 22,
+      "successful_repeat_observations": 54,
+      "successful_repeat_torch_imported": false,
+      "cause": "not established; CPU consumer startup/exit only, excluded from performance evidence",
+      "recorded_utc": "2026-10-11T21:46:31.323226+00:00",
+      "recording_note": "Preserved observed tool failure and successful repeat from this agent tool results; exact crash time/source SHA was not captured"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "status": "PASS",
+  "cuda_initialized": false,
+  "model_class": "SMART_GAIL",
+  "action": "fit",
+  "lightning_resume_ckpt_path": null,
+  "checkpoint": {
+    "path": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "file_sha256": "610c1f94a0f573fd078e251af37c38c73255b969e52154e66546588996ef99fb",
+    "source_epoch": 9,
+    "source_global_step": 152190,
+    "loaded_prefix": "encoder.map_encoder.",
+    "loaded_tensor_count": 66
+  },
+  "source_init_decoder_tensor_count": 0,
+  "source_decoder_hyperparameters": {
+    "hidden_dim": 128,
+    "num_freq_bands": 64,
+    "num_heads": 8,
+    "head_dim": 16,
+    "dropout": 0,
+    "hist_drop_prob": 0,
+    "num_map_layers": 1,
+    "num_agent_layers": 3,
+    "pl2pl_radius": 20,
+    "pl2a_radius": 40,
+    "a2a_radius": 60,
+    "time_span": 60,
+    "num_historical_steps": 11,
+    "num_future_steps": 80,
+    "pt2pt_neighbor": 30,
+    "pt2a_neighbor": 20,
+    "a2a_neighbor": 20,
+    "dis_a2a_radius": 60,
+    "dis_a2a_neighbor": 20,
+    "dis_weight": 20,
+    "dist_decay": 3,
+    "reward_weight": 0,
+    "reward_decay": 2.5
+  },
+  "strict_key_shape_dtype_finite_checks": true,
+  "map_all_tensors_exactly_equal_checkpoint": true,
+  "map_state_tensor_count": 66,
+  "map_parameter_tensors": 64,
+  "map_parameter_count": 437312,
+  "frozen_map_sha256": "56fa130790806d99a98da6a944e210f40224506ee6b4585c613b1e39bf204f1d",
+  "fresh_G1_sha256": "a976f97e57069b612c102524876a1fc46c1bdd1d91cd309bfad03429920d959d",
+  "G1_unchanged_by_map_load": true,
+  "fresh_G1_parameter_tensors": 252,
+  "map_and_unused_agent_parameters_frozen": true,
+  "map_eval_persists_after_model_train": true,
+  "G1_trainable_and_training": true,
+  "optimizer_exactly_G1_only": true,
+  "optimizer_state_empty": true,
+  "ema_num_updates": 0,
+  "ema_shadow_params_exactly_fresh_same_seed": true,
+  "train_normalizer_preserved": {
+    "normal_mean": [
+      [
+        1.9189387559890747,
+        1.3640835285186768,
+        0.408677339553833,
+        -0.005501848645508289,
+        4.296037673950195,
+        1.9575884342193604,
+        4.379359245300293
+      ]
+    ],
+    "normal_scale": [
+      [
+        16.67255401611328,
+        11.943503379821777,
+        0.77192223072052,
+        0.48691752552986145,
+        1.5381454229354858,
+        0.4944140613079071,
+        5.575545310974121
+      ]
+    ]
+  },
+  "default_initial_map_checkpoint_null_in_catalog": true,
+  "unit_tests": {
+    "file": "tests/test_init_diffusion_fixed_map_checkpoint.py",
+    "passed": 7
+  }
+}

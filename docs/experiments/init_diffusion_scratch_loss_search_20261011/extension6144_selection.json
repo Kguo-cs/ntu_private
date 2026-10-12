@@ -1,0 +1,114 @@
+{
+  "stage": "4096 to 6144 from-scratch continuation",
+  "selection_rule": "Preserve legacy and warm_winner; choose two lowest EMA S new recipes subject to generated_onroad_fraction >=0.72 and generated/GT vehicle count within [0.8,1.2]. Gate is only a minimum-quality check, not converged quality.",
+  "score_scales": {
+    "nearest_dist_jsd": 1.0,
+    "lat_dev_jsd": 1.0,
+    "ang_dev_jsd": 10.0,
+    "length_jsd": 20.0,
+    "width_jsd": 15.0,
+    "speed_jsd": 20.0,
+    "collision_rate": 5.0
+  },
+  "ranking": [
+    {
+      "variant": "geo_mse32_col20_heading_l1_shape2",
+      "score": 0.26796774821001124,
+      "onroad_fraction": 0.7857327809425169,
+      "count_ratio": 1.010730175346768,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/targeted4096_w0/geo_mse32_col20_heading_l1_shape2/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "geometry_strong_heading_l1_width_p2",
+      "score": 0.2873470384023271,
+      "onroad_fraction": 0.7662503186336987,
+      "count_ratio": 1.0266945825700078,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/targeted4096_w0/geometry_strong_heading_l1_width_p2/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "geometry_strong_heading_l1",
+      "score": 0.2956332435860129,
+      "onroad_fraction": 0.7621696801112656,
+      "count_ratio": 1.0349384977754514,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/geometry_strong_heading_l1/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "geometry_strong_width_p2",
+      "score": 0.31139930442126557,
+      "onroad_fraction": 0.7519765365978067,
+      "count_ratio": 1.0261711593823606,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/targeted4096_w0/geometry_strong_width_p2/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "warm_winner",
+      "score": 0.31223058159674705,
+      "onroad_fraction": 0.7489706639217705,
+      "count_ratio": 1.0170112535985345,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/warm_winner/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "geometry_strong",
+      "score": 0.32101936630113587,
+      "onroad_fraction": 0.7555924837019047,
+      "count_ratio": 1.0236848992410363,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/geometry_strong/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "geometry_strong_heading_p2",
+      "score": 0.3293356785168422,
+      "onroad_fraction": 0.7554195358326957,
+      "count_ratio": 1.0261711593823606,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/targeted4096_w0/geometry_strong_heading_p2/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "geo_mse32_col20",
+      "score": 0.3405203914595818,
+      "onroad_fraction": 0.7891723060905779,
+      "count_ratio": 1.0054959434702957,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/geo_mse32_col20/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "geo_l1_16",
+      "score": 0.39664754459574386,
+      "onroad_fraction": 0.804862361718549,
+      "count_ratio": 1.017272965192358,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/geo_l1_16/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "legacy",
+      "score": 0.4260516972901538,
+      "onroad_fraction": 0.7831202046035806,
+      "count_ratio": 1.0232923318503009,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/legacy/last.ckpt",
+      "eligible": true
+    },
+    {
+      "variant": "balanced32_l1_quarter",
+      "score": 0.47673391758382483,
+      "onroad_fraction": 0.7787750151607035,
+      "count_ratio": 1.0789060455378172,
+      "checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/long4096_w0/balanced32_l1_quarter/last.ckpt",
+      "eligible": true
+    }
+  ],
+  "selected": [
+    "legacy",
+    "warm_winner",
+    "geo_mse32_col20_heading_l1_shape2",
+    "geometry_strong_heading_l1_width_p2"
+  ],
+  "budget_steps": 6144,
+  "seen_scenes": 393216,
+  "batch_size": 64,
+  "seed": 817,
+  "evaluate_both_online_and_ema": true
+}

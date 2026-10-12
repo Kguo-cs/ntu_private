@@ -1,0 +1,159 @@
+{
+  "status": "PASS",
+  "train_order_sha256": "df6e6356faf0f7ab93724dbd1fe4f1c4b19178d3a1a3b5ce32864b56074f754a",
+  "source_train_order": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed2817_new_control/train_order.txt",
+  "manifest": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/seed2817_failed_neighborhood_files.txt",
+  "manifest_sha256": "bfc0cec05a0a083923dca5613a4e16778d09714815d50d979eb2bf09e45cf18f",
+  "global_steps_zero_based": [
+    4080,
+    4096
+  ],
+  "epoch_batches": 964,
+  "last_epoch_batch_size": 486,
+  "batches": [
+    {
+      "global_step_zero_based": 4080,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 224,
+      "first_manifest_index": 114688,
+      "last_manifest_index_inclusive": 115199,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4081,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 225,
+      "first_manifest_index": 115200,
+      "last_manifest_index_inclusive": 115711,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4082,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 226,
+      "first_manifest_index": 115712,
+      "last_manifest_index_inclusive": 116223,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4083,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 227,
+      "first_manifest_index": 116224,
+      "last_manifest_index_inclusive": 116735,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4084,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 228,
+      "first_manifest_index": 116736,
+      "last_manifest_index_inclusive": 117247,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4085,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 229,
+      "first_manifest_index": 117248,
+      "last_manifest_index_inclusive": 117759,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4086,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 230,
+      "first_manifest_index": 117760,
+      "last_manifest_index_inclusive": 118271,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4087,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 231,
+      "first_manifest_index": 118272,
+      "last_manifest_index_inclusive": 118783,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4088,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 232,
+      "first_manifest_index": 118784,
+      "last_manifest_index_inclusive": 119295,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4089,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 233,
+      "first_manifest_index": 119296,
+      "last_manifest_index_inclusive": 119807,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4090,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 234,
+      "first_manifest_index": 119808,
+      "last_manifest_index_inclusive": 120319,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4091,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 235,
+      "first_manifest_index": 120320,
+      "last_manifest_index_inclusive": 120831,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4092,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 236,
+      "first_manifest_index": 120832,
+      "last_manifest_index_inclusive": 121343,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4093,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 237,
+      "first_manifest_index": 121344,
+      "last_manifest_index_inclusive": 121855,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4094,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 238,
+      "first_manifest_index": 121856,
+      "last_manifest_index_inclusive": 122367,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4095,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 239,
+      "first_manifest_index": 122368,
+      "last_manifest_index_inclusive": 122879,
+      "num_files": 512
+    },
+    {
+      "global_step_zero_based": 4096,
+      "epoch_zero_based": 4,
+      "local_batch_zero_based": 240,
+      "first_manifest_index": 122880,
+      "last_manifest_index_inclusive": 123391,
+      "num_files": 512
+    }
+  ],
+  "num_selected_files": 8704,
+  "num_unique_files": 8704,
+  "GPU_run": false,
+  "cuda_initialized": false,
+  "num_loaded_files": 8704,
+  "failures": [],
+  "seconds": 2.955602829999407,
+  "interpretation": "All selected cache files were independently loaded on CPU and aligned finite agent/map tensors checked. This bounded test can rule out an ordinary persistent read/serialization error in this neighborhood; it cannot prove the original SIGSEGV cause or reproduce the full GPU/GC runtime state. No retry, training, model forward, or dataset mutation was performed."
+}

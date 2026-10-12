@@ -1,0 +1,246 @@
+{
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/R_analysis.json": {
+    "bytes": 48639,
+    "sha256": "79aee9b6f6cc1e10c4fc8a6178cce848c695a3b01366831d87d4ee62132e63e1"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/R_history.json": {
+    "bytes": 3572144,
+    "sha256": "27521681b3eceb8c32532fdd6f7b0facab982433c21cd7b1593ca7fe1b5a59c6"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/build_r_report.py": {
+    "bytes": 20747,
+    "sha256": "0008972b39e2714c06f28dda9b6d56e1478861334fb496f24af35905f19d00d9"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/qa.json": {
+    "bytes": 6095,
+    "sha256": "25e17be72b89f7f47f39af74582fa4f15fc574cf947f4e24b8479417e73dd023"
+  },
+  "/home/ke/code/sim/output/pdf/wandb_short_long_R_20261012.pdf": {
+    "bytes": 6860960,
+    "sha256": "6f366001704c2f55f4486a8fe4573497f58a7da1736d117862275bd8852b1719"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_01.png": {
+    "bytes": 234831,
+    "sha256": "73a7127d5e5ab0b885fd91098c35611fe435650666f4f86cd06231c5e4fbd685"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_02.png": {
+    "bytes": 229832,
+    "sha256": "393b9adf288a190858206c26822e8f943304314f81844fb15fcf077eb2b65340"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_03.png": {
+    "bytes": 231683,
+    "sha256": "cd5e6aebb8d2f3f8872bc5e56ed45e90bb3ec3b0d56fa89f29a57d18276eec99"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_04.png": {
+    "bytes": 222154,
+    "sha256": "cc3a19ebe40fdd42cc27895c94a993552196cdc9bd5d86f90959dbd0d46dbe69"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_05.png": {
+    "bytes": 219121,
+    "sha256": "1639b97a84ca3f067d34ed4e09ace24de2114a93f656c0dc45b2cdbd3b9f5f93"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_06.png": {
+    "bytes": 263590,
+    "sha256": "05a83e558b7cf42f143158de1bfab36e5e7072872c6edc7cb7889353d7bd53fb"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_07.png": {
+    "bytes": 289435,
+    "sha256": "cbea1d1c269b3167d57c21a1103b30412acbd705347d85f53b27d70efb65fbad"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_08.png": {
+    "bytes": 250197,
+    "sha256": "b0efd8bd87cd8b00befa622eb172e0477442581fe3d5d1fc6c4365d3474b50bd"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_09.png": {
+    "bytes": 291665,
+    "sha256": "be25be09a5771ca34f99e1db91faec72d0e36a592e10725b0cf50252cb0dbf73"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_10.png": {
+    "bytes": 265693,
+    "sha256": "9c420c2ab5764b17033e8faf8843076ad6d48728d8c51d93eecdeacca4ed6a0a"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_11.png": {
+    "bytes": 230090,
+    "sha256": "64545c9fe9c6d833ebbcf10fc48dea0e80ba3e572fbed569e764b08abd79c2cb"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_12.png": {
+    "bytes": 288787,
+    "sha256": "62be6cc4a1052ad130706a4384014577d6ddff4475338cc15093ec7501e7aa0a"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_13.png": {
+    "bytes": 231797,
+    "sha256": "e31210cb53dbfc380bcd1759b6ffbd4c0dcc65988ab3a1d99e767f33e8de2d5a"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_14.png": {
+    "bytes": 220549,
+    "sha256": "c9894528087d5dc555c012eec37347d8d8cdf87295bdb3195390a8c199490baf"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_15.png": {
+    "bytes": 284729,
+    "sha256": "90a9d06a79eba8b47c4de33ae73e23b2e0cd91456310dfc5cbad2716a7b7ef24"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_16.png": {
+    "bytes": 286327,
+    "sha256": "a20514481081185573f396f43b61358c567a725a628a65ab1fd2a94c734d5423"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_17.png": {
+    "bytes": 261313,
+    "sha256": "39b80972c5e3b1cb4b4acc2d84c87fc26b8a6042ff6ceefd89d1f1313cf99b3d"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_18.png": {
+    "bytes": 257411,
+    "sha256": "2154fbc5b4be6f871bb79e77c634331bef2243738f023e80e344e7461e440c25"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_19.png": {
+    "bytes": 204420,
+    "sha256": "9d70275e1fdb0d2ef85bcaccb5194fb24e1f169bbd9f5409d0cf92688c57fdf9"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_20.png": {
+    "bytes": 109894,
+    "sha256": "5471c0d08c3792c37a82caaf5c4034f1bac3be3439ca631020d9a2c9a54c2dcf"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_matched_01.png": {
+    "bytes": 259865,
+    "sha256": "22a08d11a41b5c5c222672fb1f81be85ac3268d0ef257f40197cb77142ceb4bf"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_matched_02.png": {
+    "bytes": 174497,
+    "sha256": "69ca23fd6dc33771e3f40fa39ded5bf43e4010d948feceb9ab7e37761dccf130"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_scenario_dreamer_full_01.png": {
+    "bytes": 266532,
+    "sha256": "22aff2888b13f7fc94d91428a289eb0fe98c0bfe83baae9fe06f1f1836a8deb2"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_scenario_dreamer_full_02.png": {
+    "bytes": 191179,
+    "sha256": "1e28d551d5652c8b9770fa68c14dc4cf878fb154053d60b85eca34cd1f4ce392"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/matched_R_657.png": {
+    "bytes": 345093,
+    "sha256": "e1ab1ee9e8ea494dbfcfbfdf9252926e796788b593d2d1b60e1f88321b4078e4"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/matched_R_frozen512.png": {
+    "bytes": 407646,
+    "sha256": "cb7a88fda762b53753442d32bb611e743b9c992fc43fedc06ac7ec3254c0dba3"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/rank_correlation_sensitivity.png": {
+    "bytes": 130796,
+    "sha256": "c8417168f47b75d651cb41efa3ec0ac9619a33e56cee8feb119aadee2bc9ab9d"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/short_long_rank.png": {
+    "bytes": 169250,
+    "sha256": "52e910c2f3c933a96502c2990a9e5eab7fb63f1d40f25bc494ba49b146ade7fb"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_01.svg": {
+    "bytes": 168613,
+    "sha256": "6ebeafe238d96bb67b28a90b069458ea2ec2c36eae2a81b0dee8af86c1ce6589"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_02.svg": {
+    "bytes": 166974,
+    "sha256": "538b6e386e7a2311b131de3f07809c52ccc7c93b212ab30f497d0d6cc236fde1"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_03.svg": {
+    "bytes": 164858,
+    "sha256": "3ecab0b8ea931e1253d1915457a2ddbd13f8fa6b598464188fb8207d91bb6877"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_04.svg": {
+    "bytes": 164535,
+    "sha256": "35b9182c987defdc1c938ae371bd28c0ee0391eb2ada6e036153be6f0ecc8ef4"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_05.svg": {
+    "bytes": 173193,
+    "sha256": "76de35d92f15c2d8208b363d7aa524d3f050c2e93adae02db93e9e64c4bf6716"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_06.svg": {
+    "bytes": 178840,
+    "sha256": "2c16bf6227b3e1f5fca29f4143bf097af25eea2c0fb5224c74849c49c0e9187d"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_07.svg": {
+    "bytes": 178673,
+    "sha256": "a5dfe52433fae2ccfcee842a60dc56df8174c329c24f2967a360c116e48c6a65"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_08.svg": {
+    "bytes": 170456,
+    "sha256": "07254fd7f8ccbd1024d4a1e0de2c8065da961abdf1cd684c9d8278085823dc53"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_09.svg": {
+    "bytes": 179107,
+    "sha256": "4d5349a8f53a9d5f266f138824802ee6ded6b582844f09dd3c6b005f514a9607"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_10.svg": {
+    "bytes": 173914,
+    "sha256": "b55f2e557bd3de100da29051994f5e353a247b2d1179e1e311b46c841ecfd0e1"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_11.svg": {
+    "bytes": 166593,
+    "sha256": "b3d5e9290a6c08b110d98c58ce731ac15e2b211e7268a451b10095ec410ee742"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_12.svg": {
+    "bytes": 184963,
+    "sha256": "1f8154390f522965633a605dc0882cc4590065a480f01b31c6b99035a8229593"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_13.svg": {
+    "bytes": 167054,
+    "sha256": "d78c7152f5af3baf65df60611458d329906084633a21bc7ce0a7d7fbcd79a3d4"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_14.svg": {
+    "bytes": 173104,
+    "sha256": "a40e477cdf44d640b21aff8370443fd2805f723d669379d370554d18733cd222"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_15.svg": {
+    "bytes": 186157,
+    "sha256": "26112549c16ae784094e51f5de30d1bbfcda027c64a4a5b0b6cca326a1e39927"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_16.svg": {
+    "bytes": 183077,
+    "sha256": "1565bd90b869e7fb6266144d175f319ad267f3a4dfcc439ceeb1b5f08c67ea4f"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_17.svg": {
+    "bytes": 183259,
+    "sha256": "bf6433bb0e1448548ff54d85b0fdc579f28bfd76b7bfbcec0351585e66e0f243"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_18.svg": {
+    "bytes": 175940,
+    "sha256": "5ee261ff3916f75f507c256417b61861ce0903299b71ac8fb39a812ffbdcfe0f"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_19.svg": {
+    "bytes": 158784,
+    "sha256": "da967190be9bfc0223789fedfe8b8e83d4213aa6739d0bcebcbdf639fd77808d"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_full_20.svg": {
+    "bytes": 81938,
+    "sha256": "25691172b65e42cd32d3ca02ece89bc012ce504fd6fa581b0c6e9bc91b73ca0c"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_matched_01.svg": {
+    "bytes": 165109,
+    "sha256": "685b4c0b32ad2e750063f8f728799501ef4198a88118cda76ab841e124a9a008"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_flow_matched_02.svg": {
+    "bytes": 103829,
+    "sha256": "63614cc2576972bc8b4589eaae2f2e39965fa0b9d265df91b383ec9886bcd73e"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_scenario_dreamer_full_01.svg": {
+    "bytes": 148435,
+    "sha256": "d5ab24a05f7f99713b2a17d77cb17f44f6fb34e270877c0cc3d49c6b42f59858"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/atlas_scenario_dreamer_full_02.svg": {
+    "bytes": 114438,
+    "sha256": "2684534ed489133d7583b3a863d4de5e4cb60870e882d29a0e9c70e9c65a30c4"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/matched_R_657.svg": {
+    "bytes": 132750,
+    "sha256": "de7de4d97c3a48324302f148200cb139086d9a50679f1cf951f6d9193072a404"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/matched_R_frozen512.svg": {
+    "bytes": 136927,
+    "sha256": "434254a509d3edd1507f9d6abe9976aed504dc0452ae47aff91c602a4a165e42"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/rank_correlation_sensitivity.svg": {
+    "bytes": 76380,
+    "sha256": "71c7fabbc7d6574d20d63d97282e1016a872bd16d23d9a7da497fdc254b091e7"
+  },
+  "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/r_curves/short_long_rank.svg": {
+    "bytes": 71445,
+    "sha256": "b36e95a00b4540bfccb4fc9a65ed25b206d90db53b7c356de961209cd1595db0"
+  }
+}

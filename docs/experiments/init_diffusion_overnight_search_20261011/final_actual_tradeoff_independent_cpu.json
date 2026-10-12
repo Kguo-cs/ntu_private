@@ -1,0 +1,307 @@
+{
+  "UTC": "2026-10-12T00:27:36.994568+00:00",
+  "status": "VERIFIED_ACTUAL_EIGHT_CELL_FINAL_MATRIX",
+  "CPU_only": true,
+  "GPU_used": false,
+  "sources_changed": false,
+  "selected_by_original_frozen_protocol": "separate_speed",
+  "independently_recomputed_selected": "separate_speed",
+  "selection_recomputed_not_revised": true,
+  "complete_matrix": true,
+  "actual_cells": 8,
+  "GEN_per_TRAIN": 2,
+  "TRAIN_seeds": [
+    4817,
+    5817
+  ],
+  "adaptive_TRAIN_seed": 4817,
+  "independent_confirmation_TRAIN_seed": 5817,
+  "actual_exposure_per_TRAIN": 5242620,
+  "equivalent_full_data_epochs": 10.622439427647494,
+  "full128epoch_optimum_proven": false,
+  "means_by_TRAIN": {
+    "control": {
+      "4817": {
+        "nearest_dist_jsd": 0.09404805227275892,
+        "lat_dev_jsd": 0.8602010725512301,
+        "ang_dev_jsd": 0.2880214041391557,
+        "length_jsd": 0.6284521281836868,
+        "width_jsd": 0.26516698420709983,
+        "speed_jsd": 0.10249412741755173,
+        "collision_rate": 0.37373298313174563,
+        "generated_onroad_fraction": 0.8570954167603129,
+        "num_generated_vehicles": 30370,
+        "num_gt_vehicles": 29698
+      },
+      "5817": {
+        "nearest_dist_jsd": 0.09865319058589536,
+        "lat_dev_jsd": 0.8387716295942043,
+        "ang_dev_jsd": 0.2730584432835833,
+        "length_jsd": 0.5982769683172209,
+        "width_jsd": 0.2572337006909822,
+        "speed_jsd": 0.09695644762830972,
+        "collision_rate": 0.49179673599181084,
+        "generated_onroad_fraction": 0.8595325644381702,
+        "num_generated_vehicles": 30398.5,
+        "num_gt_vehicles": 29698
+      }
+    },
+    "separate_speed": {
+      "4817": {
+        "nearest_dist_jsd": 0.09506887118610113,
+        "lat_dev_jsd": 0.8360500868907061,
+        "ang_dev_jsd": 0.25548584765013693,
+        "length_jsd": 0.4554701998188717,
+        "width_jsd": 0.18662883435651922,
+        "speed_jsd": 0.11239889805010803,
+        "collision_rate": 0.4568071649368052,
+        "generated_onroad_fraction": 0.8626757856213092,
+        "num_generated_vehicles": 30431.5,
+        "num_gt_vehicles": 29698
+      },
+      "5817": {
+        "nearest_dist_jsd": 0.08700523793932191,
+        "lat_dev_jsd": 0.8269089782329044,
+        "ang_dev_jsd": 0.28801645216625676,
+        "length_jsd": 0.46371100257253556,
+        "width_jsd": 0.18287287805753916,
+        "speed_jsd": 0.09186150110909384,
+        "collision_rate": 0.33058918512200997,
+        "generated_onroad_fraction": 0.8609376173430472,
+        "num_generated_vehicles": 30400,
+        "num_gt_vehicles": 29698
+      }
+    }
+  },
+  "pooled_means": {
+    "control": {
+      "nearest_dist_jsd": 0.09635062142932714,
+      "lat_dev_jsd": 0.8494863510727172,
+      "ang_dev_jsd": 0.2805399237113695,
+      "length_jsd": 0.6133645482504538,
+      "width_jsd": 0.261200342449041,
+      "speed_jsd": 0.09972528752293072,
+      "collision_rate": 0.43276485956177824,
+      "generated_onroad_fraction": 0.8583139905992415,
+      "num_generated_vehicles": 30384.25,
+      "num_gt_vehicles": 29698
+    },
+    "separate_speed": {
+      "nearest_dist_jsd": 0.09103705456271152,
+      "lat_dev_jsd": 0.8314795325618053,
+      "ang_dev_jsd": 0.2717511499081968,
+      "length_jsd": 0.4595906011957036,
+      "width_jsd": 0.1847508562070292,
+      "speed_jsd": 0.10213019957960093,
+      "collision_rate": 0.39369817502940757,
+      "generated_onroad_fraction": 0.8618067014821782,
+      "num_generated_vehicles": 30415.75,
+      "num_gt_vehicles": 29698
+    }
+  },
+  "pooled_comparison": {
+    "R": 0.8975397960423273,
+    "ratios": {
+      "nearest_dist_jsd": 0.9448517634054586,
+      "lat_dev_jsd": 0.9788026982562189,
+      "ang_dev_jsd": 0.9686719320127324,
+      "length_jsd": 0.7492943674469428,
+      "width_jsd": 0.7073147549302055,
+      "speed_jsd": 1.0241153684928432,
+      "collision_rate": 0.9097276877518892
+    },
+    "relative_change_percent": {
+      "nearest_dist_jsd": -5.514823659454137,
+      "lat_dev_jsd": -2.1197301743781094,
+      "ang_dev_jsd": -3.1328067987267616,
+      "length_jsd": -25.07056325530572,
+      "width_jsd": -29.268524506979453,
+      "speed_jsd": 2.4115368492843237,
+      "collision_rate": -9.027231224811082
+    },
+    "onroad_delta_percentage_points": 0.3492710882936678,
+    "gate_checks": {
+      "length_jsd": true,
+      "width_jsd": true,
+      "speed_jsd": true,
+      "onroad": true,
+      "vehicle_ratio": true
+    },
+    "eligible": true
+  },
+  "per_TRAIN_comparison": {
+    "4817": {
+      "R": 0.9453287257789835,
+      "ratios": {
+        "nearest_dist_jsd": 1.0108542270538643,
+        "lat_dev_jsd": 0.9719240228463146,
+        "ang_dev_jsd": 0.8870377130954495,
+        "length_jsd": 0.7247492360877882,
+        "width_jsd": 0.7038162571957262,
+        "speed_jsd": 1.0966374453065506,
+        "collision_rate": 1.222282178867191
+      },
+      "relative_change_percent": {
+        "nearest_dist_jsd": 1.0854227053864296,
+        "lat_dev_jsd": -2.807597715368537,
+        "ang_dev_jsd": -11.296228690455045,
+        "length_jsd": -27.52507639122118,
+        "width_jsd": -29.618374280427386,
+        "speed_jsd": 9.66374453065506,
+        "collision_rate": 22.228217886719094
+      },
+      "onroad_delta_percentage_points": 0.5580368860996332,
+      "gate_checks": {
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true,
+        "onroad": true,
+        "vehicle_ratio": true
+      },
+      "eligible": true
+    },
+    "5817": {
+      "R": 0.861174812814354,
+      "ratios": {
+        "nearest_dist_jsd": 0.8819302996953574,
+        "lat_dev_jsd": 0.9858571142099323,
+        "ang_dev_jsd": 1.0547795142417145,
+        "length_jsd": 0.7750774760339174,
+        "width_jsd": 0.7109211490030477,
+        "speed_jsd": 0.9474511840744437,
+        "collision_rate": 0.672206952442065
+      },
+      "relative_change_percent": {
+        "nearest_dist_jsd": -11.806970030464258,
+        "lat_dev_jsd": -1.4142885790067727,
+        "ang_dev_jsd": 5.4779514241714455,
+        "length_jsd": -22.492252396608258,
+        "width_jsd": -28.90788509969523,
+        "speed_jsd": -5.254881592555627,
+        "collision_rate": -32.779304755793504
+      },
+      "onroad_delta_percentage_points": 0.14050529048770244,
+      "gate_checks": {
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true,
+        "onroad": true,
+        "vehicle_ratio": true
+      },
+      "eligible": true
+    }
+  },
+  "pooled_AND_each_TRAIN_gates_pass": true,
+  "paired_R_mean": 0.9032517692966688,
+  "paired_R_sample_sd": 0.05950580252067202,
+  "raw_report_proofs": [
+    {
+      "variant": "control",
+      "TRAIN_seed": 4817,
+      "GEN_seed": 2817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_control/control/eval_step_10240/ema/sd_agent_metrics.json",
+      "sha256": "dcbe4cbda792910e02ba3680206ddfdef2dc0fdf08ab57f41892ed2ed5c2c29e"
+    },
+    {
+      "variant": "control",
+      "TRAIN_seed": 4817,
+      "GEN_seed": 3817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_control/control/eval_step_10240/eval_seed_3817/ema/sd_agent_metrics.json",
+      "sha256": "f7966f3d81440d0e8cac145433cd8c537dc7e38415cabbb204cf43203c406599"
+    },
+    {
+      "variant": "control",
+      "TRAIN_seed": 5817,
+      "GEN_seed": 2817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed5817_control/control/eval_step_10240/ema/sd_agent_metrics.json",
+      "sha256": "394627de38af31c7ca2d845b0e5daf133b7e2f3837baf2f5860d84a4c055232d"
+    },
+    {
+      "variant": "control",
+      "TRAIN_seed": 5817,
+      "GEN_seed": 3817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed5817_control/control/eval_step_10240/eval_seed_3817/ema/sd_agent_metrics.json",
+      "sha256": "52dfa4067c305248789c90431957376379a9974f8b964552901bcd9dfe76fb27"
+    },
+    {
+      "variant": "separate_speed",
+      "TRAIN_seed": 4817,
+      "GEN_seed": 2817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/eval_step_20480/ema/sd_agent_metrics.json",
+      "sha256": "21edd7f1b839527dc72f286c3313f8bef6da7e8536e4504cddb7687d4b6442aa"
+    },
+    {
+      "variant": "separate_speed",
+      "TRAIN_seed": 4817,
+      "GEN_seed": 3817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/eval_step_20480/eval_seed_3817/ema/sd_agent_metrics.json",
+      "sha256": "6bdf645a5d5894ba1b772c7bfb0a8c6915b16777210cb2b8ee4a70c34f871c74"
+    },
+    {
+      "variant": "separate_speed",
+      "TRAIN_seed": 5817,
+      "GEN_seed": 2817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed5817_separate_speed/separate_speed/eval_step_20480/ema/sd_agent_metrics.json",
+      "sha256": "293e443da9ee307475b5e2de627ecca4ebe006153d9e7f99dda28459e830d9b0"
+    },
+    {
+      "variant": "separate_speed",
+      "TRAIN_seed": 5817,
+      "GEN_seed": 3817,
+      "path": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed5817_separate_speed/separate_speed/eval_step_20480/eval_seed_3817/ema/sd_agent_metrics.json",
+      "sha256": "fe28500518419bd368b2bcc6004cabee43d6966969bd129aba05a16382473082"
+    }
+  ],
+  "decision_sha256": "dbc969542b569dc88305ae7d951a33556df3acd2f4a4ffbc0ef2287e84d836b4",
+  "independent_review_sha256": "99993ea5361106ecb62e309a9fbe4af65450b3f11e64689db4650e958ff4ce25",
+  "interpretation": "Complete loss/architecture/batch package comparison; shape p2, speed weight4, B256 and separate speed head change together vs control. RuntimeGC differs in one inherited control but audited frozen model/data/tensor path unchanged. No head-only causal claim; no128epoch claim; full50k must not reselect.",
+  "actual_final_package_changes": {
+    "length_and_width_time_power": {
+      "control": 1,
+      "selected": 2
+    },
+    "velocity_component_weight": {
+      "control": 2,
+      "selected": 4
+    },
+    "train_batch_size": {
+      "control": 512,
+      "selected": 256
+    },
+    "speed_head_kind": {
+      "control": "shared",
+      "selected": "separate"
+    },
+    "ego_context_heading_encoding": {
+      "control": "angle",
+      "selected": "sincos"
+    }
+  },
+  "actual_final_package_config_evidence": [
+    {
+      "TRAIN": 4817,
+      "arm": "control",
+      "path": "logs/init_diffusion_overnight_20261011/long_seed4817_control/control/config.yaml",
+      "sha256": "5ef7fdb25c86e9e102515a7e8cb4070268de2c51c7d2ab731f370534f4ca0c6c"
+    },
+    {
+      "TRAIN": 4817,
+      "arm": "separate_speed",
+      "path": "logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/config.yaml",
+      "sha256": "fb8b77636e5ccf439f7a9c76543743ce9316aef535274bd1bbd5b58d40b434a5"
+    },
+    {
+      "TRAIN": 5817,
+      "arm": "control",
+      "path": "logs/init_diffusion_overnight_20261011/long_seed5817_control/control/config.yaml",
+      "sha256": "597e2b8de45b22f88835d879780b6b818949b2e330e67538ede39488fc3600eb"
+    },
+    {
+      "TRAIN": 5817,
+      "arm": "separate_speed",
+      "path": "logs/init_diffusion_overnight_20261011/long_seed5817_separate_speed/separate_speed/config.yaml",
+      "sha256": "03ab4741e921bea1b0d2ccc45f8578bd24c6ae7aeeb64b25d41e67b17b5ec358"
+    }
+  ],
+  "final_package_attribution_limit": "Final equal-exposure comparison changes five configuration choices together; cannot attribute resulting differences solely to the separate speed head, loss weighting, batch size or ego encoding."
+}

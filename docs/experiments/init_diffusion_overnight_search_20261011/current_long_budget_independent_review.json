@@ -1,0 +1,190 @@
+{
+  "updated_utc": "2026-10-11T21:13:16.131372+00:00",
+  "CPU_only": true,
+  "source_modified": false,
+  "status": "ACTUAL_PARTIAL_LONG_MATRIX_AND_UPDATED_DEADLINE_FORECAST",
+  "actual_completed_stages": 22,
+  "actual_observations": 54,
+  "actual_final_matrix": {
+    "status": "ACTUAL_PARTIAL_FINAL_MATRIX",
+    "frozen_challenger": "separate_speed",
+    "matrix_complete": false,
+    "actual_cells": [
+      [
+        "control",
+        4817,
+        2817
+      ],
+      [
+        "control",
+        4817,
+        3817
+      ]
+    ],
+    "required_cells": [
+      [
+        "control",
+        4817,
+        2817
+      ],
+      [
+        "control",
+        4817,
+        3817
+      ],
+      [
+        "control",
+        5817,
+        2817
+      ],
+      [
+        "control",
+        5817,
+        3817
+      ],
+      [
+        "separate_speed",
+        4817,
+        2817
+      ],
+      [
+        "separate_speed",
+        4817,
+        3817
+      ],
+      [
+        "separate_speed",
+        5817,
+        2817
+      ],
+      [
+        "separate_speed",
+        5817,
+        3817
+      ]
+    ],
+    "missing_cells": [
+      [
+        "control",
+        5817,
+        2817
+      ],
+      [
+        "control",
+        5817,
+        3817
+      ],
+      [
+        "separate_speed",
+        4817,
+        2817
+      ],
+      [
+        "separate_speed",
+        4817,
+        3817
+      ],
+      [
+        "separate_speed",
+        5817,
+        2817
+      ],
+      [
+        "separate_speed",
+        5817,
+        3817
+      ]
+    ],
+    "actual_final_exposure_per_TRAIN": 5242620,
+    "planned_TRAIN_seeds": [
+      4817,
+      5817
+    ],
+    "actual_complete_paired_TRAIN_seeds": [],
+    "independent_training_N": 0,
+    "GEN_per_TRAIN": 2,
+    "no_heldout_5817_reselection": true,
+    "materialization_ready": false
+  },
+  "per_TRAIN_final_gate": {
+    "4817": "WAITING: challenger has no final endpoint; two model x two GEN cells required",
+    "5817": "WAITING: both model stages not started"
+  },
+  "actual_active_stage": "long_seed4817_separate_speed",
+  "active_progress": {
+    "step": 2800,
+    "budget": 20480,
+    "elapsed_train_seconds": 486.4,
+    "actual_candidate_rate_seconds_per_step": 0.1737142857142857
+  },
+  "completed_control_fit_seconds": 3269.437243872002,
+  "actual_completed_control_eval_seconds": 108.03386007800873,
+  "processes": [
+    {
+      "role": "controller",
+      "pid": 964680,
+      "alive": false,
+      "command": null
+    },
+    {
+      "role": "active_child",
+      "pid": 980360,
+      "alive": false,
+      "command": null
+    }
+  ],
+  "controller_review_errors": [],
+  "failed_or_interrupted_canonical_stages": [],
+  "runtime_active_latest_memory": {
+    "step": 2560,
+    "peak_rss_kib": 2610596,
+    "cuda_allocated_mib": 196.34716796875,
+    "cuda_reserved_mib": 7356.0,
+    "gc_counts": [
+      6,
+      20,
+      0
+    ]
+  },
+  "actual_final_exposure_each_TRAIN": 5242620,
+  "equal_exposure_epochs": 10.622439427647494,
+  "gpu_cutoff_utc": "2026-10-12T01:35:00+00:00",
+  "current_time_to_cutoff_seconds": 15703.868628025055,
+  "frozen_forecast_finish_utc": "2026-10-12T01:07:53.356136+00:00",
+  "updated_projections": [
+    {
+      "basis": "updated_actual_completed_control_and_partial_candidate",
+      "control_seconds_per_step": 0.3192809808468752,
+      "candidate_seconds_per_step": 0.1737142857142857,
+      "remaining_fit_seconds": 9898.374386729145,
+      "remaining_long_eval_seconds": 322.7776927019586,
+      "remaining_long_eval_cells": 18,
+      "full50k_reserved_seconds": 1200,
+      "safety_multiplier_on_remaining_fit_and_long_eval": 1.15,
+      "remaining_total_seconds": 12954.324891345768,
+      "estimated_finish_utc": "2026-10-12T00:49:10.456263+00:00",
+      "gpu_cutoff_slack_seconds": 2749.5437366962433,
+      "fits_gpu_cutoff": true
+    },
+    {
+      "basis": "conservative_max_medium_or_actual_rate",
+      "control_seconds_per_step": 0.3309176685739761,
+      "candidate_seconds_per_step": 0.17976795327722161,
+      "remaining_fit_seconds": 10248.542023256292,
+      "remaining_long_eval_seconds": 322.7776927019586,
+      "remaining_long_eval_cells": 18,
+      "full50k_reserved_seconds": 1200,
+      "safety_multiplier_on_remaining_fit_and_long_eval": 1.15,
+      "remaining_total_seconds": 13357.017673351987,
+      "estimated_finish_utc": "2026-10-12T00:55:53.149045+00:00",
+      "gpu_cutoff_slack_seconds": 2346.850954771042,
+      "fits_gpu_cutoff": true
+    }
+  ],
+  "forecast_caveats": [
+    "Partial candidate throughput can change later; estimates are not completed experimental results.",
+    "Budget reserve includes full4 x 50000 evaluation audit, max20min frozen estimate.",
+    "The native smoke/report are outside this GPU finish forecast.",
+    "No final gates or winner claims before complete paired endpoints."
+  ]
+}

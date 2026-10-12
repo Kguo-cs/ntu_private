@@ -1,0 +1,75 @@
+{
+  "status": "FROZEN_BEFORE_SAMPLER_EXECUTION",
+  "created_utc": "2026-10-11T22:37:45.721171+00:00",
+  "criteria": {
+    "grid": "exact five options x two reused TRAIN checkpoints x two GEN =20 completed cells",
+    "options": {
+      "n10_eps005": {
+        "steps": 10,
+        "eps": 0.05
+      },
+      "n20_eps005": {
+        "steps": 20,
+        "eps": 0.05
+      },
+      "n40_eps005": {
+        "steps": 40,
+        "eps": 0.05
+      },
+      "n40_eps0001": {
+        "steps": 40,
+        "eps": 0.0001
+      },
+      "n80_eps0001": {
+        "steps": 80,
+        "eps": 0.0001
+      }
+    },
+    "TRAIN_seeds": [
+      4817,
+      5817
+    ],
+    "GEN_seeds": [
+      2817,
+      3817
+    ],
+    "scenes": 4096,
+    "default": "n20_eps005",
+    "four_default20_native_absolute_tolerance": 1e-06,
+    "averaging": "arithmetic GEN mean inside each TRAIN, then equal arithmetic mean across TRAIN",
+    "R": "arithmetic mean of seven candidate/base ratios; each ratio uses pooled metric means",
+    "gates_pooled_AND_each_TRAIN": {
+      "speed_jsd_ratio_max": 1.15,
+      "length_jsd_ratio_max": 1.15,
+      "width_jsd_ratio_max": 1.15,
+      "onroad_fraction_min": "same-baseline-.02",
+      "generated_vehicle_count_over_GT": [
+        0.9,
+        1.1
+      ]
+    },
+    "selection": "eligible minimum pooled R strictly below1; otherwise default20",
+    "exact_R_tie": [
+      "fewer_steps",
+      "smaller_abs_eps_minus_training_eps_0.05",
+      "option_name"
+    ],
+    "partial_or_parity_failure": "reject; no ranking and no frozen sampler JSON",
+    "new_training_runs": 0,
+    "main_model_selection_unchanged": true,
+    "full50000": "evaluate only the frozen option; no reselection from full results",
+    "cost": "larger steps increase model evaluations; timing and epsilon changes are not pure training improvements"
+  },
+  "criteria_sha256": "329a80a02aa1ec9710e9ba1f7187200826b3ceb1d6768b09d0d4c7f87747f5fa",
+  "source_hashes": {
+    "/home/ke/code/sim/tools/select_init_diffusion_sampler.py": "ec0629596345a98726e39851c08c948f9941f8bed3c7f6b5618aa133a5dbddbe",
+    "/home/ke/code/sim/tools/evaluate_init_diffusion_sampler.py": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+    "/home/ke/code/sim/tools/runtime_completion.py": "59825756172ddcf454ce9125d20342710dba82402a83ea02dfaee55e3c65f45c",
+    "/home/ke/code/sim/tools/continue_overnight_init_diffusion.py": "d57fcad9f2dad02a958eb02d0d3c9a6b5b794a314115b77b5a74caae19f6e3c2"
+  },
+  "CPU_only": true,
+  "GPU_started": false,
+  "selection_made": false,
+  "frozen_sampler_json_created": false,
+  "full50000_cannot_reselect": true
+}

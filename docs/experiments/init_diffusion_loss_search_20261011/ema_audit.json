@@ -1,0 +1,357 @@
+{
+  "scope": {
+    "training_seed": 2817,
+    "training_steps": 128,
+    "generation_seeds": [
+      2817,
+      3817
+    ],
+    "num_scenes": 4096,
+    "eval_offset": 2048,
+    "eval_manifest_sha256": "a4531e415fb2bb5052ba88dc0727e86fc012b143c4e2131bf01c868ef28ed3a8",
+    "selected_variant": "angle_mse_128",
+    "checkpoint_selection": "Median of three training-seed online confirmation scores, chosen before this EMA evaluation.",
+    "ema_history": "Saved EMA shadow and num_updates preserved; no reset and no further optimizer updates during evaluation."
+  },
+  "saved_ema_state": {
+    "warm": {
+      "checkpoint_path": "/home/ke/code/sim/src/logs/sdinit512_tspeed_theta_posscale_egoVFtypeemd50/2026-10-09_19-24-16/bc/scy2l1f4/checkpoints/last.ckpt",
+      "decay": 0.9999,
+      "num_updates": 34704,
+      "num_shadow_tensors": 252,
+      "shadow_numel": 8083978,
+      "num_parameter_names": 252,
+      "initial_map_ema_present": false
+    },
+    "selected": {
+      "checkpoint_path": "/home/ke/code/sim/logs/component_loss_quick/confirmation_seed2817/angle_mse_128/last.ckpt",
+      "decay": 0.9999,
+      "num_updates": 34832,
+      "num_shadow_tensors": 252,
+      "shadow_numel": 8083978,
+      "num_parameter_names": 252,
+      "initial_map_ema_present": false
+    }
+  },
+  "ema_retention": {
+    "formula": "product over n=34705..34832 of min(0.9999,(n+1)/(n+10)), with num_updates incremented before computing each decay",
+    "cap_active": false,
+    "telescoping_formula": "product over j=2..10 of (34704+j)/(34832+j)",
+    "exact_rational": "16526553302256969487817800973443/17083218634468508227845141304115",
+    "old_shadow_coefficient": 0.967414493479094,
+    "new_online_trajectory_total_coefficient": 0.03258550652090597,
+    "first_effective_decay": 0.9997407460751836,
+    "last_effective_decay": 0.9997416910625108,
+    "naive_fixed_decay_coefficient": 0.9872809396881611,
+    "coefficient_scope": "Analytical real-arithmetic coefficient of the inherited shadow; finite-precision tensor EMA updates introduce rounding."
+  },
+  "torch_ema_source": {
+    "path": "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch_ema/ema.py",
+    "sha256": "704475f89a37f5dc0681080aa8cba7d1a665bb886a9d3e1becddc21ffa9d6473"
+  },
+  "comparisons": {
+    "online": {
+      "per_generation_seed": [
+        {
+          "generation_seed": 2817,
+          "warm_report_path": "/home/ke/code/sim/logs/component_loss_quick/confirmation_seed2817/warm_start/sd_agent_metrics.json",
+          "selected_report_path": "/home/ke/code/sim/logs/component_loss_quick/confirmation_seed2817/angle_mse_128/sd_agent_metrics.json",
+          "warm_metrics": {
+            "nearest_dist_jsd": 0.06061265646164393,
+            "lat_dev_jsd": 0.3513229757390761,
+            "ang_dev_jsd": 0.23661049805014778,
+            "length_jsd": 0.8105662591201565,
+            "width_jsd": 1.3103767255363903,
+            "speed_jsd": 0.38623514840902673,
+            "collision_rate": 1.9578869597340227
+          },
+          "selected_metrics": {
+            "nearest_dist_jsd": 0.06161219542706344,
+            "lat_dev_jsd": 0.3220379241451754,
+            "ang_dev_jsd": 0.21186581608140226,
+            "length_jsd": 0.5441708932206947,
+            "width_jsd": 0.5100056403598001,
+            "speed_jsd": 0.25908304236517576,
+            "collision_rate": 2.127730310183184
+          },
+          "paired_ratios": {
+            "nearest_dist_jsd": 1.0164905982309491,
+            "lat_dev_jsd": 0.9166435057875337,
+            "ang_dev_jsd": 0.8954201856102721,
+            "length_jsd": 0.6713465890023286,
+            "width_jsd": 0.3892053563077703,
+            "speed_jsd": 0.6707909506226615,
+            "collision_rate": 1.0867482923897887
+          },
+          "balanced_score": 0.8066636397073291,
+          "full_reference_balanced_score": 0.8023507812556555,
+          "full_reference_paired_ratios": {
+            "nearest_dist_jsd": 0.9871789975718438,
+            "lat_dev_jsd": 0.9182492908896924,
+            "ang_dev_jsd": 0.8843559558112367,
+            "length_jsd": 0.6601052978067921,
+            "width_jsd": 0.3846518667701815,
+            "speed_jsd": 0.6951657675500531,
+            "collision_rate": 1.0867482923897887
+          },
+          "warm_generated_vehicles": 29777,
+          "selected_generated_vehicles": 30079,
+          "gt_vehicles": 29865,
+          "vehicle_count_ratio": 1.0101420559492225
+        },
+        {
+          "generation_seed": 3817,
+          "warm_report_path": "/home/ke/code/sim/logs/component_loss_quick/confirmation_seed2817/warm_start/eval_seed_3817/sd_agent_metrics.json",
+          "selected_report_path": "/home/ke/code/sim/logs/component_loss_quick/confirmation_seed2817/angle_mse_128/eval_seed_3817/sd_agent_metrics.json",
+          "warm_metrics": {
+            "nearest_dist_jsd": 0.055238787615908946,
+            "lat_dev_jsd": 0.341123092750964,
+            "ang_dev_jsd": 0.2547668235553266,
+            "length_jsd": 0.8187560192870165,
+            "width_jsd": 1.3873205014792296,
+            "speed_jsd": 0.4771159163417841,
+            "collision_rate": 1.9820971867007673
+          },
+          "selected_metrics": {
+            "nearest_dist_jsd": 0.0543153331834724,
+            "lat_dev_jsd": 0.29971501274431667,
+            "ang_dev_jsd": 0.23071917017236718,
+            "length_jsd": 0.5488274936513106,
+            "width_jsd": 0.5175526211551171,
+            "speed_jsd": 0.3003609705636166,
+            "collision_rate": 2.107228594291811
+          },
+          "paired_ratios": {
+            "nearest_dist_jsd": 0.983282499991535,
+            "lat_dev_jsd": 0.8786124982840808,
+            "ang_dev_jsd": 0.9056091643041697,
+            "length_jsd": 0.6703187283181585,
+            "width_jsd": 0.37305916016037893,
+            "speed_jsd": 0.6295345853615407,
+            "collision_rate": 1.0631308133781912
+          },
+          "balanced_score": 0.786221064256865,
+          "full_reference_balanced_score": 0.7694665699703261,
+          "full_reference_paired_ratios": {
+            "nearest_dist_jsd": 0.9328345256339411,
+            "lat_dev_jsd": 0.878743984115939,
+            "ang_dev_jsd": 0.8380148890991774,
+            "length_jsd": 0.6517139922822658,
+            "width_jsd": 0.37089381251336895,
+            "speed_jsd": 0.6509339727693993,
+            "collision_rate": 1.0631308133781912
+          },
+          "warm_generated_vehicles": 29716,
+          "selected_generated_vehicles": 29992,
+          "gt_vehicles": 29865,
+          "vehicle_count_ratio": 1.0092879256965945
+        }
+      ],
+      "balanced_score_mean": 0.7964423519820971,
+      "balanced_score_std_sample": 0.014455083725940827,
+      "full_reference_balanced_score_mean": 0.7859086756129908,
+      "metric_summary": {
+        "nearest_dist_jsd": {
+          "warm_mean": 0.05792572203877644,
+          "selected_mean": 0.05796376430526792,
+          "mean_paired_ratio": 0.9998865491112421,
+          "mean_paired_percent_delta": -0.011345088875791554
+        },
+        "lat_dev_jsd": {
+          "warm_mean": 0.34622303424502004,
+          "selected_mean": 0.31087646844474603,
+          "mean_paired_ratio": 0.8976280020358073,
+          "mean_paired_percent_delta": -10.237199796419272
+        },
+        "ang_dev_jsd": {
+          "warm_mean": 0.24568866080273719,
+          "selected_mean": 0.2212924931268847,
+          "mean_paired_ratio": 0.9005146749572209,
+          "mean_paired_percent_delta": -9.948532504277907
+        },
+        "length_jsd": {
+          "warm_mean": 0.8146611392035865,
+          "selected_mean": 0.5464991934360026,
+          "mean_paired_ratio": 0.6708326586602436,
+          "mean_paired_percent_delta": -32.916734133975645
+        },
+        "width_jsd": {
+          "warm_mean": 1.34884861350781,
+          "selected_mean": 0.5137791307574586,
+          "mean_paired_ratio": 0.3811322582340746,
+          "mean_paired_percent_delta": -61.88677417659254
+        },
+        "speed_jsd": {
+          "warm_mean": 0.4316755323754054,
+          "selected_mean": 0.27972200646439616,
+          "mean_paired_ratio": 0.6501627679921012,
+          "mean_paired_percent_delta": -34.98372320078988
+        },
+        "collision_rate": {
+          "warm_mean": 1.969992073217395,
+          "selected_mean": 2.1174794522374976,
+          "mean_paired_ratio": 1.0749395528839898,
+          "mean_paired_percent_delta": 7.493955288398979
+        }
+      },
+      "warm_generated_vehicles_mean": 29746.5,
+      "selected_generated_vehicles_mean": 30035.5,
+      "mean_paired_vehicle_count_ratio": 1.0097149908229084
+    },
+    "ema": {
+      "per_generation_seed": [
+        {
+          "generation_seed": 2817,
+          "warm_report_path": "/home/ke/code/sim/logs/component_loss_quick/ema_confirmation/warm_start/sd_agent_metrics.json",
+          "selected_report_path": "/home/ke/code/sim/logs/component_loss_quick/ema_confirmation/best/sd_agent_metrics.json",
+          "warm_metrics": {
+            "nearest_dist_jsd": 0.05333588034329413,
+            "lat_dev_jsd": 0.3649123853488407,
+            "ang_dev_jsd": 0.15504306829722947,
+            "length_jsd": 0.5064310797106915,
+            "width_jsd": 0.46873710411312397,
+            "speed_jsd": 0.15664268636798584,
+            "collision_rate": 1.5824569551803072
+          },
+          "selected_metrics": {
+            "nearest_dist_jsd": 0.05222892416679913,
+            "lat_dev_jsd": 0.36117016444803074,
+            "ang_dev_jsd": 0.146632701677393,
+            "length_jsd": 0.47796607877058334,
+            "width_jsd": 0.46694581851025685,
+            "speed_jsd": 0.16358010598324174,
+            "collision_rate": 1.5457078413161736
+          },
+          "paired_ratios": {
+            "nearest_dist_jsd": 0.9792455628486841,
+            "lat_dev_jsd": 0.9897448783569444,
+            "ang_dev_jsd": 0.9457546428085831,
+            "length_jsd": 0.9437929422570801,
+            "width_jsd": 0.9961784855793391,
+            "speed_jsd": 1.044288180802508,
+            "collision_rate": 0.9767771794715602
+          },
+          "balanced_score": 0.9822545531606712,
+          "full_reference_balanced_score": 0.9950465741245321,
+          "full_reference_paired_ratios": {
+            "nearest_dist_jsd": 0.9776715986994797,
+            "lat_dev_jsd": 0.9907019414566708,
+            "ang_dev_jsd": 0.9996132401984327,
+            "length_jsd": 0.9901570921130031,
+            "width_jsd": 0.9932185475071793,
+            "speed_jsd": 1.0371864194253988,
+            "collision_rate": 0.9767771794715602
+          },
+          "warm_generated_vehicles": 30143,
+          "selected_generated_vehicles": 30148,
+          "gt_vehicles": 29865,
+          "vehicle_count_ratio": 1.000165875991109
+        },
+        {
+          "generation_seed": 3817,
+          "warm_report_path": "/home/ke/code/sim/logs/component_loss_quick/ema_confirmation/warm_start/eval_seed_3817/sd_agent_metrics.json",
+          "selected_report_path": "/home/ke/code/sim/logs/component_loss_quick/ema_confirmation/best/eval_seed_3817/sd_agent_metrics.json",
+          "warm_metrics": {
+            "nearest_dist_jsd": 0.051502453073729484,
+            "lat_dev_jsd": 0.34737942064106697,
+            "ang_dev_jsd": 0.1942664708337738,
+            "length_jsd": 0.5029946893577365,
+            "width_jsd": 0.5291729867736328,
+            "speed_jsd": 0.21170559951533807,
+            "collision_rate": 1.4728372897134119
+          },
+          "selected_metrics": {
+            "nearest_dist_jsd": 0.0525284936954645,
+            "lat_dev_jsd": 0.3495608937096918,
+            "ang_dev_jsd": 0.20582824383375112,
+            "length_jsd": 0.4981847024802876,
+            "width_jsd": 0.5237856607064812,
+            "speed_jsd": 0.2171588321069608,
+            "collision_rate": 1.4754261788455787
+          },
+          "paired_ratios": {
+            "nearest_dist_jsd": 1.01992216992589,
+            "lat_dev_jsd": 1.0062797993749861,
+            "ang_dev_jsd": 1.0595150205300754,
+            "length_jsd": 0.9904373008717237,
+            "width_jsd": 0.9898193479225044,
+            "speed_jsd": 1.0257585656879502,
+            "collision_rate": 1.0017577563728512
+          },
+          "balanced_score": 1.0133557086694258,
+          "full_reference_balanced_score": 1.0117016998219825,
+          "full_reference_paired_ratios": {
+            "nearest_dist_jsd": 1.0220868594617745,
+            "lat_dev_jsd": 1.006580739144593,
+            "ang_dev_jsd": 1.0442315020717674,
+            "length_jsd": 0.9891405482084076,
+            "width_jsd": 0.9938396832973994,
+            "speed_jsd": 1.0242748101970849,
+            "collision_rate": 1.0017577563728512
+          },
+          "warm_generated_vehicles": 30078,
+          "selected_generated_vehicles": 30093,
+          "gt_vehicles": 29865,
+          "vehicle_count_ratio": 1.0004987033712347
+        }
+      ],
+      "balanced_score_mean": 0.9978051309150485,
+      "balanced_score_std_sample": 0.021991837962977715,
+      "full_reference_balanced_score_mean": 1.0033741369732574,
+      "metric_summary": {
+        "nearest_dist_jsd": {
+          "warm_mean": 0.05241916670851181,
+          "selected_mean": 0.05237870893113182,
+          "mean_paired_ratio": 0.9995838663872871,
+          "mean_paired_percent_delta": -0.041613361271286564
+        },
+        "lat_dev_jsd": {
+          "warm_mean": 0.35614590299495386,
+          "selected_mean": 0.35536552907886126,
+          "mean_paired_ratio": 0.9980123388659652,
+          "mean_paired_percent_delta": -0.19876611340348127
+        },
+        "ang_dev_jsd": {
+          "warm_mean": 0.17465476956550163,
+          "selected_mean": 0.17623047275557208,
+          "mean_paired_ratio": 1.0026348316693292,
+          "mean_paired_percent_delta": 0.26348316693292073
+        },
+        "length_jsd": {
+          "warm_mean": 0.5047128845342139,
+          "selected_mean": 0.4880753906254355,
+          "mean_paired_ratio": 0.9671151215644018,
+          "mean_paired_percent_delta": -3.2884878435598175
+        },
+        "width_jsd": {
+          "warm_mean": 0.4989550454433784,
+          "selected_mean": 0.49536573960836905,
+          "mean_paired_ratio": 0.9929989167509217,
+          "mean_paired_percent_delta": -0.7001083249078333
+        },
+        "speed_jsd": {
+          "warm_mean": 0.18417414294166196,
+          "selected_mean": 0.19036946904510127,
+          "mean_paired_ratio": 1.0350233732452292,
+          "mean_paired_percent_delta": 3.5023373245229195
+        },
+        "collision_rate": {
+          "warm_mean": 1.5276471224468595,
+          "selected_mean": 1.5105670100808761,
+          "mean_paired_ratio": 0.9892674679222058,
+          "mean_paired_percent_delta": -1.0732532077794232
+        }
+      },
+      "warm_generated_vehicles_mean": 30110.5,
+      "selected_generated_vehicles_mean": 30120.5,
+      "mean_paired_vehicle_count_ratio": 1.0003322896811717
+    }
+  },
+  "interpretation": [
+    "Candidate/warm comparisons must use matching weight modes: online against warm online, EMA against warm EMA.",
+    "The existing warm EMA already yields much lower shape and speed JSD than the existing warm online weights; those absolute EMA values predate the new loss.",
+    "The candidate EMA retains 96.741449% analytical weight on the old shadow after only128 updates; its near-unchanged metrics do not refute or reproduce the larger online change.",
+    "EMA mean balanced score improves only0.219487%, with the generation-seed directions split; full-reference secondary worsens0.337414%. These are descriptive small differences, not significance claims.",
+    "This check covers one median-selected training checkpoint and two nested generation repeats, not a three-training-seed EMA confirmation."
+  ]
+}

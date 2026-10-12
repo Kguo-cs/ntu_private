@@ -1,0 +1,76 @@
+{
+  "status": "FROZEN_BEFORE_SAMPLER_EXECUTION",
+  "created_utc": "2026-10-12T01:13:40.138311+00:00",
+  "criteria": {
+    "grid": "exact two options x two reused TRAIN checkpoints x two GEN =8 completed cells",
+    "options": {
+      "n40_eps005": {
+        "steps": 40,
+        "eps": 0.05
+      },
+      "hybrid_pos0001": {
+        "steps": 40,
+        "eps": 0.05
+      }
+    },
+    "TRAIN_seeds": [
+      4817,
+      5817
+    ],
+    "GEN_seeds": [
+      2817,
+      3817
+    ],
+    "scenes": 4096,
+    "default": "n40_eps005",
+    "baseline_origin": "four fresh native N40/eps.05 anchors; hybrid changes only low-t position denominator floor",
+    "original_strict_sampler": "FAILED_DEFAULT20_PARITY permanently excluded; tolerance unchanged",
+    "numerical_margin": "R <=0.98 required, descriptive guard not statistical CI",
+    "averaging": "arithmetic GEN mean inside each TRAIN, then equal arithmetic mean across TRAIN",
+    "R": "arithmetic mean of seven candidate/base ratios; each ratio uses pooled metric means",
+    "gates_pooled_AND_each_TRAIN": {
+      "speed_jsd_ratio_max": 1.15,
+      "length_jsd_ratio_max": 1.15,
+      "width_jsd_ratio_max": 1.15,
+      "onroad_fraction_min": "same-baseline-.02",
+      "generated_vehicle_count_over_GT": [
+        0.9,
+        1.1
+      ]
+    },
+    "selection": "eligible minimum pooled R <=0.98; otherwise fresh native N40",
+    "exact_R_tie": [
+      "fewer_steps",
+      "smaller_abs_eps_minus_training_eps_0.05",
+      "option_name"
+    ],
+    "partial_or_native_execution_failure": "reject; no ranking and no frozen native sampler JSON",
+    "new_training_runs": 0,
+    "main_model_selection_unchanged": true,
+    "native16_selection_unchanged": true,
+    "hybrid_position": "only position denominator1e-4 for0<t<.05; other components retainN40eps.05",
+    "full50000": "evaluate only the frozen option; no reselection from full results",
+    "cost": "both options40 model evaluations; only position low-time damping changes; no training updates"
+  },
+  "criteria_sha256": "76e0ad89e47c56b60aed9d0023b7db79d373d75c9503591d0b36b6e7f1c92a4d",
+  "source_hashes": {
+    "/home/ke/code/sim/tools/select_init_diffusion_hybrid_sampler.py": "86ae65fc11da80f6ebffa953f830d8bf580b7c3deabfe1736ee17d6bfb032d13",
+    "/home/ke/code/sim/tools/evaluate_init_diffusion_hybrid_sampler.py": "3993ce0e56a04389a5e51ed7a0cb4f20e04fcae8de61051b34f6231cb2d29f23",
+    "/home/ke/code/sim/tools/hybrid_position_sampler_hook.py": "892dcbd3371c702ec592599a74c3f6ecae2197aa41fd17dd0e5fa0824c148fd2",
+    "/home/ke/code/sim/tools/evaluate_init_diffusion_native_sampler.py": "9a42018571fa36d385ab76a839c36b43a333979653ae9f35dd1bf228d4fe424b",
+    "/home/ke/code/sim/tools/evaluate_init_diffusion_sampler.py": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+    "/home/ke/code/sim/tools/runtime_cached_torch_loader_sweep.py": "e4f590c2eb6222a0e475a26bc7fc5330e20cd65fea67fa393b1e53feb9fd0e22",
+    "/home/ke/code/sim/tools/torch_pickle_class_cache.py": "2b48ce50a16bc861e7f34a1ddc6d146dd64aeefb5b1b90bb5216804753f93b96",
+    "/home/ke/code/sim/tools/runtime_completion.py": "59825756172ddcf454ce9125d20342710dba82402a83ea02dfaee55e3c65f45c",
+    "/home/ke/code/sim/tools/continue_overnight_init_diffusion.py": "d57fcad9f2dad02a958eb02d0d3c9a6b5b794a314115b77b5a74caae19f6e3c2"
+  },
+  "CPU_only": true,
+  "GPU_started": false,
+  "selection_made": false,
+  "frozen_sampler_json_created": false,
+  "full50000_cannot_reselect": true,
+  "native16_frozen_decision": {
+    "path": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/frozen_native_sampler.json",
+    "sha256": "511a59d1fc844c5d607ac12358ad81fdff0ed10923dea3bc56a9a052e4aa63b0"
+  }
+}

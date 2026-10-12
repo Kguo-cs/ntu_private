@@ -1,0 +1,32 @@
+{
+  "created_utc": "2026-10-11T11:31:05.147494+00:00",
+  "status": "PLAN_ONLY_NOT_A_REPORT_COMPLETION_MARKER",
+  "author_and_final_marker_owner": "root",
+  "current_report_created_by_this_agent": false,
+  "sequence": [
+    "Create actual report from frozen completed-stage artifacts and actual native metric counts.",
+    "Render every PDF page to PNG using Poppler; keep the PDF and renderer parameters/hash.",
+    "Build numbered contact sheets with tools/render_frozen_map_montages.py; inspect ordering and complete page coverage.",
+    "Inspect every rendered page individually at full readable size; fix clipped text, overlaps, illegible chart labels, missing glyphs or malformed tables and rerender.",
+    "Extract PDF text/page count to check content, stage completion claims, actual exposure, component changes, TRAIN/GEN hierarchy and source artifact identifiers.",
+    "Only after content and complete visual QA pass, write a report completion marker containing the actual PDF hash, artifact hashes, page/render counts, verified page list and QA result."
+  ],
+  "required_actual_marker_fields": [
+    "report_path",
+    "report_sha256",
+    "source_artifact_snapshot_sha256",
+    "PDF_page_count",
+    "rendered_page_count",
+    "individually_verified_page_numbers",
+    "visual_QA_pass",
+    "content_QA_pass",
+    "report_scope_and_completed_stage_boundary",
+    "verification_timestamp_UTC"
+  ],
+  "prohibited_claims": [
+    "No marker before an actual report exists.",
+    "No missing-stage result imputation or padding.",
+    "No128-epoch global optimum claim from4.249-epoch confirmation.",
+    "No treating2GEN\u00d73TRAIN as6independent training runs."
+  ]
+}

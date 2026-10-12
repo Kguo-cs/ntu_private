@@ -1,0 +1,42 @@
+{
+  "inventory.json": {
+    "bytes": 1546522,
+    "sha256": "125d4163956e36ef6e9e3ce7adfe9ab930cf3e207cb9b4d8f3b34c9749235d08"
+  },
+  "analysis.json": {
+    "bytes": 22166,
+    "sha256": "0643d91fcab58ccbf6c4ecf5c2cf6d1d973778df57f5064d94b77d344453f09b"
+  },
+  "run_manifest.json": {
+    "bytes": 228636,
+    "sha256": "076edc8c3030fad8949be04cf219e7e43dce0443aac6ae5e6946daeacdeb0f92"
+  },
+  "validation_history.json": {
+    "bytes": 1563509,
+    "sha256": "223c4832f7d03de21f424a288b49aa7172ed6c1defe5bd59d8840ede5727a02e"
+  },
+  "report.txt": {
+    "bytes": 11758,
+    "sha256": "947ff349dcdf1c153c5deaf34346ab0331d72946c3eae5167587c310d201eefb"
+  },
+  "long_training_curves.png": {
+    "bytes": 583757,
+    "sha256": "9dc941f8a49171cb5ffee5945191ffdd9baafc79c90e459bd82a828b20e284fe"
+  },
+  "attribute_drift.png": {
+    "bytes": 178177,
+    "sha256": "f52cab95168f90250fb5b5bb570f1f6ebc96dae1d2496adc47b943bbb62a6ff9"
+  },
+  "early_learning_rate.png": {
+    "bytes": 252656,
+    "sha256": "f6a0446ad7f0048c18b40239fd01018426580918779fbc1b128a8e1c81233f15"
+  },
+  "fetch_history.py": {
+    "bytes": 2059,
+    "sha256": "49ac6e3cc39842aa483b41f2c7d0a86a442b2241cc363fbc1e57b06f6f8eda73"
+  },
+  "analyze.py": {
+    "bytes": 9859,
+    "sha256": "aac04dc1665c9c23ffeb50d19aab334708a8ef0bfa3db86d675cae0362b04b16"
+  }
+}

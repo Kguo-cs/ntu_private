@@ -1,0 +1,560 @@
+{
+  "anchor": {},
+  "legacy": null,
+  "warm_winner": {
+    "position": {
+      "weight": 4
+    },
+    "heading": {
+      "time_power": 2
+    },
+    "width": {
+      "time_power": 2
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "vector_heading": {
+    "heading_space": "vector"
+  },
+  "position_mse": {
+    "position": {
+      "kind": "mse"
+    }
+  },
+  "heading_p2": {
+    "heading": {
+      "time_power": 2
+    }
+  },
+  "width_p2": {
+    "width": {
+      "time_power": 2
+    }
+  },
+  "speed_p2": {
+    "velocity": {
+      "time_power": 2
+    }
+  },
+  "geometry_strong": {
+    "position": {
+      "weight": 4
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "collision_weak": {
+    "collision": {
+      "weight": 0.1
+    }
+  },
+  "heading_l1": {
+    "heading": {
+      "kind": "l1"
+    }
+  },
+  "heading_p3": {
+    "heading": {
+      "time_power": 3
+    }
+  },
+  "position_p0": {
+    "position": {
+      "time_power": 0
+    }
+  },
+  "heading_p0": {
+    "heading": {
+      "time_power": 0
+    }
+  },
+  "geometry_p0": {
+    "position": {
+      "time_power": 0
+    },
+    "heading": {
+      "time_power": 0
+    }
+  },
+  "all_p0": {
+    "position": {
+      "time_power": 0
+    },
+    "heading": {
+      "time_power": 0
+    },
+    "length": {
+      "time_power": 0
+    },
+    "width": {
+      "time_power": 0
+    },
+    "velocity": {
+      "time_power": 0
+    },
+    "collision": {
+      "time_power": 0
+    }
+  },
+  "pos_mse32": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "pos_mse64": {
+    "position": {
+      "kind": "mse",
+      "weight": 64
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "pos_l1_16": {
+    "position": {
+      "weight": 16
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced32": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced64": {
+    "position": {
+      "kind": "mse",
+      "weight": 64
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced32_p0": {
+    "position": {
+      "kind": "mse",
+      "weight": 32,
+      "time_power": 0
+    },
+    "heading": {
+      "weight": 0.25,
+      "time_power": 0
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced32_p2": {
+    "position": {
+      "kind": "mse",
+      "weight": 32,
+      "time_power": 2
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced32_vector": {
+    "heading_space": "vector",
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "geo_mse32": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "geo_mse64": {
+    "position": {
+      "kind": "mse",
+      "weight": 64
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "geo_l1_16": {
+    "position": {
+      "weight": 16
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced32_scalars_l1": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5,
+      "kind": "l1"
+    },
+    "collision": {
+      "weight": 5
+    },
+    "length": {
+      "kind": "l1"
+    },
+    "velocity": {
+      "kind": "l1"
+    }
+  },
+  "balanced32_shape_l1": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5,
+      "kind": "l1"
+    },
+    "collision": {
+      "weight": 5
+    },
+    "length": {
+      "kind": "l1"
+    }
+  },
+  "balanced32_speed_l1": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    },
+    "velocity": {
+      "kind": "l1"
+    }
+  },
+  "balanced32_l1_quarter": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.125,
+      "kind": "l1"
+    },
+    "collision": {
+      "weight": 5
+    },
+    "length": {
+      "kind": "l1",
+      "weight": 0.25
+    },
+    "velocity": {
+      "kind": "l1",
+      "weight": 0.5
+    }
+  },
+  "balanced32_scalars_p2": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5,
+      "time_power": 2
+    },
+    "collision": {
+      "weight": 5
+    },
+    "length": {
+      "time_power": 2
+    },
+    "velocity": {
+      "time_power": 2
+    }
+  },
+  "balanced32_scalars_p3": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5,
+      "time_power": 3
+    },
+    "collision": {
+      "weight": 5
+    },
+    "length": {
+      "time_power": 3
+    },
+    "velocity": {
+      "time_power": 3
+    }
+  },
+  "balanced32_heading_l1": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25,
+      "kind": "l1",
+      "time_power": 1
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced32_heading_l1_p0": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25,
+      "kind": "l1",
+      "time_power": 0
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "balanced32_heading_l1_w1": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 1,
+      "kind": "l1",
+      "time_power": 1
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "pos_mse32_col20": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "collision": {
+      "weight": 20
+    }
+  },
+  "balanced32_col20": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "width": {
+      "weight": 0.5
+    },
+    "collision": {
+      "weight": 20
+    }
+  },
+  "geo_l1_16_col20": {
+    "position": {
+      "weight": 16
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "collision": {
+      "weight": 20
+    }
+  },
+  "geo_mse32_col20": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "weight": 0.25
+    },
+    "collision": {
+      "weight": 20.0
+    }
+  },
+  "pos_mse32_heading_l1": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "collision": {
+      "weight": 5
+    },
+    "heading": {
+      "kind": "l1",
+      "weight": 1.0,
+      "time_power": 1
+    }
+  },
+  "geometry_strong_heading_l1": {
+    "position": {
+      "weight": 4.0
+    },
+    "heading": {
+      "kind": "l1"
+    },
+    "collision": {
+      "weight": 5.0
+    }
+  },
+  "geo_l1_16_heading_l1": {
+    "position": {
+      "weight": 16
+    },
+    "heading": {
+      "kind": "l1",
+      "weight": 1.0
+    },
+    "collision": {
+      "weight": 5
+    }
+  },
+  "geometry_strong_width_p2": {
+    "position": {
+      "weight": 4
+    },
+    "collision": {
+      "weight": 5
+    },
+    "width": {
+      "time_power": 2
+    }
+  },
+  "geometry_strong_heading_p2": {
+    "position": {
+      "weight": 4
+    },
+    "collision": {
+      "weight": 5
+    },
+    "heading": {
+      "time_power": 2
+    }
+  },
+  "geo_mse32_col20_heading_l1_shape2": {
+    "position": {
+      "kind": "mse",
+      "weight": 32
+    },
+    "heading": {
+      "kind": "l1",
+      "weight": 1.0,
+      "time_power": 1
+    },
+    "collision": {
+      "weight": 20.0
+    },
+    "length": {
+      "weight": 2.0
+    },
+    "width": {
+      "weight": 2.0
+    }
+  },
+  "geometry_strong_heading_l1_width_p2": {
+    "position": {
+      "weight": 4.0
+    },
+    "heading": {
+      "kind": "l1"
+    },
+    "collision": {
+      "weight": 5.0
+    },
+    "width": {
+      "time_power": 2
+    }
+  }
+}

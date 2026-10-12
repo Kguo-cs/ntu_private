@@ -1,0 +1,163 @@
+{
+  "status": "CPU_SOURCE_AND_REAL_TWO_SCENE_PROBE",
+  "GPU_used": false,
+  "training_model_instantiated": false,
+  "Lightning_TF_imported": false,
+  "active_sources_modified": false,
+  "probe": {
+    "disabled": {
+      "actual_scene_loads": 400,
+      "tracked_delta": 5296,
+      "unreachable_local_unpickler_classes_final": 400,
+      "confirmed_class_closure_cycles_final": 400,
+      "torch_tensor_delta": 0,
+      "rss_kib_delta": 1764,
+      "manual_young_collected": 0,
+      "full_gc_collected_at_probe_end": 4616,
+      "CUDA_initialized": false,
+      "TensorFlow_imported": false
+    },
+    "young_after_batch": {
+      "actual_scene_loads": 400,
+      "tracked_delta": 72,
+      "unreachable_local_unpickler_classes_final": 0,
+      "confirmed_class_closure_cycles_final": 0,
+      "torch_tensor_delta": 0,
+      "rss_kib_delta": 1744,
+      "manual_young_collected": 4616,
+      "full_gc_collected_at_probe_end": 0,
+      "CUDA_initialized": false,
+      "TensorFlow_imported": false
+    },
+    "automatic": {
+      "actual_scene_loads": 400,
+      "tracked_delta": 199,
+      "unreachable_local_unpickler_classes_final": 11,
+      "confirmed_class_closure_cycles_final": 11,
+      "torch_tensor_delta": 0,
+      "rss_kib_delta": 1756,
+      "manual_young_collected": 0,
+      "full_gc_collected_at_probe_end": 112,
+      "CUDA_initialized": false,
+      "TensorFlow_imported": false
+    }
+  },
+  "proved_mechanism": "Installed Torch serialization._load creates a fresh local UnpicklerWrapper on each weights_only=False load. The find_class method uses super(), whose __class__ closure points back to the class; class dictionary/method/closure/class forms a cycle. CPython class MRO/dictionary can also be cyclic. Global gc.disable prevents these unreachable Python objects from being reclaimed.",
+  "not_proved": [
+    "400-load RSS is nearly flat; do not numerically extrapolate heap/RSS from this probe to1.25million scene loads",
+    "The observed original4.3GB training RSS increase may have multiple causes; no live GPU allocated measurement was available",
+    "GC0 success on CPU does not establish native-GPU/deserialization SIGSEGV safety",
+    "This probe simplified graph features and omitted Lightning/model forward; it is evidence for serialization/PyG object ownership, not full training memory behavior"
+  ],
+  "source_lifecycle": [
+    {
+      "object": "MultiDataset and TargetBuilder",
+      "finding": "Dataset retains immutable raw filename lists and transform. get() returns each loaded dictionary, builder returns HeteroData. No append/list of historical scenes found in active path. Actual two native caches contain tokenized_agent/tokenized_map only."
+    },
+    {
+      "object": "PyG HeteroData storage",
+      "finding": "BaseStorage._parent is weakref.ref. HeteroData\u2192storage\u2192parent therefore does not form a strong cycle. Collation keeps slice/inc tensor dictionaries for the current batch. DynamicInheritance also creates MetaResolver classes; no full-batch persistence seen in CPU probe."
+    },
+    {
+      "object": "TokenProcessor",
+      "finding": "Cached initial-state path returns fresh tensor dictionaries. Per-agent caches are added to local agent dictionary. self.token_traj_all in fallback token-library path replaces one latest-batch tensor rather than appending; current native initial_pos path avoids that fallback."
+    },
+    {
+      "object": "Supervised model/metrics",
+      "finding": "SMART_GAIL.training_step returns one loss; no historical training batch list. _log_train is step logging; training metric evaluators are inactive with limit_val_batches=0. Reference cache LRU and seen-set/histogram growth belong to evaluation, not this fit phase."
+    },
+    {
+      "object": "Diagnostics",
+      "finding": "records is linear in updates but values are detached Python floats/dicts, not tensors. install() creates a model\u2192bound capture method\u2192closure(original bound model method)\u2192model strong cycle, one per fit stage. Under globally disabled GC this can retain the model at teardown; not one cycle per training batch."
+    },
+    {
+      "object": "Lightning Trainer",
+      "finding": "Trainer\u2192loops\u2192Trainer uses strong self.trainer; strategy holds model and LightningModule._trainer points back. Potential full stage/model retention after del trainer/model under disabled GC, especially repeated test Trainers; not measured by the no-Lightning probe."
+    }
+  ],
+  "generation_boundary_recommendation": {
+    "pilot": "Save real collector before any gc.collect monkey patch, keep automatic GC disabled, call that real collector(0) after completed training batch (outside torch.load and after optimizer/backward). Record actual collection return, gc counts, RSS and CUDA memory_allocated/memory_reserved separately. Keep parameters/data order/RNG/budget identical.",
+    "why": "The observed local unpickler classes are newly allocated generation0 and unreachable once each load returns. A batch boundary avoids triggering collection in Torch rebuild. Live batch/model objects remain reachable; GC should not change physical inputs or optimizer state under normal object ownership.",
+    "limits": "collect(0) does not collect old promoted unreachable objects. Surviving model/trainer/callback cycles can move to generation1; whole-stage teardown needs a separate policy or subprocess exit. gc.collect(1)/(2) traverses broader old framework/tensor objects and is a separate unvalidated risk, not automatically safe. torch.cuda.empty_cache only releases unused cached GPU blocks and cannot free live tensors held in cycles.",
+    "causality_rule": "A successful pilot establishes observed bounded memory at that budget and timing only. It does not prove GC was the original SIGSEGV cause or validate multi-epoch exact-resume."
+  },
+  "probe_sha256": "0b78647de9dbb03c7597c58fdbe78bcb2a84a8dd9e7610c0dc81e7f2d4f114de",
+  "source_reference_paths": [
+    "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch/serialization.py:2080",
+    "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch_geometric/data/storage.py:104",
+    "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch_geometric/data/batch.py:30",
+    "tools/quick_component_loss_sweep.py:59",
+    "src/smart/datasets/scalable_dataset.py:27",
+    "src/smart/tokens/token_processor.py:827",
+    "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/lightning/pytorch/loops/loop.py:23"
+  ],
+  "unpickler_owned_size_lower_bound": {
+    "status": "actual_installed_Torch_local_class_shallow_lower_bound",
+    "synthetic_in_memory_loads": 1,
+    "real_scene_file_loads": 0,
+    "CUDA_initialized": false,
+    "TensorFlow_imported": false,
+    "class_count": 1,
+    "owned_shallow_object_sizes": [
+      {
+        "name": "local_class",
+        "type": "type",
+        "bytes_shallow": 1688
+      },
+      {
+        "name": "find_class",
+        "type": "function",
+        "bytes_shallow": 152
+      },
+      {
+        "name": "closure_tuple",
+        "type": "tuple",
+        "bytes_shallow": 56
+      },
+      {
+        "name": "class_dictionary",
+        "type": "dict",
+        "bytes_shallow": 272
+      },
+      {
+        "name": "MRO_tuple",
+        "type": "tuple",
+        "bytes_shallow": 64
+      },
+      {
+        "name": "bases_tuple",
+        "type": "tuple",
+        "bytes_shallow": 48
+      },
+      {
+        "name": "closure_cell_0",
+        "type": "cell",
+        "bytes_shallow": 40
+      },
+      {
+        "name": "closure_cell_1",
+        "type": "cell",
+        "bytes_shallow": 40
+      },
+      {
+        "name": "load_module_mapping",
+        "type": "dict",
+        "bytes_shallow": 184
+      },
+      {
+        "name": "owned_descriptor___dict__",
+        "type": "getset_descriptor",
+        "bytes_shallow": 64
+      },
+      {
+        "name": "owned_descriptor___weakref__",
+        "type": "getset_descriptor",
+        "bytes_shallow": 64
+      }
+    ],
+    "lower_bound_bytes_per_local_class": 2672,
+    "at1500000_loads_bytes": 4008000000,
+    "at1500000_loads_GiB": 3.732740879058838,
+    "disclaimer": "These are Python-owned shallow object sizes excluding shared globals/code/base classes and allocator overhead. Only a plausibility estimate if all such classes accumulate with disabled GC, never a measured RSS prediction."
+  }
+}

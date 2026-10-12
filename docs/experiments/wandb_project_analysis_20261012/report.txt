@@ -1,0 +1,95 @@
+W&B bc 项目分析与下一步优化建议（2026-10-12，上海时区）
+
+已通过 W&B Public API 只读读取 u3006612/bc 全部 135 个 run 的配置、summary 和未抽样历史：216703 条历史记录、4558 条完整七指标评价记录。读取快照时，103 finished、17 failed、11 crashed、4 running。报告中的“最新”以 inventory.json 快照为准，不随线上继续训练自动更新。
+
+核心判断：线上长训练结果显示明显的几何/碰撞/属性取舍。657 配方仍有最强的几何结果和很好的中期 speed；新配方压低碰撞，但没有同时改善所有 JSD。短期搜索中的 overnight 优势尚未在这一批线上长训练结果中得到全面验证。下一步应保住几何优势，单独优化碰撞与属性分布，并先在稳定的评价集上检验。
+
+一、比较范围与证据边界
+
+125 个 InitDiffusion run 中，116 个使用 full reference、9 个使用 matched reference；另有 10 个 Scenario Dreamer run，均为 full reference。full 会与完整真实评价集合比较，matched 则匹配生成场景对应的真实集合，两类不能直接排总榜。
+
+133 个 run 配置为 val_batch_size=256、limit_val_batches=1；2 个使用 512。多数线上 val 指标只代表前 256 个场景。近期六个长训练 run 均为 matched、GT 地图、固定 ego position/heading/shape/type、EMA、20 步采样、50 m 半宽方形地图、32-true。尚未得到远端实际场景列表及内容哈希，因此同名目录只能确认配置意图，不能证明不同机器数据逐文件一致。
+
+下面使用实际评价 epoch 55，而非 summary 的最后 training epoch。B256 与 B512 同 epoch 的样本遍历次数近似一致，optimizer 更新次数不同。训练集已有本地记录为 493542 场景，远端计数/内容尚未逐机重验。
+
+run                            nearest    lat        ang       length    width     speed     collision(%)
+iu3fa4gx / 657 / B512           0.01097    0.00847    0.05321   0.31275   0.08865   0.02934   0.69075
+vd23g1bq / frozen shared B512   0.04348    0.59718    0.14834   0.29252   0.09272   0.04062   0.20348
+0yhfg9ue / frozen shared B256   0.04021    0.58187    0.13697   0.32676   0.10336   0.03762   0.21147
+pz8g135r / overnight B256       0.04928    0.58381    0.14145   0.31336   0.17625   0.04285   0.22329
+4bedivn1 / scratch B512         0.04330    0.57813    0.13653   0.33421   0.09180   0.07027   0.16414
+pd7zg04g / scratch B512         0.03841    0.60500    0.13109   0.28667   0.08309   0.08757   0.17195
+
+以上保留线上原始缩放：nearest/lat 为 JSD×10，ang/length/width/speed 为 JSD×100，collision 为车辆加权百分比。全部越小越好，不能把七列原值直接相加作为公平总分。
+
+不同配方还改变 seed、normalizer、损失、初始化、入口及硬件。657 seed2817；shared 两个 run seed817；overnight seed4817。5090 与 A6000、run0/run1/run3 均存在。硬件清单显示 A6000 主机有四卡，但 trainer.devices=1，不能按四卡训练解释。run1 源码设 matmul highest；trainer 32-true 不足以证明所有远端入口和短期搜索的矩阵精度相同。
+
+二、长训练中最有价值的发现
+
+1. Speed 和 width 的后期退化是跨 run 重复出现的现象。
+657 speed 最小值在 epoch63 为 0.02553，到127变为0.05667，上升122.0%；width 在83为0.07381，到127为0.10163，上升37.7%。同时其 train/component/velocity_loss 从32–63平均0.15981降到96–127平均0.12844，width reconstruction 从0.22130降到0.20090。
+shared B512 speed 从59的0.03916到107的0.05589，上升42.7%；shared B256从55的0.03762到127的0.07025，上升86.8%。共享和scratch配置均有类似迹象。
+这支持“重建误差下降不等于生成分布持续变好”。它还不能单独证明过拟合，也不能证明 MSE 必然导致方差塌缩。有限模型容量、训练各目标冲突、EMA轨迹和有限步采样误差都需通过分布及时间桶诊断区分。
+不同指标的最小值来自不同 checkpoint，不能拼成一组实际可复现的 best 指标。
+
+2. 新配方的主要改善是碰撞，而非整体占优。
+以 epoch47/51/55 三轮指标平均值减小单次波动：shared B512 相对657，collision下降71.6%、length下降10.3%，但speed上升44.1%、heading上升175.2%，lateral也明显更差。新配方把position从L1/p1/w4改为MSE/p1/w32，heading从角度MSE/p2改为L1/p1，collision从5改20，同时变更其他条件。无法从现有 run 单独分解哪一项造成变化。
+合理假设是提高碰撞约束改变了位置分布，较强position重建与不同heading/time权重又改变了几何学习；需要单变量实验，而不是凭此宣布某个损失种类不可用。
+
+3. 独立 speed head 尚未表现出一致优势。
+同样取47/51/55平均，overnight相对shared B256，speed更高17.4%、width更高84.3%；相对shared B512，width更高125.2%。overnight最后评价为55，summary training epoch为58，因此不能与其他run的127结果按最后点比较。
+独立head仍共享上游feat_a，speed_head_detach_context=False，因此它没有消除共享主干的梯度冲突。但线上seed不同，这只是机制假设，并不是证明head有害。应在同seed、同batch、同normalizer、同采样下比较shared/separate/separate+detach。
+
+4. 减小batch没有整体获胜。
+两个frozen shared配方同seed817、同loss：47/51/55均值下，B256相对B512 speed低9.3%，但length高19.1%、width高22.2%、collision高5.1%。它们硬件不同，仍不能归因于batch本身。没有依据把B256设为所有指标的最佳选择。
+
+5. 三个新学习率run还不能确定最终胜者。
+快照中v62ymyjj与fs0kq6fc最后验证为epoch11，c486qs4q为epoch7；summary的training epoch分别已更高。min_ratio .01与.05的区别主要在后期，早期几个点无法验证它的价值。学习率2e-4在当前早期结果中没有同时改善所有指标。对657的比较还涉及入口、机器和代码版本。
+
+三、为什么这些问题值得优先处理
+
+当前 x0 重建按样本优化，评价按生成样本的边际直方图比较。位置、类型、尺寸和速度耦合；例如类型比例变化会同时影响只统计vehicle的shape/speed/collision。仅有训练type_accuracy无法证明自由生成的type比例正确。
+
+当前metric_core的lat/ang只统计被判为onroad的车辆。项目没有记录onroad比例、生成车辆数、类型比例及分布直方图。极低lat/ang不足以单独证明所有车辆都符合地图；同样，低collision也可能伴随生成车辆数或上路覆盖改变。必须补足这些统计才能解释取舍。没有证据说明目前发生了指标投机，只有现有日志不足以排除这种混淆。
+
+地图编码器中road_edges模式只返回road edge查询节点，但lane等类型仍可作为地图attention的输入。lane中心线信息不是完全没有进入编码器，而是缺少直接返回给agent的lane中心线查询。lanes_and_edges是可测试的表示增强，使用相同原始地图，也可保留固定地图编码器权重。
+
+当前时间权重是1/max(t,0.05)^p，再按均匀t的解析均值归一化。p2约89.7%的总权重在t<0.2，p1约59.7%。统一提高p不只是整体放大loss，也会显著改变训练关注的噪声阶段。因而应按时间桶记录属性偏差和梯度，再选择各分量的power。
+
+四、建议按下列顺序验证
+
+A. 固定评价协议并重评现有checkpoint，优先级最高、成本最低。
+使用明确保存且分散抽取的4096验证场景列表，matched reference、相同GT地图/ego条件、相同TRAIN统计文件、相同生成seed；先用2个GEN seed进行筛选。锁定用于选模型的验证集后，用未用于选参的完整50k做最终审计。
+优先重评657的55/63/83/99/127、shared的55/75/107或127、overnight的55。每个checkpoint同时比较全部指标，另记录onroad率、vehicle数量、type比例、speed零值比例、负speed/非法size比例、均值/std/分位数及直方图。历史最小值只是选择候选，不是最终性能证明。
+20/40/hybrid40采样可在同一个checkpoint、相同场景和随机源上做推理消融。短训练的采样收益不能直接外推到128epoch。首先比较完整生成分布和碰撞，不只看某一列JSD。
+
+B. 以657的几何loss为出发点，单独搜索碰撞权重。
+position=L1/p1/w4；heading=angle MSE/p2/w1；length=MSE/p1/w1；width=MSE/p2/w1；speed=MSE/p1/w2；type=CE/p0/w1；collision=L1/p1，测试w5/10/20。
+统一固定AIRL地图、从头初始化G1、固定TRAIN normalizer、B512以及同一组seed。因为这些准备可能与线上657的首批统计不同，必须在新协议中同时重训w5 control，不能直接拿老run当精确control。
+先选择不会明显损害lat/ang/nearest的碰撞权重，再测试position L1与MSE、heading MSE/p2与L1/p1。用Pareto比较或预先定义碰撞约束选模型，不通过任意raw指标求和决定best。
+
+C. 处理属性分布退化，先诊断，再改head和loss。
+在相同控制组下分别测试共享head、独立speed head、独立head且detach上游context；detach也有信息适配不足风险，需要实测。
+按t分桶记录speed/length/width重建误差、生成std/GT std、训练梯度范数；按vehicle/pedestrian/cyclist分组。loss数值占比不等于梯度占比。
+可小范围测试现有distribution_loss：by_type=true，speed/length/width权重从0、0.05、0.1起，time_min比较0.25与0.5；均属未验证的起始点。它增加边际约束，需要同时检查联合物理合理性，避免只修边际而破坏位置/类型相关性。
+若直方图证实停车车辆不足，再测试stationary/moving分支；若证实shape方差过小，再测试按类型属性head或对应的分布约束。softplus或log只能保证/改变正值参数化，不自动保证JSD更好。
+
+D. 在相同固定地图权重下增强lane条件。
+先仅切换map_condition_types=road_edges与lanes_and_edges，其他不动。预期需要检验lat/ang/onroad和collision是否共同改善。其次再考虑小学习率训练地图adapter或最后一层，不把地图全面解冻与loss调整放进同一个run。
+
+E. 学习率与训练时长最后处理。
+保留5e-4/min_ratio .05作为已见长期结果的control，继续观察当前2e-4与min_ratio .01的run到相同评价预算。中期保存55–83附近checkpoint，依据固定评价集选最终checkpoint，而不是默认最后epoch。
+仅降低lr不能解决训练loss与生成分布目标的不一致；只有确认属性后期漂移与优化轨迹有关，才测试分head学习率/后期冻结或降权。若使用非均匀time采样，需重新核对权重期望，当前归一化公式假设均匀t。
+
+当前推荐保留两个候选：657系列用于几何与speed较好的起点；shared frozen B512系列用于低碰撞和较好shape的起点。现有结果没有给出一个对全部七项都占优的单一best，更不足以确认overnight是最终最优。
+
+文件与复现
+inventory.json：完整run配置和summary快照。
+histories/：全部135个run未抽样历史。
+run_manifest.json：比较条件、版本、硬件/入口与实际评价epoch。
+validation_history.json：全部4558条完整七指标评价记录。
+analysis.json：同期表、三轮均值比值、逐指标退化及限制。
+long_training_curves.png/svg：六个长期run完整曲线。
+attribute_drift.png/svg：657训练重建下降而属性JSD回升。
+early_learning_rate.png/svg：三个新学习率run的早期结果。
+fetch_history.py与analyze.py：读取和分析脚本；未初始化/修改线上run，未修改训练模型。

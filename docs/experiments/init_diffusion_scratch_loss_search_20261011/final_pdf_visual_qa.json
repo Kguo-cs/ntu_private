@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "timestamp": "2026-10-11T10:12:08.933927+00:00",
+  "pdf_sha256": "51db4d4557e0befb5c2e8bc8373dd7317277248552944a47f25efcb9a64ec8f7",
+  "source_sha256": "a7c7acf6ea8ee3d4e4ae40fd8c570f996d066b12ac04700ba91271889af0f9b1",
+  "pages": 25,
+  "all_25_pages_rerendered": true,
+  "root_visual_inspection": [
+    "all pages in 3 montages",
+    "final page25 at full resolution",
+    "earlier full-resolution key pages1/19/23/24/25"
+  ],
+  "visual_findings": "Legible Chinese and numeric glyphs, unclipped charts and tables, consistent headers/footers/page numbering, no overlapping text; removed sparse orphan final page.",
+  "source_link_check": {
+    "missing": []
+  },
+  "git_diff_check": "PASS",
+  "render_prefix": "/tmp/scratch_pdf_final_v2_page"
+}

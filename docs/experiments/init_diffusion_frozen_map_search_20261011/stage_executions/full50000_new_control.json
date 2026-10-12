@@ -1,0 +1,59 @@
+{
+  "stage": "full50000_new_control",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "512",
+    "--scenes",
+    "50000",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "0",
+    "--seed",
+    "817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--steps",
+    "1",
+    "--checkpoint-steps",
+    "",
+    "--variants",
+    "",
+    "--evaluation-checkpoints",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/full50000_new_control.json",
+    "--require-full-set",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/full50000_new_control"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/full50000_new_control",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_full50000_new_control.log",
+  "controller_pid": 957660,
+  "started_unix": 1791738286.7806253,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 963303,
+  "ended_unix": 1791738554.8023076,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/full50000_new_control/protocol.json",
+      "sha256": "f05b1d66474f937e451651d33adb9a60547f380b32ac722a1e172dff4158edee"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/full50000_new_control/summary.json",
+      "sha256": "a8b5fb638938e0b570eac966d5bc8f1ac2b22f9cb1e0c02543334d1dc27d5452"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_full50000_new_control.log",
+      "sha256": "0418420decade18f918d856790ed9e408ad31c412d596cd13507f640529f05d3"
+    }
+  },
+  "last_verified_unix": 1791738554.807188
+}

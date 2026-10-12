@@ -1,0 +1,55 @@
+{
+  "scales": {
+    "nearest_dist_jsd": 1.0,
+    "lat_dev_jsd": 1.0,
+    "ang_dev_jsd": 10.0,
+    "length_jsd": 20.0,
+    "width_jsd": 15.0,
+    "speed_jsd": 20.0,
+    "collision_rate": 5.0
+  },
+  "score": "mean(metric/scale)",
+  "scale_units": "official helper output units; collision percentage points",
+  "metric_output_multipliers": {
+    "nearest_dist_jsd": 10,
+    "lat_dev_jsd": 10,
+    "ang_dev_jsd": 100,
+    "length_jsd": 100,
+    "width_jsd": 100,
+    "speed_jsd": 100
+  },
+  "roots": [
+    "/home/ke/code/sim/logs/component_loss_scratch/heldout_seed817",
+    "/home/ke/code/sim/logs/component_loss_scratch/heldout_bridge_seed817",
+    "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed1817",
+    "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed2817"
+  ],
+  "anchor": "warm_winner",
+  "num_observations": 48,
+  "num_groups": 8,
+  "warnings": [],
+  "plot_variants": [
+    "geo_mse32_col20_heading_l1_shape2",
+    "warm_winner"
+  ],
+  "actual_plotted_variants": [
+    "geo_mse32_col20_heading_l1_shape2",
+    "warm_winner"
+  ],
+  "aggregation": "repeats within evaluation seed, then evaluation seeds within training seed, then training seeds",
+  "training_seed_sd_ddof": 1,
+  "single_training_seed_sd": 0,
+  "uncertainty": "Descriptive sample SD across independent training seeds, not confidence intervals",
+  "figures": [
+    "learning_curves_320db4fa99dc.png",
+    "learning_curves_4795bc325dd2.png",
+    "coverage_curves_320db4fa99dc.png",
+    "coverage_curves_4795bc325dd2.png",
+    "metric_heatmap_320db4fa99dc_step_1536.png",
+    "metric_heatmap_320db4fa99dc_step_2048.png",
+    "metric_heatmap_4795bc325dd2_step_1536.png",
+    "metric_heatmap_4795bc325dd2_step_2048.png",
+    "gradient_training_traces.png"
+  ],
+  "analysis_source_sha256": "78682860224fe05f3597dc4a703eecc0e31dd5e521bccce71abec0e9864adc88"
+}

@@ -1,0 +1,64 @@
+{
+  "status": "PASS",
+  "utc": "2026-10-11T15:39:04.626668+00:00",
+  "scope": "CPU only; no GPU process launched",
+  "test_count": 22,
+  "test_command": "CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 python -m unittest discover -s tests -p 'test_overnight_search*.py'",
+  "actual_old_baseline_completion_validation": "8 observations / 13 hashed completion artifacts passed",
+  "source_hashes": {
+    "src/smart/diffusion/ego_conditioning.py": "0911cb53c07274ff3ebc550f3ead446ce70a2273c8a31140d0cdbe510829f907",
+    "src/smart/diffusion/diffusion_utils.py": "90fee62790de321f657802a680283c0f957bac5cfa08dc61b2671b70f18c973a",
+    "src/smart/diffusion/initial_diffusion.py": "1e81582e5444fbe7f210d8b451bf640d59342ec2507d01f20859b0fad61d5fe4",
+    "src/smart/diffusion/distribution_loss.py": "d4aab3c4c3a15d6c9116befa1b29682ed6e9fe68209306418cdcf7ca0a05c7a1",
+    "src/smart/diffusion/component_loss.py": "0717d7d171376b34ed8926a90f7dfb69cf0dacffdb422ea60d3a52261713c635",
+    "src/smart/diffusion/noise_schedule.py": "2381ad76cf210e1812db2dc44ad9ffd2ace05bfe2078079718fed04f97de3672",
+    "src/smart/diffusion/scale_flow.py": "829634ce03409f782c69c2758812f04c87c20ef172d4bb84ecfc194c27169c09",
+    "src/smart/diffusion/denoiser.py": "b79ab73603b4975d5337567b84c7eed69a8367804214c12ad172b4ddc6274de7",
+    "configs/model/smart.yaml": "4c61895fbd61346587212a387a425e26f767c318ae559bcb874e9ea265742f3c",
+    "src/smart/model/smart.py": "76c9cf51ce5824cba1f64e69bc9af2d3b09e212ff704d40722a8db17692a6e3d",
+    "src/smart/model/smart_gail.py": "ea157ca704aecad732350ef77ac5cc2b5c42425c064fe03d4eabaae4203f6a20",
+    "src/smart/datasets/scalable_dataset.py": "2599f5bc7bb60d3a799fb8d18f37fe4c7125292aa96a80bec78183904750bb7f",
+    "src/smart/datamodules/scalable_datamodule.py": "47315762bcd1ed623d4f23697c6cd97c6d4a553f86ee3e7a7a89c580a49c339b",
+    "src/smart/tokens/token_processor.py": "bf6ecf954f1f1db97da82229dde4aee2c15cce5a661eca9e077574c1a0c9435b",
+    "src/smart/modules/map_decoder.py": "57fb2e1b6f52841fea4a1b0bafa8a9408a080ffa694fb3cbc53a23abe6036342",
+    "tools/scratch_component_loss_sweep.py": "82a4afa01fbd54b8ebd70406d6aebca2cf2e78baead5adafa784619ea87a57ec",
+    "tools/overnight_init_diffusion_sweep.py": "ab3c5af40fcb9f31fc8d4b443e960774239163276f2ef0fd224ac369876425b3",
+    "tools/continue_overnight_init_diffusion.py": "1bad1c27d99b28d74396456c0d6b0b79a285f05b2165e1a11eea3a1ed7701a56"
+  },
+  "equal_exposure": [
+    {
+      "control_B512_updates": 768,
+      "candidate_B256_updates": 1536,
+      "actual_exposure": 393216,
+      "equivalent_full_epochs": 0.7967224673887937
+    },
+    {
+      "control_B512_updates": 4096,
+      "candidate_B256_updates": 8192,
+      "actual_exposure": 2097048,
+      "equivalent_full_epochs": 4.248975771058998
+    },
+    {
+      "control_B512_updates": 12288,
+      "candidate_B256_updates": 24576,
+      "actual_exposure": 6291144,
+      "equivalent_full_epochs": 12.746927313176995
+    }
+  ],
+  "changes": [
+    "strict eligible promotion; reference fallback; explicit exploratory fallback",
+    "planned budget/TRAIN/GEN cells and physical scope verified at each successful stage",
+    "exact argv, recipe/variant/external/source fingerprint and completion hashes checked on reuse",
+    "fresh G1/optimizer origin checked for training",
+    "final pooled and each TRAIN gates; eight complete endpoint cells required",
+    "full50k seed4817 pair x2GEN with require-full-set, no reselection, before queue_complete",
+    "durable fsync manifests; interrupted stages never automatically replayed"
+  ],
+  "remaining_limitations": [
+    "deadline interrupts can leave a partial checkpoint requiring manual recovery",
+    "not guaranteed to finish expensive larger-model final pair before fixed cutoff; use observed medium timing before final lock",
+    "full50k audit may cost roughly 15-20 minutes for four GEN evaluations, rather than guaranteed ten minutes",
+    "128-epoch global optimum is not proven"
+  ],
+  "deadline_budget_rule": "Implemented measured medium timing, shared budgets12288/24576,10240/20480,8192/16384; 15% margin+20min full audit; minimum deadline risk if none fit"
+}

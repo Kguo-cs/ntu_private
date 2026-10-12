@@ -1,0 +1,260 @@
+{
+  "status": "VERIFIED_ACTUAL_HYBRID_COHORT8_PLUS_FULL2_COMPLETE",
+  "created_utc": "2026-10-12T01:30:23.095056+00:00",
+  "CPU_only": true,
+  "original_strict_parity_status": "FAILED_DEFAULT20_PARITY",
+  "main_training_and_native16_selections_unchanged": true,
+  "separate_freshN40_cohort": true,
+  "protocol_sha256": "fca5afddae6c4507cd050737c4c01212b592ecf856fa817ad257a50afdd2d3b3",
+  "errors": [],
+  "stages": {
+    "grid": {
+      "complete": true,
+      "verified_actual_cells": 8,
+      "actual_cells": [
+        {
+          "TRAIN": 4817,
+          "GEN": 2817,
+          "option": "n40_eps005",
+          "hybrid_position": false,
+          "scenes": 4096,
+          "report_sha256": "7c6fdcc674b207c5dfb89e923d3b4d37a62c98055cfb2e07f2c8b807e33e80b8",
+          "execution_sha256": "c4b3cd74046a8599d73b3d8663483172bd2bfdac46da369aaad461e1b1e8daf3"
+        },
+        {
+          "TRAIN": 4817,
+          "GEN": 3817,
+          "option": "n40_eps005",
+          "hybrid_position": false,
+          "scenes": 4096,
+          "report_sha256": "6b1de1bcff112b04a0836d58b9cdb2af71e327f1652bacf62cff6aedeea678e6",
+          "execution_sha256": "846783b23978bf81efb6904a8dfec931a3ec0344e6b7edf1906c96262fe7183d"
+        },
+        {
+          "TRAIN": 5817,
+          "GEN": 2817,
+          "option": "n40_eps005",
+          "hybrid_position": false,
+          "scenes": 4096,
+          "report_sha256": "bd7fae1abf485d2db831f9d38eba13e2fde59ea6b441e48851040dd62f4ff716",
+          "execution_sha256": "0663ac62aee1aeeaa7d58dde6c8005ea6933343d4481819639cbc0d6f5bcf6c8"
+        },
+        {
+          "TRAIN": 5817,
+          "GEN": 3817,
+          "option": "n40_eps005",
+          "hybrid_position": false,
+          "scenes": 4096,
+          "report_sha256": "b5845d5fec0b1350c9fc2751556aca0c305d5143fb3b0962833f22fdb7c6444d",
+          "execution_sha256": "e6f0e5952275ac1409d448921cdc4b86d43b31c2a1ceb1ca06a9a37a27ab6349"
+        },
+        {
+          "TRAIN": 4817,
+          "GEN": 2817,
+          "option": "hybrid_pos0001",
+          "hybrid_position": true,
+          "scenes": 4096,
+          "report_sha256": "79d6a83d6587a7b604f37c1e4b7ca1f7810882280a888b913f9cd9d430f38baa",
+          "execution_sha256": "62d69d83f2af632acefa51e77479694c9547fa2a984a76bd92419a61a700ab4d"
+        },
+        {
+          "TRAIN": 4817,
+          "GEN": 3817,
+          "option": "hybrid_pos0001",
+          "hybrid_position": true,
+          "scenes": 4096,
+          "report_sha256": "036b499f5df240a4ea5238b91c8396079f0ef9a5bc21020a994028473ca712ee",
+          "execution_sha256": "54842853703b0e2792391c84f785f783f2c23f26689620776b8db5fec75cd295"
+        },
+        {
+          "TRAIN": 5817,
+          "GEN": 2817,
+          "option": "hybrid_pos0001",
+          "hybrid_position": true,
+          "scenes": 4096,
+          "report_sha256": "9686bd3f2b06197c9547828cf4412025a9fea59d1686a9d347ac59322562d721",
+          "execution_sha256": "ac868b30baf3f1765717b4f118a10a19813cebc4ed9dfca006ca55d7f65856d6"
+        },
+        {
+          "TRAIN": 5817,
+          "GEN": 3817,
+          "option": "hybrid_pos0001",
+          "hybrid_position": true,
+          "scenes": 4096,
+          "report_sha256": "3653c362c7626106a0e9583ad6307c29a23a3312e8144e7fa63cf2856476ac5b",
+          "execution_sha256": "82c4e796974fa919e52167957806fc167e893982c36458e84f3eca91ed79d9ab"
+        }
+      ],
+      "summary_sha256": "bec2c95563ef72ca31ca4eaafe82955b5f9bda89bd42246a62627050c8b2755c",
+      "complete8certified": true,
+      "independent_actual_comparisons": {
+        "n40_eps005": {
+          "R": 1.0,
+          "ratios": {
+            "nearest_dist_jsd": 1.0,
+            "lat_dev_jsd": 1.0,
+            "ang_dev_jsd": 1.0,
+            "length_jsd": 1.0,
+            "width_jsd": 1.0,
+            "speed_jsd": 1.0,
+            "collision_rate": 1.0
+          },
+          "gates": {
+            "speed_jsd": true,
+            "length_jsd": true,
+            "width_jsd": true,
+            "onroad": true,
+            "vehicle_ratio": true
+          },
+          "eligible": true,
+          "per_TRAIN": {
+            "4817": {
+              "R": 1.0,
+              "ratios": {
+                "nearest_dist_jsd": 1.0,
+                "lat_dev_jsd": 1.0,
+                "ang_dev_jsd": 1.0,
+                "length_jsd": 1.0,
+                "width_jsd": 1.0,
+                "speed_jsd": 1.0,
+                "collision_rate": 1.0
+              },
+              "gates": {
+                "speed_jsd": true,
+                "length_jsd": true,
+                "width_jsd": true,
+                "onroad": true,
+                "vehicle_ratio": true
+              },
+              "eligible": true
+            },
+            "5817": {
+              "R": 1.0,
+              "ratios": {
+                "nearest_dist_jsd": 1.0,
+                "lat_dev_jsd": 1.0,
+                "ang_dev_jsd": 1.0,
+                "length_jsd": 1.0,
+                "width_jsd": 1.0,
+                "speed_jsd": 1.0,
+                "collision_rate": 1.0
+              },
+              "gates": {
+                "speed_jsd": true,
+                "length_jsd": true,
+                "width_jsd": true,
+                "onroad": true,
+                "vehicle_ratio": true
+              },
+              "eligible": true
+            }
+          }
+        },
+        "hybrid_pos0001": {
+          "R": 0.9364405892943847,
+          "ratios": {
+            "nearest_dist_jsd": 0.8609821581814016,
+            "lat_dev_jsd": 0.9838821662342611,
+            "ang_dev_jsd": 0.9533556020262662,
+            "length_jsd": 0.9989206239221037,
+            "width_jsd": 1.0016272183133117,
+            "speed_jsd": 1.0006427292585376,
+            "collision_rate": 0.7556736271248095
+          },
+          "gates": {
+            "speed_jsd": true,
+            "length_jsd": true,
+            "width_jsd": true,
+            "onroad": true,
+            "vehicle_ratio": true
+          },
+          "eligible": true,
+          "per_TRAIN": {
+            "4817": {
+              "R": 0.9335966149207737,
+              "ratios": {
+                "nearest_dist_jsd": 0.8614044818765837,
+                "lat_dev_jsd": 0.9761801244294234,
+                "ang_dev_jsd": 0.931304091448011,
+                "length_jsd": 1.003504878360977,
+                "width_jsd": 0.9980398211492579,
+                "speed_jsd": 1.001229217615235,
+                "collision_rate": 0.7635136895659274
+              },
+              "gates": {
+                "speed_jsd": true,
+                "length_jsd": true,
+                "width_jsd": true,
+                "onroad": true,
+                "vehicle_ratio": true
+              },
+              "eligible": true
+            },
+            "5817": {
+              "R": 0.9387971702631683,
+              "ratios": {
+                "nearest_dist_jsd": 0.86051060681054,
+                "lat_dev_jsd": 0.9917198813414685,
+                "ang_dev_jsd": 0.9738553096856867,
+                "length_jsd": 0.9946200221765898,
+                "width_jsd": 1.0053156798320388,
+                "speed_jsd": 0.9998800767647252,
+                "collision_rate": 0.7456786152311292
+              },
+              "gates": {
+                "speed_jsd": true,
+                "length_jsd": true,
+                "width_jsd": true,
+                "onroad": true,
+                "vehicle_ratio": true
+              },
+              "eligible": true
+            }
+          }
+        }
+      },
+      "descriptive_inference_choice": "hybrid_pos0001",
+      "reused_training_N": 2,
+      "GEN_within_TRAIN": 2,
+      "new_training_runs": 0
+    },
+    "full": {
+      "complete": true,
+      "verified_actual_cells": 2,
+      "actual_cells": [
+        {
+          "TRAIN": 4817,
+          "GEN": 2817,
+          "option": "hybrid_pos0001",
+          "hybrid_position": true,
+          "scenes": 50000,
+          "report_sha256": "32d28660af580299138ab34a7f3bf2dbf785fb40d32077ac464f2fb9e8ba0090",
+          "execution_sha256": "4aa94ac77a6e7fbf0e3761b29093993fc7765a6689abad985e8bfacbfcc91855"
+        },
+        {
+          "TRAIN": 4817,
+          "GEN": 3817,
+          "option": "hybrid_pos0001",
+          "hybrid_position": true,
+          "scenes": 50000,
+          "report_sha256": "619a7d11c405d91a784600d1820c09d8d5ba3d1c3d3764faa4fc2d11ad7e6570",
+          "execution_sha256": "a65c9dc77de9d54d07cab4e373b4c0e7f960d34ac92ed92735026174e59e01bd"
+        }
+      ],
+      "summary_sha256": "a052107a7a6aab60dc9280e626831378fc6b813eb7ed63fa2a4e74d23e0c7f52",
+      "full_unique_membership_verified": true,
+      "no_reselection": true,
+      "trained_checkpoint_N": 1,
+      "GEN_within_TRAIN": 2,
+      "fixed_GT_vehicle_count": 362309,
+      "fixed_GT_feature_counts": [
+        358867,
+        360099,
+        360099,
+        362309,
+        362309,
+        362309
+      ]
+    }
+  }
+}

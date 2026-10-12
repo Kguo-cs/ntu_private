@@ -1,0 +1,10 @@
+{
+  "program": "/home/guoke/sim/src/run0.py",
+  "codePath": "src/run0.py",
+  "gpu": "NVIDIA RTX A6000",
+  "gpu_count": 4,
+  "python": "3.11.9",
+  "startedAt": "2026-10-11T10:37:05.272221",
+  "cuda": null,
+  "os": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35"
+}

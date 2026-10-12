@@ -1,0 +1,76 @@
+{
+  "status": "ACTUAL_COMPLETE16_NATIVE_ONLY_TRADEOFFS",
+  "created_utc": "2026-10-12T01:06:20.570298+00:00",
+  "CPU_only": true,
+  "source_summary": "logs/init_diffusion_native_sampler_cohort_20261012/grid/summary.json",
+  "source_summary_sha256": "debfd53d1d5eabed651490a318aaaa25f09d4575a43ac4326463cf80274ee171",
+  "frozen_decision_sha256": "511a59d1fc844c5d607ac12358ad81fdff0ed10923dea3bc56a9a052e4aa63b0",
+  "independent_proof": "native_sampler_independent_actual_review.json",
+  "native_metric_scaled_units": {
+    "nearest_dist_jsd": 10,
+    "lat_dev_jsd": 10,
+    "ang_dev_jsd": 100,
+    "length_jsd": 100,
+    "width_jsd": 100,
+    "speed_jsd": 100,
+    "collision_rate": "percentage"
+  },
+  "fresh_native20_mean": {
+    "nearest_dist_jsd": 0.09084883642300129,
+    "lat_dev_jsd": 0.8315808882049639,
+    "ang_dev_jsd": 0.2714709191886564,
+    "length_jsd": 0.45853271705556636,
+    "width_jsd": 0.18532178727096602,
+    "speed_jsd": 0.10214609892404374,
+    "collision_rate": 0.39369273793413917,
+    "generated_onroad_fraction": 0.8618254500292095,
+    "num_generated_vehicles": 30416.25,
+    "num_gt_vehicles": 29698.0
+  },
+  "actual_selected_native40_mean": {
+    "nearest_dist_jsd": 0.09772057758565701,
+    "lat_dev_jsd": 0.8498342831667871,
+    "ang_dev_jsd": 0.28049295111346784,
+    "length_jsd": 0.38923106897768284,
+    "width_jsd": 0.11096787830143572,
+    "speed_jsd": 0.09687220715915758,
+    "collision_rate": 0.4345807969071478,
+    "generated_onroad_fraction": 0.8558382261295555,
+    "num_generated_vehicles": 30374.0,
+    "num_gt_vehicles": 29698.0
+  },
+  "actual_changes_percent": {
+    "nearest_dist_jsd": 7.56392864588844,
+    "lat_dev_jsd": 2.1950233850641654,
+    "ang_dev_jsd": 3.323387990056359,
+    "length_jsd": -15.113784796622342,
+    "width_jsd": -40.121515157208485,
+    "speed_jsd": -5.163086814316664,
+    "collision_rate": 10.385779323125032
+  },
+  "onroad_change_percentage_points": -0.5987223899654004,
+  "selected_option": "n40_eps005",
+  "R": 0.9472424751085521,
+  "per_TRAIN_R": {
+    "4817": 0.9484021802346262,
+    "5817": 0.947407883917381
+  },
+  "R_gap_from_other_eligible40epsilon": 0.001946731706470306,
+  "all_pooled_and_per_TRAIN_gates_pass": true,
+  "collision_is_not_a_preregistered_gate": true,
+  "source_checkpoint_TRAIN_N": 2,
+  "GEN_per_TRAIN": 2,
+  "new_training_runs": 0,
+  "training_recipe_selection_unchanged": true,
+  "full50000_status": "PENDING_NO_RESELECTION",
+  "original_strict_default20_replay_status": "FAILED",
+  "original_strict_abs_tolerance_relaxed": false,
+  "limitations": [
+    "Only compare this16-cell native inference cohort against its four fresh native20 anchors.",
+    "No interpolation or pooling with historical main endpoint metrics whose strict replay failed.",
+    "N40 costs twice model evaluations; this is inference integration change, not additional training.",
+    "Two eligible40 options differ byR.0019467; no robust epsilon optimum or statistical confidence claim.",
+    "Chosen option worsens pooled collision10.3858%; allgatePASS does not mean allmetrics improve.",
+    "Future full50k is TRAIN4817 only withGEN2 and cannot reselect."
+  ]
+}

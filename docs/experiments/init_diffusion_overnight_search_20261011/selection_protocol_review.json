@@ -1,0 +1,93 @@
+{
+  "review_utc": "2026-10-11T15:44:16.090883+00:00",
+  "status": "PRE-RESULT_PROTOCOL_REVIEW",
+  "GPU_used": false,
+  "scope": "Frozen AIRL map; random G1, optimizer, EMA; each promoted budget begins at exposure zero",
+  "dataset": {
+    "full_TRAIN_scenes": 493542,
+    "training": "src/waymo_data/full/training_map2_sd_files.pkl; seeded fixed full order repeated each epoch; native final partial batches retained",
+    "calibration": "8192 fixed TRAIN-only scenes, calibration selection held fixed across arms",
+    "screen": "1024 fixed prefix of confirmation4096 cohort",
+    "medium_final": "same confirmation4096 physical matched cohort",
+    "full_audit": "all50000 physical scenario_dreamer_val scenes; matched reference; require-full-set=true"
+  },
+  "budgets": [
+    {
+      "phase": "screen",
+      "B512_updates": 768,
+      "B256_updates": 1536,
+      "actual_exposure_per_TRAIN": 393216,
+      "equivalent_full_data_epochs": 0.7967224673887937
+    },
+    {
+      "phase": "medium",
+      "B512_updates": 4096,
+      "B256_updates": 8192,
+      "actual_exposure_per_TRAIN": 2097048,
+      "equivalent_full_data_epochs": 4.248975771058998
+    },
+    {
+      "phase": "final_max",
+      "B512_updates": 12288,
+      "B256_updates": 24576,
+      "actual_exposure_per_TRAIN": 6291144,
+      "equivalent_full_data_epochs": 12.746927313176995
+    },
+    {
+      "phase": "final_middle",
+      "B512_updates": 10240,
+      "B256_updates": 20480,
+      "actual_exposure_per_TRAIN": 5242620,
+      "equivalent_full_data_epochs": 10.622439427647494
+    },
+    {
+      "phase": "final_min",
+      "B512_updates": 8192,
+      "B256_updates": 16384,
+      "actual_exposure_per_TRAIN": 4194096,
+      "equivalent_full_data_epochs": 8.497951542117995
+    }
+  ],
+  "seed_roles": {
+    "TRAIN4817": "Adaptive screening/medium/long discovery. Reused validation selection; not held-out confirmation.",
+    "TRAIN5817": "Independent frozen-recipe long confirmation, same actual exposure and fresh G1/optimizer/EMA.",
+    "GEN2817_GEN3817": "Repeated generation draws inside each TRAIN seed; mean before equal-weight TRAIN aggregate. Never counted as TRAIN N4.",
+    "screen_GEN": "GEN2817 only; medium/final/full50k use both GEN seeds."
+  },
+  "primary_criterion": "Arithmetic mean of seven ratios of equal-TRAIN-weighted candidate native metric means to same-exposure control metric means (GEN averaged inside TRAIN). Lower R is better.",
+  "gates": {
+    "speed_length_width_each_metric_max_ratio": 1.15,
+    "onroad_drop_fraction_max": 0.02,
+    "generated_vehicle_to_matchedGT_count_ratio": [
+      0.9,
+      1.1
+    ],
+    "final": "Pooled and every TRAIN seed must satisfy all gates; missing scope/counts/GEN cannot rank."
+  },
+  "promotion": {
+    "screen": "Up to two eligible novel arms ranked R,R_attr,name; eligible combo_reference fills missing novel slots. If no eligible candidate, explore up to two best R arms and mark exploratory.",
+    "medium": "Minimum R eligible challenger; if none pass gate, freeze lowest R as exploratory and do not claim improvement yet.",
+    "final": "Control and frozen challenger only; require exactly8 endpoint cells =2arms x2TRAIN x2GEN and identical physical cohort/source/actual exposure. No reselect using independent5817. Select challenger only if final pooledR<1 and pooled/perTRAINgates.",
+    "full50k": "Same4817 checkpoints,2arms x2GEN; audit scope only, no reselect and no additional TRAIN N."
+  },
+  "deadline_rule": "At medium completion, measure seconds/update of actual full fit, estimate two fresh TRAIN pairs, add15% margin+20min full50000; select highest shared final budget that fits01:35UTC. If no option fits, attempt minimum and explicitly mark deadline_risk. No fake completion after cutoff.",
+  "faults": "Durable stage execution exactargv/design/external/source SHA plus terminalDONE and protocol/summary/report/config/initialization SHA. Skip only verified success; partial/failed outputs require manual checkpoint recovery, never silent replay.",
+  "interpretation_limits": [
+    "Screen .80epoch ranking can differ from8.50-12.75epoch from-scratch ranking.",
+    "TwoTRAIN final gives limited uncertainty precision, not proof of optimum.",
+    "Same seed does not force identical training noise draws across different architecture constructor RNG consumption or different batches.",
+    "Native map encoder permanently frozen, map weights never used as full training resume; G1fresh EMA history.",
+    "FixedGTego pose/heading/shape/type are imposed inputs; corresponding zero L1/typeacc1 cannot be claimed as generated ego quality.",
+    "GT non-ego type is training target only; generation uses model type feedback, no non-egoGTtype conditioning.",
+    "speed/length/width tolerances permit up to15% regression individually, so report each actual ratio explicitly.",
+    "128epoch ultimate optimum remains unproven; native epoch-based128epoch cosine schedule is unchanged by quick search."
+  ],
+  "supporting_audits": [
+    "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/controller_cpu_audit.json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/default_compatibility_cpu_audit.json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/interpretation_audit.json"
+  ],
+  "analysis_entrypoint": "tools/overnight_search_analysis.py",
+  "declared_candidate_count": 18,
+  "changes_after_initial_plan": "Two lane-center query-return candidates added before GPU screening; saved16arm initial plan was unexecuted and not counted as results."
+}

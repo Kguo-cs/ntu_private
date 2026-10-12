@@ -1,0 +1,62 @@
+{
+  "updated_utc": "2026-10-11T22:11:19.016497+00:00",
+  "CPU_only": true,
+  "GPU_tools_used": false,
+  "active_stage": "long_seed4817_separate_speed",
+  "actual_execution_status": "running",
+  "actual_progress": {
+    "step": 14304,
+    "budget": 20480,
+    "fraction": 0.6984375,
+    "elapsed_fit_seconds": 2451.5,
+    "observed_mean_seconds_per_step": 0.17138562639821028,
+    "estimated_remaining_fit_seconds_this_stage": 1058.4776286353467
+  },
+  "actual_host_memory": {
+    "last_rss_kib": 4164384,
+    "peak_observed_rss_kib": 4362948,
+    "last_host_memavailable_kib": 19333172
+  },
+  "actual_last_runtime_memory": {
+    "step": 14080,
+    "peak_rss_kib": 4468040,
+    "cuda_allocated_mib": 195.1044921875,
+    "cuda_reserved_mib": 7356.0,
+    "gc_counts": [
+      31761177,
+      4,
+      1
+    ]
+  },
+  "runtime_memory_observations": 56,
+  "source_checks": {
+    "frozen18_count": 18,
+    "frozen18_all_match": true,
+    "original_recovery_v1_matches": true,
+    "loader_entry_and_helper_match": true,
+    "loader_source_details": {
+      "/home/ke/code/sim/tools/runtime_cached_torch_loader_sweep.py": true,
+      "/home/ke/code/sim/tools/torch_pickle_class_cache.py": true
+    },
+    "completion_helper_and_bridge_match_plan": true,
+    "frozen_long_protocol_sha_matches": true
+  },
+  "active_log_fatal_or_traceback": false,
+  "remaining_serial_queue_forecast": {
+    "remaining_fit_seconds": 7837.8925011426945,
+    "remaining_long_eval_seconds": 322.7776927019586,
+    "remaining_long_eval_cells": 18,
+    "full50000_reserved_seconds": 1200,
+    "safety_multiplier": 1.15,
+    "estimated_finish_utc": "2026-10-12T01:07:43.787220+00:00",
+    "cutoff_utc": "2026-10-12T01:35:00+00:00",
+    "cutoff_slack_seconds": 1636.2127802371979
+  },
+  "limitations": [
+    "CPU probe covered100 unique scenes and20000 cached scene loads; it proved tested tensor/metadata equivalence and bounded tested cache-class RSS, not absence of all leaks.",
+    "Current TRAIN includes PyG/Lightning/autograd/optimizer/EMA/CUDA objects not covered by CPU probe; continue RSS/host/CUDA monitoring until final stages finish.",
+    "CUDA reserved includes allocator cache and cannot alone prove live GPU memory growth.",
+    "Partial-stage throughput projection is not a completed result; assumes current rates and a20min full50000 reserve.",
+    "Sandbox cannot read root-escalated /proc child; memory values come from parent execution/runtime log, not a process-exit inference."
+  ]
+}

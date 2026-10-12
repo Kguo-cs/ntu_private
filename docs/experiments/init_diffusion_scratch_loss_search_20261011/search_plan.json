@@ -1,0 +1,12 @@
+{
+  "objective": "Choose promising FULL from-scratch training loss using staged quick runs, not a warm-start 128-step gain.",
+  "initialization": "random map_encoder+G1, finetune=false, ckpt_path=null; unused policy frozen",
+  "calibration": "TRAIN8192 scenes,76027agents, shared stats; no pretrained weights/statistics",
+  "fixed_conditioning": "square50m SMART map, circular x0 headings, scalar speed, linear sizes, generated separateCE types, fixed ego pose/shape/type but generated ego speed",
+  "optimizer": "AdamW default beta(.9,.999),eps1e-8,weight_decay.01, clip.5, epochcosine128horizon",
+  "LR_selection": "1e-4/3e-4/5e-4, 128/256/512/1024 actual evaluation;1e-4 selected after ranking reversals and scalar stability",
+  "initial_search": "12 arms at256/512/1024,1024validation scenes,seed817",
+  "planned_extension": "adaptive p0 high-noise controls,selectedarms deeper training preserving optimizer/RNG/no replay; multi training/gen seeds &heldout cacheblocks",
+  "ranking": "all7metrics, samebudget paired control ratios + fixed numeric-scale mean; coverage/typecounts/trends; no global-optimum or fullconvergence claim",
+  "runtime_recovery": "worker4firstmainarmsegfault duringevaluation; restart all main armsworkers0, failed evaluation excluded"
+}

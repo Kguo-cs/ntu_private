@@ -1,0 +1,11 @@
+test_actual_partial_batches_and_repeated_epochs (test_scratch_search_inventory.ScratchSearchInventoryTest.test_actual_partial_batches_and_repeated_epochs) ... ok
+test_duplicate_summary_rows_are_not_more_evaluations (test_scratch_search_inventory.ScratchSearchInventoryTest.test_duplicate_summary_rows_are_not_more_evaluations) ... ok
+test_explicit_ema_does_not_turn_into_two_modes (test_scratch_search_inventory.ScratchSearchInventoryTest.test_explicit_ema_does_not_turn_into_two_modes) ... ok
+test_failed_csv_is_diagnostic_not_successful_model (test_scratch_search_inventory.ScratchSearchInventoryTest.test_failed_csv_is_diagnostic_not_successful_model) ... ok
+test_one_fit_cost_despite_repeated_ema_or_checkpoint_rows (test_scratch_search_inventory.ScratchSearchInventoryTest.test_one_fit_cost_despite_repeated_ema_or_checkpoint_rows) ... ok
+test_trace_is_stage_count_not_final_global_count (test_scratch_search_inventory.ScratchSearchInventoryTest.test_trace_is_stage_count_not_final_global_count) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.004s
+
+OK

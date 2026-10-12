@@ -1,0 +1,62 @@
+{
+  "stage": "phase2_batch256",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "256",
+    "--scenes",
+    "1024",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "0",
+    "--seed",
+    "817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--steps",
+    "1536",
+    "--checkpoint-steps",
+    "512,1024",
+    "--lr",
+    "0.0005",
+    "--recipe",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/phase2_batch256_recipe.json",
+    "--variant-file",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/phase2_batch256_variants.json",
+    "--variants",
+    "batch256",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/phase2_batch256"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/phase2_batch256",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_phase2_batch256.log",
+  "controller_pid": 282682,
+  "started_unix": 1791722149.637979,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 478678,
+  "ended_unix": 1791722470.859788,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/phase2_batch256/protocol.json",
+      "sha256": "daf25fdbee8826f915760d8c2b80f58d450e0cb5b17040152df5b7f05d27ca8e"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/phase2_batch256/summary.json",
+      "sha256": "2cbf60df2c19eea118820b74d9158c1ae74a94aa847399ce61ef74968c555be6"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_phase2_batch256.log",
+      "sha256": "03a5875bdc689b6f49740b5350fcd9b7246360d396f6a68adc23ff0f87c9eb6f"
+    }
+  },
+  "last_verified_unix": 1791734619.4142544
+}

@@ -1,0 +1,153 @@
+{
+  "materialized_utc": "2026-10-11T09:56:45.238556+00:00",
+  "selected_variant": "geo_mse32_col20_heading_l1_shape2",
+  "decision": {
+    "summary": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/paired_finalists/paired_summary.json",
+    "sha256": "061e0d2fca454689f40f9fa257b64d4d0b96b1e3cdc75b4e4736eb2f333c3667",
+    "endpoint_budget": 2048,
+    "evaluation_weights": "ema",
+    "training_seeds": [
+      817,
+      1817,
+      2817
+    ],
+    "generation_seeds": [
+      2817,
+      3817
+    ],
+    "selection": {
+      "performed": true,
+      "selected_variant": "geo_mse32_col20_heading_l1_shape2",
+      "eligibility": {
+        "warm_winner": {
+          "eligible": true,
+          "passes_onroad_gate": true,
+          "passes_vehicle_ratio_gate": true,
+          "mean_onroad_fraction": 0.7904066109375644,
+          "minimum_onroad_fraction": 0.7704066109375644,
+          "mean_vehicle_count_ratio": 1.0265515684946964,
+          "mean_score": 0.2305378516781383
+        },
+        "geo_mse32_col20_heading_l1_shape2": {
+          "eligible": true,
+          "passes_onroad_gate": true,
+          "passes_vehicle_ratio_gate": true,
+          "mean_onroad_fraction": 0.7954010903250243,
+          "minimum_onroad_fraction": 0.7704066109375644,
+          "mean_vehicle_count_ratio": 1.024210110584518,
+          "mean_score": 0.2226667755372044
+        }
+      },
+      "rule": "Minimum mean S among eligible arms; tie broken by variant name"
+    }
+  },
+  "source_checkpoint": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2/last.ckpt",
+  "source_checkpoint_sha256": "d5a7384571708f89641a6efae584b8cc87dca06db37f1239cda8f4749ea4475e",
+  "source_config": "/home/ke/code/sim/logs/component_loss_scratch/batch512_seed817/geo_mse32_col20_heading_l1_shape2/config.yaml",
+  "source_config_sha256": "43887a801bf35527f7d5f3132572d7971e9579b696d5ba3782bce70229e41342",
+  "source_checkpoint_provenance": {
+    "initialization": "random map encoder + G1",
+    "seed": 817,
+    "batch_size": 512,
+    "base_train_offset": 0,
+    "train_order_sha256": "b9987764090c4f068e472843c7d8197a645489353e04223c209ea50cff2a5d9a",
+    "calibration_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+    "initial_generator_sha256": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+    "initial_map_sha256": "320e3be3890f9390d3d6cd71e947e14ac2d318083d718c11f1ef9f120c0223ea",
+    "saved_global_step": 2048
+  },
+  "training_initialization": "random map encoder and G1; source checkpoint is recipe evidence only",
+  "selected_component_loss": {
+    "normalize_time_weights": true,
+    "std_floor": 0.1,
+    "heading_space": "angle",
+    "components": {
+      "position": {
+        "kind": "mse",
+        "time_power": 1,
+        "weight": 32.0,
+        "scale": "data"
+      },
+      "heading": {
+        "kind": "l1",
+        "time_power": 1,
+        "weight": 1.0,
+        "scale": "none"
+      },
+      "length": {
+        "kind": "mse",
+        "time_power": 1,
+        "weight": 2.0,
+        "scale": "data"
+      },
+      "width": {
+        "kind": "mse",
+        "time_power": 1,
+        "weight": 2.0,
+        "scale": "data"
+      },
+      "velocity": {
+        "kind": "mse",
+        "time_power": 1,
+        "weight": 2.0,
+        "scale": "data"
+      },
+      "type": {
+        "kind": "ce",
+        "time_power": 0,
+        "weight": 1.0,
+        "scale": "none"
+      },
+      "collision": {
+        "kind": "l1",
+        "time_power": 1,
+        "weight": 20.0,
+        "scale": "none"
+      },
+      "speed_magnitude": {
+        "kind": "mse",
+        "time_power": 0,
+        "weight": 0.0,
+        "scale": "data"
+      }
+    }
+  },
+  "loss_sha256": "7a50fe2127c1edc17d279bdac8f8eb8d58aef0a0a8b83a6275c7f3361674339b",
+  "normalizer_file": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+  "normalizer_sha256": "adcc5e5c232b018919b269ec06b7e8b065a49fd9f0219f3d0f432f7caf4cea23",
+  "normalizer_precedence": "TRAIN JSON initializes buffers for fresh fit; checkpoint buffers take precedence on load",
+  "validation_manifest": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/heldout4096_files.pkl",
+  "validation_manifest_sha256": "e8f8048f505301fde1522ad4826c2997372635daf63aaa91957d68b5fe77e7e1",
+  "validation_scenes": 4096,
+  "native_training_shuffle": true,
+  "quick_confirmation_order": "seeded full TRAIN order repeated unchanged; native fit reshuffles every epoch",
+  "native_optimizer": {
+    "name": "default AdamW",
+    "lr": 0.0005,
+    "scheduler": "existing epoch cosine",
+    "total_real_epochs": 128,
+    "warmup_epochs": 0,
+    "minimum_lr_ratio": 0.05
+  },
+  "ema": {
+    "scope": "G1 only; shared map stays online",
+    "decay_cap": 0.9999,
+    "adaptive_num_updates": true
+  },
+  "checkpoint_policy": {
+    "historical_every_n_epochs": 4,
+    "preserve_all_historical": true,
+    "metric_monitor": null,
+    "last_update": "every training epoch"
+  },
+  "configs": {
+    "train": {
+      "path": "/home/ke/code/sim/configs/experiment/init_diffusion_lane_conditioned_scratch_best.yaml",
+      "sha256": "200f2336e0b95732ec2bac20531fef26e56541de67df9facd983efeb0647353e"
+    },
+    "eval": {
+      "path": "/home/ke/code/sim/configs/experiment/init_diffusion_lane_conditioned_scratch_best_eval.yaml",
+      "sha256": "5a8d5c509076108f3be624a8fe2a6c53438e5ccb924d35803415dd75aa1107fd"
+    }
+  }
+}

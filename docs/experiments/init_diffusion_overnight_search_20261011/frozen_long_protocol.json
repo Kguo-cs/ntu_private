@@ -1,0 +1,186 @@
+{
+  "control": "control",
+  "challenger": "separate_speed",
+  "train_seeds": [
+    4817,
+    5817
+  ],
+  "generation_seeds": [
+    2817,
+    3817
+  ],
+  "medium_ranking": [
+    {
+      "metrics": {
+        "nearest_dist_jsd": 0.13607625522076588,
+        "lat_dev_jsd": 0.904693102450232,
+        "ang_dev_jsd": 0.32367039993903435,
+        "length_jsd": 0.5530551620269799,
+        "width_jsd": 0.24656565759361782,
+        "speed_jsd": 0.12219722966592404,
+        "collision_rate": 1.0414377654861775,
+        "generated_onroad_fraction": 0.8296926076950795,
+        "num_generated_vehicles": 30439.0,
+        "num_gt_vehicles": 29698.0
+      },
+      "R": 0.9102608593043974,
+      "R_attr": 0.7342726995442375,
+      "ratios": {
+        "nearest_dist_jsd": 0.9839871270044845,
+        "lat_dev_jsd": 0.9900401545754647,
+        "ang_dev_jsd": 0.9986694974962856,
+        "length_jsd": 0.7102887397359303,
+        "width_jsd": 0.45690261583583713,
+        "speed_jsd": 1.0356267430609447,
+        "collision_rate": 1.1963111374218345
+      },
+      "gate_checks": {
+        "onroad": true,
+        "vehicle_ratio": true,
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true
+      },
+      "eligible": true,
+      "name": "separate_speed"
+    },
+    {
+      "metrics": {
+        "nearest_dist_jsd": 0.13824863106231697,
+        "lat_dev_jsd": 0.882740466458873,
+        "ang_dev_jsd": 0.3152956550888666,
+        "length_jsd": 0.48574379160043596,
+        "width_jsd": 0.3206560106686115,
+        "speed_jsd": 0.10851675714965539,
+        "collision_rate": 1.176068189354972,
+        "generated_onroad_fraction": 0.8380967393894685,
+        "num_generated_vehicles": 30441.0,
+        "num_gt_vehicles": 29698.0
+      },
+      "R": 0.9181752214807458,
+      "R_attr": 0.7125739616729486,
+      "ratios": {
+        "nearest_dist_jsd": 0.999695891620573,
+        "lat_dev_jsd": 0.9660165480382196,
+        "ang_dev_jsd": 0.9728296238694356,
+        "length_jsd": 0.6238407472880523,
+        "width_jsd": 0.5941969838291258,
+        "speed_jsd": 0.9196841539016675,
+        "collision_rate": 1.3509626018181473
+      },
+      "gate_checks": {
+        "onroad": true,
+        "vehicle_ratio": true,
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true
+      },
+      "eligible": true,
+      "name": "lane_center_context"
+    },
+    {
+      "metrics": {
+        "nearest_dist_jsd": 0.13829068641885364,
+        "lat_dev_jsd": 0.913794352955482,
+        "ang_dev_jsd": 0.32410161795317893,
+        "length_jsd": 0.7786342808033162,
+        "width_jsd": 0.5396459749799455,
+        "speed_jsd": 0.11799350536734157,
+        "collision_rate": 0.870540892673269,
+        "generated_onroad_fraction": 0.8303600819764756,
+        "num_generated_vehicles": 30326.0,
+        "num_gt_vehicles": 29698.0
+      },
+      "R": 1.0,
+      "R_attr": 1.0,
+      "ratios": {
+        "nearest_dist_jsd": 1.0,
+        "lat_dev_jsd": 1.0,
+        "ang_dev_jsd": 1.0,
+        "length_jsd": 1.0,
+        "width_jsd": 1.0,
+        "speed_jsd": 1.0,
+        "collision_rate": 1.0
+      },
+      "gate_checks": {
+        "onroad": true,
+        "vehicle_ratio": true,
+        "length_jsd": true,
+        "width_jsd": true,
+        "speed_jsd": true
+      },
+      "eligible": true,
+      "name": "control"
+    }
+  ],
+  "final_budget_B512": 10240,
+  "final_budget_B256": 20480,
+  "actual_final_exposure_per_TRAIN": 5242620,
+  "final_budget_rule": {
+    "observed_medium_seconds_per_update": {
+      "control": 0.3309176685739761,
+      "separate_speed": 0.17976795327722161
+    },
+    "observed_max_eval_seconds_per_scene": {
+      "control": 0.004464474493165227,
+      "separate_speed": 0.004357052450684407
+    },
+    "projections": [
+      {
+        "control_B512_updates": 12288,
+        "candidate_B256_updates": 24576,
+        "actual_exposure_per_TRAIN": 6291144,
+        "equivalent_full_data_epochs": 12.746927313176995,
+        "pair_two_TRAIN_fit_seconds": 16968.587062356033,
+        "long_evaluation_seconds": 433.5956923440972,
+        "full50k_reserved_seconds": 1200,
+        "with_15percent_margin_and_measured_audit_seconds": 21212.510167905148,
+        "estimated_finish_unix": 1791770525.6686566,
+        "fits_gpu_cutoff": false
+      },
+      {
+        "control_B512_updates": 10240,
+        "candidate_B256_updates": 20480,
+        "actual_exposure_per_TRAIN": 5242620,
+        "equivalent_full_data_epochs": 10.622439427647494,
+        "pair_two_TRAIN_fit_seconds": 14140.489218630028,
+        "long_evaluation_seconds": 433.5956923440972,
+        "full50k_reserved_seconds": 1200,
+        "with_15percent_margin_and_measured_audit_seconds": 17960.197647620244,
+        "estimated_finish_unix": 1791767273.3561363,
+        "fits_gpu_cutoff": true
+      },
+      {
+        "control_B512_updates": 8192,
+        "candidate_B256_updates": 16384,
+        "actual_exposure_per_TRAIN": 4194096,
+        "equivalent_full_data_epochs": 8.497951542117995,
+        "pair_two_TRAIN_fit_seconds": 11312.391374904022,
+        "long_evaluation_seconds": 433.5956923440972,
+        "full50k_reserved_seconds": 1200,
+        "with_15percent_margin_and_measured_audit_seconds": 14707.885127335336,
+        "estimated_finish_unix": 1791764021.043616,
+        "fits_gpu_cutoff": true
+      }
+    ],
+    "decision_unix": 1791749313.1584888,
+    "gpu_cutoff_unix": 1791768900.0,
+    "chosen": {
+      "control_B512_updates": 10240,
+      "candidate_B256_updates": 20480,
+      "actual_exposure_per_TRAIN": 5242620,
+      "equivalent_full_data_epochs": 10.622439427647494,
+      "pair_two_TRAIN_fit_seconds": 14140.489218630028,
+      "long_evaluation_seconds": 433.5956923440972,
+      "full50k_reserved_seconds": 1200,
+      "with_15percent_margin_and_measured_audit_seconds": 17960.197647620244,
+      "estimated_finish_unix": 1791767273.3561363,
+      "fits_gpu_cutoff": true
+    },
+    "deadline_risk": false,
+    "rule": "Highest shared exposure fitting measured two-TRAIN fit and24 final evaluations plus15% margin; full50k reserve=max20min or measured4GEN cost x1.25. If none fit, attempt minimum with explicit deadline risk. Two TRAIN seeds outrank higher exposure."
+  },
+  "exploratory": false,
+  "selection": "Frozen candidate before independent-seed long confirmation",
+  "full50000_no_reselection": true
+}

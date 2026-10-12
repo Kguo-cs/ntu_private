@@ -1,0 +1,10 @@
+{
+  "original_stage": "confirm_seed2817_new_control",
+  "failed_output_archived": "/home/ke/code/sim/logs/component_loss_frozen_map/confirm_seed2817_new_control_attempt1_failed",
+  "failed_manifest": "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/stage_executions/confirm_seed2817_new_control_attempt1_failed.json",
+  "failed_log": "/home/ke/code/sim/logs/component_loss_frozen_map_confirm_seed2817_new_control_attempt1_failed.log",
+  "reason": "SIGSEGV in cyclic GC during Torch dataset deserialization at ~4084; no complete 4096 checkpoint",
+  "action": "Fresh deterministic rerun, never resume multi-epoch partial checkpoint",
+  "dataset_change": "Defer cyclic GC during torch.load only; restore prior GC setting",
+  "recorded_unix": 1791732962.0993943
+}

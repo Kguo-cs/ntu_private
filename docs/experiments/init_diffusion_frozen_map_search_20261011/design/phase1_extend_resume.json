@@ -1,0 +1,6 @@
+{
+  "new_control": "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/new_control/last.ckpt",
+  "old_control": "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/old_control/last.ckpt",
+  "shape_p2": "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/shape_p2/last.ckpt",
+  "speed4": "/home/ke/code/sim/logs/component_loss_frozen_map/phase1/speed4/last.ckpt"
+}

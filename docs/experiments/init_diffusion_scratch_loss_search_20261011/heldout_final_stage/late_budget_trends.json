@@ -1,0 +1,70 @@
+[
+  {
+    "cohort_sha256": "320db4fa99dc588d7a3be8bc9d74e55b9089a5d766b2ff581a84015edc0aa813",
+    "variant": "geo_mse32_col20_heading_l1_shape2",
+    "recipe_sha256": "7a50fe2127c1edc17d279bdac8f8eb8d58aef0a0a8b83a6275c7f3361674339b",
+    "start_budget": 1536,
+    "end_budget": 2048,
+    "score_change": -0.030699924578106098,
+    "score_slope_per_1000_steps": -0.059960790191613475,
+    "paired_training_seeds": [
+      817,
+      1817,
+      2817
+    ],
+    "aggregate_score_change_unpaired": -0.030699924578106108,
+    "training_seeds_start": 3,
+    "training_seeds_end": 3
+  },
+  {
+    "cohort_sha256": "320db4fa99dc588d7a3be8bc9d74e55b9089a5d766b2ff581a84015edc0aa813",
+    "variant": "warm_winner",
+    "recipe_sha256": "fd97c65933e3078a22dc725426556703bd01de4beaa281c0da8445be20720223",
+    "start_budget": 1536,
+    "end_budget": 2048,
+    "score_change": 0.05472473107708575,
+    "score_slope_per_1000_steps": 0.1068842403849331,
+    "paired_training_seeds": [
+      817,
+      1817,
+      2817
+    ],
+    "aggregate_score_change_unpaired": 0.05472473107708581,
+    "training_seeds_start": 3,
+    "training_seeds_end": 3
+  },
+  {
+    "cohort_sha256": "4795bc325dd23b3301e8d17de5e527cd6bf22bf35a8b3584c5b312b3a81ca392",
+    "variant": "geo_mse32_col20_heading_l1_shape2",
+    "recipe_sha256": "7a50fe2127c1edc17d279bdac8f8eb8d58aef0a0a8b83a6275c7f3361674339b",
+    "start_budget": 1536,
+    "end_budget": 2048,
+    "score_change": -0.0161478558641865,
+    "score_slope_per_1000_steps": -0.03153878098473926,
+    "paired_training_seeds": [
+      817,
+      1817,
+      2817
+    ],
+    "aggregate_score_change_unpaired": -0.01614785586418646,
+    "training_seeds_start": 3,
+    "training_seeds_end": 3
+  },
+  {
+    "cohort_sha256": "4795bc325dd23b3301e8d17de5e527cd6bf22bf35a8b3584c5b312b3a81ca392",
+    "variant": "warm_winner",
+    "recipe_sha256": "fd97c65933e3078a22dc725426556703bd01de4beaa281c0da8445be20720223",
+    "start_budget": 1536,
+    "end_budget": 2048,
+    "score_change": -0.026214411902386815,
+    "score_slope_per_1000_steps": -0.05120002324684925,
+    "paired_training_seeds": [
+      817,
+      1817,
+      2817
+    ],
+    "aggregate_score_change_unpaired": -0.026214411902386797,
+    "training_seeds_start": 3,
+    "training_seeds_end": 3
+  }
+]

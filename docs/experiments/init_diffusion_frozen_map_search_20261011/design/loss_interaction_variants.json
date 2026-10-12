@@ -1,0 +1,81 @@
+{
+  "shape_p2_speed4": {
+    "components": {
+      "position": {
+        "kind": "mse",
+        "time_power": 1,
+        "weight": 32,
+        "scale": "data"
+      },
+      "heading": {
+        "kind": "l1",
+        "time_power": 1,
+        "weight": 1.0,
+        "scale": "none"
+      },
+      "length": {
+        "kind": "mse",
+        "time_power": 2,
+        "weight": 2.0,
+        "scale": "data"
+      },
+      "width": {
+        "kind": "mse",
+        "time_power": 2,
+        "weight": 2.0,
+        "scale": "data"
+      },
+      "velocity": {
+        "kind": "mse",
+        "time_power": 1,
+        "weight": 4.0,
+        "scale": "data"
+      },
+      "type": {
+        "kind": "ce",
+        "time_power": 0,
+        "weight": 1,
+        "scale": "none"
+      },
+      "collision": {
+        "kind": "l1",
+        "time_power": 1,
+        "weight": 20.0,
+        "scale": "none"
+      },
+      "speed_magnitude": {
+        "kind": "mse",
+        "time_power": 0,
+        "weight": 0.0,
+        "scale": "data"
+      }
+    },
+    "heading_space": "angle",
+    "std_floor": 0.1,
+    "normalize_time_weights": true,
+    "__lr": 0.0005,
+    "__clip": 0.5,
+    "__config": {
+      "model.model_config.decoder.init_diffusion.count_embedding_type": "none",
+      "model.model_config.decoder.init_diffusion.count_lane_source": "map_tokens",
+      "model.model_config.decoder.init_diffusion.count_max_num_agents": 128,
+      "model.model_config.decoder.init_diffusion.count_max_num_lanes": 1024,
+      "model.model_config.decoder.init_diffusion.edge_embedding_type": "fourier",
+      "model.model_config.decoder.init_diffusion.ego_context_heading_encoding": "angle",
+      "model.model_config.decoder.init_diffusion.ema_decay": 0.9999,
+      "model.model_config.decoder.init_diffusion.invalid_size_policy": "mask",
+      "model.model_config.decoder.init_diffusion.pos_source": "gaussian",
+      "model.model_config.decoder.init_diffusion.shape_source": "gaussian",
+      "model.model_config.decoder.init_diffusion.size_representation": "linear",
+      "model.model_config.decoder.init_diffusion.speed_loss_scale": null,
+      "model.model_config.decoder.init_diffusion.speed_loss_weight": 0.0,
+      "model.model_config.decoder.init_diffusion.time_embedding_scale": 99.0,
+      "model.model_config.decoder.init_diffusion.time_embedding_type": "scenario_dreamer",
+      "model.model_config.decoder.init_diffusion.velocity_representation": "speed",
+      "model.model_config.decoder.init_diffusion.velocity_source": "gaussian",
+      "model.model_config.lr_min_ratio": 0.05,
+      "model.model_config.lr_warmup_steps": 0,
+      "model.model_config.optimizer": "default"
+    }
+  }
+}

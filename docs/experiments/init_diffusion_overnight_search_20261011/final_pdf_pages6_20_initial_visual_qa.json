@@ -1,0 +1,328 @@
+{
+  "status": "ACTUAL_FINAL_PDF_PAGES6_TO20_INITIAL_QA_DEFECTS_FOUND_FIX_PENDING",
+  "created_utc": "2026-10-12T01:39:24.876784+00:00",
+  "PDF_path": "/home/ke/code/sim/output/pdf/init_diffusion_overnight_search_20261011.pdf",
+  "PDF_sha256": "6d49c618d798afd5f9c37d58ddd079db087e624ef7cad366325ece040934df48",
+  "PDF_bytes": 1126323,
+  "PDF_actual_pages_parent_verified": 35,
+  "Markdown_sha256": "9d736ed01000e640a2ae3de48e9d093f7c209e194aa41b0d8ea4e377b25ac6ad",
+  "assigned_pages": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "pages_actually_viewed": 15,
+  "page_reviews": [
+    {
+      "page": 6,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-06.png",
+      "PNG_sha256": "4d5e7c2a0008433897c0cd21f2ab92752952c431d8c01f2470a056d81ffa0d8e",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 7,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-07.png",
+      "PNG_sha256": "6a53d34767f253c7878104b078d04a775eb48b775be1b38fecf0355d2fefc456",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [
+        "Runningheadertextandlineabsent;footerpresent"
+      ],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 8,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-08.png",
+      "PNG_sha256": "3090a7881e2808b08c7d241a52d9df7f56c0bd8d5da2ccdc2d524e87e2f46442",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [
+        "Runningheadertextandlineabsent;footerpresent"
+      ],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 9,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-09.png",
+      "PNG_sha256": "618355306b21e3e4743bc0ac1227cd955b44af3df0dc7c904dd00ac7f3268824",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 10,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-10.png",
+      "PNG_sha256": "a3375904da6e11e1aa7714640ab0b5b0e35f96644ee5e7c85c29b6e45f48b451",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [
+        "Mean+SDtable:SDtrailingdigitwrapsontoaseparatethirdline;ambiguousreadability"
+      ],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [
+        "Runningheadertextandlineabsent;footerpresent",
+        "Mean+SDtable:SDtrailingdigitwrapsontoaseparatethirdline;ambiguousreadability"
+      ],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 11,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-11.png",
+      "PNG_sha256": "4e1af1748099ac5397d70b312e98b50304185ef5e694e8c51e797de9c07cefbe",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [
+        "Mean+SDtable:SDtrailingdigitwrapsontoaseparatethirdline;ambiguousreadability"
+      ],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [
+        "Runningheadertextandlineabsent;footerpresent",
+        "Mean+SDtable:SDtrailingdigitwrapsontoaseparatethirdline;ambiguousreadability"
+      ],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 12,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-12.png",
+      "PNG_sha256": "a6717a0772ed2da9c0db384850178e8bac1791d0918a82b3f49f5997d9697efd",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 13,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-13.png",
+      "PNG_sha256": "e3fc7c7088a306a9b1d557e5ce55c223153c0bbb2aba97799ad8206e5675b679",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 14,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-14.png",
+      "PNG_sha256": "e5f13a0656c670014f33fa90d39e73910850677f7cda95fc19ea41c53e143dfe",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 15,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-15.png",
+      "PNG_sha256": "db2c09b806c44005a0b6e2b721d5149e31500be027d30a27cd64d2367d14574b",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 16,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-16.png",
+      "PNG_sha256": "a87527f8a64f829c2f5489803e0f801b33ba35df8b979141510916205b7855eb",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [
+        "Runningheadertextandlineabsent;footerpresent"
+      ],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 17,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-17.png",
+      "PNG_sha256": "67cff9301ff68918ac479c3ce9fbc71ff543619475160791b90a0ab7a7f108f7",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 18,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-18.png",
+      "PNG_sha256": "4597a87ea7a418a93a18dce2133d2759e0c4da3bc859852d5c231520cfde70f6",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Noillustrationonthispage",
+      "frontend_display_observation": [],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 19,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-19.png",
+      "PNG_sha256": "90254461faad0fec0c28b0034bc2a84c380208a5bd9ab5cbbe34920162304e04",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Screenheatmapallrowlabels/ratiosreadable",
+      "frontend_display_observation": [
+        "Runningheadertextandlineabsent;footerpresent"
+      ],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    },
+    {
+      "page": 20,
+      "PNG_path": "/home/ke/code/sim/tmp/pdfs/overnight_final_20261012/page-20.png",
+      "PNG_sha256": "928a22f8ac3c98f6207bdd673ae3b4f03a2d1a6f0e96734df4605c17fc4e00d7",
+      "PNG_pixels": [
+        910,
+        1287
+      ],
+      "view_method": "tools.view_image(detail=original),eachindividualpage;nomontage",
+      "original_page_actually_viewed": true,
+      "body_tables_figures_no_clipping_or_overlap": true,
+      "metric_values_observed_consistent_with_MD_scope": true,
+      "issues": [],
+      "figure_check": "Mediumheatmap+fixedlong1of2curveaxes/labels/legendreadable",
+      "frontend_display_observation": [
+        "Runningheadertextandlineabsent;footerpresent"
+      ],
+      "actual_header_pixels_present_and_byteidentical_across35": true
+    }
+  ],
+  "material_defects": [
+    "Mean+SDnumerictrailingdigitwrapon10/11"
+  ],
+  "minor_nonblocking": [
+    "Batch/updateandoptimizerliteralwrappreservesallcharacters",
+    "Repeatedcaptionbelowplotisredundantbutlegible"
+  ],
+  "frozen_evidence_modified": false,
+  "GPU_started": false,
+  "followup_required": "Re-renderafterPDFnumeric-tablefix,andviewfreshassignedpagesagainbeforePASS",
+  "header_followup_actual_pixel_proof": {
+    "path": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/final_pdf_header_pixel_independent_audit.json",
+    "status": "ACTUAL35_PNG_STATIC_HEADER_REGION_BYTEIDENTICAL_PRESENT_PASS",
+    "header_artifact_defect": false
+  },
+  "initial_frontend_visual_header_omission_pages": [
+    7,
+    8,
+    10,
+    11,
+    16,
+    19,
+    20
+  ]
+}

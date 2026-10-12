@@ -1,0 +1,1169 @@
+[
+  {
+    "variant": "legacy",
+    "budget": 256,
+    "learning_rate": 0.0001,
+    "evaluation_weights": "online",
+    "reference_mode": "matched",
+    "num_samples": 1024,
+    "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+    "initialization_scope": "map_encoder_and_G1_from_scratch",
+    "train_batch_size": 64,
+    "component_loss": null,
+    "recipe_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "cohort_sha256": "8bcd9b085236d647140817e5f1187fcb8cc603485107f0136de064722e1a7442",
+    "anchor_variant": "anchor",
+    "num_training_seeds": 1,
+    "num_observations": 1,
+    "training_seed_means": [
+      {
+        "seed": 817,
+        "eval_seeds": [
+          2817
+        ],
+        "num_observations": 1,
+        "nearest_dist_jsd": 0.5876450077652505,
+        "lat_dev_jsd": 0.7797083764183427,
+        "ang_dev_jsd": 25.692076767122007,
+        "length_jsd": 13.59082595233709,
+        "width_jsd": 10.749803496203818,
+        "speed_jsd": 5.82313886442757,
+        "collision_rate": 14.255403792600452,
+        "score": 63.168651856679745,
+        "score_full_reference": 61.983946129714994,
+        "anchor_score_ratio": 0.8123595054621803,
+        "vehicle_count_ratio": 0.9867835645119079,
+        "generated_onroad_fraction": 0.5387879591566105,
+        "gt_onroad_fraction": 0.9939806333420571,
+        "generated_onroad_gap_pp": -45.519267418544665,
+        "num_generated_vehicles": 7541.0,
+        "num_gt_vehicles": 7642.0,
+        "clip_fraction": 1.0,
+        "nearest_dist_jsd_delta_anchor_pct": 6.674950958141523,
+        "lat_dev_jsd_delta_anchor_pct": -11.503083098862943,
+        "ang_dev_jsd_delta_anchor_pct": 15.020876386878857,
+        "length_jsd_delta_anchor_pct": -49.69877764857298,
+        "width_jsd_delta_anchor_pct": -23.427270204423824,
+        "speed_jsd_delta_anchor_pct": -60.521332036417874,
+        "collision_rate_delta_anchor_pct": -31.990157354058436
+      }
+    ],
+    "report_sources": [
+      "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0/legacy/eval_step_256/sd_agent_metrics.json"
+    ],
+    "coverage_flag_counts": {
+      "generated_onroad_below_80pct": 1
+    },
+    "nearest_dist_jsd": {
+      "mean": 0.5876450077652505,
+      "sd": 0.0,
+      "minimum": 0.5876450077652505,
+      "maximum": 0.5876450077652505
+    },
+    "lat_dev_jsd": {
+      "mean": 0.7797083764183427,
+      "sd": 0.0,
+      "minimum": 0.7797083764183427,
+      "maximum": 0.7797083764183427
+    },
+    "ang_dev_jsd": {
+      "mean": 25.692076767122007,
+      "sd": 0.0,
+      "minimum": 25.692076767122007,
+      "maximum": 25.692076767122007
+    },
+    "length_jsd": {
+      "mean": 13.59082595233709,
+      "sd": 0.0,
+      "minimum": 13.59082595233709,
+      "maximum": 13.59082595233709
+    },
+    "width_jsd": {
+      "mean": 10.749803496203818,
+      "sd": 0.0,
+      "minimum": 10.749803496203818,
+      "maximum": 10.749803496203818
+    },
+    "speed_jsd": {
+      "mean": 5.82313886442757,
+      "sd": 0.0,
+      "minimum": 5.82313886442757,
+      "maximum": 5.82313886442757
+    },
+    "collision_rate": {
+      "mean": 14.255403792600452,
+      "sd": 0.0,
+      "minimum": 14.255403792600452,
+      "maximum": 14.255403792600452
+    },
+    "score": {
+      "mean": 63.168651856679745,
+      "sd": 0.0,
+      "minimum": 63.168651856679745,
+      "maximum": 63.168651856679745
+    },
+    "score_full_reference": {
+      "mean": 61.983946129714994,
+      "sd": 0.0,
+      "minimum": 61.983946129714994,
+      "maximum": 61.983946129714994
+    },
+    "anchor_score_ratio": {
+      "mean": 0.8123595054621803,
+      "sd": 0.0,
+      "minimum": 0.8123595054621803,
+      "maximum": 0.8123595054621803
+    },
+    "vehicle_count_ratio": {
+      "mean": 0.9867835645119079,
+      "sd": 0.0,
+      "minimum": 0.9867835645119079,
+      "maximum": 0.9867835645119079
+    },
+    "generated_onroad_fraction": {
+      "mean": 0.5387879591566105,
+      "sd": 0.0,
+      "minimum": 0.5387879591566105,
+      "maximum": 0.5387879591566105
+    },
+    "gt_onroad_fraction": {
+      "mean": 0.9939806333420571,
+      "sd": 0.0,
+      "minimum": 0.9939806333420571,
+      "maximum": 0.9939806333420571
+    },
+    "generated_onroad_gap_pp": {
+      "mean": -45.519267418544665,
+      "sd": 0.0,
+      "minimum": -45.519267418544665,
+      "maximum": -45.519267418544665
+    },
+    "num_generated_vehicles": {
+      "mean": 7541.0,
+      "sd": 0.0,
+      "minimum": 7541.0,
+      "maximum": 7541.0
+    },
+    "num_gt_vehicles": {
+      "mean": 7642.0,
+      "sd": 0.0,
+      "minimum": 7642.0,
+      "maximum": 7642.0
+    },
+    "clip_fraction": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "nearest_dist_jsd_delta_anchor_pct": {
+      "mean": 6.674950958141523,
+      "sd": 0.0,
+      "minimum": 6.674950958141523,
+      "maximum": 6.674950958141523
+    },
+    "lat_dev_jsd_delta_anchor_pct": {
+      "mean": -11.503083098862943,
+      "sd": 0.0,
+      "minimum": -11.503083098862943,
+      "maximum": -11.503083098862943
+    },
+    "ang_dev_jsd_delta_anchor_pct": {
+      "mean": 15.020876386878857,
+      "sd": 0.0,
+      "minimum": 15.020876386878857,
+      "maximum": 15.020876386878857
+    },
+    "length_jsd_delta_anchor_pct": {
+      "mean": -49.69877764857298,
+      "sd": 0.0,
+      "minimum": -49.69877764857298,
+      "maximum": -49.69877764857298
+    },
+    "width_jsd_delta_anchor_pct": {
+      "mean": -23.427270204423824,
+      "sd": 0.0,
+      "minimum": -23.427270204423824,
+      "maximum": -23.427270204423824
+    },
+    "speed_jsd_delta_anchor_pct": {
+      "mean": -60.521332036417874,
+      "sd": 0.0,
+      "minimum": -60.521332036417874,
+      "maximum": -60.521332036417874
+    },
+    "collision_rate_delta_anchor_pct": {
+      "mean": -31.990157354058436,
+      "sd": 0.0,
+      "minimum": -31.990157354058436,
+      "maximum": -31.990157354058436
+    },
+    "rank_same_budget": 1
+  },
+  {
+    "variant": "anchor",
+    "budget": 256,
+    "learning_rate": 0.0001,
+    "evaluation_weights": "online",
+    "reference_mode": "matched",
+    "num_samples": 1024,
+    "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+    "initialization_scope": "map_encoder_and_G1_from_scratch",
+    "train_batch_size": 64,
+    "component_loss": {
+      "normalize_time_weights": true,
+      "std_floor": 0.1,
+      "heading_space": "angle",
+      "components": {
+        "position": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "heading": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "length": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "data"
+        },
+        "width": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "data"
+        },
+        "velocity": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "type": {
+          "kind": "ce",
+          "time_power": 0,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "collision": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "speed_magnitude": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      }
+    },
+    "recipe_sha256": "d04abd70c119f9f8d43cd862b59a6102d212e312646535603df0002125636e3d",
+    "cohort_sha256": "8bcd9b085236d647140817e5f1187fcb8cc603485107f0136de064722e1a7442",
+    "anchor_variant": "anchor",
+    "num_training_seeds": 1,
+    "num_observations": 1,
+    "training_seed_means": [
+      {
+        "seed": 817,
+        "eval_seeds": [
+          2817
+        ],
+        "num_observations": 1,
+        "nearest_dist_jsd": 0.5508744109906721,
+        "lat_dev_jsd": 0.8810571076610292,
+        "ang_dev_jsd": 22.336881420295683,
+        "length_jsd": 27.018878104761455,
+        "width_jsd": 14.038683908621557,
+        "speed_jsd": 14.750089516189451,
+        "collision_rate": 20.960795140806184,
+        "score": 77.75947893998095,
+        "score_full_reference": 76.8405950992013,
+        "anchor_score_ratio": 1.0,
+        "vehicle_count_ratio": 1.184899241036378,
+        "generated_onroad_fraction": 0.5246824958586417,
+        "gt_onroad_fraction": 0.9939806333420571,
+        "generated_onroad_gap_pp": -46.929813748341545,
+        "num_generated_vehicles": 9055.0,
+        "num_gt_vehicles": 7642.0,
+        "clip_fraction": 1.0,
+        "nearest_dist_jsd_delta_anchor_pct": 0.0,
+        "lat_dev_jsd_delta_anchor_pct": 0.0,
+        "ang_dev_jsd_delta_anchor_pct": 0.0,
+        "length_jsd_delta_anchor_pct": 0.0,
+        "width_jsd_delta_anchor_pct": 0.0,
+        "speed_jsd_delta_anchor_pct": 0.0,
+        "collision_rate_delta_anchor_pct": 0.0
+      }
+    ],
+    "report_sources": [
+      "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0/anchor/eval_step_256/sd_agent_metrics.json"
+    ],
+    "coverage_flag_counts": {
+      "generated_onroad_below_80pct": 1
+    },
+    "nearest_dist_jsd": {
+      "mean": 0.5508744109906721,
+      "sd": 0.0,
+      "minimum": 0.5508744109906721,
+      "maximum": 0.5508744109906721
+    },
+    "lat_dev_jsd": {
+      "mean": 0.8810571076610292,
+      "sd": 0.0,
+      "minimum": 0.8810571076610292,
+      "maximum": 0.8810571076610292
+    },
+    "ang_dev_jsd": {
+      "mean": 22.336881420295683,
+      "sd": 0.0,
+      "minimum": 22.336881420295683,
+      "maximum": 22.336881420295683
+    },
+    "length_jsd": {
+      "mean": 27.018878104761455,
+      "sd": 0.0,
+      "minimum": 27.018878104761455,
+      "maximum": 27.018878104761455
+    },
+    "width_jsd": {
+      "mean": 14.038683908621557,
+      "sd": 0.0,
+      "minimum": 14.038683908621557,
+      "maximum": 14.038683908621557
+    },
+    "speed_jsd": {
+      "mean": 14.750089516189451,
+      "sd": 0.0,
+      "minimum": 14.750089516189451,
+      "maximum": 14.750089516189451
+    },
+    "collision_rate": {
+      "mean": 20.960795140806184,
+      "sd": 0.0,
+      "minimum": 20.960795140806184,
+      "maximum": 20.960795140806184
+    },
+    "score": {
+      "mean": 77.75947893998095,
+      "sd": 0.0,
+      "minimum": 77.75947893998095,
+      "maximum": 77.75947893998095
+    },
+    "score_full_reference": {
+      "mean": 76.8405950992013,
+      "sd": 0.0,
+      "minimum": 76.8405950992013,
+      "maximum": 76.8405950992013
+    },
+    "anchor_score_ratio": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "vehicle_count_ratio": {
+      "mean": 1.184899241036378,
+      "sd": 0.0,
+      "minimum": 1.184899241036378,
+      "maximum": 1.184899241036378
+    },
+    "generated_onroad_fraction": {
+      "mean": 0.5246824958586417,
+      "sd": 0.0,
+      "minimum": 0.5246824958586417,
+      "maximum": 0.5246824958586417
+    },
+    "gt_onroad_fraction": {
+      "mean": 0.9939806333420571,
+      "sd": 0.0,
+      "minimum": 0.9939806333420571,
+      "maximum": 0.9939806333420571
+    },
+    "generated_onroad_gap_pp": {
+      "mean": -46.929813748341545,
+      "sd": 0.0,
+      "minimum": -46.929813748341545,
+      "maximum": -46.929813748341545
+    },
+    "num_generated_vehicles": {
+      "mean": 9055.0,
+      "sd": 0.0,
+      "minimum": 9055.0,
+      "maximum": 9055.0
+    },
+    "num_gt_vehicles": {
+      "mean": 7642.0,
+      "sd": 0.0,
+      "minimum": 7642.0,
+      "maximum": 7642.0
+    },
+    "clip_fraction": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "nearest_dist_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "lat_dev_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "ang_dev_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "length_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "width_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "speed_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "collision_rate_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "rank_same_budget": 2
+  },
+  {
+    "variant": "anchor",
+    "budget": 512,
+    "learning_rate": 0.0001,
+    "evaluation_weights": "online",
+    "reference_mode": "matched",
+    "num_samples": 1024,
+    "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+    "initialization_scope": "map_encoder_and_G1_from_scratch",
+    "train_batch_size": 64,
+    "component_loss": {
+      "normalize_time_weights": true,
+      "std_floor": 0.1,
+      "heading_space": "angle",
+      "components": {
+        "position": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "heading": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "length": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "data"
+        },
+        "width": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "data"
+        },
+        "velocity": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "type": {
+          "kind": "ce",
+          "time_power": 0,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "collision": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "speed_magnitude": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      }
+    },
+    "recipe_sha256": "d04abd70c119f9f8d43cd862b59a6102d212e312646535603df0002125636e3d",
+    "cohort_sha256": "8bcd9b085236d647140817e5f1187fcb8cc603485107f0136de064722e1a7442",
+    "anchor_variant": "anchor",
+    "num_training_seeds": 1,
+    "num_observations": 1,
+    "training_seed_means": [
+      {
+        "seed": 817,
+        "eval_seeds": [
+          2817
+        ],
+        "num_observations": 1,
+        "nearest_dist_jsd": 0.6015986601368207,
+        "lat_dev_jsd": 0.7774120868404523,
+        "ang_dev_jsd": 16.366639730320895,
+        "length_jsd": 1.1065404295265353,
+        "width_jsd": 2.0746535722963104,
+        "speed_jsd": 6.133540096119326,
+        "collision_rate": 14.906663033110778,
+        "score": 32.92418054616312,
+        "score_full_reference": 31.92835638551319,
+        "anchor_score_ratio": 1.0,
+        "vehicle_count_ratio": 0.9603506935357237,
+        "generated_onroad_fraction": 0.5562065676522687,
+        "gt_onroad_fraction": 0.9939806333420571,
+        "generated_onroad_gap_pp": -43.77740656897884,
+        "num_generated_vehicles": 7339.0,
+        "num_gt_vehicles": 7642.0,
+        "clip_fraction": 1.0,
+        "nearest_dist_jsd_delta_anchor_pct": 0.0,
+        "lat_dev_jsd_delta_anchor_pct": 0.0,
+        "ang_dev_jsd_delta_anchor_pct": 0.0,
+        "length_jsd_delta_anchor_pct": 0.0,
+        "width_jsd_delta_anchor_pct": 0.0,
+        "speed_jsd_delta_anchor_pct": 0.0,
+        "collision_rate_delta_anchor_pct": 0.0
+      }
+    ],
+    "report_sources": [
+      "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0/anchor/eval_step_512/sd_agent_metrics.json"
+    ],
+    "coverage_flag_counts": {
+      "generated_onroad_below_80pct": 1
+    },
+    "nearest_dist_jsd": {
+      "mean": 0.6015986601368207,
+      "sd": 0.0,
+      "minimum": 0.6015986601368207,
+      "maximum": 0.6015986601368207
+    },
+    "lat_dev_jsd": {
+      "mean": 0.7774120868404523,
+      "sd": 0.0,
+      "minimum": 0.7774120868404523,
+      "maximum": 0.7774120868404523
+    },
+    "ang_dev_jsd": {
+      "mean": 16.366639730320895,
+      "sd": 0.0,
+      "minimum": 16.366639730320895,
+      "maximum": 16.366639730320895
+    },
+    "length_jsd": {
+      "mean": 1.1065404295265353,
+      "sd": 0.0,
+      "minimum": 1.1065404295265353,
+      "maximum": 1.1065404295265353
+    },
+    "width_jsd": {
+      "mean": 2.0746535722963104,
+      "sd": 0.0,
+      "minimum": 2.0746535722963104,
+      "maximum": 2.0746535722963104
+    },
+    "speed_jsd": {
+      "mean": 6.133540096119326,
+      "sd": 0.0,
+      "minimum": 6.133540096119326,
+      "maximum": 6.133540096119326
+    },
+    "collision_rate": {
+      "mean": 14.906663033110778,
+      "sd": 0.0,
+      "minimum": 14.906663033110778,
+      "maximum": 14.906663033110778
+    },
+    "score": {
+      "mean": 32.92418054616312,
+      "sd": 0.0,
+      "minimum": 32.92418054616312,
+      "maximum": 32.92418054616312
+    },
+    "score_full_reference": {
+      "mean": 31.92835638551319,
+      "sd": 0.0,
+      "minimum": 31.92835638551319,
+      "maximum": 31.92835638551319
+    },
+    "anchor_score_ratio": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "vehicle_count_ratio": {
+      "mean": 0.9603506935357237,
+      "sd": 0.0,
+      "minimum": 0.9603506935357237,
+      "maximum": 0.9603506935357237
+    },
+    "generated_onroad_fraction": {
+      "mean": 0.5562065676522687,
+      "sd": 0.0,
+      "minimum": 0.5562065676522687,
+      "maximum": 0.5562065676522687
+    },
+    "gt_onroad_fraction": {
+      "mean": 0.9939806333420571,
+      "sd": 0.0,
+      "minimum": 0.9939806333420571,
+      "maximum": 0.9939806333420571
+    },
+    "generated_onroad_gap_pp": {
+      "mean": -43.77740656897884,
+      "sd": 0.0,
+      "minimum": -43.77740656897884,
+      "maximum": -43.77740656897884
+    },
+    "num_generated_vehicles": {
+      "mean": 7339.0,
+      "sd": 0.0,
+      "minimum": 7339.0,
+      "maximum": 7339.0
+    },
+    "num_gt_vehicles": {
+      "mean": 7642.0,
+      "sd": 0.0,
+      "minimum": 7642.0,
+      "maximum": 7642.0
+    },
+    "clip_fraction": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "nearest_dist_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "lat_dev_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "ang_dev_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "length_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "width_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "speed_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "collision_rate_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "rank_same_budget": 1
+  },
+  {
+    "variant": "legacy",
+    "budget": 512,
+    "learning_rate": 0.0001,
+    "evaluation_weights": "online",
+    "reference_mode": "matched",
+    "num_samples": 1024,
+    "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+    "initialization_scope": "map_encoder_and_G1_from_scratch",
+    "train_batch_size": 64,
+    "component_loss": null,
+    "recipe_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "cohort_sha256": "8bcd9b085236d647140817e5f1187fcb8cc603485107f0136de064722e1a7442",
+    "anchor_variant": "anchor",
+    "num_training_seeds": 1,
+    "num_observations": 1,
+    "training_seed_means": [
+      {
+        "seed": 817,
+        "eval_seeds": [
+          2817
+        ],
+        "num_observations": 1,
+        "nearest_dist_jsd": 0.45754248284622206,
+        "lat_dev_jsd": 0.8167802281815941,
+        "ang_dev_jsd": 18.09198711915368,
+        "length_jsd": 10.901648837087077,
+        "width_jsd": 11.695343692065476,
+        "speed_jsd": 4.584054994969443,
+        "collision_rate": 9.796511627906977,
+        "score": 50.14569681925458,
+        "score_full_reference": 49.0336846275291,
+        "anchor_score_ratio": 1.5230659043721713,
+        "vehicle_count_ratio": 0.9002878827532059,
+        "generated_onroad_fraction": 0.6492732558139535,
+        "gt_onroad_fraction": 0.9939806333420571,
+        "generated_onroad_gap_pp": -34.470737752810365,
+        "num_generated_vehicles": 6880.0,
+        "num_gt_vehicles": 7642.0,
+        "clip_fraction": 1.0,
+        "nearest_dist_jsd_delta_anchor_pct": -23.945561523996105,
+        "lat_dev_jsd_delta_anchor_pct": 5.063999133476482,
+        "ang_dev_jsd_delta_anchor_pct": 10.541854756150082,
+        "length_jsd_delta_anchor_pct": 885.2011319416189,
+        "width_jsd_delta_anchor_pct": 463.72513696928195,
+        "speed_jsd_delta_anchor_pct": -25.26249240842556,
+        "collision_rate_delta_anchor_pct": -34.28098826580502
+      }
+    ],
+    "report_sources": [
+      "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0/legacy/eval_step_512/sd_agent_metrics.json"
+    ],
+    "coverage_flag_counts": {
+      "generated_onroad_below_80pct": 1
+    },
+    "nearest_dist_jsd": {
+      "mean": 0.45754248284622206,
+      "sd": 0.0,
+      "minimum": 0.45754248284622206,
+      "maximum": 0.45754248284622206
+    },
+    "lat_dev_jsd": {
+      "mean": 0.8167802281815941,
+      "sd": 0.0,
+      "minimum": 0.8167802281815941,
+      "maximum": 0.8167802281815941
+    },
+    "ang_dev_jsd": {
+      "mean": 18.09198711915368,
+      "sd": 0.0,
+      "minimum": 18.09198711915368,
+      "maximum": 18.09198711915368
+    },
+    "length_jsd": {
+      "mean": 10.901648837087077,
+      "sd": 0.0,
+      "minimum": 10.901648837087077,
+      "maximum": 10.901648837087077
+    },
+    "width_jsd": {
+      "mean": 11.695343692065476,
+      "sd": 0.0,
+      "minimum": 11.695343692065476,
+      "maximum": 11.695343692065476
+    },
+    "speed_jsd": {
+      "mean": 4.584054994969443,
+      "sd": 0.0,
+      "minimum": 4.584054994969443,
+      "maximum": 4.584054994969443
+    },
+    "collision_rate": {
+      "mean": 9.796511627906977,
+      "sd": 0.0,
+      "minimum": 9.796511627906977,
+      "maximum": 9.796511627906977
+    },
+    "score": {
+      "mean": 50.14569681925458,
+      "sd": 0.0,
+      "minimum": 50.14569681925458,
+      "maximum": 50.14569681925458
+    },
+    "score_full_reference": {
+      "mean": 49.0336846275291,
+      "sd": 0.0,
+      "minimum": 49.0336846275291,
+      "maximum": 49.0336846275291
+    },
+    "anchor_score_ratio": {
+      "mean": 1.5230659043721713,
+      "sd": 0.0,
+      "minimum": 1.5230659043721713,
+      "maximum": 1.5230659043721713
+    },
+    "vehicle_count_ratio": {
+      "mean": 0.9002878827532059,
+      "sd": 0.0,
+      "minimum": 0.9002878827532059,
+      "maximum": 0.9002878827532059
+    },
+    "generated_onroad_fraction": {
+      "mean": 0.6492732558139535,
+      "sd": 0.0,
+      "minimum": 0.6492732558139535,
+      "maximum": 0.6492732558139535
+    },
+    "gt_onroad_fraction": {
+      "mean": 0.9939806333420571,
+      "sd": 0.0,
+      "minimum": 0.9939806333420571,
+      "maximum": 0.9939806333420571
+    },
+    "generated_onroad_gap_pp": {
+      "mean": -34.470737752810365,
+      "sd": 0.0,
+      "minimum": -34.470737752810365,
+      "maximum": -34.470737752810365
+    },
+    "num_generated_vehicles": {
+      "mean": 6880.0,
+      "sd": 0.0,
+      "minimum": 6880.0,
+      "maximum": 6880.0
+    },
+    "num_gt_vehicles": {
+      "mean": 7642.0,
+      "sd": 0.0,
+      "minimum": 7642.0,
+      "maximum": 7642.0
+    },
+    "clip_fraction": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "nearest_dist_jsd_delta_anchor_pct": {
+      "mean": -23.945561523996105,
+      "sd": 0.0,
+      "minimum": -23.945561523996105,
+      "maximum": -23.945561523996105
+    },
+    "lat_dev_jsd_delta_anchor_pct": {
+      "mean": 5.063999133476482,
+      "sd": 0.0,
+      "minimum": 5.063999133476482,
+      "maximum": 5.063999133476482
+    },
+    "ang_dev_jsd_delta_anchor_pct": {
+      "mean": 10.541854756150082,
+      "sd": 0.0,
+      "minimum": 10.541854756150082,
+      "maximum": 10.541854756150082
+    },
+    "length_jsd_delta_anchor_pct": {
+      "mean": 885.2011319416189,
+      "sd": 0.0,
+      "minimum": 885.2011319416189,
+      "maximum": 885.2011319416189
+    },
+    "width_jsd_delta_anchor_pct": {
+      "mean": 463.72513696928195,
+      "sd": 0.0,
+      "minimum": 463.72513696928195,
+      "maximum": 463.72513696928195
+    },
+    "speed_jsd_delta_anchor_pct": {
+      "mean": -25.26249240842556,
+      "sd": 0.0,
+      "minimum": -25.26249240842556,
+      "maximum": -25.26249240842556
+    },
+    "collision_rate_delta_anchor_pct": {
+      "mean": -34.28098826580502,
+      "sd": 0.0,
+      "minimum": -34.28098826580502,
+      "maximum": -34.28098826580502
+    },
+    "rank_same_budget": 2
+  },
+  {
+    "variant": "anchor",
+    "budget": 1024,
+    "learning_rate": 0.0001,
+    "evaluation_weights": "online",
+    "reference_mode": "matched",
+    "num_samples": 1024,
+    "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+    "initialization_scope": "map_encoder_and_G1_from_scratch",
+    "train_batch_size": 64,
+    "component_loss": {
+      "normalize_time_weights": true,
+      "std_floor": 0.1,
+      "heading_space": "angle",
+      "components": {
+        "position": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "heading": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "length": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "data"
+        },
+        "width": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "data"
+        },
+        "velocity": {
+          "kind": "mse",
+          "time_power": 1,
+          "weight": 2.0,
+          "scale": "data"
+        },
+        "type": {
+          "kind": "ce",
+          "time_power": 0,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "collision": {
+          "kind": "l1",
+          "time_power": 1,
+          "weight": 1.0,
+          "scale": "none"
+        },
+        "speed_magnitude": {
+          "kind": "mse",
+          "time_power": 0,
+          "weight": 0.0,
+          "scale": "data"
+        }
+      }
+    },
+    "recipe_sha256": "d04abd70c119f9f8d43cd862b59a6102d212e312646535603df0002125636e3d",
+    "cohort_sha256": "8bcd9b085236d647140817e5f1187fcb8cc603485107f0136de064722e1a7442",
+    "anchor_variant": "anchor",
+    "num_training_seeds": 1,
+    "num_observations": 1,
+    "training_seed_means": [
+      {
+        "seed": 817,
+        "eval_seeds": [
+          2817
+        ],
+        "num_observations": 1,
+        "nearest_dist_jsd": 0.5461387919634065,
+        "lat_dev_jsd": 0.835734994320937,
+        "ang_dev_jsd": 15.303852276556265,
+        "length_jsd": 1.9459321818702788,
+        "width_jsd": 4.876252899505556,
+        "speed_jsd": 2.7105004595141278,
+        "collision_rate": 15.049086616130236,
+        "score": 32.236799117417796,
+        "score_full_reference": 31.4615823860538,
+        "anchor_score_ratio": 1.0,
+        "vehicle_count_ratio": 1.0529965977492803,
+        "generated_onroad_fraction": 0.5602087734559463,
+        "gt_onroad_fraction": 0.9939806333420571,
+        "generated_onroad_gap_pp": -43.377185988611075,
+        "num_generated_vehicles": 8047.0,
+        "num_gt_vehicles": 7642.0,
+        "clip_fraction": 1.0,
+        "nearest_dist_jsd_delta_anchor_pct": 0.0,
+        "lat_dev_jsd_delta_anchor_pct": 0.0,
+        "ang_dev_jsd_delta_anchor_pct": 0.0,
+        "length_jsd_delta_anchor_pct": 0.0,
+        "width_jsd_delta_anchor_pct": 0.0,
+        "speed_jsd_delta_anchor_pct": 0.0,
+        "collision_rate_delta_anchor_pct": 0.0
+      }
+    ],
+    "report_sources": [
+      "/home/ke/code/sim/logs/component_loss_scratch/search1024_w0/anchor/eval_step_1024/sd_agent_metrics.json"
+    ],
+    "coverage_flag_counts": {
+      "generated_onroad_below_80pct": 1
+    },
+    "nearest_dist_jsd": {
+      "mean": 0.5461387919634065,
+      "sd": 0.0,
+      "minimum": 0.5461387919634065,
+      "maximum": 0.5461387919634065
+    },
+    "lat_dev_jsd": {
+      "mean": 0.835734994320937,
+      "sd": 0.0,
+      "minimum": 0.835734994320937,
+      "maximum": 0.835734994320937
+    },
+    "ang_dev_jsd": {
+      "mean": 15.303852276556265,
+      "sd": 0.0,
+      "minimum": 15.303852276556265,
+      "maximum": 15.303852276556265
+    },
+    "length_jsd": {
+      "mean": 1.9459321818702788,
+      "sd": 0.0,
+      "minimum": 1.9459321818702788,
+      "maximum": 1.9459321818702788
+    },
+    "width_jsd": {
+      "mean": 4.876252899505556,
+      "sd": 0.0,
+      "minimum": 4.876252899505556,
+      "maximum": 4.876252899505556
+    },
+    "speed_jsd": {
+      "mean": 2.7105004595141278,
+      "sd": 0.0,
+      "minimum": 2.7105004595141278,
+      "maximum": 2.7105004595141278
+    },
+    "collision_rate": {
+      "mean": 15.049086616130236,
+      "sd": 0.0,
+      "minimum": 15.049086616130236,
+      "maximum": 15.049086616130236
+    },
+    "score": {
+      "mean": 32.236799117417796,
+      "sd": 0.0,
+      "minimum": 32.236799117417796,
+      "maximum": 32.236799117417796
+    },
+    "score_full_reference": {
+      "mean": 31.4615823860538,
+      "sd": 0.0,
+      "minimum": 31.4615823860538,
+      "maximum": 31.4615823860538
+    },
+    "anchor_score_ratio": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "vehicle_count_ratio": {
+      "mean": 1.0529965977492803,
+      "sd": 0.0,
+      "minimum": 1.0529965977492803,
+      "maximum": 1.0529965977492803
+    },
+    "generated_onroad_fraction": {
+      "mean": 0.5602087734559463,
+      "sd": 0.0,
+      "minimum": 0.5602087734559463,
+      "maximum": 0.5602087734559463
+    },
+    "gt_onroad_fraction": {
+      "mean": 0.9939806333420571,
+      "sd": 0.0,
+      "minimum": 0.9939806333420571,
+      "maximum": 0.9939806333420571
+    },
+    "generated_onroad_gap_pp": {
+      "mean": -43.377185988611075,
+      "sd": 0.0,
+      "minimum": -43.377185988611075,
+      "maximum": -43.377185988611075
+    },
+    "num_generated_vehicles": {
+      "mean": 8047.0,
+      "sd": 0.0,
+      "minimum": 8047.0,
+      "maximum": 8047.0
+    },
+    "num_gt_vehicles": {
+      "mean": 7642.0,
+      "sd": 0.0,
+      "minimum": 7642.0,
+      "maximum": 7642.0
+    },
+    "clip_fraction": {
+      "mean": 1.0,
+      "sd": 0.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "nearest_dist_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "lat_dev_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "ang_dev_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "length_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "width_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "speed_jsd_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "collision_rate_delta_anchor_pct": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0
+    },
+    "rank_same_budget": 1
+  }
+]

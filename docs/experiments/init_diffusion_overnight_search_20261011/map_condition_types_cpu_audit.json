@@ -1,0 +1,29 @@
+{
+  "status": "PASS_REAL_TRAIN32_MAP_QUERY_POLICY_CPU_AUDIT",
+  "GPU_started": false,
+  "cuda_initialized": false,
+  "source_checkpoint_loaded_on_CPU": "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+  "source_map_checkpoint_sha256": "610c1f94a0f573fd078e251af37c38c73255b969e52154e66546588996ef99fb",
+  "map66_tensor_hash_exact": "09b7f55a4c78816794dd5ffcdce36760af5aa5afe038a1bf8cd34f168c51f720",
+  "map66_layout_and_all_requires_grad_false": true,
+  "default_fresh_G1_seed817_hash_exact": "66ae5d81e82e26af2336043337fff6191b92c0ae010369c314f3fa315c224090",
+  "old_source_snapshot_sha256": "7da817cad25d812aee0bc27bf9c5e5f6051a51ab5aa07e33d2180d66dc149ab5",
+  "current_map_decoder_sha256": "57fb2e1b6f52841fea4a1b0bafa8a9408a080ffa694fb3cbc53a23abe6036342",
+  "old_actual_default_outputs_all_keys_bitwise_exact": true,
+  "actual_TRAIN_scenes": 32,
+  "source_tokens": 21579,
+  "square50_cropped_source_tokens": 4211,
+  "default_road_edge_queries": 1689,
+  "opt_in_lanes_and_edges_queries": 3203,
+  "returned_type_counts": {
+    "1": 1419,
+    "2": 95,
+    "4": 1386,
+    "5": 303
+  },
+  "returned_world_position_type_selection_exact": true,
+  "returned_ego_local_position_heading_native_transform_exact": true,
+  "opt_in_changes_parameter_values_or_freeze_state": false,
+  "unit_tests": 5,
+  "scope": "Actual frozen pretrained map CPU geometry and default numerical compatibility; no GPU training/evaluation or learned quality claim."
+}

@@ -1,0 +1,120 @@
+{
+  "status": "PASS_ACTUAL_HYBRID_NATIVE_CONFIGURATION_AND_PROVENANCE",
+  "UTC": "2026-10-12T01:33:57.923689+00:00",
+  "CPU_only": true,
+  "GPU_started": false,
+  "Torch_imported": false,
+  "errors": [],
+  "configuration": {
+    "path": "/home/ke/code/sim/configs/experiment/init_diffusion_lane_conditioned_overnight_best_hybrid_sampler_eval.yaml",
+    "sha256": "35488c77808d4b6883b94fa505b15f2d362b68fdd7eee1cf0c631c652b994f95"
+  },
+  "ledger_sha256": "3aba5c2765974b111940012d20c0fca18012cd7659d4716d5e3ea083bdcab855",
+  "source_checks": [
+    {
+      "path": "configs/experiment/init_diffusion_lane_conditioned_overnight_best.yaml",
+      "actual_sha256": "33f80bff920e5e87655a62ef8d69f53730ff06f730fe00a13bf22a9c74252ccb",
+      "expected_sha256": "33f80bff920e5e87655a62ef8d69f53730ff06f730fe00a13bf22a9c74252ccb",
+      "equal": true
+    },
+    {
+      "path": "configs/experiment/init_diffusion_lane_conditioned_overnight_best_eval.yaml",
+      "actual_sha256": "6317395ffa0c8bd6bc9615ae14e0f377c945e731f2f61def46a921a6159c169d",
+      "expected_sha256": "6317395ffa0c8bd6bc9615ae14e0f377c945e731f2f61def46a921a6159c169d",
+      "equal": true
+    },
+    {
+      "path": "configs/experiment/init_diffusion_lane_conditioned_overnight_best_sampler_eval.yaml",
+      "actual_sha256": "418eaf7826b5308386b737e5d178cd8b20c1ecb5764ad448819e221009f7a8f7",
+      "expected_sha256": "418eaf7826b5308386b737e5d178cd8b20c1ecb5764ad448819e221009f7a8f7",
+      "equal": true
+    },
+    {
+      "path": "tools/evaluate_init_diffusion_hybrid_sampler.py",
+      "actual_sha256": "3993ce0e56a04389a5e51ed7a0cb4f20e04fcae8de61051b34f6231cb2d29f23",
+      "expected_sha256": "3993ce0e56a04389a5e51ed7a0cb4f20e04fcae8de61051b34f6231cb2d29f23",
+      "equal": true
+    },
+    {
+      "path": "tools/select_init_diffusion_hybrid_sampler.py",
+      "actual_sha256": "86ae65fc11da80f6ebffa953f830d8bf580b7c3deabfe1736ee17d6bfb032d13",
+      "expected_sha256": "86ae65fc11da80f6ebffa953f830d8bf580b7c3deabfe1736ee17d6bfb032d13",
+      "equal": true
+    },
+    {
+      "path": "tools/hybrid_position_sampler_hook.py",
+      "actual_sha256": "892dcbd3371c702ec592599a74c3f6ecae2197aa41fd17dd0e5fa0824c148fd2",
+      "expected_sha256": "892dcbd3371c702ec592599a74c3f6ecae2197aa41fd17dd0e5fa0824c148fd2",
+      "equal": true
+    },
+    {
+      "path": "tools/evaluate_init_diffusion_sampler.py",
+      "actual_sha256": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+      "expected_sha256": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+      "equal": true
+    },
+    {
+      "path": "tools/run_init_diffusion_safe.py",
+      "actual_sha256": "49b43c7929d69bfff4b1f5363609c7991c471d14515d8651438afdae603c0b5b",
+      "expected_sha256": "49b43c7929d69bfff4b1f5363609c7991c471d14515d8651438afdae603c0b5b",
+      "equal": true
+    }
+  ],
+  "composition_actual_two_GEN_checks": [
+    {
+      "GEN_seed": 2817,
+      "callback": {
+        "sampler_audit": {
+          "_target_": "tools.hybrid_position_sampler_hook.make_hybrid_hook",
+          "seed": 2817,
+          "steps": 40,
+          "eps": 0.05,
+          "expected_updates": 20480,
+          "audit_path": "/tmp/hybrid-QA/sampler_audit.json",
+          "expected_batch_size": 128,
+          "defer_gc": true,
+          "hybrid_position": true
+        }
+      },
+      "initial_map_checkpoint": null,
+      "normalizer_path": null,
+      "fixed_map_G1_conditioning_exact": true,
+      "checkpoint": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt",
+      "full_require": true,
+      "matched": "matched",
+      "test_source": "/home/ke/code/sim/src/waymo_data/full/scenario_dreamer_val",
+      "test_manifest": "null uses sorted native full source, independently scope-audited by data agent",
+      "GPU_run": false
+    },
+    {
+      "GEN_seed": 3817,
+      "callback": {
+        "sampler_audit": {
+          "_target_": "tools.hybrid_position_sampler_hook.make_hybrid_hook",
+          "seed": 3817,
+          "steps": 40,
+          "eps": 0.05,
+          "expected_updates": 20480,
+          "audit_path": "/tmp/hybrid-QA/sampler_audit.json",
+          "expected_batch_size": 128,
+          "defer_gc": true,
+          "hybrid_position": true
+        }
+      },
+      "initial_map_checkpoint": null,
+      "normalizer_path": null,
+      "fixed_map_G1_conditioning_exact": true,
+      "checkpoint": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt",
+      "full_require": true,
+      "matched": "matched",
+      "test_source": "/home/ke/code/sim/src/waymo_data/full/scenario_dreamer_val",
+      "test_manifest": "null uses sorted native full source, independently scope-audited by data agent",
+      "GPU_run": false
+    }
+  ],
+  "main_selection_sha256": "dbc969542b569dc88305ae7d951a33556df3acd2f4a4ffbc0ef2287e84d836b4",
+  "native16_choice_sha256": "511a59d1fc844c5d607ac12358ad81fdff0ed10923dea3bc56a9a052e4aa63b0",
+  "hybrid_choice_sha256": "bb20fc8041cdd923e13422b42242c65bbc3b64363459df131b573a9b009eeb15",
+  "all_decisions_unchanged": true,
+  "scope": "Actual frozen selected inference recipe and complete full2 evidence; no future128epoch or bitwise replay claim."
+}

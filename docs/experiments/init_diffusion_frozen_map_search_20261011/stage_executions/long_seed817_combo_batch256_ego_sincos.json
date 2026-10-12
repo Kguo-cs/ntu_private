@@ -1,0 +1,67 @@
+{
+  "stage": "long_seed817_combo_batch256_ego_sincos",
+  "command": [
+    "/home/ke/miniconda3/envs/sim/bin/python",
+    "tools/scratch_component_loss_sweep.py",
+    "--map-checkpoint",
+    "/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt",
+    "--batch-size",
+    "256",
+    "--scenes",
+    "4096",
+    "--eval-batch-size",
+    "128",
+    "--workers",
+    "0",
+    "--seed",
+    "817",
+    "--eval-seed",
+    "2817",
+    "--normalizer-json",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json",
+    "--evaluation-weights",
+    "ema",
+    "--eval-manifest",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/confirmation4096_files.json",
+    "--extra-eval-seed",
+    "3817",
+    "--steps",
+    "8192",
+    "--checkpoint-steps",
+    "2048,4096,6144",
+    "--lr",
+    "0.0005",
+    "--recipe",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/long_seed817_combo_batch256_ego_sincos_recipe.json",
+    "--variant-file",
+    "/home/ke/code/sim/docs/experiments/init_diffusion_frozen_map_search_20261011/design/long_seed817_combo_batch256_ego_sincos_variants.json",
+    "--variants",
+    "combo_batch256_ego_sincos",
+    "--output",
+    "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_combo_batch256_ego_sincos",
+    "--allow-multiple-epochs"
+  ],
+  "output": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_combo_batch256_ego_sincos",
+  "log": "/home/ke/code/sim/logs/component_loss_frozen_map_long_seed817_combo_batch256_ego_sincos.log",
+  "controller_pid": 282682,
+  "started_unix": 1791724435.5490396,
+  "status": "success",
+  "returncode": 0,
+  "child_pid": 583540,
+  "ended_unix": 1791726223.745351,
+  "artifacts": {
+    "protocol": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_combo_batch256_ego_sincos/protocol.json",
+      "sha256": "8349c9c67ce406bffcf17da2018abc7c07f54f73b443e8d314938dd9f7056f7c"
+    },
+    "summary": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map/long_seed817_combo_batch256_ego_sincos/summary.json",
+      "sha256": "92879c944a174224f4d64a1eb331dac7e98b76b9883a0dde9010b86aa954ecd7"
+    },
+    "log": {
+      "path": "/home/ke/code/sim/logs/component_loss_frozen_map_long_seed817_combo_batch256_ego_sincos.log",
+      "sha256": "e3c867fbdee41f8813c933322972e96b22e875d0276f0fc4c8d5bda9fc43a5b9"
+    }
+  },
+  "last_verified_unix": 1791734619.4599338
+}

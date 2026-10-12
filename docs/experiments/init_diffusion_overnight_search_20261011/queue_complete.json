@@ -1,0 +1,9 @@
+{
+  "status": "COMPLETE",
+  "complete_final_matrix": true,
+  "complete_full50000_audit": true,
+  "finished_unix": 1791765696.2187827,
+  "selected": "separate_speed",
+  "failed_or_interrupted_stage": null,
+  "runtime_recovery_ledger": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/runtime_recovery/protocol.json"
+}

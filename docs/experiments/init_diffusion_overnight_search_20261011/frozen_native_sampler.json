@@ -1,0 +1,437 @@
+{
+  "selection_is_frozen": true,
+  "selected_option": "n40_eps005",
+  "grid_summary": "/home/ke/code/sim/logs/init_diffusion_native_sampler_cohort_20261012/grid/summary.json",
+  "grid_summary_sha256": "debfd53d1d5eabed651490a318aaaa25f09d4575a43ac4326463cf80274ee171",
+  "protocol": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/native_sampler_selection_protocol.json",
+  "protocol_sha256": "af605e94e115f9ac481b3a973d208ac430a608d78f9d6b32ea370dfa6992c077",
+  "created_utc": "2026-10-12T01:04:15.890084+00:00",
+  "criterion_proof": {
+    "selected_option": "n40_eps005",
+    "comparisons": {
+      "n10_eps005": {
+        "metrics": {
+          "nearest_dist_jsd": 0.10746853311990177,
+          "lat_dev_jsd": 0.8252338792247085,
+          "ang_dev_jsd": 0.2754595228148357,
+          "length_jsd": 0.5620690664100945,
+          "width_jsd": 0.3046541401329329,
+          "speed_jsd": 0.1329970174419356,
+          "collision_rate": 0.7170503372352639,
+          "generated_onroad_fraction": 0.8662742813275544,
+          "num_generated_vehicles": 30504.75,
+          "num_gt_vehicles": 29698.0
+        },
+        "ratios": {
+          "nearest_dist_jsd": 1.1829379147963712,
+          "lat_dev_jsd": 0.9923675386600623,
+          "ang_dev_jsd": 1.0146925631596198,
+          "length_jsd": 1.2257992625245566,
+          "width_jsd": 1.643919717261773,
+          "speed_jsd": 1.3020273788510779,
+          "collision_rate": 1.821345095156973
+        },
+        "R": 1.311869924344348,
+        "gate_checks": {
+          "length_jsd": false,
+          "width_jsd": false,
+          "speed_jsd": false,
+          "onroad": true,
+          "vehicle_ratio": true
+        },
+        "eligible": false,
+        "per_TRAIN": {
+          "4817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.11160328983474672,
+              "lat_dev_jsd": 0.8316545928655225,
+              "ang_dev_jsd": 0.2579715200348962,
+              "length_jsd": 0.5794719178662948,
+              "width_jsd": 0.30830594046593607,
+              "speed_jsd": 0.14226267383082672,
+              "collision_rate": 0.8405014739821786,
+              "generated_onroad_fraction": 0.8670942334741374,
+              "num_generated_vehicles": 30518.0,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 1.177024252171424,
+              "lat_dev_jsd": 0.994648141336165,
+              "ang_dev_jsd": 1.0089671628468155,
+              "length_jsd": 1.2749095750179082,
+              "width_jsd": 1.6534902475261408,
+              "speed_jsd": 1.2668623900355127,
+              "collision_rate": 1.8399480973518745
+            },
+            "R": 1.316549980897977,
+            "gate_checks": {
+              "length_jsd": false,
+              "width_jsd": false,
+              "speed_jsd": false,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": false
+          },
+          "5817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.10333377640505682,
+              "lat_dev_jsd": 0.8188131655838944,
+              "ang_dev_jsd": 0.2929475255947752,
+              "length_jsd": 0.5446662149538941,
+              "width_jsd": 0.30100233979992974,
+              "speed_jsd": 0.12373136105304448,
+              "collision_rate": 0.5935992004883491,
+              "generated_onroad_fraction": 0.8654543291809712,
+              "num_generated_vehicles": 30491.5,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 1.1893919424305086,
+              "lat_dev_jsd": 0.9900618500527848,
+              "ang_dev_jsd": 1.0197884625852458,
+              "length_jsd": 1.1775410397641535,
+              "width_jsd": 1.6342311431214986,
+              "speed_jsd": 1.344951237501331,
+              "collision_rate": 1.7956386757974527
+            },
+            "R": 1.3073720501789963,
+            "gate_checks": {
+              "length_jsd": false,
+              "width_jsd": false,
+              "speed_jsd": false,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": false
+          }
+        },
+        "pooled_gates_pass": false,
+        "each_TRAIN_gates_pass": false,
+        "independent_reused_TRAIN_N": 2,
+        "new_training_runs": 0
+      },
+      "n20_eps005": {
+        "metrics": {
+          "nearest_dist_jsd": 0.09084883642300129,
+          "lat_dev_jsd": 0.8315808882049639,
+          "ang_dev_jsd": 0.27147091918865635,
+          "length_jsd": 0.4585327170555664,
+          "width_jsd": 0.18532178727096602,
+          "speed_jsd": 0.10214609892404375,
+          "collision_rate": 0.39369273793413917,
+          "generated_onroad_fraction": 0.8618254500292095,
+          "num_generated_vehicles": 30416.25,
+          "num_gt_vehicles": 29698.0
+        },
+        "ratios": {
+          "nearest_dist_jsd": 1.0,
+          "lat_dev_jsd": 1.0,
+          "ang_dev_jsd": 1.0,
+          "length_jsd": 1.0,
+          "width_jsd": 1.0,
+          "speed_jsd": 1.0,
+          "collision_rate": 1.0
+        },
+        "R": 1.0,
+        "gate_checks": {
+          "length_jsd": true,
+          "width_jsd": true,
+          "speed_jsd": true,
+          "onroad": true,
+          "vehicle_ratio": true
+        },
+        "eligible": true,
+        "per_TRAIN": {
+          "4817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.09481817356682011,
+              "lat_dev_jsd": 0.8361294394501312,
+              "ang_dev_jsd": 0.25567880654017106,
+              "length_jsd": 0.4545200139846429,
+              "width_jsd": 0.18645767093407783,
+              "speed_jsd": 0.11229528554150132,
+              "collision_rate": 0.4568071649368052,
+              "generated_onroad_fraction": 0.862659364720787,
+              "num_generated_vehicles": 30431.5,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 1.0,
+              "lat_dev_jsd": 1.0,
+              "ang_dev_jsd": 1.0,
+              "length_jsd": 1.0,
+              "width_jsd": 1.0,
+              "speed_jsd": 1.0,
+              "collision_rate": 1.0
+            },
+            "R": 1.0,
+            "gate_checks": {
+              "length_jsd": true,
+              "width_jsd": true,
+              "speed_jsd": true,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": true
+          },
+          "5817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.08687949927918248,
+              "lat_dev_jsd": 0.8270323369597966,
+              "ang_dev_jsd": 0.28726303183714164,
+              "length_jsd": 0.46254542012648986,
+              "width_jsd": 0.1841859036078542,
+              "speed_jsd": 0.09199691230658616,
+              "collision_rate": 0.3305783109314732,
+              "generated_onroad_fraction": 0.8609915353376321,
+              "num_generated_vehicles": 30401.0,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 1.0,
+              "lat_dev_jsd": 1.0,
+              "ang_dev_jsd": 1.0,
+              "length_jsd": 1.0,
+              "width_jsd": 1.0,
+              "speed_jsd": 1.0,
+              "collision_rate": 1.0
+            },
+            "R": 1.0,
+            "gate_checks": {
+              "length_jsd": true,
+              "width_jsd": true,
+              "speed_jsd": true,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": true
+          }
+        },
+        "pooled_gates_pass": true,
+        "each_TRAIN_gates_pass": true,
+        "independent_reused_TRAIN_N": 2,
+        "new_training_runs": 0
+      },
+      "n40_eps005": {
+        "metrics": {
+          "nearest_dist_jsd": 0.097720577585657,
+          "lat_dev_jsd": 0.8498342831667871,
+          "ang_dev_jsd": 0.28049295111346784,
+          "length_jsd": 0.38923106897768284,
+          "width_jsd": 0.11096787830143572,
+          "speed_jsd": 0.09687220715915756,
+          "collision_rate": 0.4345807969071478,
+          "generated_onroad_fraction": 0.8558382261295555,
+          "num_generated_vehicles": 30374.0,
+          "num_gt_vehicles": 29698.0
+        },
+        "ratios": {
+          "nearest_dist_jsd": 1.0756392864588842,
+          "lat_dev_jsd": 1.0219502338506417,
+          "ang_dev_jsd": 1.0332338799005638,
+          "length_jsd": 0.8488621520337765,
+          "width_jsd": 0.5987848484279151,
+          "speed_jsd": 0.9483691318568331,
+          "collision_rate": 1.1038577932312503
+        },
+        "R": 0.947242475108552,
+        "gate_checks": {
+          "length_jsd": true,
+          "width_jsd": true,
+          "speed_jsd": true,
+          "onroad": true,
+          "vehicle_ratio": true
+        },
+        "eligible": true,
+        "per_TRAIN": {
+          "4817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.10298203934241916,
+              "lat_dev_jsd": 0.8572879344389371,
+              "ang_dev_jsd": 0.26917822946790926,
+              "length_jsd": 0.377853498436593,
+              "width_jsd": 0.1122403391742528,
+              "speed_jsd": 0.10949172199053314,
+              "collision_rate": 0.4870896697500292,
+              "generated_onroad_fraction": 0.8574227011861324,
+              "num_generated_vehicles": 30387.0,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 1.0861002218087001,
+              "lat_dev_jsd": 1.0253052864670338,
+              "ang_dev_jsd": 1.0527983649110833,
+              "length_jsd": 0.831324225140413,
+              "width_jsd": 0.6019614994222222,
+              "speed_jsd": 0.9750340048787528,
+              "collision_rate": 1.066291659014178
+            },
+            "R": 0.9484021802346261,
+            "gate_checks": {
+              "length_jsd": true,
+              "width_jsd": true,
+              "speed_jsd": true,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": true
+          },
+          "5817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.09245911582889485,
+              "lat_dev_jsd": 0.842380631894637,
+              "ang_dev_jsd": 0.2918076727590264,
+              "length_jsd": 0.4006086395187727,
+              "width_jsd": 0.10969541742861863,
+              "speed_jsd": 0.084252692327782,
+              "collision_rate": 0.3820719240642664,
+              "generated_onroad_fraction": 0.8542537510729786,
+              "num_generated_vehicles": 30361.0,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 1.0642224759120973,
+              "lat_dev_jsd": 1.0185582766827006,
+              "ang_dev_jsd": 1.015820486516557,
+              "length_jsd": 0.8660957866780312,
+              "width_jsd": 0.5955690163030528,
+              "speed_jsd": 0.9158208706723112,
+              "collision_rate": 1.1557682746569162
+            },
+            "R": 0.9474078839173808,
+            "gate_checks": {
+              "length_jsd": true,
+              "width_jsd": true,
+              "speed_jsd": true,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": true
+          }
+        },
+        "pooled_gates_pass": true,
+        "each_TRAIN_gates_pass": true,
+        "independent_reused_TRAIN_N": 2,
+        "new_training_runs": 0
+      },
+      "n40_eps0001": {
+        "metrics": {
+          "nearest_dist_jsd": 0.08417990414137336,
+          "lat_dev_jsd": 0.8358485215643965,
+          "ang_dev_jsd": 0.2678414396207488,
+          "length_jsd": 0.44058730019605585,
+          "width_jsd": 0.17545531605522255,
+          "speed_jsd": 0.09924852090987385,
+          "collision_rate": 0.33334450953002054,
+          "generated_onroad_fraction": 0.8589749687421704,
+          "num_generated_vehicles": 30374.0,
+          "num_gt_vehicles": 29698.0
+        },
+        "ratios": {
+          "nearest_dist_jsd": 0.9265930908506443,
+          "lat_dev_jsd": 1.005131952188854,
+          "ang_dev_jsd": 0.9866303190825929,
+          "length_jsd": 0.9608633883864477,
+          "width_jsd": 0.9467603277464763,
+          "speed_jsd": 0.971633003661505,
+          "collision_rate": 0.8467123657886362
+        },
+        "R": 0.9491892068150223,
+        "gate_checks": {
+          "length_jsd": true,
+          "width_jsd": true,
+          "speed_jsd": true,
+          "onroad": true,
+          "vehicle_ratio": true
+        },
+        "eligible": true,
+        "per_TRAIN": {
+          "4817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.0886953305834874,
+              "lat_dev_jsd": 0.8364977804143139,
+              "ang_dev_jsd": 0.25150798990679657,
+              "length_jsd": 0.44261169651120724,
+              "width_jsd": 0.19560696456592475,
+              "speed_jsd": 0.10898262456177087,
+              "collision_rate": 0.3784884976392894,
+              "generated_onroad_fraction": 0.8594143948507335,
+              "num_generated_vehicles": 30387.0,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 0.9354254279216017,
+              "lat_dev_jsd": 1.0004405310312061,
+              "ang_dev_jsd": 0.9836872805774803,
+              "length_jsd": 0.973800235177679,
+              "width_jsd": 1.0490690116744066,
+              "speed_jsd": 0.9705004447537008,
+              "collision_rate": 0.828552016454579
+            },
+            "R": 0.9630678496558076,
+            "gate_checks": {
+              "length_jsd": true,
+              "width_jsd": true,
+              "speed_jsd": true,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": true
+          },
+          "5817": {
+            "metrics": {
+              "nearest_dist_jsd": 0.0796644776992593,
+              "lat_dev_jsd": 0.8351992627144791,
+              "ang_dev_jsd": 0.284174889334701,
+              "length_jsd": 0.43856290388090446,
+              "width_jsd": 0.15530366754452035,
+              "speed_jsd": 0.08951441725797683,
+              "collision_rate": 0.2882005214207517,
+              "generated_onroad_fraction": 0.8585355426336074,
+              "num_generated_vehicles": 30361.0,
+              "num_gt_vehicles": 29698.0
+            },
+            "ratios": {
+              "nearest_dist_jsd": 0.9169536928759441,
+              "lat_dev_jsd": 1.0098749775428424,
+              "ang_dev_jsd": 0.989249774039176,
+              "length_jsd": 0.9481510026863372,
+              "width_jsd": 0.843189758295367,
+              "speed_jsd": 0.9730154525150123,
+              "collision_rate": 0.8718071086051796
+            },
+            "R": 0.9360345380799798,
+            "gate_checks": {
+              "length_jsd": true,
+              "width_jsd": true,
+              "speed_jsd": true,
+              "onroad": true,
+              "vehicle_ratio": true
+            },
+            "eligible": true
+          }
+        },
+        "pooled_gates_pass": true,
+        "each_TRAIN_gates_pass": true,
+        "independent_reused_TRAIN_N": 2,
+        "new_training_runs": 0
+      }
+    },
+    "selection_reason": "eligible minimum pooled R <=0.98 using fresh native anchors",
+    "steps": 40,
+    "eps": 0.05,
+    "model_evaluations_ratio_to_default20": 2.0,
+    "actual_new_training_runs": 0,
+    "full50000_reselection_permitted": false
+  },
+  "selection_is_inference_only": true,
+  "main_selection_unchanged": true,
+  "fresh_native_baselines": true,
+  "original_sampler_status": "FAILED_DEFAULT20_PARITY",
+  "original_main_replay_parity_claimed": false,
+  "main_decision_sha256": "dbc969542b569dc88305ae7d951a33556df3acd2f4a4ffbc0ef2287e84d836b4",
+  "actual_training_updates_in_this_job": 0,
+  "full50000_cannot_reselect": true,
+  "selector_sha256": "eb00283362afb72fc457f918721524fca7cb32f649f49484f3a3dcbbd4ff0236"
+}

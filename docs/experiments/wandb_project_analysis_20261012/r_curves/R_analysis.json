@@ -1,0 +1,1873 @@
+{
+  "source_inventory": "/home/ke/code/sim/docs/experiments/wandb_project_analysis_20261012/inventory.json",
+  "source_snapshot_fetched_at_utc": "2026-10-12T06:43:00.284152+00:00",
+  "created_at_utc": "2026-10-12T07:42:58.730399+00:00",
+  "definitions": {
+    "R7": "Arithmetic mean of seven candidate/control metric ratios.",
+    "R_attr": "Arithmetic mean of length/width/speed candidate/control metric ratios.",
+    "fixed": "Same control metric vector at all epochs.",
+    "same_epoch": "Control vector at the same validation epoch; only exact overlapping epochs used.",
+    "pooling": "These are single-run observed ratios. They are not the original paired TRAIN/GEN multi-seed pooled R."
+  },
+  "anchors": [
+    {
+      "initializer": "flow",
+      "reference_mode": "matched",
+      "run_id": "vd23g1bq",
+      "epoch": 99
+    },
+    {
+      "initializer": "flow",
+      "reference_mode": "full",
+      "run_id": "yj3x4z1n",
+      "epoch": 123
+    },
+    {
+      "initializer": "scenario_dreamer",
+      "reference_mode": "full",
+      "run_id": "xd6ibd0p",
+      "epoch": 63
+    }
+  ],
+  "point_comparison": [
+    {
+      "id": "iu3fa4gx",
+      "name": "657 / B512",
+      "R7_11": 1.4002356374585692,
+      "R7_55": 0.9836667141161445,
+      "R7_99": 0.9291241944854566,
+      "R_attr_11": 1.613950137859132,
+      "R_attr_55": 0.963728891523918,
+      "R_attr_99": 0.9222742007418353
+    },
+    {
+      "id": "vd23g1bq",
+      "name": "frozen shared / B512",
+      "R7_11": 1.7098077810547854,
+      "R7_55": 1.0692591214619862,
+      "R7_99": 1.0,
+      "R_attr_11": 1.555008511842128,
+      "R_attr_55": 1.0341936812668473,
+      "R_attr_99": 1.0
+    },
+    {
+      "id": "0yhfg9ue",
+      "name": "frozen shared / B256",
+      "R7_11": 1.6491751315239858,
+      "R7_55": 1.074381965160834,
+      "R7_99": 1.085019688358453,
+      "R_attr_11": 1.4921270621443412,
+      "R_attr_55": 1.1000317395697325,
+      "R_attr_99": 1.253840881951814
+    },
+    {
+      "id": "pd7zg04g",
+      "name": "scratch / B512 run3",
+      "R7_11": 1.8500570211314222,
+      "R7_55": 1.1337282671045656,
+      "R7_99": 1.0774045918826447,
+      "R_attr_11": 1.8879566491510273,
+      "R_attr_55": 1.316289253867964,
+      "R_attr_99": 1.2057705660983389
+    },
+    {
+      "id": "4bedivn1",
+      "name": "scratch / B512 run0",
+      "R7_11": 1.6885635597769242,
+      "R7_55": 1.1338727444926142,
+      "R7_99": 0.9982361182512899,
+      "R_attr_11": 1.6606507129421368,
+      "R_attr_55": 1.2905695619791684,
+      "R_attr_99": 1.0830848254076695
+    }
+  ],
+  "window_comparison": [
+    {
+      "id": "iu3fa4gx",
+      "name": "657 / B512",
+      "R7_short": 2.0487857370890525,
+      "R7_long": 0.9434387201764641,
+      "R_attr_short": 1.9680178524741232,
+      "R_attr_long": 0.9435557111222682
+    },
+    {
+      "id": "vd23g1bq",
+      "name": "frozen shared / B512",
+      "R7_short": 2.3425126064256148,
+      "R7_long": 1.014726276511567,
+      "R_attr_short": 2.1479507413994487,
+      "R_attr_long": 0.9932764329069977
+    },
+    {
+      "id": "0yhfg9ue",
+      "name": "frozen shared / B256",
+      "R7_short": 2.266282901884025,
+      "R7_long": 1.0754570654047793,
+      "R_attr_short": 1.9309153128055208,
+      "R_attr_long": 1.2369885102333509
+    },
+    {
+      "id": "pd7zg04g",
+      "name": "scratch / B512 run3",
+      "R7_short": 2.515891864019293,
+      "R7_long": 1.0726413452082864,
+      "R_attr_short": 2.755414913651446,
+      "R_attr_long": 1.1838529243177407
+    },
+    {
+      "id": "4bedivn1",
+      "name": "scratch / B512 run0",
+      "R7_short": 2.305818332853831,
+      "R7_long": 1.0093443986303092,
+      "R_attr_short": 2.3732454623515893,
+      "R_attr_long": 1.1106378720219878
+    }
+  ],
+  "correlations": [
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": 0.3,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.49999999999999994,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 0.6,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.3,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": 0.3,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": 0.39999999999999997,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": 0.0,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.09999999999999999,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.6,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 0.49999999999999994,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": 0.3,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": 0.0,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": 0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": 0.0,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.09999999999999999,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": 0.3,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.6,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 0.49999999999999994,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": 0.3,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 0.7,
+      "kendall": 0.6
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 0.9999999999999999,
+      "kendall": 0.9999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": 0.0,
+      "kendall": 0.19999999999999998
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 3,
+      "late_epoch": 99,
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 7,
+      "late_epoch": 99,
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 15,
+      "late_epoch": 99,
+      "spearman": -0.39999999999999997,
+      "kendall": -0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 23,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 31,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 39,
+      "late_epoch": 99,
+      "spearman": 0.0,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 55,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 63,
+      "late_epoch": 99,
+      "spearman": -0.39999999999999997,
+      "kendall": -0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 75,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 83,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 91,
+      "late_epoch": 99,
+      "spearman": 1.0,
+      "kendall": 1.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 95,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epochs": [
+        3,
+        7,
+        11
+      ],
+      "late_epochs": [
+        91,
+        95,
+        99
+      ],
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    }
+  ],
+  "run_coverage": [
+    "v62ymyjj",
+    "fs0kq6fc",
+    "c486qs4q",
+    "pz8g135r",
+    "vd23g1bq",
+    "0yhfg9ue",
+    "pd7zg04g",
+    "4bedivn1",
+    "iu3fa4gx",
+    "p8zklwhm",
+    "f4ycbbsv",
+    "yj3x4z1n",
+    "goea25fj",
+    "js4r7iv4",
+    "998jfk6p",
+    "jf8rww7q",
+    "xku0kek4",
+    "trs02007",
+    "eujj48dk",
+    "tww56ct8",
+    "ubz60tfu",
+    "fq878pvi",
+    "bjeddogm",
+    "hevc7vxd",
+    "zd2zyl4x",
+    "2p210lgu",
+    "xnx8w02i",
+    "8bvi21da",
+    "8tkj2lll",
+    "8ntfceea",
+    "xav8lg6g",
+    "cndh3j9b",
+    "scy2l1f4",
+    "rpdbsbqa",
+    "2ovlda03",
+    "e542nshp",
+    "b2e9mveq",
+    "mtse4mt8",
+    "e4n29nym",
+    "n9rkytow",
+    "2uektbsf",
+    "5ci1kh42",
+    "s8fu28tc",
+    "3v1bal38",
+    "v8p3hoqh",
+    "nlzfm3p0",
+    "yt36xx6k",
+    "rmu2caey",
+    "6gizvpvk",
+    "cvbgbvkj",
+    "pbrc18ra",
+    "s9z0zt17",
+    "7o8hfu2x",
+    "gu70l8rk",
+    "seeqfs23",
+    "phzfmaxe",
+    "rjusoky5",
+    "mjg6yxxh",
+    "a64orurh",
+    "0xu4iuii",
+    "dmotm17b",
+    "rpr9tsd4",
+    "cl6yxlk7",
+    "3ug16axh",
+    "cs4zd6tf",
+    "n9c86c9q",
+    "zph1g3w6",
+    "aa2g19bl",
+    "kv3pgcfd",
+    "6h4mqb16",
+    "nwsqcfsf",
+    "1cuggfhn",
+    "t68hfxiv",
+    "qo2rxkpq",
+    "bnkglp7d",
+    "nbg47oet",
+    "2oyh2nlv",
+    "pqcml39d",
+    "utg8xz6l",
+    "nhhzw6mv",
+    "65gadznw",
+    "dbyuosse",
+    "5zw9yimu",
+    "sxfu0q0g",
+    "drc4epxs",
+    "jw2ql67a",
+    "an5ysl5o",
+    "kllhgnbd",
+    "odsxqc27",
+    "3xqll8wx",
+    "s4ojjl2r",
+    "fyy4cpd8",
+    "9zwxxht5",
+    "o70rrbrv",
+    "dbp2a7aa",
+    "h8u37vmp",
+    "gnvuia6l",
+    "geot874m",
+    "0bjraej0",
+    "32dq74ba",
+    "ud0zz98v",
+    "v4gl49f8",
+    "hoa6ps62",
+    "e7hr612z",
+    "uptnxqm1",
+    "lw0236yr",
+    "mtcp7q0a",
+    "2rlj8ies",
+    "n6h1jy6x",
+    "00nmc4t0",
+    "z8ugv8zw",
+    "39tzd4u2",
+    "httjp5pu",
+    "mw9yvagc",
+    "9svs1613",
+    "c0vqwge7",
+    "8lw1uwu6",
+    "1xhf8wyu",
+    "gqbt87e1",
+    "jtwo7zq5",
+    "wkbycvzr",
+    "vfzlxsvu",
+    "cr7rq5va",
+    "x9ztzus4",
+    "8r5knyw9",
+    "kntvsfje",
+    "41lgd1f3",
+    "6q3bm004",
+    "nr6zewst",
+    "5kalfk3h",
+    "xd6ibd0p",
+    "ned4b5w9",
+    "u2v53y30",
+    "483mgmeq",
+    "ko8jt1ij"
+  ],
+  "atlas_pages": [
+    {
+      "name": "atlas_flow_matched_01",
+      "title": "InitDiffusion / matched reference - chart page 1",
+      "caption": "Each panel contains one run. Baseline vd23g1bq, epoch99 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "v62ymyjj",
+        "fs0kq6fc",
+        "c486qs4q",
+        "pz8g135r",
+        "vd23g1bq",
+        "0yhfg9ue"
+      ]
+    },
+    {
+      "name": "atlas_flow_matched_02",
+      "title": "InitDiffusion / matched reference - chart page 2",
+      "caption": "Each panel contains one run. Baseline vd23g1bq, epoch99 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "pd7zg04g",
+        "4bedivn1",
+        "iu3fa4gx"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_01",
+      "title": "InitDiffusion / full reference (historical) - chart page 1",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "p8zklwhm",
+        "f4ycbbsv",
+        "yj3x4z1n",
+        "goea25fj",
+        "js4r7iv4",
+        "998jfk6p"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_02",
+      "title": "InitDiffusion / full reference (historical) - chart page 2",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "jf8rww7q",
+        "xku0kek4",
+        "trs02007",
+        "eujj48dk",
+        "tww56ct8",
+        "ubz60tfu"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_03",
+      "title": "InitDiffusion / full reference (historical) - chart page 3",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "fq878pvi",
+        "bjeddogm",
+        "hevc7vxd",
+        "zd2zyl4x",
+        "2p210lgu",
+        "xnx8w02i"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_04",
+      "title": "InitDiffusion / full reference (historical) - chart page 4",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "8bvi21da",
+        "8tkj2lll",
+        "8ntfceea",
+        "xav8lg6g",
+        "cndh3j9b",
+        "scy2l1f4"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_05",
+      "title": "InitDiffusion / full reference (historical) - chart page 5",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "rpdbsbqa",
+        "2ovlda03",
+        "e542nshp",
+        "b2e9mveq",
+        "mtse4mt8",
+        "e4n29nym"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_06",
+      "title": "InitDiffusion / full reference (historical) - chart page 6",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "n9rkytow",
+        "2uektbsf",
+        "5ci1kh42",
+        "s8fu28tc",
+        "3v1bal38",
+        "v8p3hoqh"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_07",
+      "title": "InitDiffusion / full reference (historical) - chart page 7",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "nlzfm3p0",
+        "yt36xx6k",
+        "rmu2caey",
+        "6gizvpvk",
+        "cvbgbvkj",
+        "pbrc18ra"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_08",
+      "title": "InitDiffusion / full reference (historical) - chart page 8",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "s9z0zt17",
+        "7o8hfu2x",
+        "gu70l8rk",
+        "seeqfs23",
+        "phzfmaxe",
+        "rjusoky5"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_09",
+      "title": "InitDiffusion / full reference (historical) - chart page 9",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "mjg6yxxh",
+        "a64orurh",
+        "0xu4iuii",
+        "dmotm17b",
+        "rpr9tsd4",
+        "cl6yxlk7"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_10",
+      "title": "InitDiffusion / full reference (historical) - chart page 10",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "3ug16axh",
+        "cs4zd6tf",
+        "n9c86c9q",
+        "zph1g3w6",
+        "aa2g19bl",
+        "kv3pgcfd"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_11",
+      "title": "InitDiffusion / full reference (historical) - chart page 11",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "6h4mqb16",
+        "nwsqcfsf",
+        "1cuggfhn",
+        "t68hfxiv",
+        "qo2rxkpq",
+        "bnkglp7d"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_12",
+      "title": "InitDiffusion / full reference (historical) - chart page 12",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "nbg47oet",
+        "2oyh2nlv",
+        "pqcml39d",
+        "utg8xz6l",
+        "nhhzw6mv",
+        "65gadznw"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_13",
+      "title": "InitDiffusion / full reference (historical) - chart page 13",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "dbyuosse",
+        "5zw9yimu",
+        "sxfu0q0g",
+        "drc4epxs",
+        "jw2ql67a",
+        "an5ysl5o"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_14",
+      "title": "InitDiffusion / full reference (historical) - chart page 14",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "kllhgnbd",
+        "odsxqc27",
+        "3xqll8wx",
+        "s4ojjl2r",
+        "fyy4cpd8",
+        "9zwxxht5"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_15",
+      "title": "InitDiffusion / full reference (historical) - chart page 15",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "o70rrbrv",
+        "dbp2a7aa",
+        "h8u37vmp",
+        "gnvuia6l",
+        "geot874m",
+        "0bjraej0"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_16",
+      "title": "InitDiffusion / full reference (historical) - chart page 16",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "32dq74ba",
+        "ud0zz98v",
+        "v4gl49f8",
+        "hoa6ps62",
+        "e7hr612z",
+        "uptnxqm1"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_17",
+      "title": "InitDiffusion / full reference (historical) - chart page 17",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "lw0236yr",
+        "mtcp7q0a",
+        "2rlj8ies",
+        "n6h1jy6x",
+        "00nmc4t0",
+        "z8ugv8zw"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_18",
+      "title": "InitDiffusion / full reference (historical) - chart page 18",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "39tzd4u2",
+        "httjp5pu",
+        "mw9yvagc",
+        "9svs1613",
+        "c0vqwge7",
+        "8lw1uwu6"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_19",
+      "title": "InitDiffusion / full reference (historical) - chart page 19",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "1xhf8wyu",
+        "gqbt87e1",
+        "jtwo7zq5",
+        "wkbycvzr",
+        "vfzlxsvu",
+        "cr7rq5va"
+      ]
+    },
+    {
+      "name": "atlas_flow_full_20",
+      "title": "InitDiffusion / full reference (historical) - chart page 20",
+      "caption": "Each panel contains one run. Baseline yj3x4z1n, epoch123 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "x9ztzus4",
+        "8r5knyw9"
+      ]
+    },
+    {
+      "name": "atlas_scenario_dreamer_full_01",
+      "title": "Scenario Dreamer / full reference (historical) - chart page 1",
+      "caption": "Each panel contains one run. Baseline xd6ibd0p, epoch63 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "kntvsfje",
+        "41lgd1f3",
+        "6q3bm004",
+        "nr6zewst",
+        "5kalfk3h",
+        "xd6ibd0p"
+      ]
+    },
+    {
+      "name": "atlas_scenario_dreamer_full_02",
+      "title": "Scenario Dreamer / full reference (historical) - chart page 2",
+      "caption": "Each panel contains one run. Baseline xd6ibd0p, epoch63 is fixed. Six plots per page. Original history is not sampled; repeated evaluations at one epoch are averaged at metric level.",
+      "run_ids": [
+        "ned4b5w9",
+        "u2v53y30",
+        "483mgmeq",
+        "ko8jt1ij"
+      ]
+    }
+  ],
+  "limitations": [
+    "Frozen snapshot from prior project analysis; actively running trials have no demonstrated long-term result.",
+    "Input conditions and version/hardware differ; historical full-reference charts are not a fair leaderboard.",
+    "Primary correlation uses five matched-reference runs reaching epoch99; only three reach127 and overnight stops at55.",
+    "No pairing of generation seeds, no independent training replicates per recipe, no remote dataset hashes.",
+    "Per-epoch metric averaging for duplicate logged evaluations is not pooled-histogram JSD."
+  ]
+}

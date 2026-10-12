@@ -1,0 +1,361 @@
+{
+  "status": "ACTUAL_REPEATABILITY_FAILURE_IN_BOTH_ENTRYPOINTS_NO_SAMPLER_OPTION_INFERENCE",
+  "created_utc": "2026-10-12T00:53:40.869728+00:00",
+  "cpu_only_review": true,
+  "reports": {
+    "main_endpoint": {
+      "path": "logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/eval_step_20480/ema/sd_agent_metrics.json",
+      "sha256": "21edd7f1b839527dc72f286c3313f8bef6da7e8536e4504cddb7687d4b6442aa",
+      "metrics": {
+        "nearest_dist_jsd": 0.08799611530619342,
+        "lat_dev_jsd": 0.8232463358494148,
+        "ang_dev_jsd": 0.25472929967221936,
+        "length_jsd": 0.46241163495140897,
+        "width_jsd": 0.1836812187965952,
+        "speed_jsd": 0.08194905378797833,
+        "collision_rate": 0.38096489211468354
+      },
+      "counts": {
+        "num_generated_vehicles": 30449,
+        "num_colliding_vehicles": 116,
+        "feature_counts_generated": [
+          30167,
+          26236,
+          26236,
+          30449,
+          30449,
+          30449
+        ],
+        "feature_counts_gt": [
+          29414,
+          29526,
+          29526,
+          29698,
+          29698,
+          29698
+        ]
+      }
+    },
+    "native_first": {
+      "path": "logs/init_diffusion_sampler_inference_20261012/grid/train4817_gen2817_n20_eps005/sd_agent_metrics.json",
+      "sha256": "800714adec94751677e7632c987b75308d699010077aac222ec5c6693720207f",
+      "metrics": {
+        "nearest_dist_jsd": 0.08784995276459125,
+        "lat_dev_jsd": 0.8231578889901346,
+        "ang_dev_jsd": 0.25466000975539,
+        "length_jsd": 0.461343726007473,
+        "width_jsd": 0.18243424186388896,
+        "speed_jsd": 0.0821868445794023,
+        "collision_rate": 0.38096489211468354
+      },
+      "counts": {
+        "num_generated_vehicles": 30449,
+        "num_colliding_vehicles": 116,
+        "feature_counts_generated": [
+          30167,
+          26237,
+          26237,
+          30449,
+          30449,
+          30449
+        ],
+        "feature_counts_gt": [
+          29414,
+          29526,
+          29526,
+          29698,
+          29698,
+          29698
+        ]
+      }
+    },
+    "native_repeat": {
+      "path": "logs/init_diffusion_sampler_inference_20261012/diagnostic_repeat/grid/train4817_gen2817_n20_eps005/sd_agent_metrics.json",
+      "sha256": "3ea5cf1208ea1000ff1ac8abd2e80fd163676a86e319a153b1b9a74a613659fa",
+      "metrics": {
+        "nearest_dist_jsd": 0.08781488222145763,
+        "lat_dev_jsd": 0.8229736042488525,
+        "ang_dev_jsd": 0.25310769551556805,
+        "length_jsd": 0.4609308171652353,
+        "width_jsd": 0.18402605274081865,
+        "speed_jsd": 0.08203733204480188,
+        "collision_rate": 0.38096489211468354
+      },
+      "counts": {
+        "num_generated_vehicles": 30449,
+        "num_colliding_vehicles": 116,
+        "feature_counts_generated": [
+          30167,
+          26236,
+          26236,
+          30449,
+          30449,
+          30449
+        ],
+        "feature_counts_gt": [
+          29414,
+          29526,
+          29526,
+          29698,
+          29698,
+          29698
+        ]
+      }
+    },
+    "original_entry_replay": {
+      "path": "logs/init_diffusion_sampler_inference_20261012/diagnostic_original_runner/separate_speed/eval_step_20480/ema/sd_agent_metrics.json",
+      "sha256": "dfa4f5e289e02a1091dfb620f06376e6bf85ef4c54df38e5522a587a9dc8f24a",
+      "metrics": {
+        "nearest_dist_jsd": 0.08780481776230001,
+        "lat_dev_jsd": 0.8233795646890413,
+        "ang_dev_jsd": 0.2543007044974742,
+        "length_jsd": 0.45946183595978446,
+        "width_jsd": 0.183496943124392,
+        "speed_jsd": 0.08204429920275534,
+        "collision_rate": 0.38096489211468354
+      },
+      "counts": {
+        "num_generated_vehicles": 30449,
+        "num_colliding_vehicles": 116,
+        "feature_counts_generated": [
+          30167,
+          26238,
+          26238,
+          30449,
+          30449,
+          30449
+        ],
+        "feature_counts_gt": [
+          29414,
+          29526,
+          29526,
+          29698,
+          29698,
+          29698
+        ]
+      }
+    }
+  },
+  "same_recorded_configuration_scope_and_runtime": {
+    "num_samples": true,
+    "num_gt_samples": true,
+    "num_generated_vehicles": true,
+    "num_gt_vehicles": true,
+    "num_colliding_vehicles": true,
+    "feature_counts_gt": true,
+    "reference_mode": true,
+    "map_source": true,
+    "eval_set_sha256": true,
+    "reference_source_manifest_sha256": true,
+    "official_source_sha256": true,
+    "runtime": true,
+    "decoder": true
+  },
+  "pairwise_actual_differences": {
+    "native_first_minus_main_endpoint": {
+      "delta_native_scaled_units": {
+        "nearest_dist_jsd": -0.00014616254160217113,
+        "lat_dev_jsd": -8.844685928011131e-05,
+        "ang_dev_jsd": -6.928991682936259e-05,
+        "length_jsd": -0.0010679089439359912,
+        "width_jsd": -0.0012469769327062563,
+        "speed_jsd": 0.00023779079142396964,
+        "collision_rate": 0.0
+      },
+      "relative_percent": {
+        "nearest_dist_jsd": -0.16610112968462346,
+        "lat_dev_jsd": -0.010743668745133618,
+        "ang_dev_jsd": -0.027201392583626416,
+        "length_jsd": -0.23094335505814187,
+        "width_jsd": -0.6788810205397934,
+        "speed_jsd": 0.2901690506875051,
+        "collision_rate": 0.0
+      },
+      "max_absolute_difference": 0.0012469769327062563,
+      "passes_original_abs_1e_6_guard": false
+    },
+    "native_repeat_minus_native_first": {
+      "delta_native_scaled_units": {
+        "nearest_dist_jsd": -3.507054313361957e-05,
+        "lat_dev_jsd": -0.0001842847412821813,
+        "ang_dev_jsd": -0.0015523142398219392,
+        "length_jsd": -0.0004129088422376581,
+        "width_jsd": 0.0015918108769296946,
+        "speed_jsd": -0.0001495125346004239,
+        "collision_rate": 0.0
+      },
+      "relative_percent": {
+        "nearest_dist_jsd": -0.039920958441032973,
+        "lat_dev_jsd": -0.022387532664998842,
+        "ang_dev_jsd": -0.6095634101769619,
+        "length_jsd": -0.08950134551758697,
+        "width_jsd": 0.8725395302255359,
+        "speed_jsd": -0.1819178426493512,
+        "collision_rate": 0.0
+      },
+      "max_absolute_difference": 0.0015918108769296946,
+      "passes_original_abs_1e_6_guard": false
+    },
+    "original_entry_replay_minus_main_endpoint": {
+      "delta_native_scaled_units": {
+        "nearest_dist_jsd": -0.00019129754389340947,
+        "lat_dev_jsd": 0.0001332288396265202,
+        "ang_dev_jsd": -0.00042859517474513886,
+        "length_jsd": -0.002949798991624508,
+        "width_jsd": -0.00018427567220322127,
+        "speed_jsd": 9.52454147770121e-05,
+        "collision_rate": 0.0
+      },
+      "relative_percent": {
+        "nearest_dist_jsd": -0.2173931692640816,
+        "lat_dev_jsd": 0.016183350453550023,
+        "ang_dev_jsd": -0.1682551537246193,
+        "length_jsd": -0.6379162565696423,
+        "width_jsd": -0.10032363320023717,
+        "speed_jsd": 0.11622515498889666,
+        "collision_rate": 0.0
+      },
+      "max_absolute_difference": 0.002949798991624508,
+      "passes_original_abs_1e_6_guard": false
+    }
+  },
+  "observed_four_run_metric_ranges_not_confidence_intervals": {
+    "nearest_dist_jsd": {
+      "minimum": 0.08780481776230001,
+      "maximum": 0.08799611530619342,
+      "span_native_units": 0.00019129754389340947,
+      "span_relative_to_main_percent": 0.2173931692640816
+    },
+    "lat_dev_jsd": {
+      "minimum": 0.8229736042488525,
+      "maximum": 0.8233795646890413,
+      "span_native_units": 0.00040596044018881283,
+      "span_relative_to_main_percent": 0.04931214662133275
+    },
+    "ang_dev_jsd": {
+      "minimum": 0.25310769551556805,
+      "maximum": 0.25472929967221936,
+      "span_native_units": 0.0016216041566513018,
+      "span_relative_to_main_percent": 0.63659899302434
+    },
+    "length_jsd": {
+      "minimum": 0.45946183595978446,
+      "maximum": 0.46241163495140897,
+      "span_native_units": 0.002949798991624508,
+      "span_relative_to_main_percent": 0.6379162565696423
+    },
+    "width_jsd": {
+      "minimum": 0.18243424186388896,
+      "maximum": 0.18402605274081865,
+      "span_native_units": 0.0015918108769296946,
+      "span_relative_to_main_percent": 0.8666160249581276
+    },
+    "speed_jsd": {
+      "minimum": 0.08194905378797833,
+      "maximum": 0.0821868445794023,
+      "span_native_units": 0.00023779079142396964,
+      "span_relative_to_main_percent": 0.2901690506875051
+    },
+    "collision_rate": {
+      "minimum": 0.38096489211468354,
+      "maximum": 0.38096489211468354,
+      "span_native_units": 0.0,
+      "span_relative_to_main_percent": 0.0
+    }
+  },
+  "strict_cpu_restoration_observation": {
+    "session_id": 94555,
+    "actual_checkpoint": "logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt",
+    "actual_checkpoint_sha256": "416208df8a20f44338190fd694ea5ffcf74381586adf6d16bf425f5e9d8c405b",
+    "routes": "instantiate actual saved source config with AIRL startup map vs actual native first-cell config with null startup map; strict load same checkpoint",
+    "same_all_tensor_hashes": true,
+    "hash_algorithm": "name+shape+dtype+CPU contiguous tensor bytes; cannot compare differently-named legacy hashes",
+    "tensor_hashes": {
+      "map": "d38a611fa6709532cb591dca54c13881aa1ff8c42eef73ef89cc2030ac41132f",
+      "G1": "19844026ba3e806f92e6dfd822c96c38f330c249bbea65274ab3c5722d4ac319",
+      "EMA": "c71ed70ceeb42db5f659928378624113624e5488cfb4527bd6492e719cbe1691",
+      "normalizer": "dc392d9e6e4e1926492388418c39d13080485223866acb9a7f1361dc388aca2d"
+    },
+    "EMA_updates_both": 20480,
+    "cuda_initialized_both": false,
+    "map_training_both": false,
+    "network_forward_executed": false
+  },
+  "facts": [
+    "The original frozen evaluator entrypoint does not reproduce its own recorded seven metrics within absolute 1e-6.",
+    "Two isolated native runs of the same default N20 eps.05 also do not reproduce each other within absolute 1e-6.",
+    "All four runs have exact same generated vehicles and colliding vehicles; generated onroad feature count varies by at most two vehicles.",
+    "The whole recorded decoder configuration, physical reference scope, units, generation seed, runtime precision and GT feature counts are equal.",
+    "CPU strict-restoration excluded startup map preload, G1/EMA/normalizer tensor differences between actual source/native construction routes.",
+    "Current repeats do not establish a quantitative error distribution; four runs are not confidence intervals or a proof of no larger differences."
+  ],
+  "possible_mechanisms_not_proven": [
+    "Graph attention uses PyG MessagePassing add aggregation and torch_geometric softmax; CUDA unordered reductions can yield floating-point variation, but no actual operator-level/noise/output hash experiment has established this as the causal path.",
+    "Flow sampling integrates repeated model predictions, and metric histograms/road masks use discrete bins/thresholds; small output changes could change counts, but actual generated-state differences were not captured.",
+    "Native callback seeds after checkpoint restore, whereas frozen evaluator seeds before Trainer construction; this lifecycle difference cannot explain original-entry replay self-difference by itself.",
+    "Frozen sweep explicitly sets Torch CPU threads to four; native relies on environment. Actual thread settings were not recorded, so numerical impact is unknown."
+  ],
+  "inference_limits": {
+    "main_training_selection_8cells_immutable": true,
+    "main_full50000_4cells_remain_valid_as_recorded_actual_results": true,
+    "original_sampler_parity_failed_not_reclassified": true,
+    "old_default20_guard_relaxed": false,
+    "old_and_new_sampler_comparisons_must_not_be_pooled": true,
+    "new_native_cohort_requires_fresh_N20_baselines_same_execution_path_and_four_cells_per_option": true,
+    "requires_preregistered_new_protocol_before_new_options": true,
+    "recommended_acceptance_margin_not_statistical_guarantee": "R<=0.98 plus all existing gates; reports must disclose numerical repeatability issue and native-cohort scope."
+  },
+  "local_primary_source_evidence": [
+    {
+      "path": "src/smart/layers/attention_layer.py",
+      "lines": [
+        27,
+        99,
+        134
+      ],
+      "sha256": "ed00c32334e6deaec08cda284955a2b29e3b1783d07966b496f1f1db9621d618"
+    },
+    {
+      "path": "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch_geometric/utils/_softmax.py",
+      "lines": [
+        85,
+        90
+      ],
+      "sha256": "e9d4d56d65f4e2569e9913fe6453cc4baca6459b516bccd8176d9009797f9b8c"
+    },
+    {
+      "path": "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch_geometric/utils/_scatter.py",
+      "lines": [
+        67,
+        70
+      ],
+      "sha256": "c966b2aa448fb391b9b6c92ed873f125a1dca8545a49a6a6fcbef419bfbb5308"
+    },
+    {
+      "path": "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch/_tensor_docs.py",
+      "lines": [
+        4525,
+        4526
+      ],
+      "sha256": "2473dc9df5d12132a2ec51e2d396a4e8c91f3de5e0a011651617fa613832d0bf"
+    },
+    {
+      "path": "/home/ke/miniconda3/envs/sim/lib/python3.11/site-packages/torch/_torch_docs.py",
+      "lines": [
+        177,
+        179
+      ],
+      "sha256": "00d7efffa3a55d6d25b23c1b9904545328ab6dfcb934046925c9eae24abff3e5"
+    },
+    {
+      "path": "src/smart/metrics/metric_core.py",
+      "lines": [
+        50,
+        67,
+        87
+      ],
+      "sha256": "f34ac0a48d9c1ce6e9e7655341aa44c78072b862e2a809f1ec2cc5ce8b3290a3"
+    }
+  ],
+  "causal_operator_proof_available": false
+}

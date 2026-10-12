@@ -1,0 +1,9 @@
+{
+  "status": "INTENTIONAL_RUNTIME_CONTROLLER_REVISION_NOT_MODEL_RESULT",
+  "controller_pid": 961534,
+  "child_pid": 964172,
+  "reason": "Measured final-evaluation deadline forecast added before any completed screening endpoint; freeze and restart all18arms under loaded current controller",
+  "signals": "SIGTERM original dedicated controller and isolated child",
+  "recorded_unix": 1791738889.0645263,
+  "excluded_from_search_results": true
+}

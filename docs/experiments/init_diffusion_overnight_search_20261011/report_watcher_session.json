@@ -1,0 +1,20 @@
+{
+  "status": "ACTUAL_RUNNING_CPU_REPORT_WATCHER",
+  "tool_session_id": 87911,
+  "namespace_local_pid": 2,
+  "namespace_note": "sandbox-local PID is not a host-process identifier; use exec session ID",
+  "started_utc": "2026-10-11T17:23:10.365265+00:00",
+  "until_utc": "2026-10-12T01:40:00+00:00",
+  "script": "/tmp/sim_overnight_report_watcher_20261012.py",
+  "state": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/report_watcher.json",
+  "events": "/home/ke/code/sim/docs/experiments/init_diffusion_overnight_search_20261011/report_watcher_events.jsonl",
+  "event_poll_seconds": 30,
+  "periodic_refresh_seconds": 600,
+  "CPU_commands": [
+    "tools/overnight_search_analysis.py --figures",
+    "tools/build_overnight_search_report.py"
+  ],
+  "GPU_started": false,
+  "PDF_generated": false,
+  "completion_marker_created": false
+}

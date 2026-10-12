@@ -1,0 +1,299 @@
+{
+  "status": "CPU_PROBE_COMPLETED",
+  "scope": "Actual source WaymoTargetBuilderTrain + installed PyG Batch.from_data_list, 100unique scene caches cycling for1000B2batches; no G1/map/Lightning/TF forward",
+  "source_path": "/home/ke/code/sim/src/smart/datamodules/target_builder.py",
+  "source_sha256": "83a49d0bb79fe1c562205333d601ed5489e644ab656316bb6603785ace549f1e",
+  "100scene_manifest_hash": "6d16d5445eea9f9dcbb6990e2a06c4104ca115f2e1049e145637cf1a50f6fa08",
+  "records": [
+    {
+      "batches": 0,
+      "scene_loads": 0,
+      "tracked_objects": 491620,
+      "rss_kib": 651136,
+      "Torch_Tensor_objects": 1,
+      "selected_dynamic_classes": {
+        "torch.serialization._SerializationLocal": 1,
+        "torch.serialization.SourceChangeWarning": 1,
+        "torch.serialization.LoadEndianness": 1,
+        "torch.serialization.set_default_mmap_options": 1,
+        "torch.serialization.safe_globals": 1,
+        "torch.serialization.skip_data": 1,
+        "torch.serialization._opener": 1,
+        "torch.serialization._open_file": 1,
+        "torch.serialization._open_buffer_reader": 1,
+        "torch.serialization._open_buffer_writer": 1,
+        "torch.serialization._open_zipfile_reader": 1,
+        "torch.serialization._open_zipfile_writer_file": 1,
+        "torch.serialization._open_zipfile_writer_buffer": 1,
+        "torch.serialization.StorageType": 1
+      },
+      "PyG_object_counts": {
+        "torch_geometric.edge_index.SortOrder": 2,
+        "torch_geometric.data.feature_store._FieldStatus": 1,
+        "torch_geometric.data.graph_store.EdgeLayout": 3,
+        "torch_geometric.data.storage.AttrType": 3,
+        "torch_geometric.data.batch.DynamicInheritance": 1,
+        "torch_geometric.lazy_loader.LazyLoader": 3,
+        "torch_geometric.sampler.base.DataType": 3,
+        "torch_geometric.sampler.base.SubgraphType": 3,
+        "torch_geometric.sampler.base.NegativeSamplingMode": 2,
+        "torch_geometric.explain.config.ExplanationType": 2,
+        "torch_geometric.explain.config.MaskType": 3,
+        "torch_geometric.explain.config.ModelMode": 3,
+        "torch_geometric.explain.config.ModelTaskLevel": 3,
+        "torch_geometric.explain.config.ModelReturnType": 3,
+        "torch_geometric.explain.config.ThresholdType": 3,
+        "torch_geometric.explain.algorithm.captum.MaskLevelType": 3,
+        "torch_geometric.nn.nlp.sentence_transformer.PoolingStrategy": 3
+      },
+      "cache_stats": {
+        "classes_created": 0,
+        "class_reuses": 0,
+        "cached_loader_kinds": [],
+        "validated_closures": {}
+      },
+      "seconds": 0.03495960499276407
+    },
+    {
+      "batches": 250,
+      "scene_loads": 500,
+      "tracked_objects": 492719,
+      "rss_kib": 652812,
+      "Torch_Tensor_objects": 1,
+      "selected_dynamic_classes": {
+        "torch.serialization._SerializationLocal": 1,
+        "torch.serialization.SourceChangeWarning": 1,
+        "torch.serialization.LoadEndianness": 1,
+        "torch.serialization.set_default_mmap_options": 1,
+        "torch.serialization.safe_globals": 1,
+        "torch.serialization.skip_data": 1,
+        "torch.serialization._opener": 1,
+        "torch.serialization._open_file": 1,
+        "torch.serialization._open_buffer_reader": 1,
+        "torch.serialization._open_buffer_writer": 1,
+        "torch.serialization._open_zipfile_reader": 1,
+        "torch.serialization._open_zipfile_writer_file": 1,
+        "torch.serialization._open_zipfile_writer_buffer": 1,
+        "torch.serialization.StorageType": 1,
+        "torch.serialization.UnpicklerWrapper": 1,
+        "torch_geometric.data.batch.MetaResolver": 250
+      },
+      "PyG_object_counts": {
+        "torch_geometric.edge_index.SortOrder": 2,
+        "torch_geometric.data.feature_store._FieldStatus": 1,
+        "torch_geometric.data.graph_store.EdgeLayout": 3,
+        "torch_geometric.data.storage.AttrType": 3,
+        "torch_geometric.data.batch.DynamicInheritance": 1,
+        "torch_geometric.lazy_loader.LazyLoader": 3,
+        "torch_geometric.sampler.base.DataType": 3,
+        "torch_geometric.sampler.base.SubgraphType": 3,
+        "torch_geometric.sampler.base.NegativeSamplingMode": 2,
+        "torch_geometric.explain.config.ExplanationType": 2,
+        "torch_geometric.explain.config.MaskType": 3,
+        "torch_geometric.explain.config.ModelMode": 3,
+        "torch_geometric.explain.config.ModelTaskLevel": 3,
+        "torch_geometric.explain.config.ModelReturnType": 3,
+        "torch_geometric.explain.config.ThresholdType": 3,
+        "torch_geometric.explain.algorithm.captum.MaskLevelType": 3,
+        "torch_geometric.nn.nlp.sentence_transformer.PoolingStrategy": 3,
+        "torch_geometric.data.batch.MetaResolver": 1
+      },
+      "cache_stats": {
+        "classes_created": 1,
+        "class_reuses": 499,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      },
+      "seconds": 0.29032261499378365
+    },
+    {
+      "batches": 500,
+      "scene_loads": 1000,
+      "tracked_objects": 493725,
+      "rss_kib": 652812,
+      "Torch_Tensor_objects": 1,
+      "selected_dynamic_classes": {
+        "torch.serialization._SerializationLocal": 1,
+        "torch.serialization.SourceChangeWarning": 1,
+        "torch.serialization.LoadEndianness": 1,
+        "torch.serialization.set_default_mmap_options": 1,
+        "torch.serialization.safe_globals": 1,
+        "torch.serialization.skip_data": 1,
+        "torch.serialization._opener": 1,
+        "torch.serialization._open_file": 1,
+        "torch.serialization._open_buffer_reader": 1,
+        "torch.serialization._open_buffer_writer": 1,
+        "torch.serialization._open_zipfile_reader": 1,
+        "torch.serialization._open_zipfile_writer_file": 1,
+        "torch.serialization._open_zipfile_writer_buffer": 1,
+        "torch.serialization.StorageType": 1,
+        "torch.serialization.UnpicklerWrapper": 1,
+        "torch_geometric.data.batch.MetaResolver": 500
+      },
+      "PyG_object_counts": {
+        "torch_geometric.edge_index.SortOrder": 2,
+        "torch_geometric.data.feature_store._FieldStatus": 1,
+        "torch_geometric.data.graph_store.EdgeLayout": 3,
+        "torch_geometric.data.storage.AttrType": 3,
+        "torch_geometric.data.batch.DynamicInheritance": 1,
+        "torch_geometric.lazy_loader.LazyLoader": 3,
+        "torch_geometric.sampler.base.DataType": 3,
+        "torch_geometric.sampler.base.SubgraphType": 3,
+        "torch_geometric.sampler.base.NegativeSamplingMode": 2,
+        "torch_geometric.explain.config.ExplanationType": 2,
+        "torch_geometric.explain.config.MaskType": 3,
+        "torch_geometric.explain.config.ModelMode": 3,
+        "torch_geometric.explain.config.ModelTaskLevel": 3,
+        "torch_geometric.explain.config.ModelReturnType": 3,
+        "torch_geometric.explain.config.ThresholdType": 3,
+        "torch_geometric.explain.algorithm.captum.MaskLevelType": 3,
+        "torch_geometric.nn.nlp.sentence_transformer.PoolingStrategy": 3,
+        "torch_geometric.data.batch.MetaResolver": 1
+      },
+      "cache_stats": {
+        "classes_created": 1,
+        "class_reuses": 999,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      },
+      "seconds": 0.5448826240026392
+    },
+    {
+      "batches": 750,
+      "scene_loads": 1500,
+      "tracked_objects": 494730,
+      "rss_kib": 652820,
+      "Torch_Tensor_objects": 1,
+      "selected_dynamic_classes": {
+        "torch.serialization._SerializationLocal": 1,
+        "torch.serialization.SourceChangeWarning": 1,
+        "torch.serialization.LoadEndianness": 1,
+        "torch.serialization.set_default_mmap_options": 1,
+        "torch.serialization.safe_globals": 1,
+        "torch.serialization.skip_data": 1,
+        "torch.serialization._opener": 1,
+        "torch.serialization._open_file": 1,
+        "torch.serialization._open_buffer_reader": 1,
+        "torch.serialization._open_buffer_writer": 1,
+        "torch.serialization._open_zipfile_reader": 1,
+        "torch.serialization._open_zipfile_writer_file": 1,
+        "torch.serialization._open_zipfile_writer_buffer": 1,
+        "torch.serialization.StorageType": 1,
+        "torch.serialization.UnpicklerWrapper": 1,
+        "torch_geometric.data.batch.MetaResolver": 750
+      },
+      "PyG_object_counts": {
+        "torch_geometric.edge_index.SortOrder": 2,
+        "torch_geometric.data.feature_store._FieldStatus": 1,
+        "torch_geometric.data.graph_store.EdgeLayout": 3,
+        "torch_geometric.data.storage.AttrType": 3,
+        "torch_geometric.data.batch.DynamicInheritance": 1,
+        "torch_geometric.lazy_loader.LazyLoader": 3,
+        "torch_geometric.sampler.base.DataType": 3,
+        "torch_geometric.sampler.base.SubgraphType": 3,
+        "torch_geometric.sampler.base.NegativeSamplingMode": 2,
+        "torch_geometric.explain.config.ExplanationType": 2,
+        "torch_geometric.explain.config.MaskType": 3,
+        "torch_geometric.explain.config.ModelMode": 3,
+        "torch_geometric.explain.config.ModelTaskLevel": 3,
+        "torch_geometric.explain.config.ModelReturnType": 3,
+        "torch_geometric.explain.config.ThresholdType": 3,
+        "torch_geometric.explain.algorithm.captum.MaskLevelType": 3,
+        "torch_geometric.nn.nlp.sentence_transformer.PoolingStrategy": 3,
+        "torch_geometric.data.batch.MetaResolver": 1
+      },
+      "cache_stats": {
+        "classes_created": 1,
+        "class_reuses": 1499,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      },
+      "seconds": 0.7993371490010759
+    },
+    {
+      "batches": 1000,
+      "scene_loads": 2000,
+      "tracked_objects": 495735,
+      "rss_kib": 652832,
+      "Torch_Tensor_objects": 1,
+      "selected_dynamic_classes": {
+        "torch.serialization._SerializationLocal": 1,
+        "torch.serialization.SourceChangeWarning": 1,
+        "torch.serialization.LoadEndianness": 1,
+        "torch.serialization.set_default_mmap_options": 1,
+        "torch.serialization.safe_globals": 1,
+        "torch.serialization.skip_data": 1,
+        "torch.serialization._opener": 1,
+        "torch.serialization._open_file": 1,
+        "torch.serialization._open_buffer_reader": 1,
+        "torch.serialization._open_buffer_writer": 1,
+        "torch.serialization._open_zipfile_reader": 1,
+        "torch.serialization._open_zipfile_writer_file": 1,
+        "torch.serialization._open_zipfile_writer_buffer": 1,
+        "torch.serialization.StorageType": 1,
+        "torch.serialization.UnpicklerWrapper": 1,
+        "torch_geometric.data.batch.MetaResolver": 1000
+      },
+      "PyG_object_counts": {
+        "torch_geometric.edge_index.SortOrder": 2,
+        "torch_geometric.data.feature_store._FieldStatus": 1,
+        "torch_geometric.data.graph_store.EdgeLayout": 3,
+        "torch_geometric.data.storage.AttrType": 3,
+        "torch_geometric.data.batch.DynamicInheritance": 1,
+        "torch_geometric.lazy_loader.LazyLoader": 3,
+        "torch_geometric.sampler.base.DataType": 3,
+        "torch_geometric.sampler.base.SubgraphType": 3,
+        "torch_geometric.sampler.base.NegativeSamplingMode": 2,
+        "torch_geometric.explain.config.ExplanationType": 2,
+        "torch_geometric.explain.config.MaskType": 3,
+        "torch_geometric.explain.config.ModelMode": 3,
+        "torch_geometric.explain.config.ModelTaskLevel": 3,
+        "torch_geometric.explain.config.ModelReturnType": 3,
+        "torch_geometric.explain.config.ThresholdType": 3,
+        "torch_geometric.explain.algorithm.captum.MaskLevelType": 3,
+        "torch_geometric.nn.nlp.sentence_transformer.PoolingStrategy": 3,
+        "torch_geometric.data.batch.MetaResolver": 1
+      },
+      "cache_stats": {
+        "classes_created": 1,
+        "class_reuses": 1999,
+        "cached_loader_kinds": [
+          "_load"
+        ],
+        "validated_closures": {
+          "_load": [
+            "__class__",
+            "load_module_mapping"
+          ]
+        }
+      },
+      "seconds": 1.0536361889971886
+    }
+  ],
+  "GC_enabled": false,
+  "gc_collect_called": false,
+  "CUDA_initialized": false,
+  "TensorFlow_imported": false,
+  "limitations": "B2/1000 CPU batches cannot bound B256 full training. Dynamic classes and RSS are observed while all generations deferred; no unsafe collection invoked."
+}

@@ -1,0 +1,243 @@
+{
+  "run_count": 135,
+  "unique_runs": 135,
+  "curve_points": 4552,
+  "plot_pages": 28,
+  "pdf_pages": 31,
+  "pdf_path": "/home/ke/code/sim/output/pdf/wandb_short_long_R_20261012.pdf",
+  "pdf_sha256": "6f366001704c2f55f4486a8fe4573497f58a7da1736d117862275bd8852b1719",
+  "point_table": [
+    {
+      "id": "iu3fa4gx",
+      "name": "657 / B512",
+      "R7_11": 1.4002356374585692,
+      "R7_55": 0.9836667141161445,
+      "R7_99": 0.9291241944854566,
+      "R_attr_11": 1.613950137859132,
+      "R_attr_55": 0.963728891523918,
+      "R_attr_99": 0.9222742007418353
+    },
+    {
+      "id": "vd23g1bq",
+      "name": "frozen shared / B512",
+      "R7_11": 1.7098077810547854,
+      "R7_55": 1.0692591214619862,
+      "R7_99": 1.0,
+      "R_attr_11": 1.555008511842128,
+      "R_attr_55": 1.0341936812668473,
+      "R_attr_99": 1.0
+    },
+    {
+      "id": "0yhfg9ue",
+      "name": "frozen shared / B256",
+      "R7_11": 1.6491751315239858,
+      "R7_55": 1.074381965160834,
+      "R7_99": 1.085019688358453,
+      "R_attr_11": 1.4921270621443412,
+      "R_attr_55": 1.1000317395697325,
+      "R_attr_99": 1.253840881951814
+    },
+    {
+      "id": "pd7zg04g",
+      "name": "scratch / B512 run3",
+      "R7_11": 1.8500570211314222,
+      "R7_55": 1.1337282671045656,
+      "R7_99": 1.0774045918826447,
+      "R_attr_11": 1.8879566491510273,
+      "R_attr_55": 1.316289253867964,
+      "R_attr_99": 1.2057705660983389
+    },
+    {
+      "id": "4bedivn1",
+      "name": "scratch / B512 run0",
+      "R7_11": 1.6885635597769242,
+      "R7_55": 1.1338727444926142,
+      "R7_99": 0.9982361182512899,
+      "R_attr_11": 1.6606507129421368,
+      "R_attr_55": 1.2905695619791684,
+      "R_attr_99": 1.0830848254076695
+    }
+  ],
+  "window_table": [
+    {
+      "id": "iu3fa4gx",
+      "name": "657 / B512",
+      "R7_short": 2.0487857370890525,
+      "R7_long": 0.9434387201764641,
+      "R_attr_short": 1.9680178524741232,
+      "R_attr_long": 0.9435557111222682
+    },
+    {
+      "id": "vd23g1bq",
+      "name": "frozen shared / B512",
+      "R7_short": 2.3425126064256148,
+      "R7_long": 1.014726276511567,
+      "R_attr_short": 2.1479507413994487,
+      "R_attr_long": 0.9932764329069977
+    },
+    {
+      "id": "0yhfg9ue",
+      "name": "frozen shared / B256",
+      "R7_short": 2.266282901884025,
+      "R7_long": 1.0754570654047793,
+      "R_attr_short": 1.9309153128055208,
+      "R_attr_long": 1.2369885102333509
+    },
+    {
+      "id": "pd7zg04g",
+      "name": "scratch / B512 run3",
+      "R7_short": 2.515891864019293,
+      "R7_long": 1.0726413452082864,
+      "R_attr_short": 2.755414913651446,
+      "R_attr_long": 1.1838529243177407
+    },
+    {
+      "id": "4bedivn1",
+      "name": "scratch / B512 run0",
+      "R7_short": 2.305818332853831,
+      "R7_long": 1.0093443986303092,
+      "R_attr_short": 2.3732454623515893,
+      "R_attr_long": 1.1106378720219878
+    }
+  ],
+  "correlation11_vs99": [
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.39999999999999997
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.09999999999999999,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.39999999999999997,
+      "kendall": 0.3333333333333334
+    },
+    {
+      "anchor": "vd23g1bq",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.8999999999999998,
+      "kendall": 0.7999999999999999
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "five_runs_including_controls",
+      "n": 5,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.09999999999999999,
+      "kendall": 0.0
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R7",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": 0.7999999999999999,
+      "kendall": 0.6666666666666669
+    },
+    {
+      "anchor": "iu3fa4gx",
+      "anchor_epoch": 99,
+      "cohort": "four_runs_excluding_this_control",
+      "n": 4,
+      "metric": "R_attr",
+      "early_epoch": 11,
+      "late_epoch": 99,
+      "spearman": -0.19999999999999998,
+      "kendall": 0.0
+    }
+  ],
+  "pdf_visual_qa": {
+    "status": "PASS",
+    "pages_inspected": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "method": "All final PDF pages rendered with Poppler; four complete page montages visually inspected. Primary curves and atlas inspected at image resolution.",
+    "checks": [
+      "No clipped charts or overlapping titles",
+      "Legends identify both R7 and R_attr in every run panel",
+      "Chinese text renders without missing glyphs",
+      "Page headers, footers and numbering consistent"
+    ]
+  },
+  "numerical_qa": {
+    "pdf_pages": 31,
+    "run_ids_verified_in_pdf_text": 135,
+    "ratio_points_independently_checked": 4552,
+    "rank_correlations_independently_checked": true,
+    "rendered_pages": 31
+  }
+}

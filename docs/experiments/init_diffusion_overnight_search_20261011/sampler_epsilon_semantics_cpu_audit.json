@@ -1,0 +1,76 @@
+{
+  "status": "PASS_READ_ONLY_EXACT_SAMPLER_EPSILON_SEMANTICS",
+  "created_utc": "2026-10-12T01:08:54.108043+00:00",
+  "CPU_only": true,
+  "source": "src/smart/diffusion/scale_flow.py",
+  "source_sha256": "829634ce03409f782c69c2758812f04c87c20ef172d4bb84ecfc194c27169c09",
+  "code_lines": {
+    "t_eps_default": 228,
+    "Euclidean_prediction_velocity_floor": [
+      686,
+      690
+    ],
+    "circular_heading_actual_time": [
+      694,
+      700
+    ],
+    "separate_type_state_floor": 1560,
+    "uniform_timesteps_end_at_zero": [
+      1696,
+      1702
+    ],
+    "final_type_clean_logits_argmax": [
+      1801,
+      1805
+    ]
+  },
+  "exact_formulas": {
+    "uniform_times": "t_k=1-k/N, k=0..N; terminal t_N=0 for every option",
+    "Euclidean_velocity": "v_t=(x_t-x0_pred)/max(t,t_eps)",
+    "Euler_update": "x_next=x_t+(t_next-t)*v_t",
+    "last_unfixed_Euclidean_state": "x_final=(1-alpha)*x_(1/N)+alpha*x0_pred; alpha=(1/N)/max(1/N,t_eps)",
+    "circular_heading": "omega=wrap(theta_t-theta0)/max(t,finfo_eps); uses actualt, not t_eps",
+    "separate_final_type": "argmax(last clean type logits), not argmax final integrated type state"
+  },
+  "actual_options_last_step_coefficients": {
+    "n10_eps0.05": {
+      "last_forward_time": 0.1,
+      "terminal_time": 0.0,
+      "velocity_denominator": 0.1,
+      "last_prediction_weight": 1.0,
+      "last_previous_state_weight": 0.0
+    },
+    "n20_eps0.05": {
+      "last_forward_time": 0.05,
+      "terminal_time": 0.0,
+      "velocity_denominator": 0.05,
+      "last_prediction_weight": 1.0,
+      "last_previous_state_weight": 0.0
+    },
+    "n40_eps0.05": {
+      "last_forward_time": 0.025,
+      "terminal_time": 0.0,
+      "velocity_denominator": 0.05,
+      "last_prediction_weight": 0.5,
+      "last_previous_state_weight": 0.5
+    },
+    "n40_eps0.0001": {
+      "last_forward_time": 0.025,
+      "terminal_time": 0.0,
+      "velocity_denominator": 0.025,
+      "last_prediction_weight": 1.0,
+      "last_previous_state_weight": 0.0
+    }
+  },
+  "scope": [
+    "Current source uses ODE/use_sdeFalse, heading_noise circular, heading_objective x0, linearshape, scalarspeed, type_process separate.",
+    "All options integrate to timezero; t_eps is a velocity-denominator floor, not a terminaltime.",
+    "ForN40 eps.05 floor activates onlylastt=.025; prioruniformt>=.05.",
+    "N40 eps.05 thus directlyaverages priorstate and cleanprediction for unfixedpos/L/W/scalarspeed; N20 eps.05 andN40 eps.0001 finalEuclideanstep equals cleanprediction.",
+    "Conditionedego components are restoredGT bymask aftereachstep; formulasreferunfixeddimensions.",
+    "Separatefinaltype comesfromlastlogitsbeforeterminalstateupdate, so lasttype-state dampingdoesnotdirectlydetermine finalclass.",
+    "Circularheadinglastrotationdividesbyactualt; denominatorfloor has no directeffect on its update."
+  ],
+  "interpretation_limit": "This exact code mechanism is consistent with observed physicalhistogram differences; observed metric gains are not a controlled causal isolation of damping versus numberofmodelsteps.",
+  "mathematical_coefficient_checks_pass": true
+}

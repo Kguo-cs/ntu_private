@@ -1,0 +1,43 @@
+{
+  "updated_utc": "2026-10-11T21:41:39.169951+00:00",
+  "CPU_only": true,
+  "GPU_submitted": false,
+  "actual_recovery_stages_certified": 0,
+  "current_actual_candidate_status": "running, not certifiable",
+  "source_hashes": {
+    "tools/runtime_completion.py": "59825756172ddcf454ce9125d20342710dba82402a83ea02dfaee55e3c65f45c",
+    "tools/bridge_overnight_runtime_completion.py": "f556d677caf0c5ed6fd3e3117a3fca279ce7befef40a946d6de075c7fd746064",
+    "tools/materialize_overnight_init_diffusion_best.py": "55a47ae2be6bbc46254daa60e16f2ead7ae816446e0e89a84148b2a0c9a337f2"
+  },
+  "frozen18_unchanged": true,
+  "tests": [
+    {
+      "suite": "tools.test_runtime_completion + tools.test_runtime_completion_bridge + tools.test_materializer_runtime_provenance",
+      "actual_tests": 20,
+      "result": "PASS"
+    },
+    {
+      "suite": "tests/test_materialize_overnight_init_diffusion_best.py",
+      "actual_tests": 18,
+      "result": "PASS"
+    },
+    {
+      "suite": "ART/independent_review_cpu_tests.py",
+      "actual_tests": 8,
+      "result": "PASS"
+    }
+  ],
+  "actual_dry_run": "docs/experiments/init_diffusion_overnight_search_20261011/runtime_recovery/verification_bridge_plan.json",
+  "next_root_command": "/home/ke/miniconda3/envs/sim/bin/python tools/bridge_overnight_runtime_completion.py --execute",
+  "execute_preconditions": [
+    "Prior v1 supervisor and child both actually exited",
+    "Actual execution completed returncode0",
+    "All6 budget/TRAIN/GEN actual rows and matched reports valid",
+    "DONE followed by exactlyone authenticated runtime suffix and actual policyJSON",
+    "Frozen v1/source/entry/helper/source/data/budget/seed lineage matches"
+  ],
+  "raw_log_hash_preserved": true,
+  "policy_artifact_sha_added": true,
+  "no_active_sources_modified": true,
+  "canonical_interfaces_retained": true
+}

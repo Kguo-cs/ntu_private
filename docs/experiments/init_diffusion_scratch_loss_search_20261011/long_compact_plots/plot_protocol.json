@@ -1,0 +1,102 @@
+{
+  "input": "/home/ke/code/sim/docs/experiments/init_diffusion_scratch_loss_search_20261011/long_final_stage/aggregate.json",
+  "input_sha256": "ef9e6fe015b49560effe2ce19ef6544a88ba1974ac52b195a7b206d249bcb36d",
+  "script_sha256": "1a3de5f46ce24c59e220e4e79edccd6eb1bbe4158cff485953e51ade4a5cb6bb",
+  "jsd_units": "native",
+  "native_jsd_multiplier": 100,
+  "score_native_scales": {
+    "nearest_dist_jsd": 1.0,
+    "lat_dev_jsd": 1.0,
+    "ang_dev_jsd": 10.0,
+    "length_jsd": 20.0,
+    "width_jsd": 15.0,
+    "speed_jsd": 20.0,
+    "collision_rate": 5.0
+  },
+  "variant_labels": {
+    "legacy": "Legacy",
+    "warm_winner": "Old recipe",
+    "geo_mse32_col20_heading_l1_shape2": "Geometry + head L1",
+    "geometry_strong_heading_l1_width_p2": "Head L1 + width p2"
+  },
+  "requested_variants": [
+    "legacy",
+    "warm_winner",
+    "geo_mse32_col20_heading_l1_shape2",
+    "geometry_strong_heading_l1_width_p2"
+  ],
+  "cohorts": [
+    {
+      "cohort_sha256": "8bcd9b085236d647140817e5f1187fcb8cc603485107f0136de064722e1a7442",
+      "train_batch_size": 64,
+      "learning_rate": 0.0001,
+      "evaluation_weights": "online",
+      "reference_mode": "matched",
+      "num_samples": 1024,
+      "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "actual_variants": [
+        "geo_mse32_col20_heading_l1_shape2",
+        "geometry_strong_heading_l1_width_p2",
+        "legacy",
+        "warm_winner"
+      ],
+      "actual_budgets": [
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        5120,
+        6144
+      ],
+      "num_aggregate_points": 24,
+      "num_observations": 24,
+      "training_seed_counts": [
+        1
+      ]
+    },
+    {
+      "cohort_sha256": "fd721a07c31523bbb185795f23ea05998e775b69b3f298186903cc19d7f41613",
+      "train_batch_size": 64,
+      "learning_rate": 0.0001,
+      "evaluation_weights": "ema",
+      "reference_mode": "matched",
+      "num_samples": 1024,
+      "eval_manifest_sha256": "c552af064913cf82123a7aba3230027a3c21f2decfffc0f0cf6a498b48eda030",
+      "initialization_scope": "map_encoder_and_G1_from_scratch",
+      "actual_variants": [
+        "geo_mse32_col20_heading_l1_shape2",
+        "geometry_strong_heading_l1_width_p2",
+        "legacy",
+        "warm_winner"
+      ],
+      "actual_budgets": [
+        1024,
+        2048,
+        4096,
+        5120,
+        6144
+      ],
+      "num_aggregate_points": 18,
+      "num_observations": 18,
+      "training_seed_counts": [
+        1
+      ]
+    }
+  ],
+  "empty_selected_cohorts": [],
+  "figures": [
+    "summary_8bcd9b085236_native.png",
+    "size_8bcd9b085236_native.png",
+    "summary_fd721a07c315_native.png",
+    "size_fd721a07c315_native.png"
+  ],
+  "figure_size_inches": [
+    10,
+    7
+  ],
+  "base_font_size_pt": 11,
+  "uncertainty": "Training-seed sample SD; generation repetitions are averaged inside training seed; not CI",
+  "scope": "Actual recorded points only; no simulated results, model, GPU, or PDF"
+}

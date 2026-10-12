@@ -1,0 +1,62 @@
+{
+  "status": "PREPARED_SELECTED40_EPS005_PURE_CPU_COMPOSE_PASS_FULL_SUCCESS_PENDING",
+  "created_utc": "2026-10-12T01:06:55.806183+00:00",
+  "selected_option": "n40_eps005",
+  "frozen_selection_sha256": "511a59d1fc844c5d607ac12358ad81fdff0ed10923dea3bc56a9a052e4aa63b0",
+  "full_success_verified": false,
+  "actual_configuration_written": false,
+  "write_requires": "Both actual full50k native cells successful strict completion + scope audit; root notification. Do not write while pending.",
+  "actual_sampler_yaml_target": "/home/ke/code/sim/configs/experiment/init_diffusion_lane_conditioned_overnight_best_sampler_eval.yaml",
+  "prepared_YAML_text": "# @package _global_\n# Inference-only choice: 40 steps, t_eps=0.05. Training remains20/0.05.\n# Requires actual frozen native16 comparison and successful chosen-sampler full50k audit.\n# Old historical-main default20 parity FAILED; no bitwise replay claim.\n# Run with OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 and SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1.\n# Restore explicit checkpoint. For future checkpoints override sampler_expected_updates with its actual saved EMA count.\ndefaults:\n- init_diffusion_lane_conditioned_overnight_best_eval\n- _self_\ntask_name: init_diffusion_lane_conditioned_overnight_best_sampler_eval\naction: test\nseed: 4817\nsampler_eval_seed: 2817\nsampler_expected_updates: 20480\nmodel:\n  model_config:\n    decoder:\n      init_diffusion:\n        sampling_steps: 40\ndata:\n  test_batch_size: 128\n  num_workers: 0\n  pin_memory: false\n  persistent_workers: false\n  scenario_dreamer_eval_set: null\ntrainer:\n  accelerator: gpu\n  devices: 1\n  precision: 32-true\n  limit_test_batches: 1.0\n  logger: false\n  enable_checkpointing: false\ncallbacks:\n  sampler_audit:\n    _target_: tools.evaluate_init_diffusion_sampler.make_inference_hook\n    seed: ${sampler_eval_seed}\n    steps: 40\n    eps: 0.05\n    expected_updates: ${sampler_expected_updates}\n    audit_path: ${paths.output_dir}/sampler_audit.json\n    expected_batch_size: 128\n    defer_gc: true\nlogger: false\n",
+  "prepared_YAML_sha256": "418eaf7826b5308386b737e5d178cd8b20c1ecb5764ad448819e221009f7a8f7",
+  "CPU_composition_checks": [
+    {
+      "GEN_seed": 2817,
+      "passed": true,
+      "full_manifest_sha256": "d87e834c9ec3f1b3cf83f2086082195eaeb117549f5d6955bc3e6903bdfd3ace",
+      "sorted_native_dataset_exact_full_manifest": true,
+      "model_conditioning_exact": true,
+      "immutable_hook_kwargs_exact": true,
+      "TEST_data_and_trainer_exact": true,
+      "saved_EMA_n": 20480,
+      "explicit_checkpoint": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt"
+    },
+    {
+      "GEN_seed": 3817,
+      "passed": true,
+      "full_manifest_sha256": "d87e834c9ec3f1b3cf83f2086082195eaeb117549f5d6955bc3e6903bdfd3ace",
+      "sorted_native_dataset_exact_full_manifest": true,
+      "model_conditioning_exact": true,
+      "immutable_hook_kwargs_exact": true,
+      "TEST_data_and_trainer_exact": true,
+      "saved_EMA_n": 20480,
+      "explicit_checkpoint": "/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt"
+    }
+  ],
+  "sources": {
+    "configs/experiment/init_diffusion_lane_conditioned_overnight_best.yaml": "33f80bff920e5e87655a62ef8d69f53730ff06f730fe00a13bf22a9c74252ccb",
+    "configs/experiment/init_diffusion_lane_conditioned_overnight_best_eval.yaml": "6317395ffa0c8bd6bc9615ae14e0f377c945e731f2f61def46a921a6159c169d",
+    "tools/evaluate_init_diffusion_native_sampler.py": "9a42018571fa36d385ab76a839c36b43a333979653ae9f35dd1bf228d4fe424b",
+    "tools/evaluate_init_diffusion_sampler.py": "8a1b0e8bc576af20a3f9b3d9ebb3d7ce6c246daa45ead7db1c3e4f483cc5cd6f",
+    "tools/run_init_diffusion_safe.py": "49b43c7929d69bfff4b1f5363609c7991c471d14515d8651438afdae603c0b5b"
+  },
+  "live_full_child_environment_observed": {
+    "pid": 999062,
+    "execution_status_at_read": "running",
+    "limited_fields": {
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC": "1"
+    },
+    "not_a_torch_runtime_thread_count_measurement": true
+  },
+  "shell_command": "OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 SIM_SAMPLER_INFERENCE_DEFER_CYCLIC_GC=1 python tools/run_init_diffusion_safe.py experiment=init_diffusion_lane_conditioned_overnight_best_sampler_eval ckpt_path=/home/ke/code/sim/logs/init_diffusion_overnight_20261011/long_seed4817_separate_speed/separate_speed/last.ckpt sampler_expected_updates=20480 sampler_eval_seed=2817",
+  "thread_policy": "New native job inherited OMP/MKL/OPENBLAS1; no model/source/hook Torch thread mutation. Use same shell env for reproduction; effective torch.num_threads was not separately logged.",
+  "full_native_histogram_limit": "No saved feature_histograms in native driver; verify report population/scope without inventing raw under/overflow or bin-tail measurements. Mainfinal8+full4 actual hist audited separately.",
+  "no_future128_metric_or_best_claim": true,
+  "training_unchanged": true,
+  "old_parity_failure_preserved": true,
+  "Torch_imported": false,
+  "GPU_started": false
+}
