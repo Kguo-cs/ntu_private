@@ -3,9 +3,9 @@
 Example:
   python tools/cc_sweep_eval.py --ckpt path/last.ckpt --out results.jsonl \
       --variants '[{"name":"base"},{"name":"n40","steps":40}]' -- experiment=...
-Each variant may set: ema (bool), steps (int), time_power (float),
+Each variant may set: ema (bool), steps (int),
 guidance (collision_guidance mapping), exact (bool), seed (int),
-agent_neighbors / map_neighbors (int). Metrics come from the
+agent_neighbors / map_neighbors (int), agent_radius / map_radius (m). Metrics come from the
 native ScenarioDreamer evaluator via the model's own test loop.
 """
 from __future__ import annotations
@@ -58,16 +58,18 @@ def main():
     decoder = model.encoder.init_decoder
     flow = decoder.G1
     base_guidance = dict(flow.collision_guidance)
-    base_neighbors = (flow.model.agent_neighbors, flow.model.map_neighbors)
+    base_neighbors = (flow.model.agent_neighbors, flow.model.map_neighbors,
+                      flow.model.agent_radius, flow.model.map_radius)
 
     for variant in variants:
         decoder.use_ema = bool(variant.get("ema", True))
         decoder.sampling_steps = int(variant.get("steps", 20))
-        flow.sampling_time_power = float(variant.get("time_power", 1.0))
         flow.sampling_exact_x0 = bool(variant.get("exact", False))
         flow.collision_guidance = dict(base_guidance, **variant.get("guidance", {}))
         flow.model.agent_neighbors = int(variant.get("agent_neighbors", base_neighbors[0]))
         flow.model.map_neighbors = int(variant.get("map_neighbors", base_neighbors[1]))
+        flow.model.agent_radius = float(variant.get("agent_radius", base_neighbors[2]))
+        flow.model.map_radius = float(variant.get("map_radius", base_neighbors[3]))
         L.seed_everything(int(variant.get("seed", cfg.seed)), workers=True)
         trainer = L.Trainer(accelerator="gpu", devices=1, logger=False, precision=cfg.trainer.precision,
                             limit_test_batches=args.limit, enable_checkpointing=False,

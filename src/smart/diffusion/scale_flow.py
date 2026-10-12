@@ -206,6 +206,8 @@ class Flow(nn.Module):
             speed_head_detach_context=getattr(args, "speed_head_detach_context", False),
             agent_neighbors=getattr(args, "agent_neighbors", 30),
             map_neighbors=getattr(args, "map_neighbors", 30),
+            agent_radius=getattr(args, "agent_radius", 300.0),
+            map_radius=getattr(args, "map_radius", 300.0),
             size_representation=self.size_representation,
             fix_ego=self.fix_ego,
             **conditions,
@@ -230,10 +232,7 @@ class Flow(nn.Module):
         self.t_eps = 0.05
         self.token_processor=token_processor
         # Inference-only sampler options; defaults reproduce uniform Euler.
-        self.sampling_time_power = float(getattr(args, "sampling_time_power", 1.0))
         self.sampling_exact_x0 = bool(getattr(args, "sampling_exact_x0", False))
-        if not math.isfinite(self.sampling_time_power) or self.sampling_time_power <= 0:
-            raise ValueError("sampling_time_power must be finite and positive")
         guidance = dict(getattr(args, "collision_guidance", None) or {})
         unknown = set(guidance) - {"scale", "t_max", "iters", "margin", "vehicles_only"}
         if unknown:
@@ -1787,8 +1786,6 @@ class Flow(nn.Module):
             device=agent_batch.device,
             dtype=latent.dtype,
         )
-        if getattr(self, "sampling_time_power", 1.0) != 1.0:
-            timesteps = timesteps.pow(self.sampling_time_power)
 
         if self.use_sde:
             graph_branch_steps = (
