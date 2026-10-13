@@ -239,6 +239,15 @@ class Flow(nn.Module):
         self.token_processor=token_processor
         # Inference-only sampler options; defaults reproduce uniform Euler.
         self.sampling_exact_x0 = bool(getattr(args, "sampling_exact_x0", False))
+        # Shape of the sampling time grid (same number of model calls):
+        # power p gives t_k = (1 - k/N)^p (p < 1 spends more steps at high noise);
+        # cosine gives t_k = (1 + cos(pi k/N)) / 2 (dense at both ends).
+        grid = dict(getattr(args, "sampling_time_grid", None) or {})
+        if set(grid) - {"kind", "power"} or grid.get("kind", "power") not in ("power", "cosine"):
+            raise ValueError("sampling_time_grid takes kind in {power, cosine} and power")
+        self.sampling_time_grid = dict(kind=grid.get("kind", "power"), power=float(grid.get("power", 1.0)))
+        if not math.isfinite(self.sampling_time_grid["power"]) or self.sampling_time_grid["power"] <= 0:
+            raise ValueError("sampling_time_grid.power must be finite and positive")
         guidance = dict(getattr(args, "collision_guidance", None) or {})
         unknown = set(guidance) - {"scale", "t_max", "iters", "margin", "vehicles_only"}
         if unknown:
@@ -1809,6 +1818,11 @@ class Flow(nn.Module):
             device=agent_batch.device,
             dtype=latent.dtype,
         )
+        grid = getattr(self, "sampling_time_grid", None)
+        if grid is not None and grid["kind"] == "cosine":
+            timesteps = 0.5 * (1.0 + torch.cos(math.pi * (1.0 - timesteps)))
+        elif grid is not None and grid["power"] != 1.0:
+            timesteps = timesteps.pow(grid["power"])
 
         if self.use_sde:
             graph_branch_steps = (

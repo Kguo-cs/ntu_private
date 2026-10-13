@@ -96,6 +96,7 @@ class InitDiffusion(nn.Module):
         map2agent_radius: float = 300.0,
         map2agent_max_num_neighbors: int = 30,
         sampling_exact_x0: bool = False,
+        sampling_time_grid: Optional[Mapping[str, Any]] = None,
         warm_start_from_ema: bool = False,
         collision_guidance: Optional[Mapping[str, Any]] = None,
     ) -> None:
@@ -141,6 +142,7 @@ class InitDiffusion(nn.Module):
         args.num_denoiser_layers = denoiser_num_layers
         args.sampling_steps = sampling_steps
         args.sampling_exact_x0 = bool(sampling_exact_x0)
+        args.sampling_time_grid = None if sampling_time_grid is None else dict(sampling_time_grid)
         args.collision_guidance = None if collision_guidance is None else dict(collision_guidance)
         args.matching_weights = matching_weights
         args.time_sample_power = time_sample_power
