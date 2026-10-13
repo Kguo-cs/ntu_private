@@ -683,6 +683,7 @@ class SMART(LightningModule):
                     "invalid_size_policy": getattr(initial_decoder, "invalid_size_policy", "mask"),
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
+                    "sampling_time_grid": dict(getattr(initial_decoder.G1, "sampling_time_grid", {})),
                     "edge_embedding_type": getattr(initial_decoder, "edge_embedding_type", "fourier"),
                     "time_embedding_type": getattr(initial_decoder, "time_embedding_type", "legacy"),
                     "count_embedding_type": getattr(initial_decoder, "count_embedding_type", "none"),

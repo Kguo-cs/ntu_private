@@ -41,6 +41,7 @@ from .denoiser import InitDenoiser
 from .distribution_loss import AttributeDistributionLoss
 from .component_loss import ComponentLoss, heading_angle_residual
 from .ego_conditioning import EGO_FIELDS, resolve_ego_conditioning
+from .sampling_time_grid import build_sampling_time_grid, parse_sampling_time_grid
 
 
 def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float],
@@ -212,6 +213,7 @@ class Flow(nn.Module):
             state_feature_normalization=getattr(args, "state_feature_normalization", "none"),
             time_conditioning=getattr(args, "time_conditioning", "input"),
             speed_x0_parameterization=getattr(args, "speed_x0_parameterization", "identity"),
+            shape_x0_parameterization=getattr(args, "shape_x0_parameterization", "identity"),
             speed_head_kind=getattr(args, "speed_head_kind", "shared"),
             speed_head_hidden_dim=getattr(args, "speed_head_hidden_dim", None),
             speed_head_detach_context=getattr(args, "speed_head_detach_context", False),
@@ -240,6 +242,7 @@ class Flow(nn.Module):
         self.token_processor=token_processor
         # Inference-only sampler options; defaults reproduce uniform Euler.
         self.sampling_exact_x0 = bool(getattr(args, "sampling_exact_x0", False))
+        self.sampling_time_grid = parse_sampling_time_grid(getattr(args, "sampling_time_grid", None))
         guidance = dict(getattr(args, "collision_guidance", None) or {})
         unknown = set(guidance) - {"scale", "t_max", "iters", "margin", "vehicles_only"}
         if unknown:
@@ -1815,12 +1818,9 @@ class Flow(nn.Module):
                 latent[:, self.model.m_delta_dim:] = type_source
 
         # Generation: start from x1~noise at t=1 and integrate to x0 at t=0.
-        timesteps = torch.linspace(
-            1.0,
-            0.0,
-            steps + 1,
-            device=agent_batch.device,
-            dtype=latent.dtype,
+        timesteps = build_sampling_time_grid(
+            steps, device=agent_batch.device, dtype=latent.dtype,
+            config=getattr(self, "sampling_time_grid", None),
         )
 
         if self.use_sde:

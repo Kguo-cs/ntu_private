@@ -435,7 +435,10 @@ class CircularHeadingVelocityTest(unittest.TestCase):
             actual = flow._supervised_loss(clean, agent, feature)
         original = get_diff_loss(agent, decoded, clean, time, .05,
                                  scale=flow.model.normal_scale, use_col=True, x_pred=True)
-        weight = torch.where(time[:, 0] > 0, time[:, 0].clamp_min(.05).pow(-3), 0.)
+        # The legacy x0 MSE path squares _time_weight (1 / t), hence t^-2.
+        # Its heading contribution must use that same weight when subtracting
+        # the excluded reconstruction dimensions.
+        weight = torch.where(time[:, 0] > 0, time[:, 0].clamp_min(.05).pow(-2), 0.)
         excluded = (decoded[:, 2:4] - clean[:, 2:4]).square().sum(-1) / 8 * .02 * weight
         torch.testing.assert_close(actual[0], original[0] - excluded + .3 * actual[3])
         for idx in (1, 2, 4, 5):

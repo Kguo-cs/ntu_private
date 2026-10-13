@@ -96,6 +96,7 @@ class InitDenoiser(nn.Module):
         state_feature_normalization: str = "none",
         time_conditioning: str = "input",
         speed_x0_parameterization: str = "identity",
+        shape_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
         speed_head_hidden_dim: Optional[int] = None,
         speed_head_detach_context: bool = False,
@@ -172,6 +173,10 @@ class InitDenoiser(nn.Module):
             raise ValueError("TRAIN state feature normalization requires an x0 predictor")
         if speed_x0_parameterization not in ("identity", "softplus", "time_residual"):
             raise ValueError("speed_x0_parameterization must be identity, softplus or time_residual")
+        if shape_x0_parameterization not in ("identity", "time_residual", "length_time_residual"):
+            raise ValueError("shape_x0_parameterization must be identity, time_residual or length_time_residual")
+        if shape_x0_parameterization != "identity" and (not x_pred or output_dim != state_dim):
+            raise ValueError("Size time residual requires a deterministic physical x0 predictor")
         if speed_head_kind not in ("shared", "separate"):
             raise ValueError("speed_head_kind must be shared or separate")
         if speed_head_hidden_dim is not None:
@@ -193,6 +198,7 @@ class InitDenoiser(nn.Module):
         self.time_conditioning = time_conditioning
         self.state_feature_normalization = state_feature_normalization
         self.speed_x0_parameterization = speed_x0_parameterization
+        self.shape_x0_parameterization = shape_x0_parameterization
         self.speed_head_kind = speed_head_kind
         self.speed_head_hidden_dim = speed_head_hidden_dim
         self.speed_head_detach_context = speed_head_detach_context
@@ -1036,6 +1042,18 @@ class InitDenoiser(nn.Module):
             speed = latent[:, 6:7] + time * speed
         return torch.cat((prediction[:, :6], speed, prediction[:, 7:]), dim=-1)
 
+    def _parameterize_shape_x0(self, prediction, latent, beta):
+        """Keep clean-size targets; optionally predict their timed residual."""
+        if self.shape_x0_parameterization == "identity":
+            return prediction
+        if self.shape_x0_parameterization == "length_time_residual":
+            time = self._format_beta(beta, len(prediction))[:, 4:5]
+            length = latent[:, 4:5] + time * prediction[:, 4:5]
+            return torch.cat((prediction[:, :4], length, prediction[:, 5:]), dim=-1)
+        from .size_parameterization import size_time_residual_x0
+        time = self._format_beta(beta, len(prediction))[:, 4:6]
+        return size_time_residual_x0(prediction, latent, time)
+
     def output_transform(self,res,cur_pos,cur_theta):
         # Flow reconstructs heading from theta_t - t * omega. Do not evaluate
         # atan2 on the unused clean-heading output in angular-velocity mode.
@@ -1145,6 +1163,7 @@ class InitDenoiser(nn.Module):
 
         if self.x_pred :
             res =self.output_transform(res, pos_s, theta)
+            res = self._parameterize_shape_x0(res, m_delta, beta)
             res = self._parameterize_speed_x0(res, m_delta, beta)
 
         #ego_mask = tokenized_agent.get("ego_mask", None)

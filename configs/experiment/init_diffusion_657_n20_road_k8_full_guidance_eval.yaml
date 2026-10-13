@@ -1,0 +1,21 @@
+# @package _global_
+# Opt-in final-step collision projection; sameN20/checkpoint/official50K.
+# Full50K paired17epoch test: collision ratio.01698; focused JSD ratio.99935.
+# This is an inference option, not evidence from final128epoch weights.
+defaults:
+  - init_diffusion_657_n20_road_k8_full_eval
+  - _self_
+task_name: init_diffusion_657_n20_road_k8_full_guidance_eval
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_steps: 20
+        sampling_exact_x0: false
+        sampling_time_grid: null
+        collision_guidance:
+          scale: 0.5
+          t_max: 0.05
+          iters: 5
+          margin: 0.1
+          vehicles_only: true

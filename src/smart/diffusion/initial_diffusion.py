@@ -88,6 +88,7 @@ class InitDiffusion(nn.Module):
         time_conditioning: str = "input",
         collision_reduction: str = "pair_mean",
         speed_x0_parameterization: str = "identity",
+        shape_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
         speed_head_hidden_dim: Optional[int] = None,
         speed_head_detach_context: bool = False,
@@ -97,6 +98,7 @@ class InitDiffusion(nn.Module):
         map2agent_radius: float = 300.0,
         map2agent_max_num_neighbors: int = 30,
         sampling_exact_x0: bool = False,
+        sampling_time_grid: Optional[Mapping[str, Any]] = None,
         warm_start_from_ema: bool = False,
         collision_guidance: Optional[Mapping[str, Any]] = None,
     ) -> None:
@@ -142,6 +144,7 @@ class InitDiffusion(nn.Module):
         args.num_denoiser_layers = denoiser_num_layers
         args.sampling_steps = sampling_steps
         args.sampling_exact_x0 = bool(sampling_exact_x0)
+        args.sampling_time_grid = None if sampling_time_grid is None else dict(sampling_time_grid)
         args.collision_guidance = None if collision_guidance is None else dict(collision_guidance)
         args.matching_weights = matching_weights
         args.time_sample_power = time_sample_power
@@ -153,6 +156,7 @@ class InitDiffusion(nn.Module):
         args.map2agent_radius = map2agent_radius
         args.map2agent_max_num_neighbors = map2agent_max_num_neighbors
         args.speed_x0_parameterization = speed_x0_parameterization
+        args.shape_x0_parameterization = shape_x0_parameterization
         args.speed_head_kind = speed_head_kind
         args.speed_head_hidden_dim = speed_head_hidden_dim
         args.speed_head_detach_context = speed_head_detach_context
@@ -233,6 +237,7 @@ class InitDiffusion(nn.Module):
             "state_feature_normalization": state_feature_normalization,
             "time_conditioning": time_conditioning,
             "speed_x0_parameterization": speed_x0_parameterization,
+            "shape_x0_parameterization": shape_x0_parameterization,
             "speed_head_kind": speed_head_kind, "speed_head_hidden_dim": speed_head_hidden_dim,
             "speed_head_detach_context": speed_head_detach_context,
             "map_condition_types": map_condition_types,
@@ -344,6 +349,7 @@ class InitDiffusion(nn.Module):
         legacy_options = {"denoiser_hidden_dim": 256, "denoiser_num_layers": 3,
                           "state_feature_normalization": "none", "time_conditioning": "input",
                           "speed_x0_parameterization": "identity",
+                          "shape_x0_parameterization": "identity",
                           "speed_head_kind": "shared", "speed_head_hidden_dim": None,
                           "speed_head_detach_context": False,
                           "map_condition_types": "road_edges",

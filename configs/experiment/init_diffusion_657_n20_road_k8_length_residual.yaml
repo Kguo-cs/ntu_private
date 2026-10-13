@@ -1,0 +1,20 @@
+# @package _global_
+# Experimental: length uses timed residual; width retains absolute x0 output.
+# Original loss, source, map and parameter count. Short matched3413 trial only.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+task_name: init_diffusion_657_n20_road_k8_length_residual
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        shape_x0_parameterization: length_time_residual
+        sampling_exact_x0: false
+        sampling_time_grid: null
+        collision_guidance:
+          scale: 0.5
+          t_max: 0.05
+          iters: 5
+          margin: 0.1
+          vehicles_only: true

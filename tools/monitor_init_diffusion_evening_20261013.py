@@ -8,7 +8,9 @@ from datetime import datetime
 ROOT=Path(__file__).resolve().parents[1]
 ART=ROOT/'output/reports/init_diffusion_evening_20261013'
 RUNS=ROOT/'logs/init_diffusion_evening_20261013'
-if (ART/'final_long/protocol.json').exists():ART=ART/'final_long';RUNS=RUNS/'final_long'
+if (ART/'final_long/rebased/sampler_merge/protocol.json').exists():ART=ART/'final_long/rebased/sampler_merge';RUNS=RUNS/'final_long/rebased/sampler_merge'
+elif (ART/'final_long/rebased/protocol.json').exists():ART=ART/'final_long/rebased';RUNS=RUNS/'final_long/rebased'
+elif (ART/'final_long/protocol.json').exists():ART=ART/'final_long';RUNS=RUNS/'final_long'
 elif (ART/'long_audit/recovery/protocol.json').exists():ART=ART/'long_audit/recovery';RUNS=RUNS/'long_audit/recovery'
 elif (ART/'long_audit/protocol.json').exists():ART=ART/'long_audit';RUNS=RUNS/'long_audit'
 elif (ART/'recovery/protocol.json').exists():ART=ART/'recovery';RUNS=RUNS/'recovery'
@@ -29,6 +31,9 @@ while time.time()<END:
         cc=json.loads((ART/'comparisons.json').read_text())['comparisons']
         message['completed_comparisons']=len(cc)
     if (BASE_ART/'wandb/watcher_status.json').exists():message['wandb_utc']=json.loads((BASE_ART/'wandb/watcher_status.json').read_text()).get('inventory_utc')
+    for phase in ('n20_sampler','matching_followup'):
+        path=BASE_ART/phase/'status.json'
+        if path.exists():message[phase]=json.loads(path.read_text())
     print(json.dumps(message),flush=True)
     if s.get('status') in ('FAILED_STAGE','PARTIAL_EXCLUDED','GPU_OCCUPIED'):
         print('NEEDS_REVIEW',flush=True);break

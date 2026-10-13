@@ -1,0 +1,12 @@
+# @package _global_
+# Experimental output coordinates; original x0 component loss is preserved.
+# No parameter increase. The short trial is not a full-training recommendation.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+task_name: init_diffusion_657_n20_road_k8_size_residual
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        shape_x0_parameterization: time_residual

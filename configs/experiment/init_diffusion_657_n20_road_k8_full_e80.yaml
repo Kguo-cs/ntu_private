@@ -1,0 +1,12 @@
+# @package _global_
+# Optional e998 shorter-schedule hypothesis adapted to the <=8.1M/N20 backbone.
+# Not a validated replacement for the128-epoch recommended configuration.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+task_name: init_diffusion_657_n20_road_k8_full_e80
+trainer:
+  max_epochs: 80
+model:
+  model_config:
+    lr_total_steps: 80

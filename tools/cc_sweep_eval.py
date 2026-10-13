@@ -5,6 +5,7 @@ Example:
       --variants '[{"name":"base"},{"name":"n40","steps":40}]' -- experiment=...
 Each variant may set: ema (bool), steps (int),
 guidance (collision_guidance mapping), exact (bool), seed (int),
+time_grid (sampling_time_grid mapping),
 a2a_radius / a2a_max_num_neighbors / map2agent_radius /
 map2agent_max_num_neighbors (inference-time graph override). Metrics come from the
 native ScenarioDreamer evaluator via the model's own test loop.
@@ -59,6 +60,8 @@ def main():
     decoder = model.encoder.init_decoder
     flow = decoder.G1
     base_guidance = dict(flow.collision_guidance)
+    from src.smart.diffusion.sampling_time_grid import parse_sampling_time_grid
+    base_time_grid = dict(flow.sampling_time_grid)
     graph_names = ("a2a_radius", "a2a_max_num_neighbors", "map2agent_radius", "map2agent_max_num_neighbors")
     base_graph = {name: getattr(flow.model, name) for name in graph_names}
 
@@ -66,6 +69,8 @@ def main():
         decoder.use_ema = bool(variant.get("ema", True))
         decoder.sampling_steps = int(variant.get("steps", 20))
         flow.sampling_exact_x0 = bool(variant.get("exact", False))
+        flow.sampling_time_grid = (parse_sampling_time_grid(variant["time_grid"])
+                                   if "time_grid" in variant else dict(base_time_grid))
         flow.collision_guidance = dict(base_guidance, **variant.get("guidance", {}))
         for name, value in base_graph.items():
             setattr(flow.model, name, type(value)(variant.get(name, value)))
