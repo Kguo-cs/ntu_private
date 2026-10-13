@@ -72,7 +72,7 @@ def plans():
     return variants
 
 
-def stage(label,variants,steps,scenes,seed=4817,checkpoints=(),gens=(2817,),evaluation=None):
+def stage(label,variants,steps,scenes,seed=4817,checkpoints=(),gens=(2817,),evaluation=None,resume=None):
     folder=RUNS/label;done=folder/'verified_completion.json'
     if done.is_file():
         d=read(done)
@@ -92,6 +92,9 @@ def stage(label,variants,steps,scenes,seed=4817,checkpoints=(),gens=(2817,),eval
     else:cmd+=['--require-full-set']
     if evaluation:
         save(ART/f'{label}.checkpoints.json',evaluation);cmd+=['--evaluation-checkpoints',str(ART/f'{label}.checkpoints.json')]
+    if resume:
+        if evaluation or set(resume)!=set(variants):raise ValueError('Resume must name each trained arm and cannot evaluate only')
+        save(ART/f'{label}.resume.json',resume);cmd+=['--resume-map',str(ART/f'{label}.resume.json'),'--resume-cyclic-epochs']
     env=os.environ.copy();env.update(OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',SIM_SWEEP_DEFER_CYCLIC_GC='1')
     folder.mkdir(parents=True,exist_ok=True)
     record={'stage':label,'started_utc':now(),'command':cmd}

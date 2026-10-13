@@ -73,6 +73,27 @@ class InitDiffusionSpeedHeadsTest(unittest.TestCase):
         self.assertTrue(torch.equal(captured[0], expected))
         self.assertTrue(torch.equal(state, original))
 
+    def test_compact_head_keeps_shared_initialization_and_receives_speed_gradient(self):
+        torch.manual_seed(817)
+        shared = self.model(hidden_dim=256)
+        shared_next_noise = torch.randn(8)
+        torch.manual_seed(817)
+        compact = self.model(hidden_dim=256, speed_head_kind="separate", speed_head_hidden_dim=32)
+        torch.testing.assert_close(shared_next_noise, torch.randn(8), rtol=0, atol=0)
+        for key, value in shared.state_dict().items():
+            torch.testing.assert_close(value, compact.state_dict()[key], rtol=0, atol=0)
+        extra = sum(p.numel() for p in compact.parameters()) - sum(p.numel() for p in shared.parameters())
+        self.assertEqual(extra, 8321)
+        context = torch.randn(2, 256, requires_grad=True)
+        with patch.object(compact.edge_encoder, "build_interaction_edge",
+                          return_value=(torch.empty((2, 0), dtype=torch.long), None)):
+            output = compact._apply_graph_attention(context, torch.zeros(2, 2), torch.zeros(2),
+                                                   torch.zeros(2, dtype=torch.long), {}, {}, 1,
+                                                   use_map_condition=False)
+        output[:, 6].sum().backward()
+        self.assertGreater(float(context.grad.abs().sum()), 0.)
+        self.assertTrue(all(p.grad is not None for p in compact.to_out_speed.parameters()))
+
     def test_softplus_supervises_positive_speed_before_final_clamp(self):
         model = self.model(speed_x0_parameterization="softplus")
         state, beta, _ = self.inputs()
@@ -129,6 +150,10 @@ class InitDiffusionSpeedHeadsTest(unittest.TestCase):
 
     def test_invalid_cross_representation_options_fail_early(self):
         cases = [dict(speed_x0_parameterization="clamp"),
+                 dict(speed_head_kind="separate", speed_head_hidden_dim=0),
+                 dict(speed_head_kind="separate", speed_head_hidden_dim=True),
+                 dict(speed_head_kind="separate", speed_head_hidden_dim=1.5),
+                 dict(speed_head_hidden_dim=32),
                  dict(state_feature_normalization="batch"),
                  dict(speed_head_detach_context=True),
                  dict(speed_head_kind="separate", input_dim=8, output_dim=8,

@@ -22,6 +22,7 @@ import resource
 import shutil
 import sys
 import time
+import types
 from datetime import datetime
 from pathlib import Path
 
@@ -59,13 +60,44 @@ def hash_file(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def weights_hash(model, prefix):
+def weights_hash(model, prefix, exclude_prefixes=()):
     digest = hashlib.sha256()
     for name, tensor in sorted(model.state_dict().items()):
-        if name.startswith(prefix) and torch.is_tensor(tensor):
+        if (name.startswith(prefix) and not any(name.startswith(p) for p in exclude_prefixes)
+                and torch.is_tensor(tensor)):
             digest.update(name.encode())
             digest.update(tensor.detach().cpu().contiguous().numpy().tobytes())
     return digest.hexdigest()
+
+
+def install_cyclic_resume_loader(dm, saved_step, train_size, batch_size):
+    """Resume a fixed-order epoch suffix, then reload complete later epochs.
+
+    ScratchDiagnostics restores RNG and resets loader-local batch progress at
+    on_train_start. Epoch/global optimizer progress and schedulers stay loaded.
+    This is only supported with zero workers, shuffle=False and drop_last=False.
+    """
+    from torch.utils.data import Subset
+    from torch_geometric.loader import DataLoader
+    batches = (train_size + batch_size - 1) // batch_size
+    start_epoch, batch_offset = divmod(saved_step, batches)
+    first_offset = batch_offset * batch_size
+    if dm.num_workers or dm.shuffle or dm.train_batch_size != batch_size:
+        raise ValueError("Cyclic resume requires workers=0, shuffle=False and the original batch size")
+    def loader(self):
+        epoch = self.trainer.current_epoch
+        if epoch < start_epoch:
+            raise ValueError("Checkpoint epoch progress has not been restored")
+        dataset = self.train_dataset
+        if len(dataset) != train_size:
+            raise ValueError("Cyclic resume requires the complete original TRAIN order")
+        if epoch == start_epoch and first_offset:
+            dataset = Subset(dataset, range(first_offset, train_size))
+        return DataLoader(dataset, batch_size=batch_size, shuffle=False,
+                          num_workers=0, pin_memory=self.pin_memory,
+                          persistent_workers=False, drop_last=False)
+    dm.train_dataloader = types.MethodType(loader, dm)
+    return first_offset
 
 
 def write_manifest(path, files):
@@ -217,6 +249,8 @@ def parser_for_cli():
     parser.add_argument("--resume-map", type=Path, help="JSON name -> scratch checkpoint to continue")
     parser.add_argument("--allow-multiple-epochs", action="store_true",
                         help="Fresh runs only: repeat the seeded full data order across real Lightning epochs")
+    parser.add_argument("--resume-cyclic-epochs", action="store_true",
+                        help="Continue the same fixed-order multi-epoch arm with optimizer/scheduler/EMA/RNG intact")
     parser.add_argument("--evaluate-ema", action="store_true", help="Also evaluate fresh-history G1 EMA")
     parser.add_argument("--evaluation-weights", choices=("online", "ema", "both"),
                         help="Explicit evaluation weights; overrides the legacy --evaluate-ema switch")
@@ -274,7 +308,10 @@ def main():
     with (cache_root / "training_map2_sd_files.pkl").open("rb") as handle:
         train_order = list(pickle.load(handle)["files"])
     random.Random(args.seed).shuffle(train_order)
-    if args.allow_multiple_epochs and (resume_map or args.train_offset):
+    if args.resume_cyclic_epochs and (not args.allow_multiple_epochs or not resume_map
+                                     or args.train_offset or args.workers):
+        raise ValueError("Cyclic resume requires multi-epoch resume-map, workers=0 and zero TRAIN offset")
+    if args.allow_multiple_epochs and (args.train_offset or (resume_map and not args.resume_cyclic_epochs)):
         raise ValueError("Multi-epoch training requires fresh weights and zero training offset")
     if (not args.allow_multiple_epochs
             and args.train_offset + args.steps * args.batch_size >= len(train_order)):
@@ -356,7 +393,9 @@ def main():
                     epoch_data_order=("The seeded full manifest repeats in the same order; shuffle=False"
                                       if args.allow_multiple_epochs else
                                       "Seeded full order, or its unconsumed suffix for first-epoch continuation; shuffle=False"),
-                    resume_data_rule="base_train_offset + saved_global_step * batch_size; local batch progress reset; no replay",
+                    resume_data_rule=("First resumed epoch suffix at (saved_step % full_epoch_batches)*batch_size; subsequent epochs reload the original full order; no replay"
+                                      if args.resume_cyclic_epochs else
+                                      "base_train_offset + saved_global_step * batch_size; local batch progress reset; no replay"),
                     resume_rng_rule="Checkpoint RNG restored at on_train_start; workers=0 recommended",
                     torch_version=str(torch.__version__), gpu=torch.cuda.get_device_name(),
                     shared_map_ema=False, normalizer=calibration)
@@ -454,15 +493,24 @@ def main():
             arm_cfg.trainer.gradient_clip_val = clip
         offset = (args.train_offset if name in eval_map else
                   args.train_offset + saved_step * args.batch_size)
-        arm_train = train_order[offset:]
+        if args.resume_cyclic_epochs and name in resume_map:
+            offset = (saved_step % ((len(train_order)+args.batch_size-1)//args.batch_size))*args.batch_size
+        arm_train = train_order if args.resume_cyclic_epochs and name in resume_map else train_order[offset:]
         train_hash = write_manifest(folder / "train_files.pkl", arm_train)
         with open_dict(arm_cfg):
             arm_cfg.data.scenario_dreamer_train_sample_list = str(folder / "train_files.pkl")
         OmegaConf.save(arm_cfg, folder / "config.yaml")
         L.seed_everything(args.seed, workers=True)
         dm = hydra.utils.instantiate(arm_cfg.data)
+        if args.resume_cyclic_epochs and name in resume_map:
+            actual = install_cyclic_resume_loader(dm, saved_step, len(train_order), args.batch_size)
+            if actual != offset:
+                raise ValueError("Resume loader offset differs from protocol")
         model = hydra.utils.instantiate(arm_cfg.model, _recursive_=False)
         initial_hashes = {"initial_generator_sha256": weights_hash(model, "encoder.init_decoder.G1."),
+                          "initial_shared_generator_sha256": weights_hash(
+                              model, "encoder.init_decoder.G1.",
+                              ("encoder.init_decoder.G1.model.to_out_speed.",)),
                           "initial_map_sha256": weights_hash(model, "encoder.map_encoder.")}
         if args.map_checkpoint:
             if model.initial_map_checkpoint_metadata["file_sha256"] != metadata["map_checkpoint_sha256"]:
@@ -504,6 +552,7 @@ def main():
                               resumed_from=str(source_checkpoint) if source_checkpoint else None,
                               resume_global_step=saved_step, optimizer_continued=name in resume_map,
                               resume_local_batch_counter_reset=name in resume_map,
+                              resume_cyclic_epochs=args.resume_cyclic_epochs and name in resume_map,
                               generator_num_parameters=sum(p.numel() for p in model.encoder.init_decoder.G1.parameters()),
                               generator_trainable_parameters=sum(p.numel() for p in model.encoder.init_decoder.G1.parameters() if p.requires_grad),
                               frozen_map_num_parameters=sum(p.numel() for p in model.encoder.map_encoder.parameters()))
@@ -524,6 +573,8 @@ def main():
                                 enable_progress_bar=False, log_every_n_steps=1,
                                 logger=CSVLogger(str(folder), name="csv"), default_root_dir=str(folder),
                                 callbacks=[diagnostic])
+            if args.resume_cyclic_epochs and name in resume_map:
+                trainer.reload_dataloaders_every_n_epoch = 1
             started = time.monotonic()
             trainer.fit(model, datamodule=dm, ckpt_path=str(source_checkpoint) if source_checkpoint else None)
             train_seconds = time.monotonic() - started

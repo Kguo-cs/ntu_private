@@ -11,7 +11,7 @@ PREFIX = "model.model_config.decoder.init_diffusion."
 sweep.SEARCH_CONFIG_KEYS.update({PREFIX + key for key in (
     "matching_weights", "time_sample_power", "distribution_loss", "denoiser_hidden_dim",
     "denoiser_num_layers", "sampling_steps", "state_feature_normalization",
-    "speed_x0_parameterization", "speed_head_kind", "speed_head_detach_context",
+    "speed_x0_parameterization", "speed_head_kind", "speed_head_hidden_dim", "speed_head_detach_context",
     "map_condition_types", "time_conditioning", "collision_reduction",
     "a2a_radius", "a2a_max_num_neighbors", "map2agent_radius", "map2agent_max_num_neighbors",
 )})

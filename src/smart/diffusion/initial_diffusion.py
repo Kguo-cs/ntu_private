@@ -89,6 +89,7 @@ class InitDiffusion(nn.Module):
         collision_reduction: str = "pair_mean",
         speed_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
+        speed_head_hidden_dim: Optional[int] = None,
         speed_head_detach_context: bool = False,
         map_condition_types: str = "road_edges",
         a2a_radius: float = 300.0,
@@ -153,6 +154,7 @@ class InitDiffusion(nn.Module):
         args.map2agent_max_num_neighbors = map2agent_max_num_neighbors
         args.speed_x0_parameterization = speed_x0_parameterization
         args.speed_head_kind = speed_head_kind
+        args.speed_head_hidden_dim = speed_head_hidden_dim
         args.speed_head_detach_context = speed_head_detach_context
         args.velocity_representation = velocity_representation
         args.size_representation = size_representation
@@ -231,7 +233,8 @@ class InitDiffusion(nn.Module):
             "state_feature_normalization": state_feature_normalization,
             "time_conditioning": time_conditioning,
             "speed_x0_parameterization": speed_x0_parameterization,
-            "speed_head_kind": speed_head_kind, "speed_head_detach_context": speed_head_detach_context,
+            "speed_head_kind": speed_head_kind, "speed_head_hidden_dim": speed_head_hidden_dim,
+            "speed_head_detach_context": speed_head_detach_context,
             "map_condition_types": map_condition_types,
             "a2a_radius": a2a_radius, "a2a_max_num_neighbors": a2a_max_num_neighbors,
             "map2agent_radius": map2agent_radius,
@@ -341,7 +344,8 @@ class InitDiffusion(nn.Module):
         legacy_options = {"denoiser_hidden_dim": 256, "denoiser_num_layers": 3,
                           "state_feature_normalization": "none", "time_conditioning": "input",
                           "speed_x0_parameterization": "identity",
-                          "speed_head_kind": "shared", "speed_head_detach_context": False,
+                          "speed_head_kind": "shared", "speed_head_hidden_dim": None,
+                          "speed_head_detach_context": False,
                           "map_condition_types": "road_edges",
                           "a2a_radius": 300.0, "a2a_max_num_neighbors": 30,
                           "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30}

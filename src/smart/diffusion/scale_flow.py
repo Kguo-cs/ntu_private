@@ -213,6 +213,7 @@ class Flow(nn.Module):
             time_conditioning=getattr(args, "time_conditioning", "input"),
             speed_x0_parameterization=getattr(args, "speed_x0_parameterization", "identity"),
             speed_head_kind=getattr(args, "speed_head_kind", "shared"),
+            speed_head_hidden_dim=getattr(args, "speed_head_hidden_dim", None),
             speed_head_detach_context=getattr(args, "speed_head_detach_context", False),
             size_representation=self.size_representation,
             fix_ego=self.fix_ego,

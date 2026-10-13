@@ -13,7 +13,7 @@ model:
     sd_reference_mode: matched
     sd_require_full_set: true
     sd_expected_scenes: 50000
-    sd_r_reference: ${sim_root:}/configs/metrics/control657_full50000.json
+    sd_r_reference: ${sim_root:}/configs/metrics/iu3fa4gx_full50000.json
     decoder:
       init_diffusion:
         normalizer_path: null

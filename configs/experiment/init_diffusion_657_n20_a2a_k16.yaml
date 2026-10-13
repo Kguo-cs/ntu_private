@@ -14,7 +14,7 @@ float32_matmul_precision: medium
 model:
   _target_: src.smart.model.smart_gail.SMART_GAIL
   model_config:
-    sd_r_reference: ${sim_root:}/configs/metrics/control657_full50000.json
+    sd_r_reference: ${sim_root:}/configs/metrics/iu3fa4gx_full50000.json
     initial_map_checkpoint: ${sim_root:}/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
     optimizer: default
     lr: 0.0005
@@ -207,7 +207,7 @@ model:
     sd_prediction_frame: world
     sd_require_generation_timestep: true
     sd_reference_mode: matched
-    sd_require_full_set: false
+    sd_require_full_set: true
 data:
   train_batch_size: 512
   val_batch_size: 128

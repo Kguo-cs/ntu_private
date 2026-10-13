@@ -2,6 +2,7 @@ import math
 import logging
 import copy
 from typing import Mapping, Optional, Tuple
+from numbers import Integral
 
 import torch
 import torch.nn as nn
@@ -96,6 +97,7 @@ class InitDenoiser(nn.Module):
         time_conditioning: str = "input",
         speed_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
+        speed_head_hidden_dim: Optional[int] = None,
         speed_head_detach_context: bool = False,
         a2a_radius: float = 300.0,
         a2a_max_num_neighbors: int = 30,
@@ -172,6 +174,13 @@ class InitDenoiser(nn.Module):
             raise ValueError("speed_x0_parameterization must be identity, softplus or time_residual")
         if speed_head_kind not in ("shared", "separate"):
             raise ValueError("speed_head_kind must be shared or separate")
+        if speed_head_hidden_dim is not None:
+            if (isinstance(speed_head_hidden_dim, bool)
+                    or not isinstance(speed_head_hidden_dim, Integral)
+                    or speed_head_hidden_dim <= 0):
+                raise ValueError("speed_head_hidden_dim must be a positive integer or null")
+            if speed_head_kind != "separate":
+                raise ValueError("speed_head_hidden_dim requires a separate speed head")
         if not isinstance(speed_head_detach_context, bool):
             raise ValueError("speed_head_detach_context must be boolean")
         if speed_head_detach_context and speed_head_kind != "separate":
@@ -185,6 +194,7 @@ class InitDenoiser(nn.Module):
         self.state_feature_normalization = state_feature_normalization
         self.speed_x0_parameterization = speed_x0_parameterization
         self.speed_head_kind = speed_head_kind
+        self.speed_head_hidden_dim = speed_head_hidden_dim
         self.speed_head_detach_context = speed_head_detach_context
         self.token_processor = token_processor
         self.edge_embedding_type = edge_embedding_type
@@ -337,8 +347,11 @@ class InitDenoiser(nn.Module):
         if self.speed_head_kind == "separate":
             # Create the opt-in head after initializing the legacy network so
             # adding this branch preserves the same seeded shared parameters.
-            self.to_out_speed = MLPLayer(hidden_dim, hidden_dim, 1)
-            self.to_out_speed.apply(weight_init)
+            # Keep subsequent training noise/dropout RNG paired with the
+            # shared-head model when adding this optional CPU-created branch.
+            with torch.random.fork_rng(devices=[]):
+                self.to_out_speed = MLPLayer(hidden_dim, speed_head_hidden_dim or hidden_dim, 1)
+                self.to_out_speed.apply(weight_init)
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):

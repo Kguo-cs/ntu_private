@@ -1,6 +1,6 @@
 # @package _global_
 # Shared 657 recipe: fresh G1/optimizer/EMA, fixed AIRL map, TRAIN8192 calibration.
-# R references a 10.6224-epoch full50k control; it is not a native128epoch paired score.
+# R references final iu3fa4gx epoch127 full50k metrics; fixed reference, not multi-seed paired.
 # Full training reshuffles each epoch; quick search repeated one seeded order.
 defaults:
 - init_diffusion_lane_conditioned_loss_search_best
@@ -162,8 +162,8 @@ model:
       reward_weight: 0
       reward_decay: 2.5
     sd_reference_mode: matched
-    sd_require_full_set: false
-    sd_r_reference: ${sim_root:}/configs/metrics/control657_full50000.json
+    sd_require_full_set: true
+    sd_r_reference: ${sim_root:}/configs/metrics/iu3fa4gx_full50000.json
 data:
   train_batch_size: 512
   val_batch_size: 128

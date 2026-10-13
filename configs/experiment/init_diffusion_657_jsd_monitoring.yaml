@@ -1,11 +1,13 @@
 # @package _global_
 # Shared monitoring for full-training JSD comparisons. Use with a model recipe.
-# This is the sorted first4096 validation scenes, not the quick-search manifest.
-# R values use a fixed 50k reference; 4096-scene validation is diagnostic, not paired.
+# Validate all50k official scenes against the final iu3fa4gx full50k reference.
 # Save every monitored epoch; choose checkpoints by matched JSD, not collision.
 model:
   model_config:
-    sd_r_reference: ${sim_root:}/configs/metrics/control657_full50000.json
+    sd_expected_scenes: 50000
+    sd_require_full_set: true
+    sd_reference_mode: matched
+    sd_r_reference: ${sim_root:}/configs/metrics/iu3fa4gx_full50000.json
     decoder:
       init_diffusion:
         sampling_steps: 20
@@ -20,7 +22,7 @@ data:
   pin_memory: false
   persistent_workers: false
 trainer:
-  limit_val_batches: 32
+  limit_val_batches: 1.0
   check_val_every_n_epoch: 8
   num_sanity_val_steps: 0
 callbacks:
@@ -29,7 +31,7 @@ callbacks:
     filename: "${task_name}-{epoch}-{step}"
     auto_insert_metric_name: false
     save_top_k: -1
-    save_last: true
+    save_last: false  # full_base.latest_checkpoint saves last once per epoch.
     every_n_epochs: 8
     every_n_train_steps: null
     train_time_interval: null
