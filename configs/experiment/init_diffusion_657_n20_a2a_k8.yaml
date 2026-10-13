@@ -224,7 +224,7 @@ data:
   shuffle: true
   scenario_dreamer_train_sample_list: null
   scenario_dreamer_eval_set: null
-  num_workers: 0
+  #num_workers: 0
   pin_memory: false
   persistent_workers: false
 trainer:

@@ -1554,27 +1554,38 @@ class Flow(nn.Module):
         )
 
     @torch.no_grad()
-    @torch.no_grad()
     def _collision_guided_x0(self, x0: Tensor, tokenized_agent: HeteroData) -> Tensor:
         """Separate overlapping clean-state predictions using the metric's
         five-circle geometry (threshold (w_i + w_j) / sqrt(3.8) + margin).
 
         Each iteration moves positions by ``scale`` times the gradient of
         0.5 * sum(relu(penetration)^2), where a pair's penetration is that of its
-        deepest circle pair; fixed (conditioned) positions stay put.
+        deepest circle pair; fixed (conditioned) positions stay put. Geometry
+        uses their actual clean context rather than unused denoiser predictions.
+        Flow positions are already in meters; state_to_physical only decodes
+        log sizes, while TRAIN feature normalization is internal to the model.
         """
         from torch_cluster import radius_graph
 
         options = self.collision_guidance
         batch = tokenized_agent["batch"].long()
-        physical = self.model.state_to_physical(x0[:, :self.model.m_delta_dim])
+        dim = self.model.m_delta_dim
+        fixed = self._conditioned_state_mask(tokenized_agent, x0)
+        geometry = torch.where(fixed[:, :dim], tokenized_agent["expert_input"][:, :dim], x0[:, :dim])
+        physical = self.model.state_to_physical(geometry)
         heading = torch.atan2(physical[:, 3], physical[:, 2])
         length, width = physical[:, 4].clamp_min(0.1), physical[:, 5].clamp_min(0.1)
-        movable = ~self._conditioned_state_mask(tokenized_agent, x0)[:, 0]
+        movable = ~fixed[:, 0]
         active = torch.ones_like(movable)
-        if options["vehicles_only"] and getattr(self, "generate_type", False) and not self.joint_type:
-            active = tokenized_agent["_init_diffusion_type_logits"].argmax(-1) == 0
-            active |= tokenized_agent["ego_mask"].bool() & (tokenized_agent["type"] == 0)
+        if options["vehicles_only"]:
+            if getattr(self, "generate_type", False):
+                types = (x0[:, dim:].argmax(-1) if self.feature_type else
+                         tokenized_agent["_init_diffusion_type_logits"].argmax(-1))
+                types = torch.where(self._conditioned_type_mask(tokenized_agent),
+                                    tokenized_agent["type"], types)
+            else:
+                types = tokenized_agent["type"]
+            active = types == 0
         index = active.nonzero(as_tuple=True)[0]
         if index.numel() < 2:
             return x0
@@ -1611,7 +1622,8 @@ class Flow(nn.Module):
             grad.index_add_(0, end[hit], push)
             pos = pos - options["scale"] * grad * weight
         result = x0.clone()
-        result[index, :2] = pos.to(result.dtype)
+        result[index, :2] = torch.where(movable[index, None], pos.to(result.dtype),
+                                        x0[index, :2])
         return result
 
     def _sample_step(
