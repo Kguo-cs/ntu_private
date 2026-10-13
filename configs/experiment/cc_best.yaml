@@ -1,0 +1,24 @@
+# @package _global_
+# cc_base training recipe (wandb iu3fa4gx) with two changes, sampling fixed at 20 steps:
+#   - map2agent_max_num_neighbors 64: each agent attends to every map token of the 50 m crop
+#     (~52 tokens/scene; the old cap of 30 dropped the farthest ~40%). In paired
+#     warm-start finetunes (2 training seeds) lat_dev and speed JSD improved, rest neutral.
+#   - collision guidance: overlapping vehicles in the predicted x0 are separated for
+#     t <= 0.3 using the metric's five-circle geometry (no extra model calls). On the
+#     iu3fa4gx checkpoint it cut collision 0.69% -> 0.023% and nearest_dist JSD ~20%,
+#     leaving the other five metrics unchanged.
+#   sampling_exact_x0 only matters for steps ending below t=0.05 (more than 20 steps).
+defaults:
+  - cc_base
+  - _self_
+
+task_name: cc_best
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_steps: 20
+        sampling_exact_x0: true
+        map2agent_max_num_neighbors: 64
+        collision_guidance: {scale: 0.5, t_max: 0.3, iters: 5, margin: 0.1, vehicles_only: true}

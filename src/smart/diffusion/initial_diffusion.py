@@ -95,6 +95,9 @@ class InitDiffusion(nn.Module):
         a2a_max_num_neighbors: int = 30,
         map2agent_radius: float = 300.0,
         map2agent_max_num_neighbors: int = 30,
+        sampling_exact_x0: bool = False,
+        warm_start_from_ema: bool = False,
+        collision_guidance: Optional[Mapping[str, Any]] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -137,6 +140,8 @@ class InitDiffusion(nn.Module):
         args.hidden_dim = denoiser_hidden_dim
         args.num_denoiser_layers = denoiser_num_layers
         args.sampling_steps = sampling_steps
+        args.sampling_exact_x0 = bool(sampling_exact_x0)
+        args.collision_guidance = None if collision_guidance is None else dict(collision_guidance)
         args.matching_weights = matching_weights
         args.time_sample_power = time_sample_power
         args.distribution_loss = distribution_loss
@@ -245,6 +250,9 @@ class InitDiffusion(nn.Module):
         self.sampling_steps = int(args.sampling_steps)
         self.branch_steps = getattr(args, "branch_steps", None)
 
+        # Finetuning option: load the checkpoint's EMA weights into the
+        # generator and restart averaging with this module's ema_decay.
+        self.warm_start_from_ema = bool(warm_start_from_ema)
         self.use_ema = bool(use_ema)
         self.ema_decay = float(ema_decay)
         if not 0.0 <= self.ema_decay <= 1.0:
@@ -418,9 +426,14 @@ class InitDiffusion(nn.Module):
                 not torch.is_tensor(shadow) or shadow.shape != parameter.shape
                 for shadow, parameter in zip(shadows, parameters.values())):
             raise ValueError("InitDiffusion EMA parameter shapes do not match the generator")
+        configured_decay = self.ema_decay
         self.ema_decay = float(saved["decay"])
         self.ema = ExponentialMovingAverage(parameters.values(), decay=self.ema_decay)
         self.ema.load_state_dict(saved)
+        if self.warm_start_from_ema:
+            self.ema.copy_to(parameters.values())
+            self.ema_decay = configured_decay
+            self.reset_ema()
 
     @staticmethod
     def _make_args(
