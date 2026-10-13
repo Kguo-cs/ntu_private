@@ -1,0 +1,26 @@
+# @package _global_
+# Full run: cc_best (map2agent 64 neighbours + collision guidance, 20 steps; no extra
+# parameters vs iu3fa4gx) + noise/target matching that weights speed and heading 4x.
+# Evidence (4-epoch warm-start finetunes from 4bo59qfn, full 50k, paired controls):
+#   matching velocity 4: speed JSD -26% / -27% on two training seeds;
+#   velocity 4 + heading 4: speed .046 (controls .059-.063), ang .0375 (.039-.040),
+#   length .294 (controls .248-.269, worse).
+# R / R_jsd / R_attr are reported against iu3fa4gx's final full-50k metrics.
+defaults:
+  - cc_best
+  - _self_
+
+task_name: cc_best_match
+
+data:
+  num_workers: 8
+
+trainer:
+  check_val_every_n_epoch: 8
+
+model:
+  model_config:
+    sd_r_reference: ${sim_root:}/configs/metrics/iu3fa4gx_full50000.json
+    decoder:
+      init_diffusion:
+        matching_weights: {velocity: 4.0, heading: 4.0}
