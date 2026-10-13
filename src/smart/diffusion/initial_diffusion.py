@@ -90,6 +90,7 @@ class InitDiffusion(nn.Module):
         speed_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
         speed_head_detach_context: bool = False,
+        speed_representation: str = "linear",
         map_condition_types: str = "road_edges",
         a2a_radius: float = 300.0,
         a2a_max_num_neighbors: int = 30,
@@ -156,6 +157,7 @@ class InitDiffusion(nn.Module):
         args.speed_x0_parameterization = speed_x0_parameterization
         args.speed_head_kind = speed_head_kind
         args.speed_head_detach_context = speed_head_detach_context
+        args.speed_representation = speed_representation
         args.velocity_representation = velocity_representation
         args.size_representation = size_representation
         if not isinstance(fix_ego, bool):
@@ -238,6 +240,7 @@ class InitDiffusion(nn.Module):
             "a2a_radius": a2a_radius, "a2a_max_num_neighbors": a2a_max_num_neighbors,
             "map2agent_radius": map2agent_radius,
             "map2agent_max_num_neighbors": map2agent_max_num_neighbors,
+            "speed_representation": speed_representation,
         }
         self.normalizer_path = None
         if normalizer_path is not None:
@@ -275,6 +278,9 @@ class InitDiffusion(nn.Module):
         its linear/log size representation. A subsequently loaded checkpoint
         replaces these buffers through normal state_dict restoration.
         """
+        if getattr(self.G1.model, "speed_representation", "linear") != "linear":
+            raise ValueError("normalizer_path statistics describe linear speed; "
+                             "omit normalizer_path when speed_representation is not linear")
         path = Path(normalizer_path).expanduser()
         with path.open() as stream:
             statistics = json.load(stream)
@@ -346,7 +352,8 @@ class InitDiffusion(nn.Module):
                           "speed_head_kind": "shared", "speed_head_detach_context": False,
                           "map_condition_types": "road_edges",
                           "a2a_radius": 300.0, "a2a_max_num_neighbors": 30,
-                          "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30}
+                          "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30,
+                          "speed_representation": "linear"}
         saved_options = dict(legacy_options, **state.get("denoiser_options", {}))
         if saved_options != self.denoiser_options:
             raise ValueError("Checkpoint denoiser options differ from configured x0 model; use its saved config")

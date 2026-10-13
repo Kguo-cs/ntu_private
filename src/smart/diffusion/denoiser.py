@@ -81,6 +81,7 @@ class InitDenoiser(nn.Module):
         map_lg_type: Optional[int] = 0,
         map_label_dropout: float = 0.1,
         size_representation: str = "linear",
+        speed_representation: str = "linear",
         invalid_size_policy: str = "mask",
         fix_ego: bool = True,
         generate_type: bool = False,
@@ -155,6 +156,13 @@ class InitDenoiser(nn.Module):
         if size_representation not in ("linear", "log"):
             raise ValueError("size_representation must be linear or log")
         self.size_representation = size_representation
+        # Scalar speed may be generated as log(1 + v) to resolve the parked /
+        # slow-moving region; decoding happens in state_to_physical.
+        if speed_representation not in ("linear", "log1p"):
+            raise ValueError("speed_representation must be linear or log1p")
+        if speed_representation != "linear" and velocity_representation != "speed":
+            raise ValueError("speed_representation requires velocity_representation=speed")
+        self.speed_representation = speed_representation
         if invalid_size_policy not in ("mask", "error"):
             raise ValueError("invalid_size_policy must be mask or error")
         self.invalid_size_policy = invalid_size_policy
@@ -433,8 +441,16 @@ class InitDenoiser(nn.Module):
             self._warned_invalid_sizes = True
         return torch.cat((state[:, :4], filled, state[:, 6:]), dim=-1)
 
+    def encode_speed(self, speed: torch.Tensor) -> torch.Tensor:
+        """Physical scalar speed (m/s) -> generated speed coordinate."""
+        if self.speed_representation == "linear":
+            return speed
+        return torch.log1p(speed.clamp_min(0.))
+
     def state_to_physical(self, state: torch.Tensor) -> torch.Tensor:
-        """Decode sizes for physical geometry/output, retaining gradients."""
+        """Decode sizes (and log1p speed) for physical geometry/output, retaining gradients."""
+        if getattr(self, "speed_representation", "linear") == "log1p" and state.shape[-1] == 7:
+            state = torch.cat((state[..., :6], torch.expm1(state[..., 6:7])), dim=-1)
         if self.size_representation == "linear":
             return state
         size = state[..., 4:6]
@@ -521,7 +537,8 @@ class InitDenoiser(nn.Module):
             if self.velocity_representation == "speed":
                 if state.shape[-1] == 8:
                     tokenized_agent["_init_diffusion_ego_local_velocity"] = state[:, 6:8].clone()
-                    state = torch.cat((state[:, :6], torch.linalg.vector_norm(state[:, 6:8], dim=-1, keepdim=True)), dim=-1)
+                    state = torch.cat((state[:, :6], self.encode_speed(
+                        torch.linalg.vector_norm(state[:, 6:8], dim=-1, keepdim=True))), dim=-1)
                     tokenized_agent["expert_input"] = state
                 elif state.shape[-1] != 7:
                     raise ValueError("speed expert_input must have 7 state fields or 8 vector fields")
@@ -553,7 +570,7 @@ class InitDenoiser(nn.Module):
         motion = local_vel[:, :2]
         if self.velocity_representation == "speed":
             tokenized_agent["_init_diffusion_ego_local_velocity"] = motion.clone()
-            motion = torch.linalg.vector_norm(motion, dim=-1, keepdim=True)
+            motion = self.encode_speed(torch.linalg.vector_norm(motion, dim=-1, keepdim=True))
 
         local_pos, local_heading = transform_to_local(
             agent_pos,
