@@ -2,6 +2,10 @@
 # Centerline-only ablation against K8; collision objective stays pair_mean/5.
 # TRAIN4817 / step2048: R_jsd=.7146 vs paired657, .9309 vs K8.
 # Versus K8: geometry improves but R_attr=1.1001. Long training unverified.
+# TRAIN5817 / step4096 / 16384-scene matched confirmation:
+# R_jsd=.5620, R_attr=.7384; speed is effectively tied (.9945 ratio).
+# Original lane_agentmax05 at this scope was .6284/.8140.
+# This supports full-training consideration, not a128epoch improvement claim.
 defaults:
   - init_diffusion_657_n20_lane_agentmax05
   - _self_
