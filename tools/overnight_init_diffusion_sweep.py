@@ -13,6 +13,7 @@ sweep.SEARCH_CONFIG_KEYS.update({PREFIX + key for key in (
     "denoiser_num_layers", "sampling_steps", "state_feature_normalization",
     "speed_x0_parameterization", "speed_head_kind", "speed_head_detach_context",
     "map_condition_types", "time_conditioning", "collision_reduction",
+    "a2a_radius", "a2a_max_num_neighbors", "map2agent_radius", "map2agent_max_num_neighbors",
 )})
 
 if __name__ == "__main__":

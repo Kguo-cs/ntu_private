@@ -97,6 +97,10 @@ class InitDenoiser(nn.Module):
         speed_x0_parameterization: str = "identity",
         speed_head_kind: str = "shared",
         speed_head_detach_context: bool = False,
+        a2a_radius: float = 300.0,
+        a2a_max_num_neighbors: int = 30,
+        map2agent_radius: float = 300.0,
+        map2agent_max_num_neighbors: int = 30,
     ) -> None:
         super().__init__()
 
@@ -107,6 +111,19 @@ class InitDenoiser(nn.Module):
         self.num_heads = num_heads
         head_dim = hidden_dim//num_heads
         self.dropout = dropout
+        # Graph locality changes the available context, without changing the
+        # relation encoders or adding parameters. Preserve the legacy graph
+        # exactly when these static options are left at their defaults.
+        for name, value in (("a2a_radius", a2a_radius),
+                            ("map2agent_radius", map2agent_radius)):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be finite and positive")
+            setattr(self, name, float(value))
+        for name, value in (("a2a_max_num_neighbors", a2a_max_num_neighbors),
+                            ("map2agent_max_num_neighbors", map2agent_max_num_neighbors)):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+            setattr(self, name, value)
         self.x_pred = x_pred
         self.heading_velocity = heading_velocity
         if velocity_representation not in ("vector", "speed"):
@@ -878,8 +895,8 @@ class InitDenoiser(nn.Module):
             head_vector_s=head_vector_s,
             batch_s=batch,
             mask=None,
-            max_radius=300,
-            max_num_neighbors=30,
+            max_radius=self.a2a_radius,
+            max_num_neighbors=self.a2a_max_num_neighbors,
             agent_train_mask=None,
             layer_num=self.num_layers,
         )
@@ -953,8 +970,8 @@ class InitDenoiser(nn.Module):
                 mask=mask_for_map,
                 batch_s=batch_for_map,
                 batch_pl=batch_pl,
-                pl2a_radius=300,
-                max_num_neighbors=30,
+                pl2a_radius=self.map2agent_radius,
+                max_num_neighbors=self.map2agent_max_num_neighbors,
                 agent_train_mask=None,
                 layer_num=self.num_layers,
             )

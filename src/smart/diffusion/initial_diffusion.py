@@ -91,6 +91,10 @@ class InitDiffusion(nn.Module):
         speed_head_kind: str = "shared",
         speed_head_detach_context: bool = False,
         map_condition_types: str = "road_edges",
+        a2a_radius: float = 300.0,
+        a2a_max_num_neighbors: int = 30,
+        map2agent_radius: float = 300.0,
+        map2agent_max_num_neighbors: int = 30,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -138,6 +142,10 @@ class InitDiffusion(nn.Module):
         args.distribution_loss = distribution_loss
         args.state_feature_normalization = state_feature_normalization
         args.time_conditioning = time_conditioning
+        args.a2a_radius = a2a_radius
+        args.a2a_max_num_neighbors = a2a_max_num_neighbors
+        args.map2agent_radius = map2agent_radius
+        args.map2agent_max_num_neighbors = map2agent_max_num_neighbors
         args.speed_x0_parameterization = speed_x0_parameterization
         args.speed_head_kind = speed_head_kind
         args.speed_head_detach_context = speed_head_detach_context
@@ -220,6 +228,9 @@ class InitDiffusion(nn.Module):
             "speed_x0_parameterization": speed_x0_parameterization,
             "speed_head_kind": speed_head_kind, "speed_head_detach_context": speed_head_detach_context,
             "map_condition_types": map_condition_types,
+            "a2a_radius": a2a_radius, "a2a_max_num_neighbors": a2a_max_num_neighbors,
+            "map2agent_radius": map2agent_radius,
+            "map2agent_max_num_neighbors": map2agent_max_num_neighbors,
         }
         self.normalizer_path = None
         if normalizer_path is not None:
@@ -323,7 +334,9 @@ class InitDiffusion(nn.Module):
                           "state_feature_normalization": "none", "time_conditioning": "input",
                           "speed_x0_parameterization": "identity",
                           "speed_head_kind": "shared", "speed_head_detach_context": False,
-                          "map_condition_types": "road_edges"}
+                          "map_condition_types": "road_edges",
+                          "a2a_radius": 300.0, "a2a_max_num_neighbors": 30,
+                          "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30}
         saved_options = dict(legacy_options, **state.get("denoiser_options", {}))
         if saved_options != self.denoiser_options:
             raise ValueError("Checkpoint denoiser options differ from configured x0 model; use its saved config")
@@ -375,6 +388,13 @@ class InitDiffusion(nn.Module):
         # every generator weight; exempt only the newly introduced extra key.
         if extra_key not in state_dict and extra_key in missing_keys:
             missing_keys.remove(extra_key)
+            graph_defaults = {"a2a_radius": 300.0, "a2a_max_num_neighbors": 30,
+                              "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30}
+            if (any(key.startswith(prefix + "G1.") for key in state_dict)
+                    and any(self.denoiser_options[name] != value
+                            for name, value in graph_defaults.items())):
+                error_msgs.append("Legacy InitDiffusion checkpoints use denoiser graph radii 300m "
+                                  "and neighbour caps 30; use the saved graph options for evaluation/resume")
             if self.size_representation != "linear" and any(
                     key.startswith(prefix + "G1.") for key in state_dict):
                 error_msgs.append("Legacy InitDiffusion checkpoints use linear sizes; "

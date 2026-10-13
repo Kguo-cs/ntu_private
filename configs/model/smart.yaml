@@ -44,6 +44,10 @@ model_config:
       sampling_steps: 20
       collision_reduction: pair_mean  # agent_max averages each actor's worst excess overlap.
       time_conditioning: input  # every_layer reuses timestep conditions at subsequent attention layers.
+      a2a_radius: 300.0  # Denoiser agent-agent context radius in metres; independent of the map encoder.
+      a2a_max_num_neighbors: 30
+      map2agent_radius: 300.0  # Denoiser map-agent context radius in metres.
+      map2agent_max_num_neighbors: 30
       state_feature_normalization: none  # train: normalize size/speed network features with saved TRAIN statistics.
       speed_x0_parameterization: identity  # identity, softplus or time_residual; all retain clean-state supervision.
       speed_head_kind: shared  # separate gives scalar speed a dedicated output MLP.

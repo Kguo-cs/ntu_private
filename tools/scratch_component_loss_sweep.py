@@ -134,6 +134,8 @@ class ScratchDiagnostics(Diagnostics):
                 "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                 "cuda_allocated_mib": torch.cuda.memory_allocated() / 2**20,
                 "cuda_reserved_mib": torch.cuda.memory_reserved() / 2**20,
+                "cuda_peak_allocated_mib": torch.cuda.max_memory_allocated() / 2**20,
+                "cuda_peak_reserved_mib": torch.cuda.max_memory_reserved() / 2**20,
                 "gc_counts": gc.get_count(),
             }), flush=True)
 
@@ -501,7 +503,10 @@ def main():
                               actual_train_offset=None if name in eval_map else offset,
                               resumed_from=str(source_checkpoint) if source_checkpoint else None,
                               resume_global_step=saved_step, optimizer_continued=name in resume_map,
-                              resume_local_batch_counter_reset=name in resume_map)
+                              resume_local_batch_counter_reset=name in resume_map,
+                              generator_num_parameters=sum(p.numel() for p in model.encoder.init_decoder.G1.parameters()),
+                              generator_trainable_parameters=sum(p.numel() for p in model.encoder.init_decoder.G1.parameters() if p.requires_grad),
+                              frozen_map_num_parameters=sum(p.numel() for p in model.encoder.map_encoder.parameters()))
         save_json(folder / "initialization.json", initialization)
         diagnostic = ScratchDiagnostics(sorted(set(checkpoint_steps + [args.steps])), folder,
                                         dict(metadata, **initial_hashes), resume_rng,
