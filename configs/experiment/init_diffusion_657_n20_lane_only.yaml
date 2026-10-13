@@ -1,0 +1,17 @@
+# @package _global_
+# Centerline-only ablation against K8; collision objective stays pair_mean/5.
+# TRAIN4817 / step2048: R_jsd=.7146 vs paired657, .9309 vs K8.
+# Versus K8: geometry improves but R_attr=1.1001. Long training unverified.
+defaults:
+  - init_diffusion_657_n20_lane_agentmax05
+  - _self_
+task_name: init_diffusion_657_n20_lane_only
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        collision_reduction: pair_mean
+        component_loss:
+          components:
+            collision:
+              weight: 5.0

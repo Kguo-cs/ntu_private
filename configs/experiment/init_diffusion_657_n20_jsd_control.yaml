@@ -1,0 +1,6 @@
+# @package _global_
+defaults:
+  - init_diffusion_657_n20_control
+  - init_diffusion_657_jsd_monitoring
+  - _self_
+task_name: init_diffusion_657_n20_jsd_control

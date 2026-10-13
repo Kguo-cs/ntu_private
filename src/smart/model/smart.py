@@ -589,6 +589,9 @@ class SMART(LightningModule):
             if self.sd_r_reference is not None:
                 metrics["R"], report["relative_score"] = relative_score(
                     metrics, self.sd_r_reference, report)
+                metrics.update(report["relative_score"]["scores"])
+                metrics["R_scope_matches_reference"] = float(
+                    report["relative_score"]["scope_matches_reference"])
                 report["relative_score"]["reference_path"] = str(self.sd_r_reference_path)
             report["agent_metrics"] = metrics
             report["runtime"] = {

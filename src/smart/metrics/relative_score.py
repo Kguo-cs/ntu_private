@@ -7,6 +7,8 @@ R_METRICS = (
     "nearest_dist_jsd", "lat_dev_jsd", "ang_dev_jsd", "length_jsd",
     "width_jsd", "speed_jsd", "collision_rate",
 )
+JSD_METRICS = R_METRICS[:6]
+ATTR_METRICS = ("length_jsd", "width_jsd", "speed_jsd")
 
 
 def load_r_reference(path):
@@ -37,10 +39,21 @@ def relative_score(metrics, reference, report):
                   if name not in reference or reference[name] != report.get(name)]
     if not report.get("full_membership", False) or not reference.get("full_membership", False):
         mismatches.append("full_membership")
-    return math.fsum(ratios.values()) / len(R_METRICS), {
+    scores = {
+        "R": math.fsum(ratios.values()) / len(R_METRICS),
+        "R_jsd": math.fsum(ratios[name] for name in JSD_METRICS) / len(JSD_METRICS),
+        "R_attr": math.fsum(ratios[name] for name in ATTR_METRICS) / len(ATTR_METRICS),
+    }
+    return scores["R"], {
         "name": reference.get("name", "configured reference"),
         "definition": "mean of seven native candidate/reference metric ratios; lower is better",
         "ratios": ratios,
+        "scores": scores,
+        "score_definitions": {
+            "R": "mean of seven native candidate/reference ratios, including collision",
+            "R_jsd": "mean of six JSD candidate/reference ratios, excluding collision",
+            "R_attr": "mean of length, width and speed JSD candidate/reference ratios",
+        },
         "scope_matches_reference": not mismatches,
         "scope_mismatches": mismatches,
         "interpretation": "single evaluation against a fixed baseline; not a pooled or paired multi-seed score",

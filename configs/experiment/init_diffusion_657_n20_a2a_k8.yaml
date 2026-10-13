@@ -14,7 +14,7 @@ float32_matmul_precision: medium
 model:
   _target_: src.smart.model.smart_gail.SMART_GAIL
   model_config:
-    sd_r_reference: null
+    sd_r_reference: ${sim_root:}/configs/metrics/control657_full50000.json
     initial_map_checkpoint: ${sim_root:}/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
     optimizer: default
     lr: 0.0005
@@ -224,7 +224,7 @@ data:
   shuffle: true
   scenario_dreamer_train_sample_list: null
   scenario_dreamer_eval_set: null
-  #num_workers: 0
+  num_workers: 8
   pin_memory: false
   persistent_workers: false
 trainer:

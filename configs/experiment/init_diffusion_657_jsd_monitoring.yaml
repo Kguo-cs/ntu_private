@@ -1,0 +1,36 @@
+# @package _global_
+# Shared monitoring for full-training JSD comparisons. Use with a model recipe.
+# This is the sorted first4096 validation scenes, not the quick-search manifest.
+# R values use a fixed 50k reference; 4096-scene validation is diagnostic, not paired.
+# Save every monitored epoch; choose checkpoints by matched JSD, not collision.
+model:
+  model_config:
+    sd_r_reference: ${sim_root:}/configs/metrics/control657_full50000.json
+    decoder:
+      init_diffusion:
+        sampling_steps: 20
+        sampling_exact_x0: false
+        warm_start_from_ema: false
+        collision_guidance: null
+data:
+  val_batch_size: 128
+  test_batch_size: 128
+  scenario_dreamer_eval_set: null
+  num_workers: 8
+  pin_memory: false
+  persistent_workers: false
+trainer:
+  limit_val_batches: 32
+  check_val_every_n_epoch: 8
+  num_sanity_val_steps: 0
+callbacks:
+  model_checkpoint:
+    monitor: null
+    filename: "${task_name}-{epoch}-{step}"
+    auto_insert_metric_name: false
+    save_top_k: -1
+    save_last: true
+    every_n_epochs: 8
+    every_n_train_steps: null
+    train_time_interval: null
+    save_on_train_epoch_end: true

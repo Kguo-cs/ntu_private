@@ -1,0 +1,19 @@
+# @package _global_
+# JSD-first candidate: K8 + train normalization + per-layer time + lane centers.
+# Native TRAIN5817 / step4096 evidence: R_jsd=.6369; speed JSD is still +5.1%.
+# Historical TRAIN4817 supports geometry/shape gains. Full128epoch not verified.
+defaults:
+  - init_diffusion_657_n20_a2a_k8
+  - init_diffusion_657_jsd_monitoring
+  - _self_
+task_name: init_diffusion_657_n20_lane_agentmax05
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        map_condition_types: lanes_and_edges
+        collision_reduction: agent_max
+        component_loss:
+          components:
+            collision:
+              weight: 0.5

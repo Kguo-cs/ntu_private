@@ -1,0 +1,16 @@
+# @package _global_
+# Full50000 evaluation, EMA, N20; checkpoint must match lane-only training.
+defaults:
+  - init_diffusion_657_n20_lane_agentmax05_eval
+  - _self_
+task_name: init_diffusion_657_n20_lane_only_eval
+ckpt_path: ${oc.env:INIT_DIFFUSION_657_N20_LANE_ONLY_CKPT}
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        collision_reduction: pair_mean
+        component_loss:
+          components:
+            collision:
+              weight: 5.0

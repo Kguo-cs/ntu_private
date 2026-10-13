@@ -172,7 +172,7 @@ data:
   val_raw_dir: ${sim_root:}/src/waymo_data/full/scenario_dreamer_val
   test_raw_dir: ${sim_root:}/src/waymo_data/full/scenario_dreamer_val
   shuffle: true
-  num_workers: 4
+  num_workers: 8
   pin_memory: false
   persistent_workers: false
   scenario_dreamer_train_sample_list: null
