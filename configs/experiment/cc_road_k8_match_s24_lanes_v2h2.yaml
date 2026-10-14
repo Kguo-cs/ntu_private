@@ -1,4 +1,6 @@
 # @package _global_
+# NOT RECOMMENDED (2026-10-14): in full runs lat/ang plateau near .10/.13 after epoch ~15
+# instead of converging (no-lanes runs reach ~.02/.05 by epoch 55); see wandb 0ub06wyq.
 # cc_road_k8_match_s24 + lane centre-line context (ang/lat) + milder speed/heading matching
 # {velocity: 2, heading: 2} (length). Evidence: 16-epoch scratch proxy lanes vs control:
 # ang -46%, lat -71%, length +2%, speed +16%; full run efzhwmu3 (v2h2) vs nnsjk5vl at

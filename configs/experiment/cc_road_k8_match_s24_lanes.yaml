@@ -1,4 +1,6 @@
 # @package _global_
+# NOT RECOMMENDED (2026-10-14): in full runs lat/ang plateau near .10/.13 after epoch ~15
+# instead of converging (no-lanes runs reach ~.02/.05 by epoch 55); see wandb 0ub06wyq.
 # cc_road_k8_match_s24 with lane centre-line queries in the denoiser's map context
 # (map_condition_types lanes_and_edges; same frozen map encoder, no new parameters).
 # Target: ang_dev JSD. Half of its remaining error is vehicles heading opposite to the
