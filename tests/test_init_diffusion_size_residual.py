@@ -9,6 +9,69 @@ from src.smart.diffusion.initial_diffusion import InitDiffusion
 
 
 class SizeTimeResidualTest(unittest.TestCase):
+    def test_train_affine_changes_only_sizes_and_scales_their_gradient(self):
+        model=self.model(shape_x0_parameterization='train_affine')
+        with torch.no_grad():
+            model.normal_mean[:,4:6]=torch.tensor([[4.,2.]])
+            model.normal_scale[:,4:6]=torch.tensor([[1.5,.4]])
+        raw=torch.randn(3,10,requires_grad=True);latent=torch.randn(3,10)
+        original=raw.detach().clone();time=torch.tensor([[0.],[.2],[1.]])
+        result=model._parameterize_shape_x0(raw,latent,time)
+        torch.testing.assert_close(result[:,4:6],torch.tensor([[4.,2.]])+raw[:,4:6]*torch.tensor([[1.5,.4]]))
+        torch.testing.assert_close(result[:,:4],raw[:,:4],rtol=0,atol=0)
+        torch.testing.assert_close(result[:,6:],raw[:,6:],rtol=0,atol=0)
+        torch.testing.assert_close(raw.detach(),original,rtol=0,atol=0)
+        result[:,4:6].sum().backward()
+        torch.testing.assert_close(raw.grad[:,4:6],torch.tensor([[1.5,.4]]).expand(3,-1))
+        torch.testing.assert_close(raw.grad[:,:4],torch.zeros(3,4),rtol=0,atol=0)
+        torch.testing.assert_close(raw.grad[:,6:],torch.zeros(3,4),rtol=0,atol=0)
+
+    def test_train_affine_preserves_saved_log_representation_and_objective(self):
+        from src.smart.diffusion.diffusion_utils import get_diff_loss
+        model=self.model(shape_x0_parameterization='train_affine',size_representation='log')
+        with torch.no_grad():
+            model.normal_mean[:,4:6]=torch.tensor([[4.,2.]]).log()
+            model.normal_scale[:,4:6]=torch.tensor([[.3,.15]])
+        clean=torch.tensor([[1.,2.,1.,0.,4.,2.,3.],[3.,-2.,0.,1.,5.,2.2,6.]])
+        clean=model.state_to_model(clean);desired=clean+.1;raw=desired.clone()
+        raw[:,4:6]=(desired[:,4:6]-model.normal_mean[:,4:6])/model.normal_scale[:,4:6]
+        time=torch.tensor([[.3],[.7]])
+        decoded=model._parameterize_shape_x0(raw,clean,time)
+        torch.testing.assert_close(decoded,desired)
+        torch.testing.assert_close(model.state_to_physical(decoded)[:,4:6],desired[:,4:6].exp())
+        agent=dict(batch=torch.zeros(2,dtype=torch.long))
+        expected=get_diff_loss(agent,desired,clean,time,.05,x_pred=True,physical_state_dim=7)
+        actual=get_diff_loss(agent,decoded,clean,time,.05,x_pred=True,physical_state_dim=7)
+        for first,second in zip(expected,actual):torch.testing.assert_close(first,second)
+
+    def test_train_affine_full_wrapper_keeps_parameters_and_rng_and_round_trips(self):
+        torch.manual_seed(4719);base=self.wrapper(time_embedding_type='scenario_dreamer');rng=torch.get_rng_state().clone()
+        torch.manual_seed(4719);affine=self.wrapper(time_embedding_type='scenario_dreamer',shape_x0_parameterization='train_affine')
+        torch.testing.assert_close(rng,torch.get_rng_state(),rtol=0,atol=0)
+        self.assertEqual(sum(p.numel() for p in base.parameters()),sum(p.numel() for p in affine.parameters()))
+        for key,value in base.state_dict().items():
+            if torch.is_tensor(value):torch.testing.assert_close(value,affine.state_dict()[key],rtol=0,atol=0)
+        state=copy.deepcopy(affine.state_dict())
+        clone=self.wrapper(time_embedding_type='scenario_dreamer',shape_x0_parameterization='train_affine')
+        clone.load_state_dict(state,strict=True)
+        self.assertEqual(clone.G1.model.shape_x0_parameterization,'train_affine')
+        with self.assertRaisesRegex(ValueError,'denoiser options'):
+            self.wrapper(time_embedding_type='scenario_dreamer').load_state_dict(state,strict=True)
+
+    def test_train_affine_native_forward_uses_saved_statistics(self):
+        model=self.model(shape_x0_parameterization='train_affine')
+        with torch.no_grad():
+            model.normal_mean[:,4:6]=torch.tensor([[4.,2.]])
+            model.normal_scale[:,4:6]=torch.tensor([[1.5,.4]])
+        state=torch.tensor([[1.,2.,1.,0.,4.,2.,3.],[3.,-2.,0.,1.,5.,2.2,6.]])
+        time=torch.tensor([[0.],[.4]])
+        agent=dict(batch=torch.zeros(2,dtype=torch.long),type=torch.zeros(2,dtype=torch.long),num_graphs=1,
+                   ego_mask=torch.tensor([True,False]),ego_feat=torch.tensor([[0.,0.,0.,0.,0.,0.,0.,0.,0.,2.,0.,0.]]))
+        with patch.object(model,'_apply_graph_attention',return_value=torch.ones(2,7)):
+            result=model(state,time,agent,{},use_map_condition=False)
+        torch.testing.assert_close(result[:,4:6],torch.tensor([[5.5,2.4]]).expand(2,-1))
+        torch.testing.assert_close(result[:,6],torch.ones(2),rtol=0,atol=0)
+
     def test_untimed_residual_has_unit_gradient_at_all_times(self):
         raw=torch.randn(3,10,requires_grad=True);latent=torch.randn(3,10)
         time=torch.tensor([[0.],[.3],[1.]])

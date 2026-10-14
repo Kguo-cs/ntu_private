@@ -54,19 +54,36 @@ class SamplingTimeGridTest(unittest.TestCase):
             if torch.is_tensor(value):self.assertTrue(torch.equal(value,b.state_dict()[key]),key)
         self.assertEqual(sum(p.numel() for p in a.parameters()),sum(p.numel() for p in b.parameters()))
 
-    def test_actual_flow_sampler_uses_exactly_twenty_model_calls(self):
+    def test_actual_flow_sampler_uses_requested_twenty_or_twentyfour_model_calls(self):
         state=torch.tensor([[2.,3.,1.,0.,4.5,2.,5.,0.],
                             [0.,0.,1.,0.,4.5,2.,5.,0.],
                             [-4.,7.,0.,1.,4.,1.8,3.,0.]])
-        for config in [None,{'power':.75},{'kind':'cosine','terminal_time':.05}]:
-            flow=self.flow(config);flow.eval()
-            agent=dict(batch=torch.zeros(3,dtype=torch.long),type=torch.tensor([0,1,2]),
-                       ego_mask=torch.tensor([False,True,False]),num_graphs=1,
-                       expert_input=state.clone())
-            with patch.object(flow.model,'forward',return_value=state.clone()) as model:
-                result=flow.sample(agent,{},steps=20)
-            self.assertEqual(model.call_count,20)
-            torch.testing.assert_close(result,state,rtol=0,atol=1e-6)
+        for steps in (20,24):
+            for config in [None,{'power':.75},{'kind':'cosine','terminal_time':.05}]:
+                flow=self.flow(config);flow.eval()
+                agent=dict(batch=torch.zeros(3,dtype=torch.long),type=torch.tensor([0,1,2]),
+                           ego_mask=torch.tensor([False,True,False]),num_graphs=1,
+                           expert_input=state.clone())
+                with patch.object(flow.model,'forward',return_value=state.clone()) as model:
+                    result=flow.sample(agent,{},steps=steps)
+                self.assertEqual(model.call_count,steps)
+                # Legacy t_eps=.05 intentionally leaves residual when the
+                # last grid point is smaller than .05 (uniform N24). Check
+                # that behavior explicitly rather than hiding it in tolerance.
+                times=self.grid(config,steps=steps)
+                retained=(1-(times[:-1]-times[1:])/times[:-1].clamp_min(.05)).prod()
+                initial=model.call_args_list[0].args[0]
+                expected=state+retained*(initial-state)
+                torch.testing.assert_close(result,expected,rtol=0,atol=2e-6)
+
+    def test_24_step_terminal_control_avoids_legacy_floor_residual(self):
+        for steps,config in [(20,None),(24,None),(24,{'terminal_time':.05})]:
+            times=self.grid(config,steps=steps)
+            retained=(1-(times[:-1]-times[1:])/times[:-1].clamp_min(.05)).prod()
+            if steps==24 and config is None:
+                self.assertGreater(float(retained),0.)
+            else:
+                self.assertEqual(float(retained),0.)
 
 
 if __name__=='__main__':unittest.main()

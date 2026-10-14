@@ -81,6 +81,7 @@ class InitDiffusion(nn.Module):
         matching_weights: Optional[Mapping[str, float]] = None,
         time_sample_power: float = 1.0,
         distribution_loss: Optional[Mapping[str, Any]] = None,
+        attribute_source: Optional[Mapping[str, Any]] = None,
         denoiser_hidden_dim: Optional[int] = None,
         denoiser_num_layers: Optional[int] = None,
         sampling_steps: Optional[int] = None,
@@ -149,6 +150,7 @@ class InitDiffusion(nn.Module):
         args.matching_weights = matching_weights
         args.time_sample_power = time_sample_power
         args.distribution_loss = distribution_loss
+        args.attribute_source = attribute_source
         args.state_feature_normalization = state_feature_normalization
         args.time_conditioning = time_conditioning
         args.a2a_radius = a2a_radius
@@ -244,6 +246,8 @@ class InitDiffusion(nn.Module):
             "a2a_radius": a2a_radius, "a2a_max_num_neighbors": a2a_max_num_neighbors,
             "map2agent_radius": map2agent_radius,
             "map2agent_max_num_neighbors": map2agent_max_num_neighbors,
+            "attribute_source": (self.G1.model.attribute_source.get_extra_state()
+                                 if self.G1.model.attribute_source is not None else None),
         }
         self.normalizer_path = None
         if normalizer_path is not None:
@@ -354,7 +358,8 @@ class InitDiffusion(nn.Module):
                           "speed_head_detach_context": False,
                           "map_condition_types": "road_edges",
                           "a2a_radius": 300.0, "a2a_max_num_neighbors": 30,
-                          "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30}
+                          "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30,
+                          "attribute_source": None}
         saved_options = dict(legacy_options, **state.get("denoiser_options", {}))
         if saved_options != self.denoiser_options:
             raise ValueError("Checkpoint denoiser options differ from configured x0 model; use its saved config")

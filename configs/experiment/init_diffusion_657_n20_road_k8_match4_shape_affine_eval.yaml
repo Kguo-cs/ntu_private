@@ -1,0 +1,22 @@
+# @package _global_
+# Full50K evaluation of the matching TRAIN-affine-size training recipe.
+# Supply ckpt_path explicitly, or set INIT_DIFFUSION_SHAPE_AFFINE_CKPT.
+defaults:
+  - init_diffusion_657_n20_road_k8_match4_shape_affine_full
+  - _self_
+
+task_name: init_diffusion_657_n20_road_k8_match4_shape_affine_eval
+action: test
+ckpt_path: ${oc.env:INIT_DIFFUSION_SHAPE_AFFINE_CKPT}
+seed: 2817
+model:
+  model_config:
+    initial_map_checkpoint: null
+    decoder:
+      init_diffusion:
+        normalizer_path: null
+trainer:
+  limit_test_batches: 1.0
+  logger: false
+callbacks: null
+logger: false

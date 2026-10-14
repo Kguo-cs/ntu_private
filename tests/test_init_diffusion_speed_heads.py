@@ -165,5 +165,28 @@ class InitDiffusionSpeedHeadsTest(unittest.TestCase):
                 self.model(**options)
 
 
+    def test_complete_flow_preserves_shared_parameters_and_rng(self):
+        from src.smart.diffusion.initial_diffusion import InitDiffusion
+        def wrapper(kind):
+            args = SimpleNamespace(input_dim=7, hidden_dim=32, num_heads=4, dropout=0.,
+                num_denoiser_layers=1, num_branch_steps=1, branch_steps=[0],
+                sampling_steps=20, use_rl=False, sigma_h=1.)
+            processor = SimpleNamespace(use_refiner=False, learn_init=True, init_map_range=50.)
+            with patch.object(InitDiffusion, "_make_args", return_value=args):
+                return InitDiffusion(32, 4, 4, processor, False,
+                    velocity_representation="speed", denoiser_num_layers=1,
+                    time_embedding_type="scenario_dreamer", speed_head_kind=kind)
+        torch.manual_seed(817)
+        shared = wrapper("shared")
+        next_rng = torch.get_rng_state().clone()
+        torch.manual_seed(817)
+        separate = wrapper("separate")
+        self.assertTrue(torch.equal(next_rng, torch.get_rng_state()))
+        for name, value in shared.G1.state_dict().items():
+            if torch.is_tensor(value):
+                torch.testing.assert_close(value, separate.G1.state_dict()[name], rtol=0, atol=0)
+        self.assertTrue(any(name.startswith("model.to_out_speed.") for name in separate.G1.state_dict()))
+
+
 if __name__ == "__main__":
     unittest.main()

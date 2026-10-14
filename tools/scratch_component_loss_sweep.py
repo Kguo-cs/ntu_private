@@ -70,7 +70,7 @@ def weights_hash(model, prefix, exclude_prefixes=()):
     return digest.hexdigest()
 
 
-def install_cyclic_resume_loader(dm, saved_step, train_size, batch_size):
+def install_cyclic_resume_loader(dm, saved_step, train_size, batch_size, audit_path=None):
     """Resume a fixed-order epoch suffix, then reload complete later epochs.
 
     ScratchDiagnostics restores RNG and resets loader-local batch progress at
@@ -84,7 +84,35 @@ def install_cyclic_resume_loader(dm, saved_step, train_size, batch_size):
     first_offset = batch_offset * batch_size
     if dm.num_workers or dm.shuffle or dm.train_batch_size != batch_size:
         raise ValueError("Cyclic resume requires workers=0, shuffle=False and the original batch size")
+    class OnceStartedIterator:
+        def __init__(self, iterator):
+            self.iterator = iterator
+            self.started = False
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            self.started = True
+            return next(self.iterator)
+
+    class ResumeDataLoader(DataLoader):
+        def __iter__(self):
+            # Lightning initializes an iterator in setup_data, then again in
+            # epoch_loop.on_run_start on reloaded epochs. The first is unused.
+            # Reuse that iterator so CPU RNG advances once, exactly as in the
+            # uninterrupted, non-reloaded loader. This is single-consumer and
+            # workers=0 only; after any consumption a new iterator is created.
+            previous = getattr(self, "_resume_iterator", None)
+            if previous is None or previous.started:
+                self._resume_iterator = OnceStartedIterator(super().__iter__())
+            return self._resume_iterator
+
+    events = []
+
     def loader(self):
+        if self.trainer.reload_dataloaders_every_n_epochs != 1:
+            raise ValueError("Cyclic resume requires reload_dataloaders_every_n_epochs=1")
         epoch = self.trainer.current_epoch
         if epoch < start_epoch:
             raise ValueError("Checkpoint epoch progress has not been restored")
@@ -93,9 +121,15 @@ def install_cyclic_resume_loader(dm, saved_step, train_size, batch_size):
             raise ValueError("Cyclic resume requires the complete original TRAIN order")
         if epoch == start_epoch and first_offset:
             dataset = Subset(dataset, range(first_offset, train_size))
-        return DataLoader(dataset, batch_size=batch_size, shuffle=False,
-                          num_workers=0, pin_memory=self.pin_memory,
-                          persistent_workers=False, drop_last=False)
+        offset = first_offset if epoch == start_epoch else 0
+        events.append(dict(epoch=epoch, global_step=self.trainer.global_step,
+                           offset=offset, dataset_scenes=len(dataset),
+                           batches=(len(dataset) + batch_size - 1) // batch_size))
+        if audit_path is not None:
+            Path(audit_path).write_text(json.dumps(events, indent=2) + "\n")
+        return ResumeDataLoader(dataset, batch_size=batch_size, shuffle=False,
+                                num_workers=0, pin_memory=self.pin_memory,
+                                persistent_workers=False, drop_last=False)
     dm.train_dataloader = types.MethodType(loader, dm)
     return first_offset
 
@@ -198,6 +232,12 @@ class ScratchDiagnostics(Diagnostics):
             # progress/global_step, epoch, scheduler and logging counters.
             trainer.fit_loop.epoch_loop.batch_progress.current.reset()
             trainer.fit_loop.epoch_loop.batch_progress.is_last_batch = False
+            # This suffix will execute new batches. Lightning's parent fit
+            # loop otherwise treats its first end as an epoch-end checkpoint
+            # replay and steps the non-plateau epoch scheduler twice. Clear
+            # only the parent flag: child loop restart state must stay intact
+            # to restore optimizer progress and avoid a second RNG draw.
+            trainer.fit_loop._restarting = False
             random.setstate(self.resume_rng["python"])
             np.random.set_state(self.resume_rng["numpy"])
             torch.set_rng_state(self.resume_rng["torch_cpu"])
@@ -246,6 +286,8 @@ def parser_for_cli():
     parser.add_argument("--recipe", type=Path)
     parser.add_argument("--normalizer-json", "--calibration", dest="normalizer_json", type=Path, required=True)
     parser.add_argument("--evaluation-checkpoints", type=Path, help="JSON name -> saved scratch checkpoint")
+    parser.add_argument("--evaluation-sampler", type=Path,
+                        help="Evaluation-only JSON overrides: sampling_steps, sampling_time_grid, collision_guidance")
     parser.add_argument("--resume-map", type=Path, help="JSON name -> scratch checkpoint to continue")
     parser.add_argument("--allow-multiple-epochs", action="store_true",
                         help="Fresh runs only: repeat the seeded full data order across real Lightning epochs")
@@ -282,6 +324,11 @@ def main():
                         if args.evaluation_weights else ([False, True] if args.evaluate_ema else [False]))
     variants = json.loads(args.variant_file.read_text()) if args.variant_file else {"mixed": {}}
     eval_map = json.loads(args.evaluation_checkpoints.read_text()) if args.evaluation_checkpoints else {}
+    sampler_overrides = json.loads(args.evaluation_sampler.read_text()) if args.evaluation_sampler else {}
+    if args.evaluation_sampler:
+        if (not isinstance(sampler_overrides, dict) or not eval_map or args.variants
+                or set(sampler_overrides) - {"sampling_steps", "sampling_time_grid", "collision_guidance"}):
+            parser.error("--evaluation-sampler requires evaluation-only checkpoints and supported sampler keys")
     resume_map = json.loads(args.resume_map.read_text()) if args.resume_map else {}
     names = [name for name in args.variants.split(",") if name]
     if set(names) - set(variants) or set(resume_map) - set(names):
@@ -491,6 +538,10 @@ def main():
             if not 0 < clip < 1000:
                 raise ValueError("Variant gradient clip must be in (0,1000)")
             arm_cfg.trainer.gradient_clip_val = clip
+            if name in eval_map:
+                for key, value in sampler_overrides.items():
+                    OmegaConf.update(arm_cfg, "model.model_config.decoder.init_diffusion." + key,
+                                     value, force_add=True)
         offset = (args.train_offset if name in eval_map else
                   args.train_offset + saved_step * args.batch_size)
         if args.resume_cyclic_epochs and name in resume_map:
@@ -503,7 +554,9 @@ def main():
         L.seed_everything(args.seed, workers=True)
         dm = hydra.utils.instantiate(arm_cfg.data)
         if args.resume_cyclic_epochs and name in resume_map:
-            actual = install_cyclic_resume_loader(dm, saved_step, len(train_order), args.batch_size)
+            actual = install_cyclic_resume_loader(
+                dm, saved_step, len(train_order), args.batch_size,
+                audit_path=folder / "resume_loader_events.json")
             if actual != offset:
                 raise ValueError("Resume loader offset differs from protocol")
         model = hydra.utils.instantiate(arm_cfg.model, _recursive_=False)
@@ -572,9 +625,9 @@ def main():
                                 gradient_clip_val=clip, enable_checkpointing=False, enable_model_summary=False,
                                 enable_progress_bar=False, log_every_n_steps=1,
                                 logger=CSVLogger(str(folder), name="csv"), default_root_dir=str(folder),
-                                callbacks=[diagnostic])
-            if args.resume_cyclic_epochs and name in resume_map:
-                trainer.reload_dataloaders_every_n_epoch = 1
+                                callbacks=[diagnostic],
+                                reload_dataloaders_every_n_epochs=(
+                                    1 if args.resume_cyclic_epochs and name in resume_map else 0))
             started = time.monotonic()
             trainer.fit(model, datamodule=dm, ckpt_path=str(source_checkpoint) if source_checkpoint else None)
             train_seconds = time.monotonic() - started

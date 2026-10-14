@@ -1,0 +1,21 @@
+# @package _global_
+# Experimental full-run candidate from paired fresh-generator screens.
+# Same physical x0 objective; length/width output = TRAIN mean + TRAIN std * head.
+# This is output parameterization, not log sizes, time residual, or postprocessing.
+# Fixed AIRL map, fresh G1/optimizer/EMA; full128epoch superiority is unverified.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+
+task_name: init_diffusion_657_n20_road_k8_match4_shape_affine_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        matching_weights:
+          position: 1.0
+          heading: 4.0
+          length: 1.0
+          width: 1.0
+          velocity: 4.0
+        shape_x0_parameterization: train_affine

@@ -4,6 +4,14 @@
 
 [逐分量 loss 配置与推荐组合](init_diffusion_component_loss.md)支持每项独立选择 L1/MSE、时间权重 power 和系数；默认 `component_loss: null` 保留当前训练行为。[实际 loss 搜索报告](init_diffusion_loss_search_20261011.md)包含短训练、多 seed 确认与 tested-best 配置；其 ego/type 条件、地图范围和训练长度以报告为准。
 
+## 2026-10-14 quick runner 续训审计更正
+
+`tools/scratch_component_loss_sweep.py --resume-cyclic-epochs` 原先给 Trainer 设置了未生效的单数属性 `reload_dataloaders_every_n_epoch`，导致恢复后反复读取首个 epoch 的尾段，后续 epoch 和学习率推进过快。现在通过构造参数 `reload_dataloaders_every_n_epochs=1` 重新加载完整训练集，并处理 Lightning 重建迭代器的 RNG 消耗与首次恢复 epoch 的重复 scheduler 更新。
+
+真实 Lightning 回归测试在四个不同的中途保存点比较恢复训练和连续训练：样本顺序、随机数、模型/EMA、优化器（CPU 小模型使用 AdamW）和 scheduler 状态完全一致。每个原生恢复阶段另记录 `resume_loader_events.json`，并逐步核对实际学习率。
+
+旧 evening/overnight 搜索共 37 个阶段不满足原定训练协议，包括对其后续权重的两组完整 50K 评价。原始文件保留，但相关短训排名和长期效果推断不再作为当前推荐依据。详见 [逐阶段更正记录](../output/reports/init_diffusion_expanded_20261014/prior_resume_evidence_correction.json)。本轮保留从头完成的 2048-step 初筛，受影响的中长期阶段从这些有效权重重跑。`src/run.py` 的完整训练不调用此 helper，独立 W&B 完整训练记录不受该问题影响。
+
 ## 运行
 
 以下命令均在 `/home/ke/code/sim` 执行，使用现有 `sim` 环境。运行入口显式设置 `paths.root_dir=/home/ke/code/sim/src`，以匹配现有数据和权重目录。
@@ -67,7 +75,7 @@ model.model_config.token_processor.init_map_half_extent=32
 
 ## 按字段固定 Ego
 
-当前 lane-conditioned 训练和独立评价保留 GT ego 的位置、尺寸和类型，生成 ego heading 和速度。`fix_ego=false` 是默认继承值，各字段的显式设置如下：
+当前 lane-conditioned 训练和独立评价保留 GT ego 的位置、heading、尺寸和类型，生成 ego 速度。`fix_ego=false` 是默认继承值，各字段的显式设置如下：
 
 ```yaml
 model:
@@ -76,7 +84,7 @@ model:
       init_diffusion:
         fix_ego: false
         fix_ego_position: true
-        fix_ego_heading: false
+        fix_ego_heading: true
         fix_ego_shape: true
         fix_ego_velocity: false
         fix_ego_type: true
@@ -88,12 +96,12 @@ model:
 | 选项 | 固定的 GT ego 字段 | 当前实验的有效值 |
 | --- | --- | --- |
 | `fix_ego_position` | x、y | `true` |
-| `fix_ego_heading` | cos/sin heading、物理 heading | `false` |
+| `fix_ego_heading` | cos/sin heading、物理 heading | `true` |
 | `fix_ego_shape` | length、width | `true` |
 | `fix_ego_velocity` | vx/vy 或 scalar speed；最终物理速度向量 | `false` |
 | `fix_ego_type` | agent type；只在 `generate_type=true` 时影响类别生成 | `true` |
 
-连续字段在训练 source、插值输入、clean 预测和每一步采样中都按字段保留 GT；对应的重建梯度为零。angular-velocity loss 使用 heading 的固定标志，speed magnitude loss 使用 velocity 的固定标志，type CE 使用 type 的固定标志。只有四组连续字段全部固定，且 `generate_type=false` 或 ego 类型也固定时，ego 的模型输入时间才设为 `t=0`。若还有连续字段待生成，或 `generate_type=true` 且 ego 类型未固定，ego 就使用本场景的正常 Flow timestep。当前实验中 ego heading 和速度参与监督和采样，固定的尺寸、位置和类型保持 GT。
+连续字段在训练 source、插值输入、clean 预测和每一步采样中都按字段保留 GT；对应的重建梯度为零。angular-velocity loss 使用 heading 的固定标志，speed magnitude loss 使用 velocity 的固定标志，type CE 使用 type 的固定标志。只有四组连续字段全部固定，且 `generate_type=false` 或 ego 类型也固定时，ego 的模型输入时间才设为 `t=0`。若还有连续字段待生成，或 `generate_type=true` 且 ego 类型未固定，ego 就使用本场景的正常 Flow timestep。当前实验中 ego 速度参与监督和采样，位置、heading、尺寸和类型保持 GT。
 
 最终物理输出按有效固定标志恢复原始 GT 位置、heading、尺寸和速度向量，避免坐标变换或 log/exp 的数值往返改变固定字段；scalar speed 模式也仅在 velocity 固定时恢复 GT 向量。即使 heading 生成而 velocity 固定，世界坐标下的 GT 速度向量仍保持原值，motion token 选择使用与最终 heading 相符的局部速度。最终类型单独按 type mask 恢复 GT，不依赖连续字段是否固定。
 
@@ -249,6 +257,46 @@ uniform 在模型的标准化坐标中独立采样 `u ~ U(-√3, √3)`，再使
 
 恢复训练或复现评价时，应显式使用该 checkpoint 训练时的同一组 source 设置；评价配置继承训练配置，也支持上述覆盖值。配置和 `sd_agent_metrics.json` 都记录 source 选项。权重结构不变，允许加载原 Gaussian 权重做实验，但只在评价时切换 source 会改变已学习路径的起点分布，不能当作已训练好的 uniform 模型。建议重新训练后比较完整评价指标。当前 Gaussian score 的 SDE/PPO 分支不支持 uniform source。
 
+## 从训练集边际分布采样 Speed / Shape Source
+
+`attribute_source` 是额外的可选起点分布，默认 `null`。只支持确定性 Flow、
+`velocity_representation: speed` 和 `size_representation: linear`，SDE/refiner 不支持。
+示例配置如下；这是待验证的实验选项，不代表优于现有完整训练配置：
+
+```yaml
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        velocity_representation: speed
+        size_representation: linear
+        velocity_source: gaussian
+        shape_source: gaussian
+        attribute_source:
+          path: ${sim_root:}/configs/initialization_sources/train_attribute_quantiles_20261014.pt
+          sha256: 38c1793a466585dd8f14379585e2aa3fd4b3f2b1210fc1bf8519096be11eb5cf
+          knots: 2049
+          speed: true
+          shape: false  # true 时同时替换 length / width source
+```
+
+表格来自原 normalizer 使用的同一组 8,192 个训练场景、76,027 个 agent，
+每个字段保存 2,049 个分位点。[统计来源与摘要](../configs/initialization_sources/train_attribute_quantiles_20261014.provenance.json)
+记录了训练场景清单和文件哈希。它不使用 validation/test 场景，也不按生成场景的 GT type、
+GT speed 或 GT shape 选择分布；三个属性各自使用所有训练类型的边际分布。
+
+训练加噪与生成初始状态共用 `u = Φ(z)`、`x_source = Q_train(u)`，其中 `z` 是已有的标准
+高斯抽样，`Q_train` 对相邻分位点线性插值。不额外消耗随机数，不新增可训练参数。
+位置、圆周 heading、Hungarian 规则、插值和 loss 公式保持原设置；被固定的 ego 字段仍在
+抽样之后恢复。尺寸各自独立变换，未保留源分布中 length/width 的联合相关性。
+
+开启的字段仍须将对应的 `velocity_source` / `shape_source` 保持为 `gaussian`，避免同时应用
+uniform 变换。此时这两个字段描述底层随机数；最终是否采用分位表记录在评价输出的
+`decoder.denoiser_options.attribute_source`，不能只看 `velocity_source=gaussian` 判断最终分布。
+分位表以 buffer 随 checkpoint 保存，评价应保持相同的开关与 SHA256；
+恢复已保存的分位表时可令 `path: null`，此时必须加载对应 checkpoint 后才能采样。
+不能将原 Gaussian checkpoint 仅在评价时改为此起点分布，来代替相应训练。
+
 ## 保留速度向量，增加 Speed Magnitude Loss
 
 设置 `velocity_representation=vector` 时，输入和预测保留 `vx,vy`；当前 lane-conditioned 配置使用 `speed`，启用这个辅助项时须同时切换为 vector。
@@ -289,6 +337,23 @@ L_total = L_match_original + L_collision + speed_loss_weight * L_speed
 标量 `velocity_representation=speed` 已直接监督 speed，因此开启本向量辅助项会报错。
 评价时建议保留对应训练配置，报告会记录权重和归一化设置；这些选项本身不改变采样计算。
 
+## TRAIN 仿射尺寸输出
+
+可选 `model.model_config.decoder.init_diffusion.shape_x0_parameterization=train_affine`：
+网络输出标准化的 clean length/width，再按保存的训练统计还原：
+`size_x0 = normal_mean[:, 4:6] + normal_scale[:, 4:6] * network_output[:, 4:6]`。
+原有 x0 目标、噪声源、插值、分量 loss、Hungarian 匹配和采样器保持原定义，
+位置、heading、speed、type 输出也保持原路径；该选项不增加参数或随机抽样。
+它与 `residual`、`time_residual` 等模式互斥，默认仍为 `identity`。
+
+统计量来自现有训练 normalizer，并随 checkpoint 保存。linear 表示中还原到米，
+log 表示中还原到 log 米，再由现有物理输出转换执行 `exp`；两种表示需要各自匹配的训练统计。
+该选项只改变输出参数化，与 `state_feature_normalization=train` 的输入标准化及
+`component_loss.*.scale=data` 的损失缩放不同。正值性质沿用所选尺寸表示，linear 模式不额外保证正值。
+恢复和评价必须使用 checkpoint 中相同的参数化配置；不能把 identity 权重直接作为 train_affine 权重评价。
+
+这是2026-10-14探索中的候选，尚未证明完整训练优于原配置。
+
 ## 标量 Speed 输入和预测
 
 要启用标量模式，训练和评价都设置
@@ -308,7 +373,7 @@ speed 使用原来的 x0 reconstruction 方式和时间权重；与 heading 的�
 只在最终物理输出将 speed 截为非负。输出先构造 agent-heading 坐标系的 `[speed,0]`，
 再旋转为世界速度：`vx=speed*cos(global_heading)`、`vy=speed*sin(global_heading)`。
 motion token 选择使用同一 `[speed,0]`；连续初始状态评价仍直接使用生成的物理速度。
-有效 `fix_ego_velocity=true` 时保留世界坐标下的 GT ego 原始速度向量，不强制投影到自身 heading；`false` 时 ego 也使用预测 speed 和最终 heading 重建速度。当前实验中 ego heading 和 velocity 都生成，因此使用预测 heading 和 speed 构造 ego 世界速度，保留 GT 位置、尺寸和类型。
+有效 `fix_ego_velocity=true` 时保留世界坐标下的 GT ego 原始速度向量，不强制投影到自身 heading；`false` 时 ego 也使用预测 speed 和最终 heading 重建速度。当前实验固定 ego heading、生成 ego speed，因此使用 GT heading 和预测 speed 构造 ego 世界速度，同时保留 GT 位置、尺寸和类型。
 
 这个表示假设生成 agent 的运动方向与 heading 相同，不表达侧滑或倒车方向。
 speed 模式当前支持确定性监督训练和采样；SDE/refiner 路径需使用 vector。
@@ -526,7 +591,7 @@ heading 的噪声端点为 `sigma_h * N(0, I₂)`：cos/sin 两维均值为 0，
 
 Flow 的 `t=0` 是干净状态，`t=1` 是噪声。此模式直接编码 `99*t`，
 对应公开 Scenario Dreamer 的 100 个 timestep（0…99），保留连续时间，不取整或反转。
-`time_embedding_scale` 默认 `99.0`，可单独覆盖；只有 ego 的 position、heading、shape、velocity 全部固定，且 `generate_type=false` 或 ego type 固定时，ego 的模型输入时间为 0，否则与本场景其他 agent 的时间一致。当前实验生成 ego heading 和速度，因此 ego 使用正常场景时间。
+`time_embedding_scale` 默认 `99.0`，可单独覆盖；只有 ego 的 position、heading、shape、velocity 全部固定，且 `generate_type=false` 或 ego type 固定时，ego 的模型输入时间为 0，否则与本场景其他 agent 的时间一致。当前实验生成 ego 速度，因此 ego 使用正常场景时间。
 本选项应用到主 denoiser 和可选 refiner，不改变状态表示、噪声分布、loss、采样步数或优化器；EMA 自动包含时间 MLP。
 
 默认 `time_embedding_type=legacy` 保留当前 `1-t` 的时间特征和原有参数结构。
@@ -701,9 +766,58 @@ checkpoint 同时保存在线参数、EMA shadow 参数、更新次数和衰减�
 
 完整报告保存到 `src/logs/init_diffusion_lane_conditioned_eval/<时间>/sd_agent_metrics.json`。应检查 `num_samples=50000`、`num_gt_samples=50000`、`full_membership=true` 和 `map_source=reference`。
 
+## 与 SD / VectorWorld 的逐项目标
+
+2026-10-14 用户确认的两组 baseline 来自相同完整 50K 场景、参考车道与同一评价实现。
+固定门槛及原始报告 SHA 保存在
+[`sd_vw_lane_conditioned_targets.json`](../configs/metrics/sd_vw_lane_conditioned_targets.json)。
+同一个 checkpoint 和采样配置需在七项指标上全部低于两组 baseline 的逐项最小值；
+不能用平均 `R` 的改善抵消某一项未达标，也不能拼接不同 checkpoint 的最佳指标。
+本轮探索分别记录 GEN 2817、3817 的结果，完整 50K 数值核对与完整 128 epoch 训练是两种不同证据。
+
+当前 `init_diffusion_657_n20_road_k8_full` 使用 20 步、冻结 AIRL map encoder、
+`num_workers=8`、每 8 epoch 验证完整 50K，R 参考 `iu3fa4gx_full50000`；
+这套完整 recipe 的设置优先于本页通用 `init_diffusion_lane_conditioned` 示例。
+现有三种方法的 ego 条件并不相同，下面的比较限制仍适用。
+
+## 当前值得完整训练的候选（2026-10-14 16:43）
+
+```bash
+python src/run.py experiment=init_diffusion_657_n20_road_k8_match4_shape_affine_full optimizer=default
+```
+
+相对 `init_diffusion_657_n20_road_k8_full`，该配置增加 matching 权重
+`position/heading/length/width/velocity = 1/4/1/1/4`，并设
+`shape_x0_parameterization: train_affine`，即尺寸输出为训练集均值加标准差乘网络输出。
+保留物理 x0 目标，不是 log-space、time residual 或评价后处理。参数量仍为 8,083,978，20 步采样。
+
+固定指定 AIRL map encoder，从头训练 G1/optimizer/EMA；batch512、128epochs、workers8，
+每8epoch验证完整50K，R参考iu3fa4gx_full50000。默认不启用 collision guidance。
+真实两场景 CPU 前后向与配置一致性检查通过。
+
+修复后的6144更新、4096场景、双GEN均值相对roadK8：speed低32.3%、angle低17.2%、
+width低16.5%；length高0.4%，collision高9.7%。这支持完整训练验证，不证明最终胜出；
+length仍是未解决的短板。证据保存在 `output/reports/init_diffusion_expanded_20261014/current_recommendation.json`。
+配套独立评价使用 `experiment=init_diffusion_657_n20_road_k8_match4_shape_affine_eval ckpt_path=/path/to/checkpoint.ckpt`。
+
+## TRAIN-only 尺寸校准实验（2026-10-14）
+
+独立工具 `tools/eval_init_train_shape_calibration_20261014.py` 在本轮已登记训练和评价结束后，
+尝试对选中 checkpoint 的真实输出车辆框做单调尺寸映射。它不改变默认模型或训练 loss。
+映射仅用原 8192 个 TRAIN 场景的 GT 与同 checkpoint 生成尺寸拟合，固定 ego 和非车辆尺寸保持不变；
+同一映射再用于 4096/50K 验证。拟合与评价的生成种子分开，所有 checkpoint、样本清单与映射文件均登记 SHA。
+
+这属于“模型＋后处理”实验，结果单独保存到
+`output/reports/init_diffusion_expanded_20261014/size_calibration/`，不混入纯模型训练排名。
+原评价器接收到的是修改后的真实车辆框，碰撞率也重新计算。两种生成种子都满足预先登记的筛选条件才扩大到完整 50K。
+更换 checkpoint 或采样设置必须重新用 TRAIN 拟合，不能把一个模型的映射直接套到另一个模型。
+
+训练缓存没有正式评价所需的完整 lane 元数据，采集 TRAIN 预测时使用原生 encoder 的推理模式；
+正式评价的完整地图检查仍保留。CPU 单测及真实两场景输出一致性检查已通过；是否改善评价指标以该目录的实际结果为准。
+
 ## 比较范围
 
-本模型沿用输入 agent 总数量；master `fix_ego`、五个字段覆盖和 `generate_type` 决定 ego 与类别的生成条件，`use_ego_embedding` 提供 ego slot 的身份条件。当前条件地图为 SMART tokens，使用 50 m 圆形查询范围；可通过前面的配置选择 32 m 半边长的正方形筛选。当前实验保留 GT ego 位置、尺寸和类型，生成其 heading 和速度，并生成 non-ego 状态及类别；与完整生成 ego 的实验比较时须注明这些条件差异。GT ego 坐标框架与已有 context 仍保留。Scenario Dreamer/VectorWorld 使用 AE/VAE lane latent，模型结构和地图表示仍不同。相同的 50k 成员和指标口径便于比较结果，比较时还需核对地图范围和 ego/type 条件；本实验不等于复现 Scenario Dreamer/VectorWorld 的论文结果。
+本模型沿用输入 agent 总数量；master `fix_ego`、五个字段覆盖和 `generate_type` 决定 ego 与类别的生成条件，`use_ego_embedding` 提供 ego slot 的身份条件。当前条件地图为 SMART tokens，使用 50 m 圆形查询范围；可通过前面的配置选择 32 m 半边长的正方形筛选。当前实验保留 GT ego 位置、heading、尺寸和类型，生成其速度，并生成 non-ego 状态及类别；与完整生成 ego 的实验比较时须注明这些条件差异。GT ego 坐标框架与已有 context 仍保留。Scenario Dreamer/VectorWorld 使用 AE/VAE lane latent，模型结构和地图表示仍不同。相同的 50k 成员和指标口径便于比较结果，比较时还需核对地图范围和 ego/type 条件；本实验不等于复现 Scenario Dreamer/VectorWorld 的论文结果。
 
 现有训练缓存只保存初始 agent 状态和地图 tokens，没有原始参考时刻或精确 SD lane 图元数据；其时刻与地图来源尚未逐样本追溯。本入口直接使用用户指定的缓存。验证目录则保留官方文件名、参考时刻、坐标变换和完整 lane 图，可用于严格的评估成员检查。
 

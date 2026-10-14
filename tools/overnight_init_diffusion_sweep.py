@@ -9,7 +9,7 @@ from tools import scratch_component_loss_sweep as sweep
 
 PREFIX = "model.model_config.decoder.init_diffusion."
 sweep.SEARCH_CONFIG_KEYS.update({PREFIX + key for key in (
-    "matching_weights", "time_sample_power", "distribution_loss", "denoiser_hidden_dim",
+    "matching_weights", "time_sample_power", "distribution_loss", "attribute_source", "denoiser_hidden_dim",
     "denoiser_num_layers", "sampling_steps", "sampling_time_grid", "state_feature_normalization",
     "speed_x0_parameterization", "shape_x0_parameterization", "speed_head_kind", "speed_head_hidden_dim", "speed_head_detach_context",
     "map_condition_types", "time_conditioning", "collision_reduction",

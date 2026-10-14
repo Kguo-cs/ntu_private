@@ -1,0 +1,85 @@
+{
+  "name": "SD and VectorWorld lane-conditioned all-seven thresholds",
+  "registered_utc": "2026-10-14T05:42:10.671137+00:00",
+  "direction": "lower_is_better",
+  "strict": true,
+  "num_samples": 50000,
+  "num_gt_samples": 50000,
+  "full_membership": true,
+  "map_source": "reference",
+  "user_confirmed_same_full50000": true,
+  "eval_set_sha256": "4e573eb48716e92e0e7b7b0f848f55baef55f55d26e11c61cf2771b0baa86975",
+  "official_source_sha256": {
+    "sd_metric_helpers.py": "05da8b452132c555904c617b2409079501ffd77e41a58b5286d2d66bb07a582d",
+    "sd_lane_helpers.py": "8fe8185e8ef0e45bd6cdb7d847a9195610b175dc7c826ad212681400857f3c54",
+    "official_backend.py": "24c8ef3d9b26694c9beb7208e499b52fb6f3e74d2825306c43bc121f89613dce"
+  },
+  "reference_source_manifest_sha256": "fe3b80cbda22139144cf5ebeaff588126333e0993da9e06a945fb9939d1f0439",
+  "feature_counts_gt": [
+    358867,
+    360099,
+    360099,
+    362309,
+    362309,
+    362309
+  ],
+  "baselines": {
+    "vectorworld": {
+      "user_reported_metrics": {
+        "ang_dev_jsd": 0.10188986361026764,
+        "length_jsd": 0.16275614500045776,
+        "speed_jsd": 0.05656283348798752,
+        "width_jsd": 0.10902424901723862,
+        "lat_dev_jsd": 0.14823223650455475,
+        "nearest_dist_jsd": 0.10371606796979904,
+        "collision_rate": 7.026762008666992
+      },
+      "source_report": "src/logs/vectorworld_lane_conditioned_eval/2026-10-07_19-58-25/sd_agent_metrics.json",
+      "source_sha256": "c9a53c26660f56774a50fde86363c718fcc55ab9ccd09c932064c5a45b01b7e6",
+      "raw_report_metrics": {
+        "nearest_dist_jsd": 0.1037160710587328,
+        "lat_dev_jsd": 0.14823223672789262,
+        "ang_dev_jsd": 0.1018898641830093,
+        "length_jsd": 0.16275614703289593,
+        "width_jsd": 0.10902424645411017,
+        "speed_jsd": 0.05656283405827885,
+        "collision_rate": 7.026761963986818
+      }
+    },
+    "scenario_dreamer": {
+      "user_reported_metrics": {
+        "ang_dev_jsd": 0.028223318979144096,
+        "length_jsd": 0.4384763240814209,
+        "speed_jsd": 0.06955107301473618,
+        "width_jsd": 0.295474648475647,
+        "lat_dev_jsd": 0.09741603583097458,
+        "nearest_dist_jsd": 0.06506786495447159,
+        "collision_rate": 4.647181510925293
+      },
+      "source_report": "logs/scenario_dreamer_lane_conditioned/2026-10-08_09-54-28/sd_agent_metrics.json",
+      "source_sha256": "4022a01b9819a5e4a4cf527f803962955859dabae081b385b577f375a3546735",
+      "raw_report_metrics": {
+        "nearest_dist_jsd": 0.06506786469686,
+        "lat_dev_jsd": 0.09741603245376093,
+        "ang_dev_jsd": 0.028223318577999642,
+        "length_jsd": 0.438476326273401,
+        "width_jsd": 0.29547465303852116,
+        "speed_jsd": 0.06955107646247913,
+        "collision_rate": 4.647181583009065
+      }
+    }
+  },
+  "targets": {
+    "ang_dev_jsd": 0.028223318979144096,
+    "length_jsd": 0.16275614500045776,
+    "speed_jsd": 0.05656283348798752,
+    "width_jsd": 0.10902424901723862,
+    "lat_dev_jsd": 0.09741603583097458,
+    "nearest_dist_jsd": 0.06506786495447159,
+    "collision_rate": 4.647181510925293
+  },
+  "criterion": "Every metric from the SAME checkpoint and inference configuration must be strictly below its per-metric minimum across both supplied baselines. No averaging can compensate a failed metric; no cross-checkpoint metric cherry-picking.",
+  "precision": "Thresholds preserve user terminal values; raw double-precision reports retained for provenance.",
+  "comparison_caveat": "Current InitDiffusion conditions on fixed ego position/heading/shape/type; SD/VW generate ego. Same cohort/evaluator does not establish equal conditioning.",
+  "seed_policy": "Screening is exploratory. Full50K confirmation reports each GEN separately; robust success requires all seven below thresholds for both prespecified GEN seeds. Full128epoch evidence is separately identified."
+}

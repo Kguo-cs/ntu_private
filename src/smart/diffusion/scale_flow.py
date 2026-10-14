@@ -42,6 +42,7 @@ from .distribution_loss import AttributeDistributionLoss
 from .component_loss import ComponentLoss, heading_angle_residual
 from .ego_conditioning import EGO_FIELDS, resolve_ego_conditioning
 from .sampling_time_grid import build_sampling_time_grid, parse_sampling_time_grid
+from .attribute_source import AttributeQuantileSource
 
 
 def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float],
@@ -72,6 +73,12 @@ def _noise_endpoint(model, standard_noise: Tensor, sigma_h: Optional[float],
         noise = torch.cat((noise[:, :2], heading, noise[:, 4:]), dim=-1)
     elif sigma_h is not None:
         noise = torch.cat((noise[:, :2], sigma_h * standard_noise[:, 2:4], noise[:, 4:]), dim=-1)
+    attribute_source = getattr(model, "attribute_source", None)
+    if attribute_source is not None:
+        if ((attribute_source.shape and shape_source != "gaussian")
+                or (attribute_source.speed and velocity_source != "gaussian")):
+            raise ValueError("Empirical attributes require underlying Gaussian draws for their CDF ranks")
+        noise = attribute_source(standard_noise, noise)
     return noise
 
 
@@ -267,6 +274,12 @@ class Flow(nn.Module):
             getattr(args, "branch_steps", None)
         )
         self.use_refiner = token_processor.use_refiner
+        attribute_config = getattr(args, "attribute_source", None)
+        if attribute_config is not None and (self.velocity_representation != "speed"
+                or self.size_representation != "linear" or self.use_sde or self.use_refiner):
+            raise ValueError("attribute_source supports deterministic scalar-speed Flow with linear sizes")
+        self.model.attribute_source = (AttributeQuantileSource(attribute_config)
+                                       if attribute_config is not None else None)
         loss_config = getattr(args, "component_loss", None)
         self.component_loss = (None if loss_config is None else ComponentLoss(
             loss_config, type_kind="mse" if self.feature_type else "ce",
@@ -353,7 +366,23 @@ class Flow(nn.Module):
             raise ValueError("Uniform sources support deterministic flow sampling; the SDE/PPO drift requires gaussian sources")
         if self.heading_noise == "circular" and self.use_sde:
             raise ValueError("Circular heading supports deterministic flow sampling; the SDE/PPO transition requires heading_noise=gaussian")
-        self.apply(weight_init)
+        speed_head = getattr(self.model, "to_out_speed", None)
+        if speed_head is None:
+            self.apply(weight_init)
+        else:
+            # The outer Flow initialization must preserve the shared network
+            # and subsequent RNG too, including the SD time MLP reset below.
+            # Isolate initialization of the complete optional branch, rather
+            # than rewinding RNG separately for each Linear layer in it.
+            def initialize_shared(module):
+                if module is speed_head:
+                    with torch.random.fork_rng(devices=[]):
+                        module.apply(weight_init)
+                    return
+                for child in module.children():
+                    initialize_shared(child)
+                weight_init(module)
+            initialize_shared(self)
         # The outer generic initialization also visits the time MLP. Restore
         # SD's Normal(0, .02) weights for both denoisers afterwards.
         self.model.reset_time_embedding_parameters()
