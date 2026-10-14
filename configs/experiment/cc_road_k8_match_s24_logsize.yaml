@@ -1,0 +1,17 @@
+# @package _global_
+# cc_road_k8_match_s24 generating length/width in log space (size_representation log).
+# Target: length JSD. Generated lengths are under-dispersed (std .66 vs .75 m: the 4.4-4.8 m
+# mode is overfilled, 4.8-6 m and >12 m underfilled). The TRAIN normalizer file describes
+# linear sizes, so normalisation statistics are fitted from the first batch instead.
+defaults:
+  - cc_road_k8_match_s24
+  - _self_
+
+task_name: cc_road_k8_match_s24_logsize
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        size_representation: log
+        normalizer_path: null

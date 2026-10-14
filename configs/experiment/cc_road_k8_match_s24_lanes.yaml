@@ -1,0 +1,17 @@
+# @package _global_
+# cc_road_k8_match_s24 with lane centre-line queries in the denoiser's map context
+# (map_condition_types lanes_and_edges; same frozen map encoder, no new parameters).
+# Target: ang_dev JSD. Half of its remaining error is vehicles heading opposite to the
+# nearest lane (+-170..180 deg: generated 0.23% vs real 0.44%); road edges alone carry
+# no explicit lane direction.
+defaults:
+  - cc_road_k8_match_s24
+  - _self_
+
+task_name: cc_road_k8_match_s24_lanes
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        map_condition_types: lanes_and_edges
