@@ -1,0 +1,17 @@
+# @package _global_
+# cc_road_k8_match_s24_v2h2_d5 with the whole cosine schedule in 80 epochs.
+# In finished 128-epoch runs, epochs 80->127 improved ang 10-26% but roughly doubled speed JSD
+# and worsened width ~20%; this tests whether a fully decayed 80-epoch schedule keeps the late
+# ang gain without the drift (and saves ~40% training time).
+defaults:
+  - cc_road_k8_match_s24_v2h2_d5
+  - _self_
+
+task_name: cc_road_k8_match_s24_v2h2_d5_e80
+
+trainer:
+  max_epochs: 80
+
+model:
+  model_config:
+    lr_total_steps: 80
