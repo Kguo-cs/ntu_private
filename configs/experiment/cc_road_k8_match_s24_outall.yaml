@@ -1,4 +1,6 @@
 # @package _global_
+# NOT RECOMMENDED (2026-10-15): same plateau as lanes -- lat .053 (ep7) -> .098 (ep31), ang x1.3 of
+# cc_road_k8_match at epochs 23-31; stopped (wandb 5gp5g251).
 # cc_road_k8_match_s24 with every cropped map token returned to the denoiser
 # (map_condition_types: all). 16-epoch scratch proxy: R6 0.742, ang .062 vs .106, lat .080 vs .323,
 # length .300 vs .315 -- but lane-centre conditioning showed the same early pattern and then
