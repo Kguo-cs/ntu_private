@@ -83,6 +83,9 @@ class InitDiffusion(nn.Module):
         distribution_loss: Optional[Mapping[str, Any]] = None,
         denoiser_hidden_dim: Optional[int] = None,
         denoiser_num_layers: Optional[int] = None,
+        denoiser_num_heads: Optional[int] = None,
+        denoiser_num_freq_bands: Optional[int] = None,
+        map_feature_dim: int = 128,
         sampling_steps: Optional[int] = None,
         state_feature_normalization: str = "none",
         time_conditioning: str = "input",
@@ -109,8 +112,8 @@ class InitDiffusion(nn.Module):
             raise ValueError("edge_embedding_type must be 'fourier' or 'mlp'.")
 
         self.token_processor = token_processor
-        if map_condition_types not in ("road_edges", "lanes_and_edges"):
-            raise ValueError("map_condition_types must be road_edges or lanes_and_edges")
+        if map_condition_types not in ("road_edges", "lanes_and_edges", "edges_and_lines", "all"):
+            raise ValueError("map_condition_types must be road_edges, lanes_and_edges, edges_and_lines or all")
         # The same fixed encoder can expose lane-centre queries as well as
         # road-edge queries. Its weights and attention keys remain unchanged.
         token_processor.init_map_output_types = map_condition_types
@@ -138,6 +141,10 @@ class InitDiffusion(nn.Module):
                             ("sampling_steps", sampling_steps)):
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise ValueError(f"{name} must be a positive integer")
+        if denoiser_num_heads is not None:
+            args.num_heads = int(denoiser_num_heads)
+        args.denoiser_num_freq_bands = denoiser_num_freq_bands
+        args.map_feature_dim = int(map_feature_dim)
         if denoiser_hidden_dim % args.num_heads:
             raise ValueError("denoiser_hidden_dim must be divisible by the attention head count")
         args.hidden_dim = denoiser_hidden_dim
@@ -244,6 +251,8 @@ class InitDiffusion(nn.Module):
             "a2a_radius": a2a_radius, "a2a_max_num_neighbors": a2a_max_num_neighbors,
             "map2agent_radius": map2agent_radius,
             "map2agent_max_num_neighbors": map2agent_max_num_neighbors,
+            "denoiser_num_heads": args.num_heads, "denoiser_num_freq_bands": denoiser_num_freq_bands,
+            "map_feature_dim": int(map_feature_dim),
         }
         self.normalizer_path = None
         if normalizer_path is not None:
@@ -354,7 +363,8 @@ class InitDiffusion(nn.Module):
                           "speed_head_detach_context": False,
                           "map_condition_types": "road_edges",
                           "a2a_radius": 300.0, "a2a_max_num_neighbors": 30,
-                          "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30}
+                          "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30,
+                          "denoiser_num_heads": 8, "denoiser_num_freq_bands": None, "map_feature_dim": 128}
         saved_options = dict(legacy_options, **state.get("denoiser_options", {}))
         if saved_options != self.denoiser_options:
             raise ValueError("Checkpoint denoiser options differ from configured x0 model; use its saved config")

@@ -208,6 +208,8 @@ class Flow(nn.Module):
             a2a_max_num_neighbors=getattr(args, "a2a_max_num_neighbors", 30),
             map2agent_radius=getattr(args, "map2agent_radius", 300.0),
             map2agent_max_num_neighbors=getattr(args, "map2agent_max_num_neighbors", 30),
+            num_freq_bands=getattr(args, "denoiser_num_freq_bands", None),
+            map_feature_dim=getattr(args, "map_feature_dim", 128),
             heading_velocity=self.heading_objective == "angular_velocity",
             velocity_representation=self.velocity_representation,
             state_feature_normalization=getattr(args, "state_feature_normalization", "none"),

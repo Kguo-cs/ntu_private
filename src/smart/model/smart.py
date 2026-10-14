@@ -230,9 +230,9 @@ class SMART(LightningModule):
         """Initialize only the frozen map; leave generator, EMA and optimizer fresh."""
         if (not finetune or self.encoder.init_decoder_name != "flow"
                 or not self.encoder.initial_scene_only or not self.token_processor.learn_init
-                or self.encoder.gail or self.encoder.sep_map):
+                or self.encoder.gail):
             raise ValueError("initial_map_checkpoint requires supervised initial-scene InitDiffusion "
-                             "with finetune=true, learn_init=true and sep_map=false")
+                             "with finetune=true and learn_init=true")
         path = Path(checkpoint_path).expanduser().resolve()
         if not path.is_file():
             raise FileNotFoundError(f"Initial map checkpoint does not exist: {path}")
@@ -262,6 +262,10 @@ class SMART(LightningModule):
                 raise ValueError(f"Initial map checkpoint tensor must be finite: {key}")
         self.encoder.map_encoder.load_state_dict(source, strict=True)
         _freeze(self.encoder.map_encoder)
+        if self.encoder.sep_map:
+            # The trainable initial-map encoder starts from the pretrained map.
+            self.encoder._initial_map_needs_initialization = True
+            self.encoder.initialize_initial_map_from_shared()
         self.initial_map_checkpoint_metadata = {
             "path": str(path), "file_sha256": digest.hexdigest(),
             "source_epoch": checkpoint.get("epoch"), "source_global_step": checkpoint.get("global_step"),

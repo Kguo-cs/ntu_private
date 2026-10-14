@@ -104,12 +104,14 @@ class InitDenoiser(nn.Module):
         a2a_max_num_neighbors: int = 30,
         map2agent_radius: float = 300.0,
         map2agent_max_num_neighbors: int = 30,
+        num_freq_bands: Optional[int] = None,
+        map_feature_dim: int = 128,
     ) -> None:
         super().__init__()
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        num_freq_bands = hidden_dim//2
+        num_freq_bands = hidden_dim//2 if num_freq_bands is None else int(num_freq_bands)
         self.num_layers = num_layers
         self.num_heads = num_heads
         head_dim = hidden_dim//num_heads
@@ -311,7 +313,7 @@ class InitDenoiser(nn.Module):
             embedding_type=edge_embedding_type,
         )
 
-        self.lane_embed = MLPLayer(128, hidden_dim, hidden_dim)
+        self.lane_embed = MLPLayer(int(map_feature_dim), hidden_dim, hidden_dim)
 
         self.a2a_attn_layers = nn.ModuleList(
             [
