@@ -1,0 +1,17 @@
+# @package _global_
+# cc_road_k8_match_s24 with every cropped map token returned to the denoiser
+# (map_condition_types: all). 16-epoch scratch proxy: R6 0.742, ang .062 vs .106, lat .080 vs .323,
+# length .300 vs .315 -- but lane-centre conditioning showed the same early pattern and then
+# plateaued (lat/ang ~.10/.13), so this full run checks convergence beyond epoch ~40.
+# A/B baseline: cc_road_k8_match_s24 (wandb cchgfuhr).
+defaults:
+  - cc_road_k8_match_s24
+  - _self_
+
+task_name: cc_road_k8_match_s24_outall
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        map_condition_types: all
