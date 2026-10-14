@@ -49,6 +49,14 @@ class ProjectionFlow(nn.Module):
         self.model = nn.Module()
         self.model.hidden_dim = 4
         self.model.lane_embed = nn.Linear(8, 4, bias=False)
+        settings = args[0]
+        self.component_loss = None
+        self.feature_type = False
+        self.model.attribute_source = None
+        self.model.num_heads = settings.num_heads
+        self.model.num_freq_bands = settings.hidden_dim // 2
+        self.model.head_dim = settings.hidden_dim // settings.num_heads
+        self.model.map_feature_dim = getattr(settings, "map_feature_dim", 128)
 
 
 class EqualWidthProjectionFlow(ProjectionFlow):

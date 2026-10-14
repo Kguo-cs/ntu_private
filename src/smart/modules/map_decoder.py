@@ -38,11 +38,15 @@ def initial_map_output_mask(map_type: torch.Tensor, output_types: str) -> torch.
     road_edges = (map_type == 4) | (map_type == 5)
     if output_types == "road_edges":
         return road_edges
+    if output_types == "lanes_only":
+        return (map_type == 0) | (map_type == 1) | (map_type == 2)
+    if output_types == "all":
+        return torch.ones_like(map_type, dtype=torch.bool)
     if output_types == "lanes_and_edges":
         # 2 is a stop-sign lane centerline; 3 is a bike lane. Road lines and
         # crosswalks remain attention sources, not returned vehicle queries.
         return road_edges | (map_type == 0) | (map_type == 1) | (map_type == 2)
-    raise ValueError("init_map_output_types must be road_edges or lanes_and_edges")
+    raise ValueError("init_map_output_types must be road_edges, lanes_and_edges, lanes_only or all")
 
 
 class SMARTMapDecoder(nn.Module):
@@ -197,7 +201,7 @@ class SMARTMapDecoder(nn.Module):
             orient_pt=orient_edge
             batch=batch_edge
 
-        elif square_crop or output_types == "lanes_and_edges":
+        elif square_crop or output_types != "road_edges":
             # With no attention layers, retain the same returned map types and
             # square bounds as the one/multiple-layer initialization path.
             x_pt, pos_pt, orient_pt, batch = x_pt[mask], pos_pt[mask], orient_pt[mask], batch[mask]

@@ -1,5 +1,6 @@
 # @package _global_
-# Centerline-only ablation against K8; collision objective stays pair_mean/5.
+# Lane centers + road edges (inherited lanes_and_edges); not lanes_only.
+# Collision objective stays pair_mean/5. W&B myqhg1rq mid-term results regress.
 # TRAIN4817 / step2048: R_jsd=.7146 vs paired657, .9309 vs K8.
 # Versus K8: geometry improves but R_attr=1.1001. Long training unverified.
 # TRAIN5817 / step4096 / 16384-scene matched confirmation:

@@ -780,7 +780,82 @@ checkpoint 同时保存在线参数、EMA shadow 参数、更新次数和衰减�
 这套完整 recipe 的设置优先于本页通用 `init_diffusion_lane_conditioned` 示例。
 现有三种方法的 ego 条件并不相同，下面的比较限制仍适用。
 
-## 当前值得完整训练的候选（2026-10-14 16:43）
+## 地图与 denoiser 的独立结构选项
+
+2026-10-14 22:39 的 W&B 复核后，撤回22:24将 `lanes_only` 列为首选完整训练的推荐。
+当前保留已完成128epoch的 `init_diffusion_657_n20_road_k8_full` 为稳妥参考；
+`init_diffusion_657_n20_lane_only_full` 降为探索配置，尚不建议优先完整跑完。
+
+完整50K、同epoch23的 `0ub06wyq`（lane）对 `cchgfuhr`（road）记录中，
+模型 decoder 配置仅输出 mask 不同（`lanes_and_edges` / `road_edges`），均为24步。
+lane 的 speed/angle/length/width JSD 分别高40.4%/78.9%/5.6%/9.8%；
+lat/nearest仍低45.0%/26.3%。相对road的六项平均比值从epoch7的0.756、
+epoch15的0.893升至epoch23的1.106，angle比值从0.563升至1.789。
+这说明早期几何优势会反转，短训排名不能可靠预测完整训练收益。
+两者源码commit不同，远程场景hash和GEN未下载，不能宣称为严格配对因果实验。
+
+旧 `myqhg1rq`（名称lane_only，实际 `lanes_and_edges`）只验证4096场景，
+最后epoch31的angle为0.1434、length为0.4584；不与road完整50K做精确排名。
+最新158个W&B记录中没有真正 `lanes_only` 的长期训练；旧模式退步不证明新模式必然失败，
+但也不能凭2048/4096更新的收益将新模式列为首选。复核记录保存在
+`output/reports/lane_only_wandb_review_20261014/review.json`。
+
+下面保留新模式的复现命令，供后续中期验证使用：
+
+```bash
+python src/run.py experiment=init_diffusion_657_n20_lane_only_full optimizer=default
+```
+
+唯一相对 roadK8 的模型改动是 `map_condition_types: lanes_only`，返回车辆中心线 query。
+这与旧 W&B 名称为 lane_only、实际配置为 `lanes_and_edges` 的实验不同。
+仍为20步、8,083,978个G1参数、原loss、冻结AIRL map、batch512、128epochs、workers8，
+每8epoch验证完整50K。Hydra训练/评价组合和真实TRAIN2 CPU前后向通过。
+
+同源码、同预算4096更新、4096场景、双GEN相对roadK8：angle低70.3%、lat低97.6%、
+length低17.0%、width低4.9%、nearest低10.3%，speed高6.1%，collision高约194%。
+仅一个TRAIN种子，尚无该候选的完整50K、第二TRAIN或128epoch结果。
+这些短训结果保留作为探索证据；长期风险复核后已撤回首选推荐，尚未实现七项全胜SD/VW。
+配套评价使用 `experiment=init_diffusion_657_n20_lane_only_full_eval ckpt_path=/path/to/full_checkpoint.ckpt`。
+
+地图编码器使用 `model.model_config.decoder` 中的 `hidden_dim`、`num_freq_bands`、
+`num_heads`、`head_dim`、`num_map_layers`、`pl2pl_radius` 和 `pt2pt_neighbor`。
+初始化 denoiser 使用 `decoder.init_diffusion` 中的独立选项：
+下面展示字段语法；当前搜索分别对照这些改动，组合效果另需验证。
+
+```yaml
+denoiser_hidden_dim: 256
+denoiser_num_layers: 3
+denoiser_num_freq_bands: 32
+denoiser_num_heads: 4
+denoiser_head_dim: 32
+map_condition_types: lanes_only
+```
+
+三个新增选项设为 `null` 时保留旧行为：denoiser 使用八个 heads，
+频带数为 `denoiser_hidden_dim // 2`，head dim 为 `denoiser_hidden_dim // num_heads`。
+例如原来的 256 维 denoiser 实际使用 128 个频带、8 heads、head dim=32；
+地图编码器配置中的 64 个频带和 head dim=16 是另一组参数。
+显式 head dim 可以独立于 hidden dim 设置，attention 内部宽度为 `num_heads * head_dim`。
+地图到 denoiser 的输入投影现在按地图 hidden dim 构造。
+
+输出 mask 支持 `road_edges`（类型4/5）、`lanes_only`（车辆 lane 类型0/1/2）、
+`lanes_and_edges`（0/1/2/4/5）和 `all`。mask 决定返回给下游的 query 节点；
+其余裁剪范围内的地图节点仍参与地图 attention。
+
+改变地图 radius、neighbor 或输出 mask 可以复用指定 AIRL 权重。
+地图维度、频带或层数导致张量结构不兼容时，严格加载会报错；可使用
+`initial_map_checkpoint: null`、`decoder.sep_map: true` 的可训练初始化地图分支。
+真实训练场景的 64 维、两层地图与 192 维 denoiser 前后向已验证。
+这些结构检查证明选项可用，生成质量以配对训练评价为准。
+
+## 正在完整训练验证的候选（2026-10-14 21:10 复核）
+
+`kw1ayqd5` 已启动下面的配置。最新 epoch39 相对同 epoch 的 roadK8，
+speed JSD 低9.1%、angle 低11.3%，但 length 高23.1%、width 高40.1%、
+lat_dev 高110.0%。epoch15、23、31、39 的尺寸指标持续退步。
+当前降低该候选优先级，本地14336更新的完整50K双GEN确认也显示尺寸退步，
+暂不建议重复启动这套候选。
+下面命令保留用于复现；最新推荐以上方22:39复核为准，已完成完整训练参考仍保留roadK8。
 
 ```bash
 python src/run.py experiment=init_diffusion_657_n20_road_k8_match4_shape_affine_full optimizer=default
@@ -796,8 +871,11 @@ python src/run.py experiment=init_diffusion_657_n20_road_k8_match4_shape_affine_
 真实两场景 CPU 前后向与配置一致性检查通过。
 
 修复后的6144更新、4096场景、双GEN均值相对roadK8：speed低32.3%、angle低17.2%、
-width低16.5%；length高0.4%，collision高9.7%。这支持完整训练验证，不证明最终胜出；
-length仍是未解决的短板。证据保存在 `output/reports/init_diffusion_expanded_20261014/current_recommendation.json`。
+width低16.5%；length高0.4%，collision高9.7%。这些早期结果是启动完整验证的依据，
+不能替代上面的正式训练观察；length仍是未解决的短板。
+远端同 epoch 比较仍受运行硬件、源代码和生成种子等因素影响，不能单独归因尺寸仿射。
+证据保存在 `output/reports/init_diffusion_expanded_20261014/current_recommendation.json`，
+epoch15 复核记录为 `wandb/1826_affine_epoch15_review.json`。
 配套独立评价使用 `experiment=init_diffusion_657_n20_road_k8_match4_shape_affine_eval ckpt_path=/path/to/checkpoint.ckpt`。
 
 ## TRAIN-only 尺寸校准实验（2026-10-14）
@@ -808,7 +886,7 @@ length仍是未解决的短板。证据保存在 `output/reports/init_diffusion_
 同一映射再用于 4096/50K 验证。拟合与评价的生成种子分开，所有 checkpoint、样本清单与映射文件均登记 SHA。
 
 这属于“模型＋后处理”实验，结果单独保存到
-`output/reports/init_diffusion_expanded_20261014/size_calibration/`，不混入纯模型训练排名。
+`output/reports/init_diffusion_expanded_20261014/map_architecture/size_calibration/`，不混入纯模型训练排名。
 原评价器接收到的是修改后的真实车辆框，碰撞率也重新计算。两种生成种子都满足预先登记的筛选条件才扩大到完整 50K。
 更换 checkpoint 或采样设置必须重新用 TRAIN 拟合，不能把一个模型的映射直接套到另一个模型。
 

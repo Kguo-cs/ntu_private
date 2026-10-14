@@ -102,6 +102,9 @@ class InitDiffusion(nn.Module):
         sampling_time_grid: Optional[Mapping[str, Any]] = None,
         warm_start_from_ema: bool = False,
         collision_guidance: Optional[Mapping[str, Any]] = None,
+        denoiser_num_heads: Optional[int] = None,
+        denoiser_num_freq_bands: Optional[int] = None,
+        denoiser_head_dim: Optional[int] = None,
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -110,8 +113,8 @@ class InitDiffusion(nn.Module):
             raise ValueError("edge_embedding_type must be 'fourier' or 'mlp'.")
 
         self.token_processor = token_processor
-        if map_condition_types not in ("road_edges", "lanes_and_edges"):
-            raise ValueError("map_condition_types must be road_edges or lanes_and_edges")
+        if map_condition_types not in ("road_edges", "lanes_and_edges", "lanes_only", "all"):
+            raise ValueError("map_condition_types must be road_edges, lanes_and_edges, lanes_only or all")
         # The same fixed encoder can expose lane-centre queries as well as
         # road-edge queries. Its weights and attention keys remain unchanged.
         token_processor.init_map_output_types = map_condition_types
@@ -139,7 +142,16 @@ class InitDiffusion(nn.Module):
                             ("sampling_steps", sampling_steps)):
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise ValueError(f"{name} must be a positive integer")
-        if denoiser_hidden_dim % args.num_heads:
+        args.num_heads = args.num_heads if denoiser_num_heads is None else denoiser_num_heads
+        for name, value in (("denoiser_num_heads", args.num_heads),
+                            ("denoiser_num_freq_bands", denoiser_num_freq_bands),
+                            ("denoiser_head_dim", denoiser_head_dim)):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 1):
+                raise ValueError(f"{name} must be a positive integer")
+        args.denoiser_num_freq_bands = denoiser_num_freq_bands
+        args.denoiser_head_dim = denoiser_head_dim
+        args.map_feature_dim = hidden_dim
+        if denoiser_head_dim is None and denoiser_hidden_dim % args.num_heads:
             raise ValueError("denoiser_hidden_dim must be divisible by the attention head count")
         args.hidden_dim = denoiser_hidden_dim
         args.num_denoiser_layers = denoiser_num_layers
@@ -236,6 +248,10 @@ class InitDiffusion(nn.Module):
         self.G1 = Flow(args, token_processor, gail)
         self.denoiser_options = {
             "denoiser_hidden_dim": denoiser_hidden_dim, "denoiser_num_layers": denoiser_num_layers,
+            "denoiser_num_heads": self.G1.model.num_heads,
+            "denoiser_num_freq_bands": self.G1.model.num_freq_bands,
+            "denoiser_head_dim": self.G1.model.head_dim,
+            "map_feature_dim": self.G1.model.map_feature_dim,
             "state_feature_normalization": state_feature_normalization,
             "time_conditioning": time_conditioning,
             "speed_x0_parameterization": speed_x0_parameterization,
@@ -361,6 +377,10 @@ class InitDiffusion(nn.Module):
                           "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30,
                           "attribute_source": None}
         saved_options = dict(legacy_options, **state.get("denoiser_options", {}))
+        saved_hidden = saved_options["denoiser_hidden_dim"]
+        for key, value in (("denoiser_num_heads", 8), ("denoiser_num_freq_bands", saved_hidden // 2),
+                           ("denoiser_head_dim", saved_hidden // 8), ("map_feature_dim", 128)):
+            saved_options.setdefault(key, value)
         if saved_options != self.denoiser_options:
             raise ValueError("Checkpoint denoiser options differ from configured x0 model; use its saved config")
         if saved_size_mode != self.size_representation:

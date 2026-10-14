@@ -1,0 +1,15 @@
+# @package _global_
+# Exploratory only; first-choice full-run recommendation withdrawn2026-10-14.
+# New lanes_only has no long-term evidence; older lanes_and_edges runs regress.
+# Sole change from road_k8_full: return centreline queries to InitDiffusion.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+
+task_name: init_diffusion_657_n20_lane_only_full
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        map_condition_types: lanes_only

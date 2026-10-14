@@ -104,15 +104,28 @@ class InitDenoiser(nn.Module):
         a2a_max_num_neighbors: int = 30,
         map2agent_radius: float = 300.0,
         map2agent_max_num_neighbors: int = 30,
+        num_freq_bands: Optional[int] = None,
+        head_dim: Optional[int] = None,
+        map_feature_dim: int = 128,
     ) -> None:
         super().__init__()
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        num_freq_bands = hidden_dim//2
+        num_freq_bands = hidden_dim // 2 if num_freq_bands is None else num_freq_bands
         self.num_layers = num_layers
         self.num_heads = num_heads
-        head_dim = hidden_dim//num_heads
+        if not isinstance(num_heads, Integral) or isinstance(num_heads, bool) or num_heads < 1:
+            raise ValueError("num_heads must be a positive integer")
+        if head_dim is None and hidden_dim % num_heads:
+            raise ValueError("hidden_dim must be divisible by num_heads when head_dim is inferred")
+        head_dim = hidden_dim // num_heads if head_dim is None else head_dim
+        for name, value in (("num_freq_bands", num_freq_bands), ("head_dim", head_dim), ("map_feature_dim", map_feature_dim)):
+            if not isinstance(value, Integral) or isinstance(value, bool) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+        self.num_freq_bands = int(num_freq_bands)
+        self.head_dim = int(head_dim)
+        self.map_feature_dim = int(map_feature_dim)
         self.dropout = dropout
         # Graph locality changes the available context, without changing the
         # relation encoders or adding parameters. Preserve the legacy graph
@@ -311,7 +324,7 @@ class InitDenoiser(nn.Module):
             embedding_type=edge_embedding_type,
         )
 
-        self.lane_embed = MLPLayer(128, hidden_dim, hidden_dim)
+        self.lane_embed = MLPLayer(map_feature_dim, hidden_dim, hidden_dim)
 
         self.a2a_attn_layers = nn.ModuleList(
             [

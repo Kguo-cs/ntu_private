@@ -12,7 +12,7 @@ ART=ROOT/'output/reports/init_diffusion_expanded_20261014'
 METRICS=('nearest_dist_jsd','lat_dev_jsd','ang_dev_jsd','length_jsd','width_jsd','speed_jsd')
 FOCUS=('speed_jsd','ang_dev_jsd','length_jsd')
 BASES=('iu3fa4gx','0vftb3cc','nnsjk5vl')
-CANDIDATES=('0vftb3cc','nnsjk5vl','doke6bbr','ehnykqc4','efzhwmu3','wpya0vrc','cchgfuhr','4e89o3nz','4bo59qfn')
+CANDIDATES=('0vftb3cc','nnsjk5vl','doke6bbr','ehnykqc4','efzhwmu3','wpya0vrc','cchgfuhr','4e89o3nz','4bo59qfn','kw1ayqd5','yh5n38xl','bq7z12zy')
 
 
 def main():

@@ -40,6 +40,9 @@ model_config:
       component_loss: null  # null: legacy total; mapping: independent objectives, time powers and weights.
       normalizer_path: null  # Optional JSON fit on TRAIN only; checkpoint normalizer buffers take precedence.
       denoiser_hidden_dim: 256
+      denoiser_num_heads: null # null preserves the legacy eight heads
+      denoiser_num_freq_bands: null # null infers hidden_dim // 2
+      denoiser_head_dim: null # null infers hidden_dim // num_heads
       denoiser_num_layers: 3
       sampling_steps: 20
       collision_reduction: pair_mean  # agent_max averages each actor's worst excess overlap.

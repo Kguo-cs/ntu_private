@@ -37,9 +37,14 @@ class MapConditionTests(unittest.TestCase):
         self.assertEqual(torch.where(initial_map_output_mask(types, "road_edges"))[0].tolist(), [4, 5])
         self.assertEqual(torch.where(initial_map_output_mask(types, "lanes_and_edges"))[0].tolist(), [0, 1, 2, 4, 5])
 
+    def test_new_output_policies_return_the_requested_queries(self):
+        types = torch.arange(10)
+        self.assertEqual(torch.where(initial_map_output_mask(types, "lanes_only"))[0].tolist(), [0, 1, 2])
+        self.assertTrue(initial_map_output_mask(types, "all").all())
+
     def test_invalid_output_policy_fails_early(self):
         with self.assertRaisesRegex(ValueError, "init_map_output_types"):
-            initial_map_output_mask(torch.arange(10), "all")
+            initial_map_output_mask(torch.arange(10), "unsupported")
 
     def test_default_with_or_without_flag_has_exact_seeded_state_and_output(self):
         tp, tokens, agent = fixture()

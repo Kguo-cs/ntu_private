@@ -100,6 +100,7 @@ def main(decision_path=None, output_path=None):
     p('SD与VW原始报告均为相同完整50000场景、相同GT特征计数、相同评价源码和reference map。数值门槛保留用户提供的终端精度，原始double精度JSON与SHA也已登记。',small)
     p('上表roadK8来自W&B最后验证记录。是否具备本地成员与源码哈希验证，单独记录；远端配置或相同epoch不能替代完整成员核对。',small)
     p('输入条件限制：当前InitDiffusion固定ego位置、朝向、尺寸和类型；SD/VW生成ego。因此达到数值门槛仍不能直接声称同等输入条件下全面胜出。',small)
+    p('当前roadK8的SMART条件地图为ego-local半边长50m正方形，返回road-edge queries；SD/VW使用各自autoencoder的紧凑lane条件。相同的完整参考评价地图不意味着条件特征、裁剪和编码方式完全一致。',small)
     remote=[r for r in target_progress['remote_observations'] if r['run'] in ('iu3fa4gx','0vftb3cc','nnsjk5vl')]
     table(['完整训练参考','验证epoch','已过 / 7','尚未达标'],[
         [r['run'],r['epoch'],r['passed_metrics'],' / '.join(target_labels[k] for k in r['failed_metrics'])]
@@ -109,6 +110,8 @@ def main(decision_path=None, output_path=None):
     page('实验协议与新方法')
     p('数据：training_map2_sd；筛选使用固定4096个场景，确认使用完整50000场景。TRAIN种子4817/5817，GEN种子2817/3817；以实际完成单元为准，不补齐缺失结果。batch512，FP32，matmul medium，EMA，固定AIRL地图权重。')
     p('quick runner重复同一份有种子的训练顺序，完整recipe每个epoch重新打乱。不同网络不能共享所有初始权重；比较保持场景顺序、训练曝光量和评价种子匹配。同种子短跑也出现数值轨迹差异，因此不把单次早期名次当作最终排名。')
+    if (ART/'training_recipe_crosscheck.json').exists():
+        p('声明配置复核：本地与远端roadK8/affine均为batch512、LR0.0005、Trainer32-true、梯度裁剪0.5、累积1步。暂未发现这些设置不一致；远端实际matmul精度、运行时源码与张量哈希未独立核实。训练顺序、验证场景数和生成随机数仍存在协议差异，不能把短训与完整训练的排名反转归因于某一个因素。',small)
     arch=read(ART/'architecture_preflight.json')
     table(['结构检查','生成器参数','地图冻结'],[[r['arm'],f'{r["generator_params"]:,}',r['map_frozen']] for r in arch],[240,145,114])
     p('参数检查不代表每个结构都完成训练；实际完成候选见后续结果表。按训练集证据调整试验队列的记录保存在registrations/pre_attribute_prior及protocol.json。')
@@ -236,7 +239,31 @@ def main(decision_path=None, output_path=None):
     extra_plan=ART/'long_confirmation/protocol.json'
     if extra_plan.exists():
         p('为减少短跑误判，预登记了额外等预算确认：现有训练和采样对照结束后，若剩余时间足够，延长roadK8及14336步选出的候选至18432-24576步，并再次完整评价50K。预算同时为两臂训练、双GEN评价和报告预留时间；是否实际执行以完成记录为准。',small)
+    baseline_rows=[r for r in rows if r['variant']=='roadK8' and r['seed']==4817
+                   and r['num_samples']==4096 and r['budget']>=6144]
+    baseline_budgets=sorted({r['budget'] for r in baseline_rows})
+    if len(baseline_budgets)>1:
+        p('同一roadK8训练轨迹：固定TRAIN4817、4096场景，两个GEN的指标算术均值。',small)
+        trajectory=[]
+        for budget in baseline_budgets:
+            group=[r for r in baseline_rows if r['budget']==budget]
+            assert sorted(r['eval_seed'] for r in group)==[2817,3817]
+            trajectory.append([budget,*[f'{fmean(r[k] for r in group):.5f}' for k in
+                ('speed_jsd','ang_dev_jsd','length_jsd','width_jsd')]])
+        table(['更新数','speed','angle','length','width'],trajectory,[99,100,100,100,100])
+        p('这里展示增加训练预算的变化，不是候选相对control的收益，也不是合并直方图后重新计算的JSD。',small)
     longer=sorted([c for c in comparisons if c['budget']>6144 and c['scenes']==4096],key=lambda c:(c['budget'],c['R_focus']))
+    if (ART/'match4_14336_budget_comparison.json').exists():
+        p('matching4在14336更新的配对结果出现收益反转：相对roadK8，两个GEN平均speed改善17.0%，但angle、length、width分别恶化8.9%、18.0%、33.7%；后三项在两个GEN中均退步。其6144步的angle优势没有保持，length也比自身6144步更差。这里仍为4096场景、固定训练顺序的中期证据，不能视为128epoch结论。',small)
+    coupling_path=ART/'matching_assignment_diagnostic/result.json'
+    if coupling_path.exists():
+        coupling=read(coupling_path)
+        assert coupling['status']=='PASS' and coupling['source_sha256']==sha(ROOT/'tools/diagnose_init_matching_tradeoff_20261014.py')
+        changes=coupling['match4_over_roadK8']
+        p(f'匹配机制诊断：256个TRAIN场景、四组相同源噪声，matching4改变了{100*coupling["changed_assignment_fraction"]:.1f}%的非ego分配。归一化起终点平方距离比值：position={changes["position"]:.3f}、heading弦长={changes["heading_chord"]:.3f}、length={changes["length"]:.3f}、width={changes["width"]:.3f}、speed={changes["speed"]:.3f}。它以更长的位置/尺寸路径换取更短的朝向/速度路径；尺寸端变化较小，不能单独解释最终JSD差距。该诊断未调用网络预测，亦非生成指标。',small)
+        if 'match2_over_roadK8' in coupling:
+            changes2=coupling['match2_over_roadK8']
+            p(f'权重2的对应诊断：分配变化{100*coupling["changed_assignment_fractions"]["match2"]:.1f}%，position路径平方距离比={changes2["position"]:.3f}、length={changes2["length"]:.3f}、width={changes2["width"]:.3f}、speed={changes2["speed"]:.3f}。它减轻了权重4的路径取舍，提供继续观察v2h2的机制依据，但不能据此预测最终生成质量。原权重4结果在扩展诊断中完全复现。',small)
     if longer:compare_table(longer)
     second=[c for c in comparisons if c['seed']==5817]
     if second:p('第二TRAIN种子；其预算须与对应control一致。',small);compare_table(second)
@@ -247,10 +274,11 @@ def main(decision_path=None, output_path=None):
     variability_path=ART/'generation_variability_diagnostic.json'
     if variability_path.exists():
         variability=read(variability_path)
-        matches=[r for r in variability['results'] if (r['variant'],r['TRAIN'],r['updates'],r['scenes'])==('roadK8',4817,6144,4096)]
+        matches=[r for r in variability['results'] if (r['variant'],r['TRAIN'],r['scenes'])==('roadK8',4817,4096)]
         if matches:
-            v=matches[0]['features']['speed_jsd']
-            p('评价波动检查：roadK8在6144次更新、相同4096场景上，两个预先指定GEN的speed JSD分别为'+
+            latest=max(matches,key=lambda r:r['updates'])
+            v=latest['features']['speed_jsd']
+            p('评价波动检查：roadK8在'+str(latest['updates'])+'次更新、相同4096场景上，两个预先指定GEN的speed JSD分别为'+
               ' / '.join(f'{x:.5f}' for x in v['per_GEN'])+
               f'；生成速度直方图之间的总变差为{100*v["inter_GEN_total_variation"]:.2f}%。单种子小幅改善不足以支持晋级，仍使用配对GEN并扩大到50K。',small)
             p('另存独立多项分布抽样参照，仅用于解释有限样本波动量级；真实场景内agents相互依赖，该参照不是模型置信区间、显著性检验或误差下限。',small)
@@ -262,15 +290,38 @@ def main(decision_path=None, output_path=None):
              f'{r["worst_target_ratio"]:.3f}',' / '.join(target_labels[k] for k in r['failed_metrics']) or '全部低于']
             for r in full_targets],[160,55,75,209])
 
+    latest_pair_path=ART/'paired_latest_attribute_diagnostic.json'
+    if latest_pair_path.exists():
+        latest_pair=read(latest_pair_path)
+        if latest_pair['updates']>6144 or latest_pair['scenes']==50000:
+            assert latest_pair['observations_sha256']==sha(ART/'observations.json')
+            assert latest_pair['image_sha256']==sha(ART/'paired_latest_attribute_errors.png')
+            page('较长预算的配对生成分布')
+            p(f'对照臂{latest_pair["candidate"]}与roadK8，同为{latest_pair["updates"]}更新、{latest_pair["scenes"]}场景、TRAIN4817、N20与EMA。本图按指定的训练对照臂绘制，不据此另行挑选最终候选。',small)
+            image(ART/'paired_latest_attribute_errors.png',height=285)
+            entries=[]
+            for arm,record in latest_pair['records'].items():
+                for i,seed in enumerate(latest_pair['GEN']):
+                    entries.append([LABELS.get(arm,arm)+' / '+str(seed),*[
+                        f'{record["features"][feature]["per_GEN"][i]["jsd"]:.5f}'
+                        for feature in ('speed_jsd','ang_dev_jsd','length_jsd','width_jsd')]])
+            table(['模型 / GEN','speed','angle','length','width'],entries,[203,74,74,74,74])
+            p('曲线先按每个GEN归一化，再取均值；阴影仅为两次生成的范围，不是置信区间。表中JSD分别由完整分箱计算，不合并两种GEN的直方图。横轴只放大常见区间；未显示的尾部仍计入JSD。',small)
+
     midpoint_path=ART/'midpoint_attribute_diagnostic.json'
     if midpoint_path.exists():
         midpoint=read(midpoint_path)
         page('6144步确认：尺寸峰值与速度尾部')
-        image(ART/'midpoint_attribute_errors.png',height=333)
+        image(ART/'midpoint_attribute_errors.png',height=285)
         p('同一TRAIN、相同6144更新和4096场景，曲线为两个GEN的平均概率误差。灰色roadK8、蓝色matching4、绿色matching4加尺寸仿射。阴影表示两种GEN的范围，不是置信区间。',small)
         def find_band(arm,feature,bounds):
             return next(v for v in midpoint['records'][arm]['features'][feature]['bands'] if v['interval']==bounds)
         candidate='match4_shape_affine'
+        parent_means={arm:{key:midpoint['records'][arm]['features'][key]['mean_jsd'] for key in ('speed_jsd','ang_dev_jsd','length_jsd','width_jsd')} for arm in ('roadK8','match4',candidate)}
+        table(['6144更新 / 同预算参考','speed比值','angle比值','length比值','width比值'],[
+            [LABELS.get(parent,parent),*[f'{parent_means[candidate][key]/parent_means[parent][key]:.3f}' for key in ('speed_jsd','ang_dev_jsd','length_jsd','width_jsd')]]
+            for parent in ('roadK8','match4')],[203,74,74,74,74])
+        p('拆分归因：相对单独matching4，尺寸仿射在6144步改善angle/length/width，但speed略差；相对roadK8的speed收益不能全部归因于新增尺寸参数化。2048步的speed优势没有完全保持，仍需更长训练确认。',small)
         length=find_band(candidate,'length_jsd',[5.7,5.9])
         width=find_band(candidate,'width_jsd',[2.,2.1])
         speed=find_band(candidate,'speed_jsd',[15.,30.])
@@ -289,25 +340,40 @@ def main(decision_path=None, output_path=None):
             [LABELS.get(r['arm'],r['arm'])+' / '+r['mode'],f'{r["score"]["R_focus"]:.3f}',
              ratios(r['score']),f'{r["score"]["R_jsd"]:.3f}'] for r in data],[191,58,181,69])
     else:p('没有完成采样对照；保持原20步，不能宣称24步改善。')
-    p('采样对照使用同一checkpoint、同一场景、同一GEN。当前速度计算分母下限t_eps=.05，均匀24步最后一次预测时间1/24<.05，会保留部分欧氏字段残差。terminal05模式保持最后预测时间为.05，以区分更多积分步与末步处理差异。圆周heading使用自己的角度更新。')
+    p('采样对照使用同一checkpoint、同一场景、同一GEN。当前欧氏分量的采样向量场使用分母max(t,0.05)，均匀24步最后预测时间1/24小于0.05，因此最后更新会保留部分状态与x0预测之间的残差。terminal05保持最后预测时间为0.05，以区分更多积分步与末步处理差异。')
+    terminal_path=ART/'sampler_terminal_diagnostic.json'
+    if terminal_path.exists():
+        terminal=read(terminal_path)
+        table(['采样方案','模型调用数','最后预测时间','末步残差保留系数'],[
+            [r['mode'],r['model_calls'],f'{r["last_model_time"]:.6f}',f'{r["last_step_residual_factor"]:.6f}'] for r in terminal['rows']],
+            [179,85,110,125])
+        p('1/6指最后一步状态相对最后x0预测的残差系数，不是保留1/6的原始高斯噪声。只有恒定x0预测器这一特例，整个轨迹对原始偏差的累计系数才是1/144；真实网络的x0随状态和时间变化。以上公式不构成N24指标改善的证据。',small)
+        p('圆周x0 heading使用角度积分，分母为t，不受0.05这一欧氏下限限制。当前separate类型最终取最后一次clean logits的argmax；不能把它解释为直接对残留连续类型状态分类。',small)
     p('guidance调整采样时的几何；与matching训练权重分开验证。其碰撞改善不替代JSD改善，也不把位置推开造成的指标变化归因于模型学习。')
     expanded=ART/'samplers/full50000_comparison.json'
     if expanded.exists():
         value=read(expanded);p('完整50K采样确认：'+str(value['choices']))
         p(f'相应候选相对control：R_focus={value["score"]["R_focus"]:.4f}, R_jsd={value["score"]["R_jsd"]:.4f}, R_attr={value["score"]["R_attr"]:.4f}。')
 
-    calibration_protocol=ART/'size_calibration/protocol.json'
+    calibration_dir=ART/'map_architecture/size_calibration'
+    if not (calibration_dir/'protocol.json').exists():calibration_dir=ART/'size_calibration'
+    calibration_protocol=calibration_dir/'protocol.json'
     if calibration_protocol.exists():
         page('训练集尺寸校准：独立后处理对照')
-        calibration_status=read(ART/'size_calibration/status.json')
+        calibration_status=read(calibration_dir/'status.json')
         p('本实验修改实际生成车辆框的length和width，再交给原评价器；属于模型加后处理，不混入纯模型训练排名。当前状态：'+calibration_status['status'])
         p('拟合仅用原8192个TRAIN场景及同一checkpoint在这些场景上的生成结果，GEN6817、EMA、20步。分别筛选非ego车辆，固定257个log分位点建立单调映射；ego、非车辆和无效尺寸保持原值。不使用验证标签拟合、调参或逐场景修正。',small)
         p('先用双GEN在4096场景比较同一checkpoint的原始/校准输出。两种GEN的length与width均改善、已通过门槛保持、其余JSD不超过原值1.03倍时，才做完整50K确认。最终配置变化或checkpoint变化需重新用TRAIN拟合，不能复用旧映射。',small)
         p('验证：六项CPU单测通过；真实模型两场景证明原生encoder和正式rollout采样一致，已知尺寸映射只改变实际输出框，位置、heading、速度、类型和随机数状态完全不变。该验证不是生成指标改善的证据。',small)
         for filename,scope in [('quick_comparison.json','4096场景'),('full50000_comparison.json','完整50K')]:
-            path=ART/'size_calibration'/filename
+            path=calibration_dir/filename
             if not path.exists():continue
+            calibration_audit=read(calibration_dir/'native_metric_audit.json')
+            assert calibration_audit['status'] in ('PASS','NATIVE_METRICS_PASS_OUTPUT_ISOLATION_REQUIRES_REVIEW'),calibration_audit['status']
+            assert calibration_audit['comparison_sha256'][filename]==sha(path)
             record=read(path);p(scope+'：原始输出与TRAIN校准输出',heading)
+            if calibration_audit['status']!='PASS':
+                p('各项原生指标已由histogram/count独立重算通过，但部分非尺寸计数或histogram未与原始评价精确一致。输出隔离仍需复查；以下数值是有效实际测量，不能把非尺寸差异归因于尺寸映射。',small)
             entries=[]
             for calibrated in record['rows']:
                 raw=next(r for r in record['raw_rows'] if r['eval_seed']==calibrated['eval_seed'])
@@ -315,16 +381,132 @@ def main(decision_path=None, output_path=None):
                     entries.append([str(row['eval_seed'])+' / '+label,*[f'{row[k]:.5f}' for k in ('length_jsd','width_jsd','ang_dev_jsd','speed_jsd','collision_rate')]])
             table(['GEN / 输出','length','width','angle','speed','collision %'],entries,[139,72,72,72,72,72])
             if 'promote_full50K' in record:p('预先规则是否晋级50K：'+str(record['promote_full50K']),small)
-        if not (ART/'size_calibration/quick_comparison.json').exists():
+        if not (calibration_dir/'quick_comparison.json').exists():
             p('尚无实际校准评价结果，不能声称该方法改善length或width。')
         p('TRAIN与VAL的属性分布可能存在差异；独立校准边缘尺寸分布也可能影响尺寸与场景的联合关系。碰撞率使用校准后的车辆框重新计算，不能沿用原始碰撞率。',small)
+        if (calibration_dir/'full50000_shape_histograms.png').exists():
+            page('尺寸分布的实际变化：固定GEN2817')
+            plot_proof=read(calibration_dir/'full50000_shape_histograms.json')
+            assert plot_proof['figure_sha256']==sha(calibration_dir/'full50000_shape_histograms.png')
+            assert plot_proof['comparison_sha256']==sha(calibration_dir/'full50000_comparison.json')
+            image(calibration_dir/'full50000_shape_histograms.png',height=180)
+            p('图示同一6144 checkpoint的完整50K、GEN2817；曲线按完整原始histogram归一化，显示主要尺寸区间，图例JSD使用全部原评价bins。raw与calibrated是两次GPU重新生成的实际测量。',small)
+            p('校准后length约0.1049、width约0.0879，第二GEN约0.1059/0.0820，也低于VW尺寸门槛。shape JSD对细bin内的峰值质量很敏感；原始框并非整体尺寸完全错误，峰值比例与尾部偏差仍可造成明显的缩放后JSD差距。',small)
+            p('这支持进一步研究TRAIN统计驱动的尺寸表示或分布建模，不支持把后处理收益当作网络已学会正确条件分布。当前angle、speed、lat仍未达标；不同checkpoint必须重新在TRAIN拟合映射。',small)
+
+    architecture=ART/'map_architecture'
+    if (architecture/'source_application.json').exists():
+        page('新增地图邻接与独立denoiser参数')
+        application=read(architecture/'source_application.json')
+        assert application['status']=='PASS'
+        proof=read(architecture/'prepared_preflight.json')
+        p('用户进一步允许调整map encoder的radius、neighbor、层数、输出mask，以及map/denoiser各自的hidden dim、频带数、heads和head dim。新实现解除地图输入固定128维的限制，并增加denoiser独立结构选项。')
+        p('默认行为检查：旧权重严格加载、相同初始化张量、真实TRAIN2输出和RNG完全一致；40项相关测试通过。64维两层可训练地图与192维denoiser也完成真实前后向。结构检查证明选项可用，不能作为生成质量证据。',small)
+        table(['CPU结构检查','生成器参数','地图输入维度'],[
+            [r['name'],f'{r["generator_parameters"]:,}',r['map_feature_dim']] for r in proof['variants']], [263,130,106])
+        p('原来的256维denoiser使用128个Fourier频带、8 heads、head dim32；地图编码器则使用128维、64频带、8 heads、head dim16。新字段分别控制这些结构，null保留原行为。',small)
+        p('本轮原生GPU训练保持20步、657原目标、冻结AIRL地图和新control；地图radius40/neighbor64是联合邻接设置，频带32是单独denoiser设置。地图层数/维度发生结构不兼容时需走可训练地图分支，严格加载保留结构校验。',small)
+        reproduction=architecture/'native_control_reproduction.json'
+        if reproduction.exists():
+            p('新旧control虽有相同初始张量、训练顺序和评价成员，2048步后仍出现指标差异：angle两种GEN相对旧值约为0.862/0.922。该现象不能单独归因于代码变更；本阶段始终用新control比较，避免跨轮波动被计作收益。CPU默认输出/RNG严格一致不代表训练后的GPU结果也严格一致。',small)
+        if (architecture/'first_step_control_numeric_review.json').exists():
+            p('第一批GPU记录的总loss同为40.335548，但heading加权分量已有约1.05e-4差值，生成器梯度范数相差0.0516/925.3。差异在首个前后向中就存在；这些日志尚不能区分具体数值来源，也不证明代码导致长期指标变化。',small)
+        observations_path=architecture/'observations.json'
+        if observations_path.exists() and read(observations_path):
+            architecture_audit=read(architecture/'native_metric_audit.json')
+            architecture_schedule=read(architecture/'training_schedule_audit.json')
+            assert architecture_audit['status']=='PASS' and architecture_audit['observations_sha256']==sha(observations_path)
+            assert architecture_schedule['status']=='PASS' and architecture_schedule['observations_sha256']==sha(observations_path)
+            ac=read(architecture/'comparisons.json')['comparisons']
+            p(f'当前独立审计{architecture_audit["unique_actual_cells"]}个新阶段单元、{architecture_audit["checks"]}项检查。',small)
+            table(['新阶段 / 更新 / 场景','speed比值','angle比值','length比值','width比值'],[
+                [r['arm']+' / '+str(r['budget'])+' / '+str(r['scenes']),*[f'{r["ratios"][k]:.3f}' for k in ('speed_jsd','ang_dev_jsd','length_jsd','width_jsd')]]
+                for r in ac],[203,74,74,74,74])
+            full_rows=[r for r in read(observations_path) if r['num_samples']==50000]
+            if full_rows:
+                from tools import score_init_sd_vw_targets_20261014 as score_targets
+                table(['完整50K / GEN','speed','angle','length','width','已过/7'],[
+                    [r['variant']+' / '+str(r['eval_seed']),
+                     *[f'{r[k]:.5f}' for k in ('speed_jsd','ang_dev_jsd','length_jsd','width_jsd')],
+                     score_targets.score(r)['passed_metrics']]
+                    for r in full_rows],[183,67,67,67,67,48])
+                p('这是6144更新checkpoint的完整评价样本，不是完整128epoch训练结果。逐种子的七项门槛检查单独保存；表中的平均比值不能替代单项达标。',small)
+        if (architecture/'selection.json').exists():
+            chosen=read(architecture/'selection.json')
+            p('新阶段中期确认候选：'+chosen['candidate']+'；它是已完成初筛中的预登记规则选择，尚不等于值得完整训练的推荐。',small)
+            if chosen.get('deferred_arms'):
+                later_done=(architecture/'mask_followup/result.json').exists()
+                missing=[a for a in chosen['deferred_arms'] if not (a=='lane_only_queries' and later_done)]
+                p('为保留配对6144与完整50K预算，当时推迟了部分短训。'+
+                  ('lanes_only后续已补跑，结果单独见后续mask章节。' if later_done else '')+
+                  ('仍未执行GPU初筛：'+', '.join(missing)+'，仅完成CPU前后向检查。' if missing else ''),small)
+        if (architecture/'budget_handoff.json').exists():
+            p('预算调度调整仅暂停协调器，让正在运行的频带实验完整结束后再交接；原生训练子进程、模型、loss、种子、评价与候选排序均未改变。',small)
+        context_path=architecture/'map_context_train_diagnostic.json'
+        if context_path.exists():
+            context=read(context_path)
+            assert context['status']=='PASS'
+            page('地图邻接改变了多少实际条件信息')
+            p('下面使用16个固定TRAIN场景、CPU上的真实冻结AIRL encoder前向。地图为一层、ego-local正方形半边长50m；不使用评价标签，也不测生成质量。',small)
+            table(['输出mask / radius / K','query节点','平均邻居','邻居平均距离m','特征cosine'],[
+                [r['mask']+' / '+str(int(r['radius']))+' / '+str(r['neighbor_cap']),
+                 r['query_nodes'],f'{r["mean_neighbors"]:.1f}',f'{r["mean_neighbor_distance"]:.1f}',
+                 f'{r["mean_feature_cosine_vs_r20_k30"]:.3f}' if 'mean_feature_cosine_vs_r20_k30' in r else '同mask参考']
+                for r in context['rows']],[192,62,76,87,82])
+            p('road_edges的平均邻居由17.9增加到47.9，平均邻居距离由13.0m增加到23.1m；同一query的冻结特征平均cosine约0.698。增大图范围明显改变输入特征，不能当作等价的计算设置。',small)
+            p('一种待验证解释是：新邻接与AIRL预训练时的上下文不同，增加远处节点也可能稀释局部道路信息。该诊断没有证明它导致任何JSD退步。输出mask同样改变下游可选query集合；地图attention的source节点在此比较中始终为1886。CPU近邻距离并列时的选择可能与GPU不同。',small)
+
+    mask_followup=ART/'map_architecture/mask_followup'
+    if (mask_followup/'queue_plan.json').exists():
+        page('单独改变输出mask的后续初筛')
+        mask_status=read(mask_followup/'status.json')
+        p('固定候选lanes_only：其余结构、loss、优化器、TRAIN顺序和GEN沿用新结构阶段control。仅在优先队列结束、保守时长可在22:12前完成时启动；不影响原配对6144/full50K及尺寸诊断。为减少数十秒余量造成的整体弃跑，仅将空闲队列的截止延后两分钟，保留18分钟报告时间，未打断原生子任务。当前状态：'+mask_status['status'],small)
+        if (mask_followup/'result.json').exists():
+            result=read(mask_followup/'result.json')
+            proof=read(mask_followup/'native_metric_audit.json')
+            assert proof['status']=='PASS' and proof['observations_sha256']==sha(mask_followup/'observations.json')
+            p('本轮新增两个实际评价单元，复用同源码阶段已有的2048 control两个单元；不把复用control重复计为新实验。两种GEN对照仍只是一种TRAIN种子的短期初筛。',small)
+            compare_table([dict(arm='lane_only_queries',seed=4817,budget=2048,**result['score'])])
+            table(['GEN','speed','angle','length','width'],[
+                [r['eval_seed'],*[f'{r[k]:.5f}' for k in ('speed_jsd','ang_dev_jsd','length_jsd','width_jsd')]]
+                for r in result['raw_rows']],[83,104,104,104,104])
+            p('没有对应6144、完整50K或第二TRAIN确认，不能据此宣称优于现有完整训练结果。是否值得作为下一轮完整训练，另依据4096配对与第一页最终判断。',small)
+        else:
+            p('尚无已完成GPU结果；这里只记录排队或时间限制，CPU功能检查不替代效果验证。')
+        midpoint=ART/'map_architecture/mask_midpoint'
+        if (midpoint/'comparisons.json').exists():
+            mc=read(midpoint/'comparisons.json')['comparisons']
+            if mc:
+                proof=read(midpoint/'native_metric_audit.json')
+                assert proof['status']=='PASS' and proof['observations_sha256']==sha(midpoint/'observations.json')
+                p('4096更新配对确认',heading)
+                compare_table(mc)
+                p('control使用此前真实6144训练过程中保存的step4096状态，候选仅恢复自己的2048 optimizer/EMA/RNG至4096。没有额外训练control，比较保持相同累计曝光和同一源码。此阶段仍为4096场景，未做完整50K或第二TRAIN确认。',small)
+            else:
+                p('4096更新确认尚无完整候选/control对，不能据单边结果计算收益。',small)
+        if (ART/'map_architecture/lane_only_full_config_preflight.json').exists():
+            p('新完整recipe已准备：init_diffusion_657_n20_lane_only_full；20步、G1约808万参数、冻结原AIRL map、batch512、128epochs、workers8、每8epoch验证完整50K。训练与评价Hydra组合及真实TRAIN2 CPU前后向通过；仅改变返回query的map类型，保留原loss和采样。是否推荐启动，以第一页最终决策为准。',small)
+
+    repeatability=ART/'map_architecture/gpu_repeatability_result.json'
+    if repeatability.exists():
+        page('相同输入的GPU前后向重复检查')
+        result=read(repeatability)
+        p('所有原生队列结束后，在同一个当前模型、16个TRAIN场景、相同seed与FP32/matmul medium上连续做三次前后向。每次清空梯度并重置随机数；不做optimizer更新，不评价生成场景。',small)
+        table(['重复','loss严格相同','grad严格相同','最大grad绝对差','不等grad元素'],[
+            [r['repeat'],r['losses_exactly_equal'],r['gradients_exactly_equal'],
+             f'{r["max_abs_gradient_difference"]:.7g}',r['unequal_gradient_elements']]
+            for r in result['rows']],[66,103,103,127,100])
+        p('此检查只描述当前代码在同进程GPU上的重复性，不能单独定位新旧source差异，也不能解释2048或6144后的指标差距。随机数状态hash和逐项gradient hash保存在原始JSON。',small)
 
     page('W&B完整训练与新run进展')
-    selected=[manifest[rid] for rid in ('iu3fa4gx','0vftb3cc','nnsjk5vl','doke6bbr','ehnykqc4','efzhwmu3','wpya0vrc','cchgfuhr') if rid in manifest]
+    selected=[manifest[rid] for rid in ('iu3fa4gx','0vftb3cc','nnsjk5vl','doke6bbr','ehnykqc4','efzhwmu3','wpya0vrc','cchgfuhr','kw1ayqd5','yh5n38xl','bq7z12zy') if rid in manifest]
     table(['Run / 状态','验证epoch','speed','angle','length'],[
         [r['id']+' / '+r['state'],r['last_validation_epoch'],*[f'{r["last_validation_metrics"][k]:.5f}' for k in FOCUS]]
         for r in selected if r['last_validation_metrics']], [174,65,87,87,86])
     p('finished仅表示该run已结束；停在epoch23的run不是完成128 epoch训练。表中按实际验证epoch比较，完整成员检查与训练时长分别确认。',small)
+    for r in selected:
+        if r['state']=='running' and not r['last_validation_metrics']:
+            p('新运行 '+r['id']+' / '+r['name']+' 已出现，但尚无完整验证指标；不参与数值排名。',small)
     image(ART/'early_final_rank_review.png',height=191)
     p('相关性图来自最初读取的6个已完成run，仅为观察性回顾。硬件、源代码、seed等有混杂；第15epoch与最终排名相关性约.09，不构成通用预测定律。最新run表来自报告标注的W&B快照，未完成run不当作最终结果。',small)
     p('ehnykqc4同时改变邻居数、时间embedding、normalization、末步处理等，且未开启sd_require_full_set，不能据其单个run归因某项设置，或宣称已验证完整50K成员一致。',small)
@@ -334,17 +516,24 @@ def main(decision_path=None, output_path=None):
     if remote_parent_path.exists():
         remote_parent=read(remote_parent_path)
         assert remote_parent['source_analysis_sha256']==sha(ART/'wandb/latest_analysis.json')
-        relevant=[r for r in remote_parent['comparisons'] if r['parent']=='nnsjk5vl' and r['last_shared_epoch'] and r['candidate'] in ('efzhwmu3','wpya0vrc','cchgfuhr')]
-        table(['候选 / 共同epoch','R_focus','S / A / L 比值','W 比值'],[
-            [r['candidate']+' / '+str(r['epoch']),f'{r["R_focus"]:.3f}',ratios(r),f'{r["ratios"]["width_jsd"]:.3f}']
+        relevant=[r for r in remote_parent['comparisons'] if r['parent'] in ('0vftb3cc','nnsjk5vl') and r['last_shared_epoch'] and r['candidate'] in ('efzhwmu3','wpya0vrc','cchgfuhr','kw1ayqd5','yh5n38xl','bq7z12zy')]
+        parent_labels={'0vftb3cc':'roadK8','nnsjk5vl':'match4 + guidance'}
+        table(['候选 / 共同epoch / 参考','R_focus','S / A / L 比值','W 比值'],[
+            [r['candidate']+' / '+str(r['epoch'])+' / '+parent_labels[r['parent']],f'{r["R_focus"]:.3f}',ratios(r),f'{r["ratios"]["width_jsd"]:.3f}']
             for r in relevant],[179,60,190,70])
-        p('这里参考nnsjk5vl的同epoch，而非最终657或roadK8。只用于观察取舍：相同epoch尚不足以证明场景成员、硬件、GEN种子与源代码都匹配。',small)
-    p('完整训练命令：python src/run.py experiment='+decision['recommended_full_config'])
+        p('两组参考均取各自与候选共同的epoch，避免将相对matching4的改善误认为相对roadK8也改善。相同epoch尚不足以证明场景成员、硬件、GEN种子与源代码都匹配；远端多个改动并存，不能单独归因采样步数或匹配权重。',small)
+        if (ART/'wandb/1848_architecture_attribution.json').exists():
+            p('新五层v2h2相对三层v2h2同时改变网络深度、20→24步和power1.2/末步0.05时间网格；相对三层24步matching4又同时改变深度与匹配权重。后续收益只能先归于整套配置。远端24步还启用碰撞guidance，与本地无guidance的24步对照不同，不能直接视为同一采样方案。',small)
+        if (ART/'wandb/2134_run_review.json').exists():
+            p('轨迹复核：五层v2h2在epoch15的angle相对roadK8为0.843，到epoch23为1.028，早期优势已反转；affine的length/width相对roadK8从epoch39的1.231/1.401扩大为epoch47的1.293/1.494。这些是各自共享epoch的观察，不把更低speed或早期angle名次当作完整训练收益。最新值以上表为准。',small)
+    p('完整训练命令：python src/run.py experiment='+decision['recommended_full_config']+' optimizer=default')
     if decision.get('recommended_eval_config'):
         p('完整评价配置：'+decision['recommended_eval_config'])
     for command in decision.get('commands',[]):p(command,small)
     p('完整recipe：num_workers=8、check_val_every_n_epoch=8、完整50K、R参考iu3fa4gx_full50000。map初始化使用initial_map_checkpoint，完整模型从头训练时ckpt_path为null；不能把旧AIRL完整checkpoint当作本轮denoiser续训。',small)
     p('复核资料：output/reports/init_diffusion_expanded_20261014 下的protocol、observations、comparisons、native_metric_audit、samplers、wandb及final_decision。首批损坏诊断日志已保留并排除，采用重新从头训练的有效control；源代码阶段变化和默认兼容性证明单独记录。',small)
+    page('复核运行链接')
+    p('以下链接对应报告使用的远端训练记录；报告中的实际指标以标注时间的只读快照为准。',small)
     for r in selected:p('W&B '+r['id']+': https://forge.coreweave.com/wandb/u3006612/bc/runs/'+r['id'],small)
     def footer(canvas,doc):
         canvas.setFont('STSong-Light',8);canvas.setFillColor(colors.HexColor('#657786'))
@@ -353,8 +542,19 @@ def main(decision_path=None, output_path=None):
     SimpleDocTemplate(str(output_path),title='InitDiffusion expanded search - 2026-10-14',pagesize=A4,leftMargin=48,rightMargin=48,topMargin=38,bottomMargin=42).build(story,onFirstPage=footer,onLaterPages=footer)
     sources=['observations.json','comparisons.json','native_metric_audit.json','protocol.json','wandb/latest_analysis.json']
     sources += [p for p in ('parent_comparisons.json','histogram_diagnostics.json','full_recipe_preflight.json','wandb/current_parent_comparisons.json','all_seven_target_progress.json','prior_resume_evidence_correction.json','cyclic_resume_issue.json','cyclic_resume_regression.json','cyclic_chained_resume_regression.json','training_schedule_audit.json','samplers/full50000_comparison.json','train_eval_attribute_diagnostic.json','heading_time_weight_diagnostic.json','generation_variability_diagnostic.json','shape_affine/component_gradient_probe/summary.json','shape_affine/component_gradient_probe/results.json','long_confirmation/protocol.json','long_confirmation/status.json','long_confirmation/selection.json','affine_heading_gradient_probe/results.json','affine_heading_gradient_probe/summary.json','affine_heading_result.json','affine_heading_marginal_errors.json') if (ART/p).exists()]
-    sources += [p for p in ('size_calibration/protocol.json','size_calibration/status.json','size_calibration/selection.json','size_calibration/unit_tests.json','size_calibration/native_output_parity.json','size_calibration/quick_comparison.json','size_calibration/full50000_comparison.json') if (ART/p).exists()]
-    sources += [p for p in ('midpoint_attribute_diagnostic.json','midpoint_attribute_errors.png','current_recommendation.json','recommended_shape_affine_preflight.json','generated_size_source_comparison.png','affine_heading_marginal_errors.png','early_final_rank_review.png') if (ART/p).exists()]
+    sources += [p for p in ('size_calibration/protocol.json','size_calibration/status.json','size_calibration/selection.json','size_calibration/unit_tests.json','size_calibration/native_metric_audit.json','size_calibration/native_output_parity.json','size_calibration/quick_comparison.json','size_calibration/full50000_comparison.json') if (ART/p).exists()]
+    sources += [p for p in ('sampler_terminal_diagnostic.json','shape_affine_budget_comparison.json','wandb/recommended_run_config_check.json','midpoint_attribute_diagnostic.json','midpoint_attribute_errors.png','current_recommendation.json','recommended_shape_affine_preflight.json','generated_size_source_comparison.png','affine_heading_marginal_errors.png','early_final_rank_review.png','map_architecture/map_context_train_diagnostic.json') if (ART/p).exists()]
+    sources += [p for p in ('paired_latest_attribute_diagnostic.json','paired_latest_attribute_errors.png') if (ART/p).exists()]
+    sources += [p for p in ('training_recipe_crosscheck.json',) if (ART/p).exists()]
+    sources += [p for p in ('match4_14336_budget_comparison.json',) if (ART/p).exists()]
+    sources += [p for p in ('matching_assignment_diagnostic/result.json',) if (ART/p).exists()]
+    sources += [p for p in ('wandb/1846_run_triage.json','wandb/1848_architecture_attribution.json') if (ART/p).exists()]
+    sources += [p for p in ('wandb/2134_run_review.json',) if (ART/p).exists()]
+    sources += [p for p in ('map_architecture/queue_plan.json','map_architecture/protocol.json','map_architecture/prepared_preflight.json','map_architecture/prepared_unit_tests.json','map_architecture/source_application.json','map_architecture/native_control_reproduction.json','map_architecture/observations.json','map_architecture/comparisons.json','map_architecture/native_metric_audit.json','map_architecture/training_schedule_audit.json','map_architecture/effective_options.json','map_architecture/selection.json','map_architecture/budget_handoff.json','map_architecture/budget_handoff_status.json') if (ART/p).exists()]
+    sources += [p for p in ('map_architecture/size_calibration/protocol.json','map_architecture/size_calibration/status.json','map_architecture/size_calibration/selection.json','map_architecture/size_calibration/native_metric_audit.json','map_architecture/size_calibration/quick_comparison.json','map_architecture/size_calibration/full50000_comparison.json') if (ART/p).exists()]
+    sources += [p for p in ('map_architecture/size_calibration/quick_isolation_review.json','map_architecture/size_calibration/full_isolation_review.json','map_architecture/size_calibration/full50000_shape_histograms.json','map_architecture/size_calibration/full50000_shape_histograms.png','map_architecture/full50000_review.json') if (ART/p).exists()]
+    sources += [p for p in ('map_architecture/first_step_control_numeric_review.json','map_architecture/all_seven_target_progress.json','map_architecture/gpu_repeatability_plan.json','map_architecture/gpu_repeatability_result.json','map_architecture/mask_followup/queue_plan.json','map_architecture/mask_followup/status.json','map_architecture/mask_followup/protocol.json','map_architecture/mask_followup/observations.json','map_architecture/mask_followup/result.json','map_architecture/mask_followup/native_metric_audit.json','map_architecture/mask_followup/training_schedule_audit.json') if (ART/p).exists()]
+    sources += [p for p in ('map_architecture/lane_only_full_config_preflight.json','map_architecture/mask_midpoint/protocol.json','map_architecture/mask_midpoint/status.json','map_architecture/mask_midpoint/observations.json','map_architecture/mask_midpoint/comparisons.json','map_architecture/mask_midpoint/native_metric_audit.json','map_architecture/mask_midpoint/training_schedule_audit.json','map_architecture/mask_midpoint/control_fallback_plan.json','map_architecture/mask_midpoint/control_fallback_status.json') if (ART/p).exists()]
     manifest_path=ART/('report_manifest.json' if output_path==OUT else 'report_preview_manifest.json')
     manifest_path.write_text(json.dumps(dict(pdf=str(output_path),pdf_sha256=sha(output_path),decision_path=str(decision_path),decision_sha256=sha(decision_path),sources={p:sha(ART/p) for p in sources},target_spec_sha256=sha(target_file),report_builder_sha256=sha(__file__),visual_QA='pending'),indent=2)+'\n')
     print(output_path)
