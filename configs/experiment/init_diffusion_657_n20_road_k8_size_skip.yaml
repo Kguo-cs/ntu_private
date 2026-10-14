@@ -1,0 +1,11 @@
+# @package _global_
+# Experimental unscaled size residual: s0 = s_t + raw; paired search required.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+task_name: init_diffusion_657_n20_road_k8_size_skip
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        shape_x0_parameterization: residual

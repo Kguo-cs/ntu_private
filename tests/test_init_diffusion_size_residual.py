@@ -9,6 +9,19 @@ from src.smart.diffusion.initial_diffusion import InitDiffusion
 
 
 class SizeTimeResidualTest(unittest.TestCase):
+    def test_untimed_residual_has_unit_gradient_at_all_times(self):
+        raw=torch.randn(3,10,requires_grad=True);latent=torch.randn(3,10)
+        time=torch.tensor([[0.],[.3],[1.]])
+        model=self.model(shape_x0_parameterization='residual')
+        result=model._parameterize_shape_x0(raw,latent,time)
+        torch.testing.assert_close(result[:,4:6],latent[:,4:6]+raw[:,4:6])
+        torch.testing.assert_close(result[:,:4],raw[:,:4],rtol=0,atol=0)
+        torch.testing.assert_close(result[:,6:],raw[:,6:],rtol=0,atol=0)
+        result[:,4:6].sum().backward()
+        torch.testing.assert_close(raw.grad[:,4:6],torch.ones(3,2),rtol=0,atol=0)
+        torch.testing.assert_close(raw.grad[:,:4],torch.zeros(3,4),rtol=0,atol=0)
+        torch.testing.assert_close(raw.grad[:,6:],torch.zeros(3,4),rtol=0,atol=0)
+
     def test_length_only_preserves_width_speed_and_type_fields(self):
         raw=torch.randn(3,10);latent=torch.randn(3,10);time=torch.tensor([[0.],[.3],[1.]])
         model=self.model(shape_x0_parameterization='length_time_residual')

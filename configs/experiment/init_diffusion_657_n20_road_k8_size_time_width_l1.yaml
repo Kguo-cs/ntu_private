@@ -1,0 +1,17 @@
+# @package _global_
+# Experimental joint variant: both sizes use s0 = s_t + t * raw;
+# only width changes from MSE to L1. Other loss weights/powers stay inherited.
+# Passed the 4096-update screen; longer and second-seed confirmation is pending.
+defaults:
+  - init_diffusion_657_n20_road_k8_size_residual
+  - _self_
+
+task_name: init_diffusion_657_n20_road_k8_size_time_width_l1
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        component_loss:
+          components:
+            width:
+              kind: l1

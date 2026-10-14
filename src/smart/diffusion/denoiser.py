@@ -173,8 +173,8 @@ class InitDenoiser(nn.Module):
             raise ValueError("TRAIN state feature normalization requires an x0 predictor")
         if speed_x0_parameterization not in ("identity", "softplus", "time_residual"):
             raise ValueError("speed_x0_parameterization must be identity, softplus or time_residual")
-        if shape_x0_parameterization not in ("identity", "time_residual", "length_time_residual"):
-            raise ValueError("shape_x0_parameterization must be identity, time_residual or length_time_residual")
+        if shape_x0_parameterization not in ("identity", "residual", "time_residual", "length_time_residual"):
+            raise ValueError("shape_x0_parameterization must be identity, residual, time_residual or length_time_residual")
         if shape_x0_parameterization != "identity" and (not x_pred or output_dim != state_dim):
             raise ValueError("Size time residual requires a deterministic physical x0 predictor")
         if speed_head_kind not in ("shared", "separate"):
@@ -1046,6 +1046,9 @@ class InitDenoiser(nn.Module):
         """Keep clean-size targets; optionally predict their timed residual."""
         if self.shape_x0_parameterization == "identity":
             return prediction
+        if self.shape_x0_parameterization == "residual":
+            size = latent[:, 4:6] + prediction[:, 4:6]
+            return torch.cat((prediction[:, :4], size, prediction[:, 6:]), dim=-1)
         if self.shape_x0_parameterization == "length_time_residual":
             time = self._format_beta(beta, len(prediction))[:, 4:5]
             length = latent[:, 4:5] + time * prediction[:, 4:5]

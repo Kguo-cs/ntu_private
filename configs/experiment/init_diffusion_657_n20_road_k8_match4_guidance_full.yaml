@@ -1,0 +1,26 @@
+# @package _global_
+# Speed-priority recipe matching the observed W&B run nnsjk5vl's two overrides.
+# At epoch127 vs roadK8: speed improves35.8%, angle worsens6.9%, length15.5%.
+# Against final657: R_focus=.9195, R_jsd=.9542 (single runs, different hardware).
+# Matching and multi-step guidance were combined; this is not a matching-only claim.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+
+task_name: init_diffusion_657_n20_road_k8_match4_guidance_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        matching_weights:
+          position: 1.0
+          heading: 4.0
+          length: 1.0
+          width: 1.0
+          velocity: 4.0
+        collision_guidance:
+          scale: 0.5
+          t_max: 0.3
+          iters: 5
+          margin: 0.1
+          vehicles_only: true

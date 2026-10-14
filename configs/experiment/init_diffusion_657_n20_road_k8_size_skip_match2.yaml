@@ -1,0 +1,18 @@
+# @package _global_
+# Experimental combination; longer paired training/evaluation is still required.
+# Keep the x0 loss, N20 sampler, and generator size from road_k8_full.
+defaults:
+  - init_diffusion_657_n20_road_k8_size_skip
+  - _self_
+
+task_name: init_diffusion_657_n20_road_k8_size_skip_match2
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        matching_weights:
+          position: 1.0
+          heading: 2.0
+          length: 1.0
+          width: 1.0
+          velocity: 2.0
