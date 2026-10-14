@@ -14,7 +14,7 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: cc_road_k8_match_s24 #model_gail #model_finetune #init_flow #gen_iq_finetune #wosac_gen_sub  #wosac_sub #gen_finetune #iq_finetune
+  - experiment: cc_road_k8_match_s24_v2h2_d5 #model_gail #model_finetune #init_flow #gen_iq_finetune #wosac_gen_sub  #wosac_sub #gen_finetune #iq_finetune
   - optimizer: default  # Optional recipe overrides the experiment's optimizer settings.
 
 action: fit # fit, finetune, validate, test
