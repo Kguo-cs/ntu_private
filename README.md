@@ -1,9 +1,9 @@
 
-rsync -avz /home/ke/code/sim/src/waymo_data/training_map2_sd_files.pkl ke@10.87.114.128:~/keguo/sim/src/waymo_data/
+rsync -avz /home/ke/code/sim/src/waymo_data/full/validation_mapall_sd ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/training_map2_sd_files.pkl guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/full/validation_mapall_sd guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_sd ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_mapall_sd ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/xflow512_l1_v1_matchraw_nocol/2026-09-27_19-27-14/bc/qaxyqp6m/checkpoints/last.ckpt ./
 
@@ -152,3 +152,11 @@ kefu321
 todesk：
 
 VectorWorld initialization: [training, weights, data preparation and evaluation](docs/vectorworld_initialization.md).
+
+
+10.87.114.128 里面的validation_mapall_sd  和training_mapall_init_sd 是 全map 版的数据，现在的map2是降采样版本        if polygon_type !=1:
+            split_polyline=split_polyline[::10]
+        else:
+            split_polyline=split_polyline[::2]
+
+考虑探索map_all，可以调节map_encoder的输入和输出mask，其他server里没有数据可以同步一下

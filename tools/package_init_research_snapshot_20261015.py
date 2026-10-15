@@ -8,7 +8,7 @@ BASE=ROOT/'output/reports/init_diffusion_continuous_20261014'
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--kind',choices=['shared_omega','shared_omega05','shared_omega025_replica','time_scaled_heading','deep_shared_omega','deep_shared_omega10'],required=True)
+    parser.add_argument('--kind',choices=['shared_omega','shared_omega05','shared_omega025_replica','empirical_speed_replica','time_scaled_heading','deep_shared_omega','deep_shared_omega10'],required=True)
     args=parser.parse_args()
     proof=json.loads((BASE/'shared_heading_full_config_preflight_20261015.json').read_text())
     assert proof['status']=='CPU_NATIVE_FULL_CONFIGS_PASS_NOT_DEPLOYED'
@@ -28,6 +28,13 @@ def main():
         for name,digest in proof['source_hashes'].items():
             assert hashlib.sha256((ROOT/name).read_bytes()).hexdigest()==digest
         candidates=['init_diffusion_657_n24_road_k8_omega025_seed6817_full']
+    if args.kind=='empirical_speed_replica':
+        proof=json.loads((BASE/'empirical_speed_seed6817_cpu_proof_20261015.json').read_text())
+        assert proof['status']=='EMPIRICAL_SPEED_SEED6817_SOURCE_ONLY_PAIR_CPU_PASS_NOT_DEPLOYED'
+        assert proof['seed']==6817 and proof['initial_parameters_buffers_CPU_RNG_exact']
+        for name,digest in proof['source_hashes'].items():
+            assert hashlib.sha256((ROOT/name).read_bytes()).hexdigest()==digest
+        candidates=['init_diffusion_657_n24_road_k8_omega025_empirical_speed_seed6817_full']
     if args.kind=='time_scaled_heading':
         proof=json.loads((BASE/'time_scaled_heading_cpu_proof_20261015.json').read_text())
         assert proof['status']=='PASS' and proof['native_full_config_factory']
@@ -58,6 +65,10 @@ def main():
     if args.kind in ('deep_shared_omega','deep_shared_omega10'):
         resources += ['tools/run_native_prefix_training_20261015.py',
                       'tools/runtime_cached_torch_loader_sweep.py','tools/torch_pickle_class_cache.py']
+    if args.kind=='empirical_speed_replica':
+        resources += ['tools/run_native_prefix_training_20261015.py',
+                      'tools/runtime_cached_torch_loader_sweep.py','tools/torch_pickle_class_cache.py',
+                      'docs/experiments/init_diffusion_train_attribute_source_full_20261015/quantiles.pt']
     paths=sorted(set(paths+[Path(n) for n in resources if (ROOT/n).is_file()]))
     stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     folder=BASE/'remote_packages'/(args.kind+'_'+stamp);folder.mkdir(parents=True,exist_ok=False)

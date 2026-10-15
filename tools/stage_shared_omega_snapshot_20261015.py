@@ -9,7 +9,7 @@ BASE=ROOT/'output/reports/init_diffusion_continuous_20261014'
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--server',choices=['server9','host128'],default='server9')
-    parser.add_argument('--kind',choices=['shared_omega','shared_omega05','shared_omega025_replica','time_scaled_heading','deep_shared_omega','deep_shared_omega10'],default='shared_omega')
+    parser.add_argument('--kind',choices=['shared_omega','shared_omega05','shared_omega025_replica','empirical_speed_replica','time_scaled_heading','deep_shared_omega','deep_shared_omega10'],default='shared_omega')
     args=parser.parse_args()
     host,repo,python,socket,port={
         'server9':('guoke@sprl-server9.dynip.ntu.edu.sg','/home/guoke/sim',

@@ -36,6 +36,7 @@ NATIVE_PREFIX_STUDY=None
 FULL_CHECKPOINT=None
 FULL_CONFIG=None
 USE_EMA=False
+PROBE_OUTPUT_COMPONENTS=False
 
 
 def main():
@@ -100,6 +101,7 @@ def main():
         shared_omega=(flow.heading_objective=='angular_velocity' and
             model.encoder.init_decoder.denoiser_options.get('heading_velocity_readout','').startswith('shared_state_row3'))
         output=flow.model.to_out_m_delta.mlp[-1]
+        head_ids={id(output.weight),id(output.bias)}
         heading_output_ids={id(output.weight),id(output.bias)} if shared_omega else set()
         def heading_row_inner(first,second):
             values=((a[3]*b[3]).sum() for p,a,b in zip(params,first,second)
@@ -141,6 +143,7 @@ def main():
             total_squared=sum(g.square().sum() for g in total_g if g is not None)
             assert torch.isfinite(total_squared)
             rows={}
+            output_vectors={key:{} for key in ('length','width','velocity')} if PROBE_OUTPUT_COMPONENTS else None
             for name,value in captured.items():
                 grad=torch.autograd.grad(value,params,retain_graph=True,allow_unused=True)
                 squared=sum(g.square().sum() for g in grad if g is not None)
@@ -157,10 +160,26 @@ def main():
                     rows[name].update(omega_output_row_grad_norm=float(row_squared.sqrt()),
                         cosine_with_heading_output_row=float(row_dot/(row_squared*heading_row_squared).sqrt().clamp_min(1e-30)),
                         projection_on_heading_output_row=float(row_dot/heading_row_squared.clamp_min(1e-30)))
+                if PROBE_OUTPUT_COMPONENTS:
+                    for key,index in (('length',4),('width',5),('velocity',6)):
+                        values=[g[index].reshape(-1) for p,g in zip(params,grad) if id(p) in head_ids and g is not None]
+                        output_vectors[key][name]=(torch.cat(values).detach() if values else params[0].new_zeros(output.in_features+1))
                 del grad
             assert abs(sum(v['dot_over_total_squared'] for v in rows.values())-1)<2e-4
-            batches.append(dict(index=i,agents=len(agents['type']),global_grad_norm=float(total_squared.sqrt()),
-                total_loss=float(total.detach()),components=rows))
+            item=dict(index=i,agents=len(agents['type']),global_grad_norm=float(total_squared.sqrt()),
+                total_loss=float(total.detach()),components=rows)
+            if PROBE_OUTPUT_COMPONENTS:
+                interactions={}
+                for key,vectors in output_vectors.items():
+                    own=vectors[key];collision=vectors['collision'];own2=own.square().sum();col2=collision.square().sum();inner=(own*collision).sum()
+                    interactions[key]=dict(own_weighted_head_grad_norm=float(own2.sqrt()),
+                        collision_weighted_head_grad_norm=float(col2.sqrt()),
+                        cosine_collision_with_own=float(inner/(own2*col2).sqrt().clamp_min(1e-30)),
+                        collision_projection_on_own=float(inner/own2.clamp_min(1e-30)),
+                        own_bias_derivative=float(own[-1]),collision_bias_derivative=float(collision[-1]))
+                item['physical_output_row_interactions']=interactions
+                del output_vectors
+            batches.append(item)
             print('COMPONENT_GRADIENT',arm,i,flush=True)
             captured.clear();del result,total,total_g,heading_g,maps,agents,batch
         hashes.append(digest.hexdigest());assert len(set(hashes))==1,'Source/target/time must match'
@@ -175,6 +194,7 @@ def main():
             native_prefix_study=None if NATIVE_PREFIX_STUDY is None else str(NATIVE_PREFIX_STUDY),
             native_checkpoint_stats_verified=NATIVE_PREFIX_STUDY is not None or FULL_CHECKPOINT is not None,
             full_checkpoint=None if FULL_CHECKPOINT is None else str(FULL_CHECKPOINT),
+            physical_output_row_interactions_enabled=PROBE_OUTPUT_COMPONENTS,
             config_sha256=sha(config_path),
             caveat=f'CPU {"EMA" if USE_EMA else "raw"}-weight conditional denoising with training-mode dropout on{SCENES} TRAIN scenes in32-scene batches. Gradient contribution can be negative or exceed1 due to cancellation. Not actual B512 GPU training gradients, no causal or generation-JSD claim.'))
         del model,flow,objective,dm,checkpoint,params
@@ -193,10 +213,12 @@ if __name__=='__main__':
     parser.add_argument('--full-checkpoint',type=Path)
     parser.add_argument('--full-config',type=Path)
     parser.add_argument('--weights',choices=('raw','ema'),default='raw')
+    parser.add_argument('--output-head-components',action='store_true')
     args=parser.parse_args()
     BUDGET=args.budget;SCENES=args.scenes;ARMS=tuple(args.arms.split(','));OBS=args.observations;ART=args.output
     NATIVE_PREFIX_STUDY=args.native_prefix_study
     FULL_CHECKPOINT=args.full_checkpoint;FULL_CONFIG=args.full_config;USE_EMA=args.weights=='ema'
+    PROBE_OUTPUT_COMPONENTS=args.output_head_components
     assert not (NATIVE_PREFIX_STUDY is not None and FULL_CHECKPOINT is not None)
     assert (FULL_CONFIG is not None)==(FULL_CHECKPOINT is not None)
     main()

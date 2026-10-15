@@ -1,0 +1,10 @@
+# @package _global_
+# Fresh-training source ablation: physical Gaussian speed is clamped at0.
+# No fittedCDF, extraRNG or addednetwork parameters. Quality remains unproven.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_rectified_speed_full
+model:
+  _target_: tools.rectified_speed_full.model.RectifiedSpeedSMART_GAIL

@@ -10,7 +10,7 @@ def read(p):return json.loads(Path(p).read_text())
 def main():
     target=read(ROOT/'configs/metrics/sd_vw_lane_conditioned_targets.json');reference=read(ROOT/'configs/metrics/iu3fa4gx_full50000.json')
     rows=[];seen=set()
-    for family in ('full_sampler_50k_v2','deep_sampler_v1','deep_native_seed0_v1','native_midpoint_seed0_v1','deep_final128_midpoint_v1','omega025_e80_confirmation_v1','omega025_e96_confirmation_v1','omega025_e104_confirmation_v1','omega025_final128_confirmation_v1','shape4_e64_sampler_review_v2'):
+    for family in ('full_sampler_50k_v2','deep_sampler_v1','deep_native_seed0_v1','native_midpoint_seed0_v1','deep_final128_midpoint_v1','omega025_e80_confirmation_v1','omega025_e96_confirmation_v1','omega025_e104_confirmation_v1','omega025_e104_holdout_confirmation_v1','omega025_final128_confirmation_v1','omega025_final128_additional_GEN_v1','omega05_e64_confirmation_v1','omega10_e80_confirmation_v1','omega10_e80_confirmation_v2','shape4_e64_sampler_review_v2'):
         path=BASE/family/'observations.json'
         if not path.exists():continue
         for row in read(path):
@@ -22,7 +22,7 @@ def main():
             m=report['agent_metrics'];ratios={k:m[k]/v for k,v in target['targets'].items()}
             passed=[k for k,v in ratios.items() if v<1]
             pair_id=dict(checkpoint=row.get('checkpoint_sha256'),sampler=row.get('sampler'),integration=row.get('integration'),precision=row.get('matmul_precision'),
-                         effective_integrator=row.get('effective_integrator',row.get('integration')),
+                         effective_integrator=row.get('effective_integrator',row.get('integration')),weights_mode=row.get('weights_mode','ema'),
                          sampling_batch_count=len(row.get('sampling_source_sha256_per_batch',[])),
                          source=hashlib.sha256(json.dumps(row.get('smart_source_sha256'),sort_keys=True).encode()).hexdigest())
             rows.append(dict(label=row.get('snapshot',row.get('model',output.name)),family=family,GEN=row.get('seed'),checkpoint_step=row.get('checkpoint_step'),
@@ -79,12 +79,18 @@ def main():
     for key,group in groups.items():
         selected={r['GEN']:r for r in group if r['GEN'] in (2817,3817)}
         if len(selected)!=2:continue
+        observed={r['GEN']:r for r in group if r['GEN'] is not None}
         robust.append(dict(pair_key=key,labels=[r['label'] for r in selected.values()],both_GEN_all7_pass=all(r['passed_count']==7 for r in selected.values()),
+            observed_generation_seeds=sorted(observed),all_observed_GEN_all7_pass=all(r['passed_count']==7 for r in observed.values()),
+            four_fixed_GEN_all7_pass={2817,3817,5817,6817}.issubset(observed) and all(observed[s]['passed_count']==7 for s in (2817,3817,5817,6817)),
+            additional_GEN_results=[dict(GEN=s,passed_count=r['passed_count'],report=r['report']) for s,r in observed.items() if s not in (2817,3817)],
             worst_target_ratio=max(r['worst_target_ratio'] for r in selected.values()),rows=[dict(GEN=r['GEN'],passed_count=r['passed_count'],report=r['report']) for r in selected.values()]))
     record=dict(reviewed_utc=__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat(),target=target['targets'],
         selection_note='For already fully trained checkpoints, absolute target violations drive the final decision. R_jsd against657 remains descriptive; a relative geometry regression is not itself an SD/VW target failure.',
         conditioning_caveat='Our fixedGTego pose/shape/type and SMART map representation differ from releasedSD/VW; this is the agreed repository50K metric comparison, not identical paper conditioning.',
         rows=sorted(rows,key=lambda r:(-r['passed_count'],r['worst_target_ratio'],r['R_focus_target'])),robust_pairs=robust,
+        four_fixed_GEN_same_checkpoint_all7_pass=any(g['four_fixed_GEN_all7_pass'] for g in robust),
+        generation_scope_note='Original2817/3817 passes remain historical evidence. Report alladditionalGEN results; do notcall twoGEN success robust after anobservedheldoutfailure.',
         both_GEN_same_checkpoint_absolute_metric_gate_pass=any(g['both_GEN_all7_pass'] for g in robust))
     (BASE/'current_target_frontier_20261015.json').write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(dict(rows=len(rows),robust_pairs=len(robust),both_GEN_all7_pass=record['both_GEN_same_checkpoint_absolute_metric_gate_pass'],top=[{k:r[k] for k in ('label','GEN','passed_count','binding_metric','worst_target_ratio')} for r in record['rows'][:5]])))

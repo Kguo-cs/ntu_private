@@ -96,7 +96,7 @@ def launch(root,art,protocol,job,phase):
 def verify_smoke(protocol,job,record):
     text=Path(record['log']).read_text()
     assert '`max_steps=2` reached' in text and 'Traceback (most recent call last)' not in text
-    if job['label']=='omega025replica':assert 'Seed set to 6817' in text
+    if job['label'] in ('omega025replica','empirical6817'):assert 'Seed set to 6817' in text
     script='''import sys,json,torch
 from pathlib import Path
 folder=Path(sys.argv[1]);paths=list(folder.rglob('*.ckpt'));assert len(paths)==1,paths
@@ -113,6 +113,19 @@ if sys.argv[2]=='omega025replica':
  assert extra['denoiser_options']['denoiser_num_layers']==3
  assert extra['denoiser_options']['attribute_source'] is None
  assert extra['component_loss']['components']['heading']==dict(kind='mse',time_power=0,weight=.025,scale='none')
+if sys.argv[2]=='empirical6817':
+ import hashlib
+ assert extra['denoiser_options']['heading_velocity_readout']=='shared_state_row3'
+ assert extra['denoiser_options']['denoiser_num_layers']==3
+ assert extra['component_loss']['components']['heading']==dict(kind='mse',time_power=0,weight=.025,scale='none')
+ assert extra['denoiser_options']['attribute_source']==dict(source_sha256='01f7f99f984d04a038f5fa893566100f877eee7fe81aad00200a22c6047b9901',knots=149659,speed=True,shape=False)
+ assert state['encoder.init_decoder.G1.model.attribute_source.quantile_values'].shape==(149659,3)
+ digest=hashlib.sha256();prefix='encoder.map_encoder.'
+ for key,value in state.items():
+  if key.startswith(prefix) and torch.is_tensor(value):
+   value=value.detach().cpu().contiguous();name=key[len(prefix):]
+   digest.update(str((name,str(value.dtype),tuple(value.shape))).encode());digest.update(value.numpy().tobytes())
+ assert digest.hexdigest()=='2d32bb72328360b84e63d72fafcc8a6bd1fd0b8b605b803babacb1e49d84ff1a','FrozenAIRLmapstatechanged'
 if sys.argv[2] in ('deepomega025','deepomega10'):
  assert extra['denoiser_options']['heading_velocity_readout']=='shared_state_row3'
  assert extra['denoiser_options']['denoiser_num_layers']==5

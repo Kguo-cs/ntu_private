@@ -35,6 +35,8 @@ def main():
     parser.add_argument('--full-set', action='store_true')
     parser.add_argument('--r-reference', type=Path)
     parser.add_argument('--eval-matmul-precision', choices=['highest', 'high', 'medium'], default='highest')
+    parser.add_argument('--weights', choices=['ema', 'raw'], default=None,
+                        help='Override saved EMA selection for a paired diagnostic; default preserves config.')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     os.environ['WANDB_MODE'] = 'disabled'
@@ -89,6 +91,8 @@ def main():
         mc.decoder.init_diffusion.normalizer_path = None
         for key, value in sampler.items():
             OmegaConf.update(cfg, 'model.model_config.decoder.init_diffusion.' + key, value, force_add=True)
+        if args.weights is not None:
+            mc.decoder.init_diffusion.use_ema = args.weights == 'ema'
         cfg.data.num_workers = 0
         cfg.data.pin_memory = False
         cfg.data.persistent_workers = False
@@ -118,6 +122,12 @@ def main():
                       smart_source_sha256={str(p.relative_to(ROOT)): sha(p)
                                            for p in sorted((ROOT / 'src/smart').rglob('*.py'))},
                       checkpoint_origin='Full training; no fabricated scratch metadata')
+    provenance['weights_mode'] = 'ema' if mc.decoder.init_diffusion.get('use_ema', False) else 'raw'
+    expected_weight_digest = None
+    if args.weights is not None:
+        from tools.checkpoint_weight_audit_20261015 import checkpoint_parameter_digest
+        expected_weight_digest = checkpoint_parameter_digest(args.checkpoint, args.weights)
+        provenance['expected_evaluated_parameter_sha256'] = expected_weight_digest
     (args.output / 'execution.json').write_text(json.dumps(provenance, indent=2) + '\n')
     L.seed_everything(args.seed, workers=True)
     torch.set_float32_matmul_precision(args.eval_matmul_precision)
@@ -134,8 +144,15 @@ def main():
     denoiser_calls = [0]
     sample_call_counts = []
     source_hashes = []
+    observed_weight_digests = []
 
     def count_call(*unused):
+        if expected_weight_digest is not None and not observed_weight_digests:
+            from tools.checkpoint_weight_audit_20261015 import parameter_digest
+            observed = parameter_digest(flow.named_parameters())
+            if observed != expected_weight_digest:
+                raise RuntimeError('Actual first denoiser call did not use the requested checkpoint weights')
+            observed_weight_digests.append(observed)
         denoiser_calls[0] += 1
 
     counter_hook = flow.model.register_forward_pre_hook(count_call)
@@ -169,6 +186,9 @@ def main():
     assert report['num_samples'] == report['num_gt_samples'] == len(names)
     assert report['reference_mode'] == 'matched'
     assert report['decoder']['ema_num_updates'] == checkpoint_step
+    assert report['decoder']['use_ema'] == (provenance['weights_mode'] == 'ema')
+    if expected_weight_digest is not None:
+        assert observed_weight_digests == [expected_weight_digest]
     assert sha(args.checkpoint) == checkpoint_hash
     from src.smart.metrics.metric_core import SPECS, finalize_metrics
     import numpy as np
@@ -188,6 +208,8 @@ def main():
                       observed_denoiser_calls_per_sample_batch=sample_call_counts,
                       sampling_source_sha256_per_batch=source_hashes,
                       metrics_recomputed_from_integer_histograms=True)
+    provenance['observed_evaluated_parameter_sha256'] = (
+        observed_weight_digests[0] if observed_weight_digests else None)
     (args.output / 'verified.json').write_text(json.dumps(provenance, indent=2) + '\n')
     print('FULL_CHECKPOINT_EVAL_COMPLETE ' + json.dumps(report['agent_metrics']), flush=True)
     sys.stdout.flush()

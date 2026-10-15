@@ -23,7 +23,7 @@ def sha(path):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--profile', choices=['shape4_e64', 'omega025_e80', 'omega025_e96', 'omega025_e104', 'omega10_e80'], default='shape4_e64')
+    parser.add_argument('--profile', choices=['shape4_e64', 'omega025_e80', 'omega025_e96', 'omega025_e104', 'omega10_e80', 'omega05_e64'], default='shape4_e64')
     args = parser.parse_args()
     global DEST, SSH
     profiles = dict(
@@ -36,6 +36,9 @@ def main():
         omega10_e80=dict(repo='/home/guoke/sim', python='/home/guoke/miniconda3/envs/sim/bin/python',
             run_output='/home/guoke/sim/src/logs/init_diffusion_657_n24_road_k8_omega10_full/server9_gpu0_20261015_023313',
             epoch=79, step=77120),
+        omega05_e64=dict(repo='/home/ke/keguo/sim', python='/home/ke/miniconda3/envs/sim/bin/python',
+            run_output='/home/ke/keguo/sim/src/logs/init_diffusion_657_n24_road_k8_omega05_full/host128_gpu0_20261015_163222',
+            epoch=63, step=61696),
         omega025_e104=dict(repo='/home/ke/keguo/sim', python='/home/ke/miniconda3/envs/sim/bin/python',
             run_output='/home/ke/keguo/sim/src/logs/init_diffusion_657_n24_road_k8_omega025_full/host128_20261015_101728',
             epoch=103, step=100256),
@@ -44,7 +47,7 @@ def main():
             epoch=95, step=92544))
     request = dict(profile=args.profile, **profiles[args.profile])
     DEST = BASE / ('full_checkpoint_snapshots/' + args.profile + '_20261015')
-    if args.profile.startswith('omega025_'):
+    if args.profile.startswith(('omega025_', 'omega05_')):
         SSH = ['ssh', '-S', '/tmp/sim_host128_continuous_24h.sock', '-o', 'BatchMode=yes', 'ke@10.87.114.128']
     if args.profile in ('omega025_e104','omega025_e96'):
         # A later validation already replaced the remote filename. Use its
@@ -60,16 +63,17 @@ def main():
         assert report['decoder']['ema_num_updates']==request['step']
         request.update(preserved_report=report,preserved_report_archive=str(archives[0]),
                        preserved_report_archive_sha256=sha(archives[0]))
-    if args.profile=='omega10_e80':
-        archives=list((BASE/'native_full50K_history/server9/init_diffusion_657_n24_road_k8_omega10_full').glob('ema77120_*.json'))
-        assert len(archives)==1, 'Require one verified nativeomega10 epoch80 archive'
+    if args.profile in ('omega10_e80', 'omega05_e64'):
+        host, experiment = ('server9', 'init_diffusion_657_n24_road_k8_omega10_full') if args.profile == 'omega10_e80' else ('host128', 'init_diffusion_657_n24_road_k8_omega05_full')
+        archives=list((BASE/'native_full50K_history'/host/experiment).glob('ema'+str(request['step'])+'_*.json'))
+        assert len(archives)==1, 'Require one verified native report for the exact requested checkpoint'
         envelope=json.loads(archives[0].read_text());report=envelope['report']
         assert envelope['remote_path']==request['run_output']+'/sd_agent_metrics.json'
         target=json.loads((ROOT/'configs/metrics/sd_vw_lane_conditioned_targets.json').read_text())
         for key in ('num_samples','num_gt_samples','full_membership','map_source','eval_set_sha256',
                     'official_source_sha256','reference_source_manifest_sha256','feature_counts_gt'):
             assert report[key]==target[key]
-        assert report['decoder']['ema_num_updates']==77120
+        assert report['decoder']['ema_num_updates']==request['step']
         request.update(preserved_report=report,preserved_report_archive=str(archives[0]),
                        preserved_report_archive_sha256=sha(archives[0]))
     DEST.mkdir(parents=True, exist_ok=True)

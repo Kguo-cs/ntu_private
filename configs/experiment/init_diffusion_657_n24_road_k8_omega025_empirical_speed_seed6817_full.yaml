@@ -1,0 +1,10 @@
+# @package _global_
+# Exploratory128epoch source-only pair for the ongoing Gaussian TRAINseed6817.
+# Seed4817 native8CDF improvedspeed/width/angle butfailedlength/lateralgates.
+# CPU/GPU preflight is required; this is not a validated full-training winner.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_empirical_speed_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_empirical_speed_seed6817_full
+seed: 6817

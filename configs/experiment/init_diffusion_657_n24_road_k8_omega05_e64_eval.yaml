@@ -1,0 +1,19 @@
+# @package _global_
+# Genuine epoch63 / step61696 weights from the ongoing128epoch omega0.05 run.
+# Native full50K passes all7; GEN2817 angle=.030590 fails the.028223 target.
+# GEN3817 passesall7. BothGENsuccess isnotestablished; no model replacement.
+# This candidate has not replaced the selected omega0.025 epoch104 weights.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_e80_eval
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega05_e64_eval
+ckpt_path: ${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/omega05_e64_20261015/model.ckpt
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        component_loss:
+          components:
+            heading:
+              weight: 0.05

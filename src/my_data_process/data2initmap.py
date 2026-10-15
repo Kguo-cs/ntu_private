@@ -9,7 +9,7 @@ from pathlib import Path
 from torch_geometric.data import HeteroData
 import sys
 
-torch.set_float32_matmul_precision("highest")
+torch.set_float32_matmul_precision("medium")
 
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
@@ -37,7 +37,7 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "./waymo_data/full/training_mapall_sd/training"
-ouput_data_directory = "./waymo_data/full/training_mapall_init_sd"
+ouput_data_directory = "./waymo_data/full/training_mapall_med_sd"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 

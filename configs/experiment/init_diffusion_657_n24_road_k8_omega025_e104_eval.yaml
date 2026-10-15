@@ -2,6 +2,8 @@
 # Actual104epoch weights selected from the completed128epoch run.
 # Both fixed GENs pass all7 local SD/VW targets andimprove R_jsd/R_attr vsfinal128.
 # These are epoch103/step100256 weights, not final128epoch weights.
+# AdditionalGEN5817 angle=.029273 exceedsSDtarget=.028223; twoGEN passes do
+# not establish robustness over all observedGENs. Preserve this failure too.
 defaults:
   - init_diffusion_657_n24_road_k8_omega025_e80_eval
   - _self_
