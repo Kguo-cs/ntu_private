@@ -81,5 +81,4 @@ def process_file(filename):
 files = os.listdir(agent_data_directory)
 
 for file in tqdm(files):
-    print(file)
     process_file(file)
