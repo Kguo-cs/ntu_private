@@ -1,0 +1,13 @@
+# @package _global_
+# Exploratory agent locality;6144-update confirmation failed promotion gates.
+#2048 updates: speed/angle -14%, length tied; not a full-training result.
+#6144: speed -18%, angle +16%, length +8%. Do not prioritize a full run.
+defaults:
+  - init_diffusion_657_n24_road_k8_match4_guidance_full
+  - _self_
+task_name: init_diffusion_657_n24_road_k8_match4_a2ar20_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        a2a_radius: 20.0

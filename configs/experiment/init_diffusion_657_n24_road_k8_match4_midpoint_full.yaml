@@ -1,0 +1,18 @@
+# @package _global_
+# Matching4 recipe with midpoint validation:12 intervals /24 model calls.
+# Its final model passed6/7 targets in both complete50K GENs; angle remains high.
+defaults:
+  - init_diffusion_657_n24_road_k8_match4_guidance_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_match4_midpoint_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_integrator: midpoint
+        sampling_steps: 12
+        sampling_time_grid:
+          kind: power
+          power: 1.2
+          terminal_time: 0.1

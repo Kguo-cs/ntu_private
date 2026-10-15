@@ -41,6 +41,17 @@ class MapConditionTests(unittest.TestCase):
         types = torch.arange(10)
         self.assertEqual(torch.where(initial_map_output_mask(types, "lanes_only"))[0].tolist(), [0, 1, 2])
         self.assertTrue(initial_map_output_mask(types, "all").all())
+        self.assertEqual(torch.where(initial_map_output_mask(types, "edges_and_lines"))[0].tolist(),
+                         [4, 5, 6, 7, 8])
+
+    def test_edges_and_lines_filters_queries_for_every_attention_depth(self):
+        tp, tokens, agent = fixture()
+        tp.init_map_crop = "circle"
+        tp.init_map_output_types = "edges_and_lines"
+        for layers in (0, 1, 2):
+            with self.subTest(layers=layers), torch.no_grad():
+                output = make_model(tp, layers=layers)(tokens, agent)
+                torch.testing.assert_close(output['position'], tokens['position'][4:9])
 
     def test_invalid_output_policy_fails_early(self):
         with self.assertRaisesRegex(ValueError, "init_map_output_types"):

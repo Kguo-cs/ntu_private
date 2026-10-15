@@ -22,6 +22,7 @@
 *.pt
 
 **/logs
+/.codex_runs/
 **/waymo_data
 exp/
 nuplan_data/
@@ -47,6 +48,7 @@ tests/
 !/tests/
 /tests/*
 !/tests/test_init_diffusion_sep_map.py
+!/tests/test_init_diffusion_fixed_map_checkpoint.py
 !/tests/test_init_diffusion_edge_embedding.py
 outputs/scenario_dreamer*/
 !/tests/test_vectorworld_core.py

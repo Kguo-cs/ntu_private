@@ -1,0 +1,16 @@
+# @package _global_
+# 5 layers + matching {velocity: 2, heading: 2, length: 4, width: 4}.
+# At matched epochs vs cc_road_k8_match (nnsjk5vl): d5_shape4 (v4h4+L4W4, wandb rlovcauj) has the
+# best length so far (x0.81-0.86 at epochs 39-47, ang x0.83-0.91); v2h2_d5 (bq7z12zy) has the
+# best lat (x0.30-0.45) with ang ~x0.9; d5 alone (cg3fewgz) lags on ang (x1.13-1.47).
+defaults:
+  - cc_road_k8_match_s24_d5
+  - _self_
+
+task_name: cc_road_k8_match_s24_d5_v2h2_shape4
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        matching_weights: {velocity: 2.0, heading: 2.0, length: 4.0, width: 4.0}

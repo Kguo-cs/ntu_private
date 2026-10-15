@@ -1,0 +1,19 @@
+# @package _global_
+# Full run: cc_road_k8_match (wandb nnsjk5vl) with half the matching emphasis,
+# matching_weights {velocity: 2, heading: 2} instead of {4, 4}. No extra parameters.
+# Rationale: in nnsjk5vl (last 3 vals) matching v4h4 cut speed JSD 35% vs road_k8_full but
+# cost length +14% (.275 vs .240) and ang +6%; in warm-start finetunes the speed gain and
+# the length cost both grew with the velocity weight (v4: speed -26%, v8: -35% with more
+# length loss). A milder weight targets a better speed/length/ang balance.
+# Single change vs nnsjk5vl, so the full run is a clean A/B.
+defaults:
+  - cc_road_k8_match
+  - _self_
+
+task_name: cc_road_k8_match_v2h2
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        matching_weights: {velocity: 2.0, heading: 2.0}

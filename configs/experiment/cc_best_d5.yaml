@@ -1,0 +1,29 @@
+# @package _global_
+# Full run 1/2: cc_best (map2agent 64 neighbours + collision guidance, 20 steps) with
+# the denoiser changes of wandb az3mgqvh (init_diffusion_657_norm_depth5):
+#   5 denoiser layers, TRAIN-calibrated normalizer and normalized state features.
+# Evidence (wandb, JSD-only R6 = mean of six JSD ratios vs 4bo59qfn final, 3-epoch window):
+#   az3mgqvh reached 0.874 at epoch ~79, the best of any 20-step run (4bo59qfn best 0.937).
+# R / R_jsd / R_attr are reported against iu3fa4gx's final full-50k metrics.
+defaults:
+  - cc_best
+  - _self_
+
+task_name: cc_best_d5
+
+data:
+  num_workers: 8
+
+trainer:
+  check_val_every_n_epoch: 8
+
+model:
+  model_config:
+    sd_r_reference: ${sim_root:}/configs/metrics/iu3fa4gx_full50000.json
+    sd_expected_scenes: 50000
+    sd_require_full_set: true
+    decoder:
+      init_diffusion:
+        denoiser_num_layers: 5
+        state_feature_normalization: train
+        normalizer_path: ${sim_root:}/docs/experiments/init_diffusion_scratch_loss_search_20261011/train_normalizer.json

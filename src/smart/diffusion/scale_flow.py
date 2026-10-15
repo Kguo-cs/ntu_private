@@ -253,6 +253,9 @@ class Flow(nn.Module):
         # Inference-only sampler options; defaults reproduce uniform Euler.
         self.sampling_exact_x0 = bool(getattr(args, "sampling_exact_x0", False))
         self.sampling_time_grid = parse_sampling_time_grid(getattr(args, "sampling_time_grid", None))
+        self.sampling_integrator = getattr(args, "sampling_integrator", "euler")
+        if self.sampling_integrator not in ("euler", "midpoint"):
+            raise ValueError("sampling_integrator must be euler or midpoint")
         guidance = dict(getattr(args, "collision_guidance", None) or {})
         unknown = set(guidance) - {"scale", "t_max", "iters", "margin", "vehicles_only"}
         if unknown:
@@ -266,6 +269,9 @@ class Flow(nn.Module):
         # Initial-state policy optimization
         # --------------------------------------------------------------
         self.use_sde = bool( gail and getattr(token_processor, "learn_init", False) )
+        if self.sampling_integrator == "midpoint":
+            from .midpoint_sampling import validate_midpoint
+            validate_midpoint(self)
 
         # --------------------------------------------------------------
         # Multi-branch sampling
@@ -1779,6 +1785,12 @@ class Flow(nn.Module):
         )
 
     @torch.no_grad()
+    def _sample_midpoint_step(self, latent, start, end, agent, feature, branch_mask=None):
+        from .midpoint_sampling import midpoint_step
+        return midpoint_step(self, self._sample_step, latent, start, end, agent,
+                             feature, branch_mask=branch_mask)
+
+    @torch.no_grad()
     def sample(
         self,
         tokenized_agent: HeteroData,
@@ -1854,6 +1866,14 @@ class Flow(nn.Module):
             steps, device=agent_batch.device, dtype=latent.dtype,
             config=getattr(self, "sampling_time_grid", None),
         )
+        sample_step = self._sample_step
+        if getattr(self, "sampling_integrator", "euler") == "midpoint":
+            from .midpoint_sampling import validate_midpoint
+            validate_midpoint(self)
+            middle_times = (timesteps[:-1] + timesteps[1:]) * .5
+            if bool((middle_times < self.t_eps - 1e-7).any()):
+                raise ValueError("Midpoint calls must stay at or above t_eps; use terminal_time=0.1")
+            sample_step = self._sample_midpoint_step
 
         if self.use_sde:
             graph_branch_steps = (
@@ -1901,7 +1921,7 @@ class Flow(nn.Module):
                 next_time,
                 log_prob,
                 used_noise_level,
-            ) = self._sample_step(
+            ) = sample_step(
                 latent,
                 timesteps[step],
                 timesteps[step + 1],

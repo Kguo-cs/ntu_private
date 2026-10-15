@@ -1,0 +1,18 @@
+# @package _global_
+# Evaluate the genuine ongoing five-layer h2/v2 run using12 midpoint intervals
+# and24 denoiser calls. Default snapshot is epoch79; training is incomplete.
+defaults:
+  - init_diffusion_657_n24_road_k8_match4_midpoint_eval
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_match2_d5_midpoint_eval
+ckpt_path: ${oc.env:INIT_DIFFUSION_DEEP_H2V2_CKPT,${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/deep_sampler_snapshots_20261015/deep_h2v2_e79/model.ckpt}
+seed: 0
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        denoiser_num_layers: 5
+        matching_weights:
+          heading: 2.0
+          velocity: 2.0

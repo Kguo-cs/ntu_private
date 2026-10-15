@@ -1,0 +1,15 @@
+# @package _global_
+# cc_road_k8_match_s24_v2h2_d5 with the agent-agent neighbour cap back at 30 (all agents in
+# practice; scenes have <=28). Target: ang/lat. Warm-start finetunes from nnsjk5vl: ang .0342 vs
+# controls .0361-.0416 and the best lat of that batch (20-step eval); neutral at 24 steps.
+defaults:
+  - cc_road_k8_match_s24_v2h2_d5
+  - _self_
+
+task_name: cc_road_k8_match_s24_v2h2_d5_a2a30
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        a2a_max_num_neighbors: 30

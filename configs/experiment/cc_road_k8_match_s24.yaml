@@ -1,0 +1,19 @@
+# @package _global_
+# Full run: cc_road_k8_match (wandb nnsjk5vl) sampled with 24 steps on a power-1.2 grid whose
+# last network call stays at t=0.05 (sampling_time_grid.terminal_time), plus guidance.
+# Evidence (inference only, nnsjk5vl final checkpoint, full 50k, same generation seed):
+#   20 steps:          near .0072 lat .0055 ang .0376 len .275 wid .092 speed .036
+#   24 steps this grid: near .0070 lat .0048 ang .0367 len .240 wid .079 speed .033 (R6 0.913)
+# Training is unchanged; the sampler only affects validation/test generation.
+defaults:
+  - cc_road_k8_match
+  - _self_
+
+task_name: cc_road_k8_match_s24
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_steps: 24
+        sampling_time_grid: {kind: power, power: 1.2, terminal_time: 0.05}

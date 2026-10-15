@@ -1,0 +1,10 @@
+# @package _global_
+# Genuine completed bq7z12zy: epoch127, step/EMA123392; no retraining here.
+# Default seed0; the paired research evaluation uses2817 and3817.
+defaults:
+  - init_diffusion_657_n24_road_k8_match2_d5_midpoint_eval
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_match2_d5_final_midpoint_eval
+ckpt_path: ${oc.env:INIT_DIFFUSION_DEEP_FINAL_CKPT,${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/deep_final128_20261015/model.ckpt}
+float32_matmul_precision: highest

@@ -1,0 +1,16 @@
+# @package _global_
+# cc_road_k8_match_s24 + 5 denoiser layers (matching stays {velocity: 4, heading: 4}).
+# Isolates the depth effect next to cc_road_k8_match_s24_v2h2_d5 (wandb bq7z12zy): 5 layers cut
+# ang 9-20% and lat 10-17% in three paired 16-epoch scratch proxies with length unchanged,
+# while v2h2's length advantage in efzhwmu3 faded after epoch ~80 (x0.87 -> x0.96).
+defaults:
+  - cc_road_k8_match_s24
+  - _self_
+
+task_name: cc_road_k8_match_s24_d5
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        denoiser_num_layers: 5

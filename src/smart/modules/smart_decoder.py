@@ -13,6 +13,8 @@ with the previous implementation.
 from __future__ import annotations
 
 from contextlib import nullcontext
+import math
+from numbers import Integral, Real
 from typing import Dict, Mapping, Optional
 
 import torch
@@ -65,8 +67,27 @@ class SMARTDecoder(nn.Module):
         initial_scene_only: bool = False,
         init_diffusion: Optional[dict] = None,
         sep_map: bool = False,
+        init_map_encoder_config: Optional[dict] = None,
     ) -> None:
         super().__init__()
+        self.init_map_encoder_config = dict(init_map_encoder_config or {})
+        unknown = set(self.init_map_encoder_config) - {
+            "hidden_dim", "num_layers", "pl2pl_radius", "pt2pt_neighbor",
+            "num_heads", "head_dim", "num_freq_bands",
+        }
+        if unknown:
+            raise ValueError(f"Unknown init_map_encoder_config options: {sorted(unknown)}")
+        if self.init_map_encoder_config and not sep_map:
+            raise ValueError("init_map_encoder_config requires sep_map=true")
+        for name, value in self.init_map_encoder_config.items():
+            if name == "pl2pl_radius":
+                valid = (isinstance(value, Real) and not isinstance(value, bool)
+                         and math.isfinite(value) and value > 0)
+            else:
+                valid = (isinstance(value, Integral) and not isinstance(value, bool)
+                         and value >= (0 if name == "num_layers" else 1))
+            if not valid:
+                raise ValueError(f"Invalid init_map_encoder_config.{name}: {value!r}")
 
         self.token_processor = token_processor
         self.finetune = bool(finetune)
@@ -187,7 +208,13 @@ class SMARTDecoder(nn.Module):
     def initialize_initial_map_from_shared(self) -> None:
         """Seed a new initial-map encoder without replacing checkpoint weights."""
         if self.sep_map and self._initial_map_needs_initialization:
-            self.init_map_encoder.load_state_dict(self.map_encoder.state_dict())
+            source = self.map_encoder.state_dict()
+            if self.init_map_encoder_config:
+                # Resized tensors and additional layers retain their fresh weights.
+                target = self.init_map_encoder.state_dict()
+                source = {key: value for key, value in source.items()
+                          if key in target and target[key].shape == value.shape}
+            self.init_map_encoder.load_state_dict(source, strict=not self.init_map_encoder_config)
             self._initial_map_needs_initialization = False
             self.reset_initial_map_ema()
 
@@ -325,8 +352,11 @@ class SMARTDecoder(nn.Module):
             from src.smart.vectorworld.decoder import VectorWorldInitDecoder
             self.init_decoder = VectorWorldInitDecoder(self.token_processor, **self.vectorworld_config)
             return
+        # InitDiffusion's first dimension describes incoming map features;
+        # the denoiser width remains controlled by denoiser_hidden_dim.
+        map_hidden_dim = self.init_map_encoder_config.get("hidden_dim", hidden_dim)
         self.init_decoder = InitDiffusion(
-            hidden_dim,
+            map_hidden_dim,
             num_heads,
             num_freq_bands,
             self.token_processor,
@@ -337,17 +367,12 @@ class SMARTDecoder(nn.Module):
         if not self.sep_map:
             return
 
+        options = dict(hidden_dim=hidden_dim, pl2pl_radius=pl2pl_radius,
+                       num_freq_bands=num_freq_bands, num_layers=self.map_encoder.num_layers,
+                       num_heads=num_heads, head_dim=head_dim, pt2pt_neighbor=pt2pt_neighbor)
+        options.update(self.init_map_encoder_config)
         self.init_map_encoder = self._make_map_encoder(
-            hidden_dim=hidden_dim,
-            pl2pl_radius=pl2pl_radius,
-            num_freq_bands=num_freq_bands,
-            num_layers=self.map_encoder.num_layers,
-            num_heads=num_heads,
-            head_dim=head_dim,
-            dropout=dropout,
-            pt2pt_neighbor=pt2pt_neighbor,
-            token_processor=self.token_processor,
-        )
+            dropout=dropout, token_processor=self.token_processor, **options)
         self.initialize_initial_map_from_shared()
 
     def _build_gail_modules(

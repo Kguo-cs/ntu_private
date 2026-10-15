@@ -36,6 +36,7 @@ model_config:
   decoder:
     init_decoder: flow
     sep_map: false  # A trainable map encoder dedicated to supervised InitDiffusion.
+    init_map_encoder_config: {}  # Optional sep_map architecture/graph overrides.
     init_diffusion:
       component_loss: null  # null: legacy total; mapping: independent objectives, time powers and weights.
       normalizer_path: null  # Optional JSON fit on TRAIN only; checkpoint normalizer buffers take precedence.

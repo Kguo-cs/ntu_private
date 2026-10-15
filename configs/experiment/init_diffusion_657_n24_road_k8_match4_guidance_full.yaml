@@ -1,0 +1,21 @@
+# @package _global_
+# Current-source recipe using W&B cchgfuhr's recorded model/sampler options.
+# Candidate to finish, not a proven replacement for completed roadK8.
+# Epoch95 vs same-epoch roadK8: speed -29%, angle +9%, length +8%.
+defaults:
+  - init_diffusion_657_n20_road_k8_match4_guidance_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_match4_guidance_full
+# Remote config omits this field; src/run.py defaults to highest.
+float32_matmul_precision: highest
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_steps: 24
+        sampling_time_grid:
+          kind: power
+          power: 1.2
+          terminal_time: 0.05

@@ -1,0 +1,23 @@
+# @package _global_
+# Full run: init_diffusion_657_n20_road_k8_full (wandb 0vftb3cc; same parameter count as
+# iu3fa4gx) + noise/target matching weighting speed and heading 4x + collision guidance.
+# Evidence:
+#   road_k8_full vs cc_best (4bo59qfn) at matched epochs 31-39: JSD ratios near .86, lat .73,
+#     ang .97, length .98, width .90, speed .85.
+#   matching {velocity:4, heading:4}: speed JSD -24..-27% in warm-start finetunes (2 seeds),
+#     -22% in a 16-epoch scratch proxy, -30% in the cc_best_match full run at epoch 31.
+#   collision guidance (sampling only): collision ~0.7% -> ~0.02%, nearest JSD ~-20%, other
+#     JSDs unchanged.
+# Sampling stays at 20 steps; R/R_jsd/R_attr against iu3fa4gx (inherited).
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+
+task_name: cc_road_k8_match
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        matching_weights: {velocity: 4.0, heading: 4.0}
+        collision_guidance: {scale: 0.5, t_max: 0.3, iters: 5, margin: 0.1, vehicles_only: true}

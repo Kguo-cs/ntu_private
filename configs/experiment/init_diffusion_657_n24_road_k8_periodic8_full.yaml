@@ -1,0 +1,26 @@
+# @package _global_
+# Prepared research candidate; await later paired evidence before deployment.
+# Changes edge heading representation; train fresh G1 with the fixed AIRL map.
+# Native run.py uses the research subclass so ordinary inference cannot silently
+# omit the periodic policy. Checkpoints retain a strict denoiser-option guard.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_periodic8_full
+action: fit
+ckpt_path: null
+seed: 4817
+
+model:
+  _target_: tools.periodic_heading_full.model.PeriodicSMART_GAIL
+  experimental_edge_heading_max_harmonic: 8
+  model_config:
+    decoder:
+      init_diffusion:
+        sampling_steps: 12
+        sampling_integrator: midpoint
+        sampling_time_grid:
+          kind: power
+          power: 1.2
+          terminal_time: 0.1

@@ -930,3 +930,30 @@ epoch15 复核记录为 `wandb/1826_affine_epoch15_review.json`。
 在 `sim` 环境通过 23 项 InitDiffusion 测试（含 15 项 EMA/优化器专项）及 80 项 Scenario Dreamer 回归测试。使用指定真实数据完成 CPU 短训练：4 个 batch、梯度累积 2，产生 2 次 optimizer step，checkpoint 的 EMA 更新次数也为 2。独立测试加载同一 checkpoint 后使用 EMA 且更新次数保持 2；恢复训练完成下一次 optimizer step 后，模型步数与 EMA 更新次数均为 3。在线参数与 EMA shadow 参数不同，平均权重并非仅保存的在线权重副本。
 
 已有运行中的训练进程不会自动获得新代码；启动新训练或恢复 checkpoint 后，EMA 配置才生效。以上检查验证功能与状态恢复，不代表 EMA 一定改善最终评价分数。
+
+## scale 融合 CC 分支（2026-10-15）
+
+从 `cc_road@a3f767f5d` 引入独立地图编码器配置、预训练地图初始化和 `edges_and_lines` 查询模式；从 `cc_full@f8f79fee7` 引入三份训练配置。合计新增 17 个 `cc_*` 实验配置，保持当前 `configs/run.yaml` 默认实验；完整训练配置要求相同的 50K 评价集合，每 8 epoch 验证、8 个数据 worker。
+
+`model.model_config.decoder.init_map_encoder_config` 仅在 `sep_map: true` 时可用，支持 `hidden_dim`、`num_layers`、`pl2pl_radius`、`pt2pt_neighbor`、`num_heads`、`head_dim`、`num_freq_bands`。例如：
+
+```yaml
+model:
+  model_config:
+    decoder:
+      sep_map: true
+      init_map_encoder_config:
+        hidden_dim: 64
+        num_layers: 2
+        pl2pl_radius: 30.0
+        pt2pt_neighbor: 16
+        num_heads: 4
+        head_dim: 16
+        num_freq_bands: 16
+```
+
+denoiser 的地图投影输入维度自动跟随独立编码器，denoiser 自身宽度仍由 `denoiser_hidden_dim` 控制。指定 `initial_map_checkpoint` 时，公共地图编码器严格加载并冻结；独立编码器只复制名称和形状匹配的参数，其余保留随机初始化，并从当前参数重置地图 EMA。独立编码器继续训练。
+
+`map_condition_types: edges_and_lines` 返回道路边界和车道标线（类型 4–8），与当前裁剪、0/1/多层地图编码兼容；已有 `lanes_only` 和 `all` 选项保留。兼容加载 CC checkpoint 中默认频段 `null`、省略的 attention head 维度以及显式 `speed_representation: linear`，真实结构差异仍会拒绝加载。
+
+当前 midpoint 采样、尺寸 residual、EMA、碰撞 guidance 的坐标/类型修复和 R 指标范围检查均保留。`cc_full` 的实验性 `log1p` speed 表示暂未引入；这种权重会明确拒绝按线性速度加载。新增配置保留原分支的历史注释，其中 lanes/outall 已标记不推荐；配置可运行不代表其长期指标更好。本次融合不更改正在运行实验的冻结源码副本。

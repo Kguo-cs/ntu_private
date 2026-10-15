@@ -157,6 +157,78 @@ class InitDiffusionSeparateMapTest(unittest.TestCase):
         no_initial = self.decoder(sep_map=False, pred_init=False)
         self.assertIsNone(no_initial.init_decoder)
 
+    def test_resized_initial_map_has_its_own_graph_and_matching_decoder_input(self):
+        decoder = self.decoder(init_map_encoder_config=dict(
+            hidden_dim=12, num_layers=2, pl2pl_radius=9., pt2pt_neighbor=5,
+            num_heads=3, head_dim=4, num_freq_bands=3))
+        self.assertEqual(decoder.map_encoder.type_pt_emb.embedding_dim, 8)
+        self.assertEqual(decoder.init_map_encoder.type_pt_emb.embedding_dim, 12)
+        self.assertEqual(decoder.init_decoder.projection.in_features, 12)
+        self.assertEqual(decoder.init_map_encoder.num_layers, 2)
+        self.assertEqual(decoder.init_map_encoder.pl2pl_radius, 9.)
+        self.assertEqual(decoder.init_map_encoder.pt2pt_neighbor, 5)
+        agent = self.agents()
+        feature = decoder._prepare_initial_map_feature(self.map_tokens(), agent, None)
+        self.assertEqual(feature['pt_token'].shape[-1], 12)
+        loss = decoder.init_decoder(agent)
+        loss.backward()
+        self.assertTrue(torch.isfinite(loss))
+        gradients = [p.grad for p in decoder.init_map_encoder.parameters() if p.grad is not None]
+        self.assertTrue(gradients)
+        self.assertTrue(all(torch.isfinite(g).all() for g in gradients))
+
+    def test_only_matching_pretrained_tensors_are_copied_to_extended_map(self):
+        decoder = self.decoder(init_map_encoder_config=dict(num_layers=2))
+        before = deepcopy(decoder.init_map_encoder.state_dict())
+        with torch.no_grad():
+            for parameter in decoder.map_encoder.parameters():
+                parameter.add_(.4)
+        source = decoder.map_encoder.state_dict()
+        decoder._initial_map_needs_initialization = True
+        decoder.initialize_initial_map_from_shared()
+        for name, value in decoder.init_map_encoder.state_dict().items():
+            expected = source[name] if name in source and source[name].shape == value.shape else before[name]
+            torch.testing.assert_close(value, expected, rtol=0, atol=0)
+        checkpoint = deepcopy(decoder.state_dict())
+        restored = self.decoder(init_map_encoder_config=dict(num_layers=2))
+        restored.load_state_dict(checkpoint, strict=True)
+        self.assert_state_equal(restored.init_map_encoder.state_dict(), decoder.init_map_encoder.state_dict())
+
+    def test_initial_map_overrides_validate_scope_and_values(self):
+        cases = [dict(sep_map=False, init_map_encoder_config={'num_layers': 2}),
+                 dict(init_map_encoder_config={'num_map_layers': 2})]
+        cases += [dict(init_map_encoder_config={name: value}) for name, value in
+                  [('hidden_dim', True), ('num_layers', -1), ('num_heads', 0),
+                   ('head_dim', 2.5), ('num_freq_bands', 0), ('pt2pt_neighbor', 0),
+                   ('pl2pl_radius', float('nan')), ('pl2pl_radius', 0.)]]
+        for options in cases:
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                self.decoder(**options)
+
+    def test_cc_checkpoint_inferred_dimensions_and_linear_speed_remain_loadable(self):
+        def make():
+            with patch('src.smart.diffusion.initial_diffusion.Flow', ProjectionFlow):
+                return InitDiffusion(8, 2, 4, self.processor(), False,
+                                     denoiser_hidden_dim=32, denoiser_num_layers=1,
+                                     denoiser_num_heads=4)
+        model = make()
+        checkpoint = deepcopy(model.state_dict())
+        options = checkpoint['_extra_state']['denoiser_options']
+        options['denoiser_num_freq_bands'] = None
+        options.pop('denoiser_head_dim')
+        options['speed_representation'] = 'linear'
+        restored = make()
+        restored.load_state_dict(checkpoint, strict=True)
+        self.assertEqual(restored.denoiser_options['denoiser_head_dim'], 8)
+        self.assert_state_equal(restored.G1.state_dict(), model.G1.state_dict())
+        options['speed_representation'] = 'log1p'
+        with self.assertRaisesRegex(ValueError, 'speed_representation'):
+            make().load_state_dict(checkpoint, strict=True)
+        options.pop('speed_representation')
+        options['denoiser_num_freq_bands'] = 7
+        with self.assertRaisesRegex(ValueError, 'denoiser options'):
+            make().load_state_dict(checkpoint, strict=True)
+
     def test_sep_map_rejects_missing_initial_prediction_and_other_decoder_paths(self):
         for options in (dict(pred_init=False), dict(init_decoder="scenario_dreamer"),
                         dict(dis_a2a_radius=50.)):

@@ -1,0 +1,37 @@
+# @package _global_
+# Training recipe of completed bq7z12zy, with the verified24-NFE midpoint evaluator.
+# Same TRAIN seed, architecture, losses, matching and frozen AIRL map recipe.
+# Midpoint changes validation/test generation only. Power1.3 is still under review.
+defaults:
+  - cc_road_k8_match_s24_v2h2_d5
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_match2_d5_midpoint_full
+action: fit
+ckpt_path: null
+seed: 4817
+# The original remote cc run omitted this config field and run.py used highest.
+# State it explicitly because local InitDiffusion base configs default to medium.
+float32_matmul_precision: highest
+
+data:
+  num_workers: 8
+
+trainer:
+  max_epochs: 128
+  check_val_every_n_epoch: 8
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+
+model:
+  model_config:
+    sd_require_full_set: true
+    sd_expected_scenes: 50000
+    decoder:
+      init_diffusion:
+        sampling_integrator: midpoint
+        sampling_steps: 12
+        sampling_time_grid:
+          kind: power
+          power: 1.2
+          terminal_time: 0.1

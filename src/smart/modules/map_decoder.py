@@ -40,13 +40,15 @@ def initial_map_output_mask(map_type: torch.Tensor, output_types: str) -> torch.
         return road_edges
     if output_types == "lanes_only":
         return (map_type == 0) | (map_type == 1) | (map_type == 2)
+    if output_types == "edges_and_lines":
+        return road_edges | (map_type == 6) | (map_type == 7) | (map_type == 8)
     if output_types == "all":
         return torch.ones_like(map_type, dtype=torch.bool)
     if output_types == "lanes_and_edges":
         # 2 is a stop-sign lane centerline; 3 is a bike lane. Road lines and
         # crosswalks remain attention sources, not returned vehicle queries.
         return road_edges | (map_type == 0) | (map_type == 1) | (map_type == 2)
-    raise ValueError("init_map_output_types must be road_edges, lanes_and_edges, lanes_only or all")
+    raise ValueError("init_map_output_types must be road_edges, lanes_and_edges, lanes_only, edges_and_lines or all")
 
 
 class SMARTMapDecoder(nn.Module):

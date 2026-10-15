@@ -1,0 +1,14 @@
+# @package _global_
+# Full run 2/2: cc_best_d5 with the whole cosine schedule compressed into 80 epochs.
+# Every 20-step full run reached its best JSD around epoch 80-100 and then lost 8-12%
+# (R6) by epoch 127 (speed/width drift); depth-5 az3mgqvh peaked earliest (~epoch 79).
+# A constant-LR continuation from 4bo59qfn epoch 95 still drifted in width, so the drift
+# tracks training length more than the final LR; this run tests a shorter schedule.
+defaults:
+  - cc_best_d5
+  - _self_
+
+task_name: cc_best_d5_e80
+
+trainer:
+  max_epochs: 80

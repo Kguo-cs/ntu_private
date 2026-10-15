@@ -1,0 +1,14 @@
+# @package _global_
+# Exploratory head factorization; unchanged8.08M G1 parameter count.
+# Four heads imply head_dim64 with hidden_dim256.
+# Paired6144-update screen: speed -11%, length +11%, width +7%.
+# Hold full-training priority; final128epoch quality remains unverified.
+defaults:
+  - init_diffusion_657_n24_road_k8_match4_guidance_full
+  - _self_
+task_name: init_diffusion_657_n24_road_k8_match4_heads4_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        denoiser_num_heads: 4

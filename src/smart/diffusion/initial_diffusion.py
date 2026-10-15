@@ -100,6 +100,7 @@ class InitDiffusion(nn.Module):
         map2agent_max_num_neighbors: int = 30,
         sampling_exact_x0: bool = False,
         sampling_time_grid: Optional[Mapping[str, Any]] = None,
+        sampling_integrator: str = "euler",
         warm_start_from_ema: bool = False,
         collision_guidance: Optional[Mapping[str, Any]] = None,
         denoiser_num_heads: Optional[int] = None,
@@ -113,8 +114,8 @@ class InitDiffusion(nn.Module):
             raise ValueError("edge_embedding_type must be 'fourier' or 'mlp'.")
 
         self.token_processor = token_processor
-        if map_condition_types not in ("road_edges", "lanes_and_edges", "lanes_only", "all"):
-            raise ValueError("map_condition_types must be road_edges, lanes_and_edges, lanes_only or all")
+        if map_condition_types not in ("road_edges", "lanes_and_edges", "lanes_only", "edges_and_lines", "all"):
+            raise ValueError("map_condition_types must be road_edges, lanes_and_edges, lanes_only, edges_and_lines or all")
         # The same fixed encoder can expose lane-centre queries as well as
         # road-edge queries. Its weights and attention keys remain unchanged.
         token_processor.init_map_output_types = map_condition_types
@@ -158,6 +159,7 @@ class InitDiffusion(nn.Module):
         args.sampling_steps = sampling_steps
         args.sampling_exact_x0 = bool(sampling_exact_x0)
         args.sampling_time_grid = None if sampling_time_grid is None else dict(sampling_time_grid)
+        args.sampling_integrator = sampling_integrator
         args.collision_guidance = None if collision_guidance is None else dict(collision_guidance)
         args.matching_weights = matching_weights
         args.time_sample_power = time_sample_power
@@ -377,9 +379,18 @@ class InitDiffusion(nn.Module):
                           "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30,
                           "attribute_source": None}
         saved_options = dict(legacy_options, **state.get("denoiser_options", {}))
+        # cc_full records the legacy speed coordinates explicitly; non-linear
+        # coordinates must not silently load into a linear-speed model.
+        saved_speed = saved_options.pop("speed_representation", "linear")
+        if saved_speed != "linear":
+            raise ValueError("Checkpoint speed_representation is not supported; use its original model")
         saved_hidden = saved_options["denoiser_hidden_dim"]
-        for key, value in (("denoiser_num_heads", 8), ("denoiser_num_freq_bands", saved_hidden // 2),
-                           ("denoiser_head_dim", saved_hidden // 8), ("map_feature_dim", 128)):
+        saved_options.setdefault("denoiser_num_heads", 8)
+        # cc_road stores null for an inferred Fourier width and omits head_dim.
+        if saved_options.get("denoiser_num_freq_bands") is None:
+            saved_options["denoiser_num_freq_bands"] = saved_hidden // 2
+        for key, value in (("denoiser_head_dim", saved_hidden // saved_options["denoiser_num_heads"]),
+                           ("map_feature_dim", 128)):
             saved_options.setdefault(key, value)
         if saved_options != self.denoiser_options:
             raise ValueError("Checkpoint denoiser options differ from configured x0 model; use its saved config")

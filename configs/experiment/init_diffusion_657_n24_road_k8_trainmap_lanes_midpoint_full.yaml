@@ -1,0 +1,15 @@
+# @package _global_
+# Exploratory: adapt a separate pretrained map encoder to lane+edge queries.
+# Existing frozen-map lane runs plateaued; this tests map adaptation, not a
+# claim that adding lane queries alone helps. Generator architecture stays fixed.
+defaults:
+  - init_diffusion_657_n24_road_k8_midpoint_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_trainmap_lanes_midpoint_full
+model:
+  model_config:
+    decoder:
+      sep_map: true
+      init_diffusion:
+        map_condition_types: lanes_and_edges

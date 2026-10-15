@@ -1,0 +1,31 @@
+# @package _global_
+# Diagnostic only: a genuine partial-training snapshot, four batches, no ranking.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_omega025_support_probe
+action: test
+ckpt_path: ${sim_root:}/output/reports/init_diffusion_continuous_20261014/omega025_mid_checkpoint_20261015/model.ckpt
+seed: 0
+float32_matmul_precision: highest
+
+model:
+  model_config:
+    initial_map_checkpoint: null
+    sd_require_full_set: false
+    decoder:
+      init_diffusion:
+        normalizer_path: null
+
+data:
+  num_workers: 0
+  test_batch_size: 64
+
+trainer:
+  logger: false
+  enable_checkpointing: false
+  limit_test_batches: 4
+
+callbacks: null
+logger: false

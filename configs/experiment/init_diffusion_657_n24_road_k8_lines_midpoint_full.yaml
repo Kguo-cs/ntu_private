@@ -1,0 +1,14 @@
+# @package _global_
+# Exploratory: road boundaries plus lane markings, without centerline queries.
+# Same weights/parameter count as roadK8; new training is needed for this context.
+# This tests a different map output mask; no long-run improvement is established.
+defaults:
+  - init_diffusion_657_n24_road_k8_midpoint_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_lines_midpoint_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        map_condition_types: edges_and_lines

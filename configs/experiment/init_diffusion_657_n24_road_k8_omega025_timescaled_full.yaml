@@ -1,0 +1,11 @@
+# @package _global_
+# Prepared hypothesis, not deployed: raw head predicts rho=t_clamped*omega.
+# Train/sampling divide by t_clamped. Directomega targets, MSE/time-power/weight,
+# native loop and parameter count stay unchanged; this requires fresh training.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_timescaled_full
+model:
+  _target_: tools.time_scaled_heading_full.model.TimeScaledCircularVelocitySMART_GAIL

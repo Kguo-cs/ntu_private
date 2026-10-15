@@ -1,0 +1,15 @@
+# @package _global_
+# Stronger shared-omega supervision; paired alternative toomega025.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega10_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        component_loss:
+          components:
+            heading:
+              weight: 0.1

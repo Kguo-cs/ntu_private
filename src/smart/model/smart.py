@@ -230,9 +230,9 @@ class SMART(LightningModule):
         """Initialize only the frozen map; leave generator, EMA and optimizer fresh."""
         if (not finetune or self.encoder.init_decoder_name != "flow"
                 or not self.encoder.initial_scene_only or not self.token_processor.learn_init
-                or self.encoder.gail or self.encoder.sep_map):
+                or self.encoder.gail):
             raise ValueError("initial_map_checkpoint requires supervised initial-scene InitDiffusion "
-                             "with finetune=true, learn_init=true and sep_map=false")
+                             "with finetune=true and learn_init=true")
         path = Path(checkpoint_path).expanduser().resolve()
         if not path.is_file():
             raise FileNotFoundError(f"Initial map checkpoint does not exist: {path}")
@@ -262,6 +262,9 @@ class SMART(LightningModule):
                 raise ValueError(f"Initial map checkpoint tensor must be finite: {key}")
         self.encoder.map_encoder.load_state_dict(source, strict=True)
         _freeze(self.encoder.map_encoder)
+        if self.encoder.sep_map:
+            self.encoder._initial_map_needs_initialization = True
+            self.encoder.initialize_initial_map_from_shared()
         self.initial_map_checkpoint_metadata = {
             "path": str(path), "file_sha256": digest.hexdigest(),
             "source_epoch": checkpoint.get("epoch"), "source_global_step": checkpoint.get("global_step"),
@@ -684,6 +687,11 @@ class SMART(LightningModule):
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
                     "sampling_time_grid": dict(getattr(initial_decoder.G1, "sampling_time_grid", {})),
+                    "sampling_integrator": "midpoint" if getattr(initial_decoder.G1, "_midpoint_installed", False)
+                        else getattr(initial_decoder.G1, "sampling_integrator", "euler"),
+                    "sampling_network_evaluations": initial_decoder.sampling_steps * (
+                        2 if (getattr(initial_decoder.G1, "sampling_integrator", "euler") == "midpoint"
+                              or getattr(initial_decoder.G1, "_midpoint_installed", False)) else 1),
                     "edge_embedding_type": getattr(initial_decoder, "edge_embedding_type", "fourier"),
                     "time_embedding_type": getattr(initial_decoder, "time_embedding_type", "legacy"),
                     "count_embedding_type": getattr(initial_decoder, "count_embedding_type", "none"),

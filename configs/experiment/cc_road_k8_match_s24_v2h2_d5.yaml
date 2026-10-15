@@ -1,0 +1,19 @@
+# @package _global_
+# cc_road_k8_match_s24 + matching {velocity: 2, heading: 2} + 5 denoiser layers (+~4.5M params).
+# Targets the two metrics still behind the baselines (ang < .0282, length < .1628):
+#   v2h2 (wandb efzhwmu3 vs nnsjk5vl, epochs 39-55): length x0.87-0.90, lat x0.51-0.66, speed +3..9%;
+#   5 layers: best end-of-run ang of all full runs (cc_best_d5 .0352; x0.87-0.92 of nnsjk5vl at
+#     epochs 119-127) and ang -20% in a 16-epoch scratch proxy; its speed weakness is offset by matching;
+#   24-step sampler: length -13%, lat -13%, ang -2% on the same checkpoint.
+defaults:
+  - cc_road_k8_match_s24
+  - _self_
+
+task_name: cc_road_k8_match_s24_v2h2_d5
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        denoiser_num_layers: 5
+        matching_weights: {velocity: 2.0, heading: 2.0}

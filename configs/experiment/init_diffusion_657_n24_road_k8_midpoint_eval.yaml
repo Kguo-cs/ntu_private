@@ -1,0 +1,27 @@
+# @package _global_
+# Native run.py evaluation of the saved completed roadK8 model.
+# Override INIT_DIFFUSION_ROAD_K8_CKPT to evaluate another matching checkpoint.
+# Use the common seed0 by default; archived paired studies use seed=2817/3817.
+defaults:
+  - init_diffusion_657_n24_road_k8_midpoint_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_midpoint_eval
+action: test
+ckpt_path: ${oc.env:INIT_DIFFUSION_ROAD_K8_CKPT,${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/sampler_snapshots_20261015/roadK8/model.ckpt}
+seed: 0
+model:
+  model_config:
+    initial_map_checkpoint: null
+    sd_reference_mode: matched
+    sd_require_full_set: true
+    sd_expected_scenes: 50000
+    decoder:
+      init_diffusion:
+        normalizer_path: null
+trainer:
+  logger: false
+  enable_checkpointing: false
+  limit_test_batches: 1.0
+callbacks: null
+logger: false

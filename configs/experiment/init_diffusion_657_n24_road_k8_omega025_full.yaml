@@ -1,0 +1,32 @@
+# @package _global_
+# Experimental direct circular-velocity objective; full quality remains unproved.
+# Shared existing output row3, same parameter count, native SMART train/eval loop.
+defaults:
+  - init_diffusion_657_n20_road_k8_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_full
+action: fit
+ckpt_path: null
+seed: 4817
+
+model:
+  _target_: tools.shared_heading_full.model.CircularVelocitySMART_GAIL
+  model_config:
+    decoder:
+      init_diffusion:
+        heading_objective: angular_velocity
+        heading_x0_loss: vector_mse
+        component_loss:
+          components:
+            heading:
+              kind: mse
+              time_power: 0
+              weight: 0.025
+              scale: none
+        sampling_steps: 12
+        sampling_integrator: midpoint
+        sampling_time_grid:
+          kind: power
+          power: 1.2
+          terminal_time: 0.1

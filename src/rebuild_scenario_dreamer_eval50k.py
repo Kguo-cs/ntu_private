@@ -364,7 +364,7 @@ def main() -> None:
                         help="Official scenario-dreamer metadata/waymo_eval_set.pkl")
     parser.add_argument("--waymo-root", type=Path,default=Path("./waymo_data/waymo110"),
                         help="WOMD v1.1.0 root containing training/ validation/ testing/")
-    parser.add_argument("--output-dir", type=Path,default=Path("./waymo_data/full/scenario_dreamer_val"),
+    parser.add_argument("--output-dir", type=Path,default=Path("./waymo_data/full/validation_mapall_sd"),
                         help="Directory for rebuilt ego-last/global SMART .pt samples")
     parser.add_argument("--manifest-out", type=Path, default=Path("./waymo_data/sd_eval50k_manifest.jsonl"))
     parser.add_argument("--official-cache-root", type=Path,

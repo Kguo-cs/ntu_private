@@ -1,0 +1,16 @@
+# @package _global_
+# cc_road_k8_match_s24_d5 + noise/target matching that also weights length and width 4x.
+# Target: length JSD (current best .237 vs baseline target .163). In 4-epoch warm-start finetunes
+# (24-step eval, 2 controls) length/width matching 4 cut length 7% but worsened ang 15%; 5 layers
+# cut ang 9-20% in three paired scratch proxies, so the combination aims at both.
+defaults:
+  - cc_road_k8_match_s24_d5
+  - _self_
+
+task_name: cc_road_k8_match_s24_d5_shape4
+
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        matching_weights: {velocity: 4.0, heading: 4.0, length: 4.0, width: 4.0}
