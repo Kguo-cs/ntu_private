@@ -36,8 +36,8 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./waymo_data/full/training_sd/training"
-ouput_data_directory = "./waymo_data/full/training_map2_sd"
+agent_data_directory = "./waymo_data/full/training_mapall_sd/training"
+ouput_data_directory = "./waymo_data/full/training_mapall_init_sd"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 

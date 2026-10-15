@@ -37,13 +37,14 @@ def main():
         r=read(seed0)
         extras.append(dict(report=r['report'],label='deep_final128_native_seed0_batch64',
                            family='native_seed0_complete50K',GEN=0))
-    grid=BASE/'deep_final_timegrid_v1/observations.json'
-    if grid.exists():
-        for r in read(grid):
-            if r['scenes']==50000:
-                extras.append(dict(report=r['report'],label=f"deep_final128_p{r['power']}_batch64",
-                    family='deep_final_timegrid_v1',GEN=r['seed'],
-                    pair_key=f"deep_final_timegrid_v1_batch64_power{r['power']}"))
+    for family in ('deep_final_timegrid_v1', 'deep_final_timegrid_full_controls_v1'):
+        grid=BASE/family/'observations.json'
+        if grid.exists():
+            for r in read(grid):
+                if r['scenes']==50000:
+                    extras.append(dict(report=r['report'],label=f"deep_final128_p{r['power']}_batch64",
+                        family=family,GEN=r['seed'],
+                        pair_key=f"{family}_batch64_power{r['power']}"))
     for extra in extras:
         report=read(extra['report']);assert all(report.get(k)==target[k] for k in SCOPE)
         m=report['agent_metrics'];ratios={k:m[k]/v for k,v in target['targets'].items()}
