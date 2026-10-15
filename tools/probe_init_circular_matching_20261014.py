@@ -26,6 +26,8 @@ from src.smart.diffusion.component_loss import heading_angle_residual
 
 ART = ROOT / 'output/reports/init_diffusion_overnight_20261014/circular_matching_probe'
 CONFIG = ROOT / 'logs/init_diffusion_overnight_20261014/roadK8_T4817_4096_N4096/roadK8/config.yaml'
+CHECKPOINT=None
+BATCHES=4
 
 
 def heading_cost(a, b, kind, strength):
@@ -45,11 +47,17 @@ def main():
         cfg.data.num_workers = 0
         cfg.data.pin_memory = False
         cfg.data.persistent_workers = False
+    torch.manual_seed(142015)
     model = hydra.utils.instantiate(cfg.model, _recursive_=False)
+    if CHECKPOINT is not None:
+        checkpoint=torch.load(CHECKPOINT,map_location='cpu',weights_only=False)
+        model.load_state_dict(checkpoint['state_dict'],strict=True)
     model.eval(); decoder = model.encoder.init_decoder; flow = decoder.G1
     calibration = read(NORMALIZER)
     for name in ('normal_mean', 'normal_scale'):
-        torch.testing.assert_close(getattr(flow.model, name), torch.tensor(calibration[name], dtype=torch.float32), rtol=0, atol=0)
+        expected=(torch.tensor(calibration[name],dtype=torch.float32) if CHECKPOINT is None else
+                  checkpoint['state_dict']['encoder.init_decoder.G1.model.'+name])
+        torch.testing.assert_close(getattr(flow.model,name),expected,rtol=0,atol=0)
     dm = hydra.utils.instantiate(cfg.data, _recursive_=False); dm.setup('fit')
     loader = iter(dm.train_dataloader())
     std = flow.model.normal_scale[0].detach().numpy()
@@ -57,15 +65,18 @@ def main():
     # Match mean heading cost of independent circular source / TRAIN headings.
     # The chosen transport subsequently creates dependence; this is a fixed
     # coefficient calibration, not an equality of optimal assignments.
-    expected_old = float(((.5 + std[2:4]**2 + mean[2:4]**2) / std[2:4]**2).sum())
+    heading_weight=1. if flow.matching_weights is None else float(flow.matching_weights['heading'])
+    expected_old = heading_weight*float(((.5 + std[2:4]**2 + mean[2:4]**2) / std[2:4]**2).sum())
     arc_strength = expected_old / (np.pi**2/3)
     chord_strength = expected_old / 2
     options = [('legacy', None), ('isotropic_chord', 'chord'), ('arc', 'arc')]
     records = {name: [] for name, _ in options}
     source_permutation_checks = 0
     rotation_error = 0.
-    for batch_i in range(4):
+    scene_count = 0
+    for batch_i in range(BATCHES):
         _, agent = model.token_processor(next(loader)); decoder._prepare_ego_context(agent)
+        scene_count += int(agent['num_graphs'])
         clean, _ = flow.model.get_input(agent)
         movable = ~agent['ego_mask'].bool()
         for draw in range(4):
@@ -120,8 +131,11 @@ def main():
         x, y = heading_cost(angles, angles[::-1], kind, strength), heading_cost(angles+.7, angles[::-1]+.7, kind, strength)
         rotation_error = max(rotation_error, float(np.abs(x-y).max()))
     assert rotation_error < 1e-12
-    save(ART / 'results.json', dict(created_utc=now(),TRAIN_scenes=128,draws_per_scene=4,
+    save(ART / 'results.json', dict(created_utc=now(),TRAIN_scenes=scene_count,draws_per_scene=4,
         config_sha256=sha(CONFIG),probe_sha256=sha(__file__),expected_legacy_heading_cost=expected_old,
+        checkpoint=None if CHECKPOINT is None else str(CHECKPOINT),
+        checkpoint_sha256=None if CHECKPOINT is None else sha(CHECKPOINT),
+        matching_heading_weight=heading_weight,
         normalizer_sha256=sha(NORMALIZER), normal_mean=mean.tolist(), normal_scale=std.tolist(),
         arc_strength=arc_strength,chord_strength=chord_strength,source_permutation_checks=source_permutation_checks,
         rotational_invariance_max_error=rotation_error,means=means,ratios=ratios,records=records,
@@ -130,4 +144,12 @@ def main():
 
 
 if __name__ == '__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config',type=Path,default=CONFIG)
+    parser.add_argument('--checkpoint',type=Path)
+    parser.add_argument('--output',type=Path,default=ART)
+    parser.add_argument('--batches',type=int,default=4)
+    options=parser.parse_args();CONFIG=options.config;CHECKPOINT=options.checkpoint;ART=options.output;BATCHES=options.batches
+    assert BATCHES>0
     main(); sys.stdout.flush(); sys.stderr.flush(); os._exit(0)

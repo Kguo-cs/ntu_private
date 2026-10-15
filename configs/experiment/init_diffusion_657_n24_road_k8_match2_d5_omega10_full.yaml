@@ -1,0 +1,16 @@
+# @package _global_
+# Same five-layer shared-angular-velocity candidate, fourfold heading loss weight.
+# Hypothesis from equal-epoch native32 observations; final quality is unproved.
+defaults:
+  - init_diffusion_657_n24_road_k8_match2_d5_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_match2_d5_omega10_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        component_loss:
+          components:
+            heading:
+              weight: 0.1

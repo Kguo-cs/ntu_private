@@ -33,6 +33,7 @@ def main():
     parser.add_argument('--seed', type=int, default=2817)
     parser.add_argument('--batch-size', type=int, default=128)
     parser.add_argument('--full-set', action='store_true')
+    parser.add_argument('--r-reference', type=Path)
     parser.add_argument('--eval-matmul-precision', choices=['highest', 'high', 'medium'], default='highest')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
@@ -79,7 +80,7 @@ def main():
         cfg.logger = False
         mc = cfg.model.model_config
         mc.initial_map_checkpoint = None
-        mc.sd_r_reference = None
+        mc.sd_r_reference = None if args.r_reference is None else str(args.r_reference.resolve())
         mc.sd_require_full_set = args.full_set
         # The cache retains the complete official catalogue. The dataset selects
         # the generated subset, and reference_mode='matched' sums its GT only.
@@ -97,6 +98,9 @@ def main():
         cfg.trainer.logger = False
         cfg.trainer.enable_checkpointing = False
     OmegaConf.save(cfg, args.output / 'config.yaml', resolve=False)
+    configured_integrator = mc.decoder.init_diffusion.get('sampling_integrator', 'euler')
+    midpoint_selected = args.integration == 'midpoint' or configured_integrator == 'midpoint'
+    evaluation_multiplier = 2 if midpoint_selected else 1
     checkpoint_hash = sha(args.checkpoint)
     checkpoint_metadata = json.loads(args.checkpoint.with_name('provenance.json').read_text())
     assert checkpoint_metadata['sha256'] == checkpoint_hash
@@ -107,8 +111,10 @@ def main():
                       output=str(args.output.resolve()),
                       source_config_sha256=sha(args.source_config), manifest_sha256=sha(args.manifest),
                       sampler=sampler, seed=args.seed, scenes=len(names), integration=args.integration,
-                      network_evaluations_per_scene=24 if args.integration == 'midpoint' else sampler['sampling_steps'],
+                      network_evaluations_per_scene=sampler['sampling_steps'] * evaluation_multiplier,
+                      effective_integrator='midpoint' if midpoint_selected else 'euler',
                       runner_sha256=sha(__file__), matmul_precision=args.eval_matmul_precision,
+                      r_reference_sha256=None if args.r_reference is None else sha(args.r_reference),
                       smart_source_sha256={str(p.relative_to(ROOT)): sha(p)
                                            for p in sorted((ROOT / 'src/smart').rglob('*.py'))},
                       checkpoint_origin='Full training; no fabricated scratch metadata')
@@ -121,7 +127,7 @@ def main():
     model.video_dir = args.output.resolve() / 'videos'
     model.video_dir.mkdir(exist_ok=True)
     flow = model.encoder.init_decoder.G1
-    if args.integration == 'midpoint':
+    if args.integration == 'midpoint' and getattr(flow, 'sampling_integrator', 'euler') != 'midpoint':
         from src.smart.diffusion.midpoint_sampling import install_midpoint
         install_midpoint(flow)
     original_sample = flow.sample
@@ -141,7 +147,7 @@ def main():
         before = denoiser_calls[0]
         result = original_sample(*a, **kw)
         actual = denoiser_calls[0] - before
-        expected = steps * (2 if args.integration == 'midpoint' else 1)
+        expected = steps * evaluation_multiplier
         if actual != expected:
             raise RuntimeError(f'Expected {expected} denoiser calls, observed {actual}')
         sample_call_counts.append(actual)

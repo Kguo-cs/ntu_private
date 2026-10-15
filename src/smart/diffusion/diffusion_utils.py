@@ -419,8 +419,16 @@ def get_closest_sum_idx_fast(
     tokenized_agent,
     all_state: bool = False,
     use_all_type: bool = False,
+    *,
+    heading_geometry: str = "legacy",
+    heading_scale=None,
+    heading_strength=None,
 ):
     """Hungarian matching within each scene, optionally separated by type."""
+    if heading_geometry not in ("legacy", "isotropic_chord", "arc"):
+        raise ValueError("Unknown circular heading matching geometry")
+    if heading_geometry != "legacy" and not all_state:
+        raise ValueError("Circular heading matching requires all_state=True")
     if len(fake_state) != len(real_state):
         raise ValueError("fake_state and real_state must have the same length")
 
@@ -435,6 +443,15 @@ def get_closest_sum_idx_fast(
 
     if not np.isfinite(fake).all() or not np.isfinite(real).all():
         raise ValueError("Matching input contains NaN or infinity")
+    if heading_geometry != "legacy":
+        if fake.shape[1] < 4:
+            raise ValueError("Circular matching requires sin/cos columns2:4")
+        scale = (heading_scale.detach().float().cpu().numpy() if torch.is_tensor(heading_scale)
+                 else np.asarray(heading_scale, dtype=np.float32))
+        if scale.shape != (2,) or not np.isfinite(scale).all() or (scale <= 0).any():
+            raise ValueError("Circular matching requires two positive heading scales")
+        if heading_strength is None or not np.isfinite(heading_strength) or heading_strength < 0:
+            raise ValueError("Circular matching requires a finite nonnegative heading strength")
 
     batch, agent_type = _group_labels(
         tokenized_agent, num_states, use_all_type
@@ -458,6 +475,13 @@ def get_closest_sum_idx_fast(
 
         real_group = real[idx]
         fake_group = fake[idx]
+        if heading_geometry != "legacy":
+            real_theta = np.arctan2(real_group[:, 3] * scale[1], real_group[:, 2] * scale[0])
+            fake_theta = np.arctan2(fake_group[:, 3] * scale[1], fake_group[:, 2] * scale[0])
+            delta = (real_theta[:, None] - fake_theta[None, :] + np.pi) % (2 * np.pi) - np.pi
+            angular_cost = heading_strength * (delta ** 2 if heading_geometry == "arc" else 2 * (1 - np.cos(delta)))
+            fields = [0, 1, *range(4, real_group.shape[1])]
+            real_group, fake_group = real_group[:, fields], fake_group[:, fields]
        # cost=np.abs(real_group - fake_group).sum(axis=1, keepdims=True)
         cost = (
             np.sum(real_group**2, axis=1, keepdims=True)
@@ -465,6 +489,8 @@ def get_closest_sum_idx_fast(
             - 2.0 * real_group @ fake_group.T
         )
         np.maximum(cost, 0, out=cost)
+        if heading_geometry != "legacy":
+            cost += angular_cost
         row, col = linear_sum_assignment(cost)
         matched[idx[row]] = idx[col]
 

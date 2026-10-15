@@ -1,0 +1,24 @@
+# @package _global_
+# Clean objective/readout ablation against the completed bq7z12zy recipe.
+# Five layers, h2/v2 matching, highest precision, fixed map and all other losses
+# stay inherited. Shared scalaromega introduces no extra trainable parameters.
+# Prepared candidate; full performance is not established.
+defaults:
+  - init_diffusion_657_n24_road_k8_match2_d5_midpoint_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_match2_d5_omega025_full
+model:
+  _target_: tools.shared_heading_full.model.CircularVelocitySMART_GAIL
+  model_config:
+    decoder:
+      init_diffusion:
+        heading_objective: angular_velocity
+        heading_x0_loss: vector_mse
+        component_loss:
+          components:
+            heading:
+              kind: mse
+              time_power: 0
+              weight: 0.025
+              scale: none

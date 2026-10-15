@@ -1,0 +1,15 @@
+# @package _global_
+# New source coupling, same component losses and8.08M trainable parameters.
+# TRAIN-calibrated geodesic cost replaces normalized sin/cos assignment cost.
+# Endpoint marginals are preserved; per-agent bridge pairings/targets change.
+# Generation quality requires a new from-scratch training experiment.
+defaults:
+  - init_diffusion_omega025_native8
+  - _self_
+
+task_name: init_diffusion_omega025_arc_native8
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        heading_matching_geometry: arc

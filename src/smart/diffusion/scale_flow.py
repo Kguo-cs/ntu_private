@@ -169,6 +169,11 @@ class Flow(nn.Module):
             if any(not math.isfinite(v) or v < 0 for v in matching.values()) or not any(matching.values()):
                 raise ValueError("matching_weights must be finite, nonnegative and not all zero")
         self.matching_weights = matching
+        self.heading_matching_geometry = getattr(args, "heading_matching_geometry", "legacy")
+        if self.heading_matching_geometry not in ("legacy", "isotropic_chord", "arc"):
+            raise ValueError("heading_matching_geometry must be legacy, isotropic_chord or arc")
+        if self.heading_matching_geometry != "legacy" and getattr(args, "heading_noise", "gaussian") != "circular":
+            raise ValueError("Circular source matching requires heading_noise=circular")
         self.collision_reduction = getattr(args, "collision_reduction", "pair_mean")
         if self.collision_reduction not in ("pair_mean", "agent_max"):
             raise ValueError("collision_reduction must be pair_mean or agent_max")
@@ -580,11 +585,26 @@ class Flow(nn.Module):
                                  ("velocity", slice(6, self.model.m_delta_dim))):
                 weights[fields] = math.sqrt(self.matching_weights[name])
             match_noise, match_target = match_noise * weights, match_target * weights
+        matching_options = {}
+        geometry = getattr(self, "heading_matching_geometry", "legacy")
+        if geometry != "legacy":
+            # The source angle is uniform on S1. Calibrate only to saved TRAIN
+            # moments, preserving the legacy *unmatched* mean heading cost.
+            # This changes the coupling and per-row bridge targets, not either
+            # endpoint marginal or the component loss definitions.
+            scale = self.model.normal_scale[0, 2:4].detach().float().cpu()
+            mean = self.model.normal_mean[0, 2:4].detach().float().cpu()
+            weight = 1. if self.matching_weights is None else self.matching_weights["heading"]
+            expected = weight * float(((.5 + scale.square() + mean.square()) / scale.square()).sum())
+            normalizer = math.pi ** 2 / 3 if geometry == "arc" else 2.
+            matching_options = dict(heading_geometry=geometry, heading_scale=scale,
+                                    heading_strength=expected / normalizer)
         matched_index = get_closest_sum_idx_fast(
             match_noise, match_target,
             {"batch": tokenized_agent["batch"][movable],
              "type": tokenized_agent["type"][movable]},
             all_state=True, use_all_type=self.joint_type,
+            **matching_options,
         )
         noise[movable] = movable_noise[matched_index]
         return noise

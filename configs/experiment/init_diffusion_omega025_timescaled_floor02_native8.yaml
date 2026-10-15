@@ -1,0 +1,10 @@
+# @package _global_
+# Same omega MSE target/weight and8epoch native prefix. Cap scalar-readout
+# amplification at5x rather than20x; final learning quality remains unproved.
+defaults:
+  - init_diffusion_omega025_timescaled_native8
+  - _self_
+
+task_name: init_diffusion_omega025_timescaled_floor02_native8
+model:
+  heading_velocity_time_floor: 0.2

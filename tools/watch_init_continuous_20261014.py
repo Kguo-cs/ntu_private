@@ -55,6 +55,23 @@ def snapshot():
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     folder = ART / 'wandb' / stamp
     folder.mkdir(parents=True, exist_ok=False)
+    # Archive native full50K reports independently of W&B availability. A new
+    # epoch may overwrite the remote filename while the old semantic report
+    # remains preserved locally by checkpoint/EMA step and content hash.
+    try:
+        result = subprocess.run([sys.executable, str(ROOT / 'tools/refresh_init_fleet_validation_20261015.py')],
+            cwd=ROOT, text=True, capture_output=True, timeout=60)
+        (folder / 'native_fleet_refresh.stdout').write_text(result.stdout)
+        (folder / 'native_fleet_refresh.stderr').write_text(result.stderr)
+        if result.returncode:
+            raise RuntimeError('Native fleet collection failed')
+        native = json.loads((ART / 'latest_fleet_full_validation_20261015.json').read_text())
+        api.write(folder / 'native_fleet_full50K.json', native)
+        print('NATIVE_FULL50K_ARCHIVED ' + str(len(native['verified_native_report_archives'])), flush=True)
+    except Exception as exc:
+        api.write(folder / 'native_fleet_refresh_error.json', dict(
+            fetched_at_utc=datetime.now(timezone.utc).isoformat(),
+            error_type=type(exc).__name__, read_only=True))
     api.inventory(folder)
     inventory = json.loads((folder / 'inventory.json').read_text())
     previous_path = ART / 'wandb_signatures.json'

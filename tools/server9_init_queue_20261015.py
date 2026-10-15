@@ -19,6 +19,21 @@ def gpu_apps():
     result=subprocess.check_output(['nvidia-smi','--query-compute-apps=gpu_uuid,pid','--format=csv,noheader,nounits'],text=True)
     return [(r[0].strip(),int(r[1])) for r in csv.reader(result.splitlines()) if len(r)==2]
 
+def gpu_occupied(job):
+    """Allow only explicitly recorded, unchanged user preprocessing clients."""
+    allowed={int(v['pid']):v['cmdline_sha256'] for v in job.get('allowed_gpu_clients',[])}
+    for uuid,pid in gpu_apps():
+        if uuid!=job['gpu_uuid']:continue
+        path=Path('/proc',str(pid),'cmdline')
+        try:unchanged=pid in allowed and hashlib.sha256(path.read_bytes()).hexdigest()==allowed[pid]
+        except FileNotFoundError:continue
+        if not unchanged:return True
+    if job.get('minimum_free_mib') is not None:
+        free=int(subprocess.check_output(['nvidia-smi','--id='+job['gpu_uuid'],
+            '--query-gpu=memory.free','--format=csv,noheader,nounits'],text=True).strip())
+        if free<int(job['minimum_free_mib']):return True
+    return False
+
 def check_source(root,protocol):
     raw=(root/'SOURCE_MANIFEST.json').read_bytes()
     assert hashlib.sha256(raw).hexdigest()==protocol['source_manifest_sha256']
@@ -26,9 +41,20 @@ def check_source(root,protocol):
         assert hashlib.sha256((root/name).read_bytes()).hexdigest()==item['sha256'],name
 
 def verify_predecessor(job,target):
-    text=Path(job['predecessor_log']).read_bytes()[-2000000:].decode(errors='replace')
-    assert '`max_epochs='+str(job['predecessor_epochs'])+'` reached' in text,'Predecessor did not finish normally'
-    report=read(job['predecessor_report'])
+    if job.get('reviewed_early_stop'):
+        review=read(job['reviewed_early_stop'])
+        assert review['status']=='STOPPED_AFTER_VERIFIED_SNAPSHOT'
+        assert review['predecessor_pid']==job['predecessor_pid']
+        saved=Path(review['report_checkpoint']['path']);digest=hashlib.sha256()
+        with saved.open('rb') as f:
+            for block in iter(lambda:f.read(1024*1024),b''):digest.update(block)
+        assert digest.hexdigest()==review['report_checkpoint']['sha256']
+        assert review['report_checkpoint']['global_step']==job['predecessor_epochs']*964
+        report=read(review['native_report_snapshot'])
+    else:
+        text=Path(job['predecessor_log']).read_bytes()[-2000000:].decode(errors='replace')
+        assert '`max_epochs='+str(job['predecessor_epochs'])+'` reached' in text,'Predecessor did not finish normally'
+        report=read(job['predecessor_report'])
     for name in ('num_samples','num_gt_samples','full_membership','map_source','eval_set_sha256',
                  'official_source_sha256','reference_source_manifest_sha256','feature_counts_gt'):
         assert report[name]==target[name],name
@@ -41,10 +67,10 @@ def limit_files():
 
 def launch(root,art,protocol,job,phase):
     check_source(root,protocol)
-    assert not any(uuid==job['gpu_uuid'] for uuid,pid in gpu_apps()),'GPU acquired by another process'
+    assert not gpu_occupied(job),'GPU acquired by another process or insufficient memory'
     name=job['candidate'];python=protocol['python']
     out=(art/(name+'_smoke') if phase=='smoke' else Path(protocol['repo'])/'src/logs'/name/
-         ('server9_gpu'+str(job['gpu_index'])+'_'+datetime.datetime.now().strftime('%Y%m%d_%H%M%S')))
+         (protocol.get('host_label','server9')+'_gpu'+str(job['gpu_index'])+'_'+datetime.datetime.now().strftime('%Y%m%d_%H%M%S')))
     out.mkdir(parents=True,exist_ok=False)
     command=[python,'-u','src/run0.py','experiment='+name,'optimizer=default',
              'data.scenario_dreamer_train_sample_list='+str(art/'training_map2_sd.pkl'),
@@ -53,7 +79,7 @@ def launch(root,art,protocol,job,phase):
         command += ['~logger','~callbacks','trainer.max_steps=2','trainer.limit_train_batches=2',
                     'trainer.limit_val_batches=0','+trainer.enable_model_summary=false','data.num_workers=0']
     else:
-        command += ['logger.wandb.name='+name+'_server9_gpu'+str(job['gpu_index']),
+        command += ['logger.wandb.name='+name+'_'+protocol.get('host_label','server9')+'_gpu'+str(job['gpu_index']),
                     'logger.wandb.group=continuous_20261015',
                     'logger.wandb.tags=[midpoint24,full50k,source_'+protocol['source_manifest_sha256'][:12]+']']
     env=dict(os.environ,CUDA_VISIBLE_DEVICES=job['gpu_uuid'],WANDB_MODE='disabled' if phase=='smoke' else 'online',
@@ -70,6 +96,7 @@ def launch(root,art,protocol,job,phase):
 def verify_smoke(protocol,job,record):
     text=Path(record['log']).read_text()
     assert '`max_steps=2` reached' in text and 'Traceback (most recent call last)' not in text
+    if job['label']=='omega025replica':assert 'Seed set to 6817' in text
     script='''import sys,json,torch
 from pathlib import Path
 folder=Path(sys.argv[1]);paths=list(folder.rglob('*.ckpt'));assert len(paths)==1,paths
@@ -77,6 +104,19 @@ c=torch.load(paths[0],map_location='cpu',weights_only=False);state=c['state_dict
 assert c['global_step']==2 and extra['ema']['num_updates']==2
 assert all(torch.isfinite(v).all() for v in state.values() if torch.is_tensor(v))
 if sys.argv[2]=='omega10':assert extra['denoiser_options']['heading_velocity_readout']=='shared_state_row3'
+if sys.argv[2]=='omega05':
+ assert extra['denoiser_options']['heading_velocity_readout']=='shared_state_row3'
+ assert extra['denoiser_options']['denoiser_num_layers']==3
+ assert extra['component_loss']['components']['heading']==dict(kind='mse',time_power=0,weight=.05,scale='none')
+if sys.argv[2]=='omega025replica':
+ assert extra['denoiser_options']['heading_velocity_readout']=='shared_state_row3'
+ assert extra['denoiser_options']['denoiser_num_layers']==3
+ assert extra['denoiser_options']['attribute_source'] is None
+ assert extra['component_loss']['components']['heading']==dict(kind='mse',time_power=0,weight=.025,scale='none')
+if sys.argv[2] in ('deepomega025','deepomega10'):
+ assert extra['denoiser_options']['heading_velocity_readout']=='shared_state_row3'
+ assert extra['denoiser_options']['denoiser_num_layers']==5
+ assert extra['component_loss']['components']['heading']==dict(kind='mse',time_power=0,weight=.025 if sys.argv[2]=='deepomega025' else .1,scale='none')
 if sys.argv[2]=='trainmap_lanes':assert state['encoder._extra_state']['initial_map_ema']['num_updates']==2
 print(json.dumps(dict(status='PASS',global_step=2,ema_updates=2,checkpoint=str(paths[0]),finite_state=True)))
 '''
@@ -120,7 +160,7 @@ def main():
                     final=verify_predecessor(job,target)
                     save(art/(label+'_predecessor_final50k.json'),final)
                     state['status']='WAITING_FOR_SMOKE_GPU'
-                if any(uuid==job['gpu_uuid'] for uuid,pid in gpu_apps()):continue
+                if gpu_occupied(job):continue
                 phase='smoke' if state['status']=='WAITING_FOR_SMOKE_GPU' else 'full'
                 child,record=launch(root,art,protocol,job,phase)
                 children[label]=(child,record)

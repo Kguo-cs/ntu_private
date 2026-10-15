@@ -57,6 +57,7 @@ model_config:
       speed_head_kind: shared  # separate gives scalar speed a dedicated output MLP.
       speed_head_detach_context: false
       matching_weights: null  # Optional normalized physical assignment costs per component.
+      heading_matching_geometry: legacy  # arc/isotropic_chord: circular source coupling, calibrated from TRAIN moments.
       time_sample_power: 1.0  # U^power: <1 gives more high-noise training; default Uniform(0,1).
       distribution_loss: null  # Optional TRAIN-only per-type speed/size marginal transport penalty.
       map_condition_types: road_edges  # lanes_and_edges also returns centreline queries from the same fixed encoder.

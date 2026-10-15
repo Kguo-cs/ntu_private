@@ -10,7 +10,7 @@ def read(p):return json.loads(Path(p).read_text())
 def main():
     target=read(ROOT/'configs/metrics/sd_vw_lane_conditioned_targets.json');reference=read(ROOT/'configs/metrics/iu3fa4gx_full50000.json')
     rows=[];seen=set()
-    for family in ('full_sampler_50k_v2','deep_sampler_v1','deep_native_seed0_v1','native_midpoint_seed0_v1','deep_final128_midpoint_v1'):
+    for family in ('full_sampler_50k_v2','deep_sampler_v1','deep_native_seed0_v1','native_midpoint_seed0_v1','deep_final128_midpoint_v1','omega025_e80_confirmation_v1','omega025_e96_confirmation_v1','omega025_e104_confirmation_v1','omega025_final128_confirmation_v1','shape4_e64_sampler_review_v2'):
         path=BASE/family/'observations.json'
         if not path.exists():continue
         for row in read(path):
@@ -22,6 +22,8 @@ def main():
             m=report['agent_metrics'];ratios={k:m[k]/v for k,v in target['targets'].items()}
             passed=[k for k,v in ratios.items() if v<1]
             pair_id=dict(checkpoint=row.get('checkpoint_sha256'),sampler=row.get('sampler'),integration=row.get('integration'),precision=row.get('matmul_precision'),
+                         effective_integrator=row.get('effective_integrator',row.get('integration')),
+                         sampling_batch_count=len(row.get('sampling_source_sha256_per_batch',[])),
                          source=hashlib.sha256(json.dumps(row.get('smart_source_sha256'),sort_keys=True).encode()).hexdigest())
             rows.append(dict(label=row.get('snapshot',row.get('model',output.name)),family=family,GEN=row.get('seed'),checkpoint_step=row.get('checkpoint_step'),
                 full128epoch_training=row.get('checkpoint_step')==123392,report=str(report_path),metrics=m,
@@ -32,6 +34,10 @@ def main():
     # These native reports have different batch/noise streams from the archived
     # batch128 pairs. Keep their independent evidence without merging pair IDs.
     extras=[]
+    omega80=BASE/'full_checkpoint_snapshots/omega025_e80_20261015/native_report.json'
+    if omega80.exists():
+        extras.append(dict(report=str(omega80),label='omega025_native_e80_preserved_snapshot',
+                           family='native_e80_single_validation',GEN=None))
     seed0=BASE/'deep_final128_native_seed0_review_20261015.json'
     if seed0.exists():
         r=read(seed0)

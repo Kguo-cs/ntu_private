@@ -1,0 +1,10 @@
+# @package _global_
+# Independent TRAIN-seed replication of the verified3layer recipe.
+# Keep128epoch training andLR horizon. Predeclare96/104epoch GEN2817/3817
+# evaluations; do not substitute a lucky validation peak for these checkpoints.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_seed6817_full
+seed: 6817

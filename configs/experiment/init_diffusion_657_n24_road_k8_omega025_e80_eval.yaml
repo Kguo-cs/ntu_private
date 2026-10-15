@@ -1,0 +1,29 @@
+# @package _global_
+# Actual80epoch/77120step snapshot: native complete50K passes all seven SD/VW
+# targets in the original validation. IndependentGEN2817/3817 angles are
+#0.028254/0.029084, above0.028223: both pass6/7. Not final128 weights.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_e80_eval
+action: test
+ckpt_path: ${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/omega025_e80_20261015/model.ckpt
+seed: 2817
+float32_matmul_precision: medium
+callbacks: null
+logger: false
+data:
+  num_workers: 8
+  test_batch_size: 128
+model:
+  model_config:
+    initial_map_checkpoint: null
+    sd_require_full_set: true
+    sd_expected_scenes: 50000
+    decoder:
+      init_diffusion:
+        normalizer_path: null
+trainer:
+  limit_test_batches: 1.0
+  logger: false

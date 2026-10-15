@@ -1,0 +1,20 @@
+# @package _global_
+# Same first8epoch prefix and128epoch LR horizon as the raw025 control.
+# The independently queued full.05 run is not selected by this short screen.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega05_full
+  - _self_
+
+task_name: init_diffusion_omega05_native8
+trainer:
+  max_epochs: 8
+  check_val_every_n_epoch: 8
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+model:
+  model_config:
+    lr_total_steps: 128
+data:
+  shuffle: true
+  num_workers: 8
+  scenario_dreamer_train_sample_list: ${sim_root:}/src/waymo_data/full/training_map2_sd_files.pkl

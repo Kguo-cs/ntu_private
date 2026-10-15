@@ -1,0 +1,17 @@
+# @package _global_
+# Intermediate heading weight between the ongoing .025 and .1 full runs.
+# Same fresh generator, TRAIN seed, optimizer, frozen map and24-NFE sampler.
+# This is a new full-training candidate; final quality is unproved.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega05_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        component_loss:
+          components:
+            heading:
+              weight: 0.05

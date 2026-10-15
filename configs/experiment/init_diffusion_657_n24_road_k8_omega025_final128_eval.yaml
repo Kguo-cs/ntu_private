@@ -1,0 +1,11 @@
+# @package _global_
+# Requires the genuine completed128epoch snapshot saved by the confirmation
+# controller (epoch127/globalstep123392/EMA123392). Both GEN2817/3817 have
+# completed full50K andpassed all seven specified local SD/VW targets.
+# Same batch128, medium/32-true, native midpoint24NFE andfull50K metrics as e80.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_e80_eval
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_final128_eval
+ckpt_path: ${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/omega025_final128_20261015/model.ckpt

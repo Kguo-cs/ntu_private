@@ -1,0 +1,9 @@
+# @package _global_
+# Same native prefix and directomega objective; only scalar readout changes.
+defaults:
+  - init_diffusion_omega025_native8
+  - _self_
+
+task_name: init_diffusion_omega025_timescaled_native8
+model:
+  _target_: tools.time_scaled_heading_full.model.TimeScaledCircularVelocitySMART_GAIL

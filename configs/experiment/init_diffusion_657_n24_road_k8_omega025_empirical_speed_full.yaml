@@ -1,0 +1,19 @@
+# @package _global_
+# TRAIN-only unconditional speed source; requires fresh generator training.
+# Sizes, position, heading, matching, losses and MP24 stay as in rawomega025.
+# No evaluation attributes or GT agent types enter the source transform.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_full
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_empirical_speed_full
+model:
+  model_config:
+    decoder:
+      init_diffusion:
+        attribute_source:
+          path: ${sim_root:}/docs/experiments/init_diffusion_train_attribute_source_full_20261015/quantiles.pt
+          sha256: 01f7f99f984d04a038f5fa893566100f877eee7fe81aad00200a22c6047b9901
+          speed: true
+          shape: false
+          knots: 149659

@@ -1,0 +1,10 @@
+# @package _global_
+# Actual104epoch weights selected from the completed128epoch run.
+# Both fixed GENs pass all7 local SD/VW targets andimprove R_jsd/R_attr vsfinal128.
+# These are epoch103/step100256 weights, not final128epoch weights.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_e80_eval
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_e104_eval
+ckpt_path: ${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/omega025_e104_20261015/model.ckpt

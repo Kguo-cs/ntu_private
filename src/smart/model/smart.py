@@ -686,6 +686,7 @@ class SMART(LightningModule):
                     "invalid_size_policy": getattr(initial_decoder, "invalid_size_policy", "mask"),
                     "initial_scene_only": getattr(self.encoder, "initial_scene_only", False),
                     "sampling_steps": initial_decoder.sampling_steps,
+                    "heading_matching_geometry": getattr(initial_decoder.G1, "heading_matching_geometry", "legacy"),
                     "sampling_time_grid": dict(getattr(initial_decoder.G1, "sampling_time_grid", {})),
                     "sampling_integrator": "midpoint" if getattr(initial_decoder.G1, "_midpoint_installed", False)
                         else getattr(initial_decoder.G1, "sampling_integrator", "euler"),

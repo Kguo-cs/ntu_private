@@ -106,6 +106,7 @@ class InitDiffusion(nn.Module):
         denoiser_num_heads: Optional[int] = None,
         denoiser_num_freq_bands: Optional[int] = None,
         denoiser_head_dim: Optional[int] = None,
+        heading_matching_geometry: str = "legacy",
     ) -> None:
         super().__init__()
         if token_processor is None:
@@ -162,6 +163,7 @@ class InitDiffusion(nn.Module):
         args.sampling_integrator = sampling_integrator
         args.collision_guidance = None if collision_guidance is None else dict(collision_guidance)
         args.matching_weights = matching_weights
+        args.heading_matching_geometry = heading_matching_geometry
         args.time_sample_power = time_sample_power
         args.distribution_loss = distribution_loss
         args.attribute_source = attribute_source
@@ -267,6 +269,8 @@ class InitDiffusion(nn.Module):
             "attribute_source": (self.G1.model.attribute_source.get_extra_state()
                                  if self.G1.model.attribute_source is not None else None),
         }
+        if getattr(self.G1, "heading_matching_geometry", "legacy") != "legacy":
+            self.denoiser_options["heading_matching_geometry"] = self.G1.heading_matching_geometry
         self.normalizer_path = None
         if normalizer_path is not None:
             self._load_train_normalizer(normalizer_path)
@@ -442,6 +446,9 @@ class InitDiffusion(nn.Module):
         # every generator weight; exempt only the newly introduced extra key.
         if extra_key not in state_dict and extra_key in missing_keys:
             missing_keys.remove(extra_key)
+            if (getattr(self.G1, "heading_matching_geometry", "legacy") != "legacy"
+                    and any(key.startswith(prefix + "G1.") for key in state_dict)):
+                error_msgs.append("Legacy InitDiffusion checkpoints do not identify circular source matching; use legacy matching or train a new model")
             graph_defaults = {"a2a_radius": 300.0, "a2a_max_num_neighbors": 30,
                               "map2agent_radius": 300.0, "map2agent_max_num_neighbors": 30}
             if (any(key.startswith(prefix + "G1.") for key in state_dict)

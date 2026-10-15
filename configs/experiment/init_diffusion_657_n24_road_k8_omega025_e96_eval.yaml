@@ -1,0 +1,11 @@
+# @package _global_
+# Actual96epoch weights from the completed128epoch run; not final128 weights.
+# Both fixed GEN full50K evaluations pass all7 local targets. Speed/size improve
+# vs104, but GEN3817 angle=.027723 leaves only1.77% margin to the SD target.
+# Keep104 as the balanced default;96 is an attribute-focused alternative.
+defaults:
+  - init_diffusion_657_n24_road_k8_omega025_e80_eval
+  - _self_
+
+task_name: init_diffusion_657_n24_road_k8_omega025_e96_eval
+ckpt_path: ${sim_root:}/output/reports/init_diffusion_continuous_20261014/full_checkpoint_snapshots/omega025_e96_20261015/model.ckpt
